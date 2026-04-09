@@ -18,11 +18,11 @@
   - [x] reset session
 - [ ] refactor: env config util
 - [ ] refactor: child process exec util
-  - debug log
+  - [x] debug log
 - [ ] chore: dog-fooding
   - In-flight message can be dropped when `pnpm dev` auto-restarts during processing
 - [x] test: test repl mode with toy acp
-- [ ] test: test repl mode with codex
+- [x] test: test repl mode with codex
 - [ ] fix: handle timeout — reply with error if acpx doesn't respond in 5 min
 - [ ] fix: queue — if message arrives while one is processing, queue it
 - [ ] feat: cron
