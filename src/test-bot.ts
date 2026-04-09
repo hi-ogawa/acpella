@@ -23,7 +23,7 @@ const botInfo: UserFromGetMe = {
 
 export interface TestBot {
   bot: Bot;
-  replies: { chatId: number; text: string }[];
+  replies: { chatId: number; text: string; parseMode?: string }[];
   sendMessage: (
     text: string,
     opts?: { chatId?: number; userId?: number; threadId?: number },
@@ -31,7 +31,7 @@ export interface TestBot {
 }
 
 export function createTestBot(): TestBot {
-  const replies: { chatId: number; text: string }[] = [];
+  const replies: { chatId: number; text: string; parseMode?: string }[] = [];
 
   const bot = new Bot("test-token", { botInfo });
 
@@ -39,7 +39,11 @@ export function createTestBot(): TestBot {
   bot.api.config.use(async (prev, method, payload) => {
     if (method === "sendMessage") {
       const p = payload as Record<string, unknown>;
-      replies.push({ chatId: p.chat_id as number, text: p.text as string });
+      replies.push({
+        chatId: p.chat_id as number,
+        text: p.text as string,
+        parseMode: p.parse_mode as string | undefined,
+      });
       return {
         ok: true as const,
         result: { message_id: 1, date: Date.now() / 1000, chat: { id: p.chat_id } },

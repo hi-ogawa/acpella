@@ -21,4 +21,14 @@ describe("e2e smoke", () => {
 
     await daemon.stop();
   });
+
+  it("escapes MarkdownV2 special characters in replies", async () => {
+    const daemon = startDaemon({ ACPELLA_AGENT: "node src/test-agent.ts" });
+
+    await daemon.waitForLine("Starting daemon");
+    daemon.send("a.b [c]");
+    await daemon.waitForLine(String.raw`echo: a\.b \[c\]`);
+
+    await daemon.stop();
+  });
 });

@@ -1,5 +1,6 @@
 import { Bot } from "grammy";
 import { createHandler } from "./handler.ts";
+import { buildTelegramReply } from "./telegram-format.ts";
 import { createTestBot, startTestBotRepl, type TestBot } from "./test-bot.ts";
 
 function main() {
@@ -55,11 +56,13 @@ function main() {
     try {
       const response = await handle(text, name);
       console.log(`[${name}] -> ${response.slice(0, 100)}...`);
-      await ctx.reply(response);
+      const reply = buildTelegramReply(response);
+      await ctx.reply(reply.text, { parse_mode: reply.parse_mode });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`[${name}] error: ${msg}`);
-      await ctx.reply(`Error: ${msg.slice(0, 200)}`);
+      const reply = buildTelegramReply(`Error: ${msg.slice(0, 200)}`);
+      await ctx.reply(reply.text, { parse_mode: reply.parse_mode });
     }
   });
 
