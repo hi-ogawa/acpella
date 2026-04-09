@@ -1,14 +1,14 @@
-import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { afterAll, beforeAll, it } from "vitest";
+import { beforeAll, it } from "vitest";
+import { spawnAsync } from "../../spawn.ts";
 import { startDaemon } from "../helper.ts";
 
 const ACPX_BIN = fileURLToPath(new URL("../../../node_modules/.bin/acpx", import.meta.url));
 const FIXTURES_DIR = import.meta.dirname + "/fixtures";
 
-function acpxCloseSession() {
+async function acpxCloseSession() {
   try {
-    execFileSync(ACPX_BIN, ["--cwd", FIXTURES_DIR, "codex", "sessions", "close", "tg-123"], {
+    await spawnAsync(ACPX_BIN, ["--cwd", FIXTURES_DIR, "codex", "sessions", "close", "tg-123"], {
       timeout: 30_000,
     });
   } catch {
@@ -17,9 +17,9 @@ function acpxCloseSession() {
 }
 
 beforeAll(async () => {
-  acpxCloseSession();
-  return () => {
-    acpxCloseSession();
+  await acpxCloseSession();
+  return async () => {
+    await acpxCloseSession();
   };
 });
 
