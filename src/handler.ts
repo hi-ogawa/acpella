@@ -52,22 +52,9 @@ function acpxAgentArgs(agent: string): string[] {
   return agent.includes("/") ? ["--agent", agent] : [agent];
 }
 
-async function ensureSession(
-  _sessionName: string,
-  agentArgs: string[],
-  cwd: string,
-): Promise<void> {
+async function ensureSession(sessionName: string, agentArgs: string[], cwd: string): Promise<void> {
   await runAcpx(
-    [
-      "--cwd",
-      cwd,
-      "--approve-all",
-      ...agentArgs,
-      "sessions",
-      "ensure",
-      // TODO: named session not working?
-      // "--name", sessionName,
-    ],
+    ["--cwd", cwd, "--approve-all", ...agentArgs, "sessions", "ensure", "--name", sessionName],
     { timeout: 60_000 },
   );
 }
@@ -81,16 +68,7 @@ async function acpxPrompt(
   await ensureSession(sessionName, agentArgs, cwd);
 
   const { stdout } = await runAcpx(
-    [
-      "--approve-all",
-      "--format",
-      "json",
-      ...agentArgs,
-      // TODO: named session not working?
-      // "-s", sessionName,
-      "prompt",
-      text,
-    ],
+    ["--approve-all", "--format", "json", ...agentArgs, "prompt", "-s", sessionName, text],
     { timeout: 300_000 },
   );
 

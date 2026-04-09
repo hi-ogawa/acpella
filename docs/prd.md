@@ -11,7 +11,7 @@
 - [ ] feat: session lifecycle
   - [ ] Daily refresh — close and recreate session at configurable hour
   - [ ] Session-per-thread — verify acpx handles named sessions correctly
-- [ ] fix: Named acpx session not working — investigate `acpx sessions ensure --name`
+- [x] fix: Named acpx session not working — was arg placement: `-s` is a `prompt` subcommand option, not `codex`
 - [ ] feat: system prompt (just use AGENTS.md convention)
 - [ ] feat: system commands
   - [x] status
