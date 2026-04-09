@@ -6,6 +6,8 @@
     "prepare": "vp config",
     "start": "node --env-file=.env src/index.ts",
     "dev": "node --env-file=.env --watch src/index.ts",
+    "repl": "ACPELLA_TEST_BOT=1 node src/index.ts",
+    "dev-repl": "ACPELLA_TEST_BOT=1 node --watch src/index.ts",
     "tsc": "tsc -b",
     "lint": "vp fmt",
     "lint-check": "vp fmt --check"
