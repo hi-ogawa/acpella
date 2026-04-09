@@ -31,6 +31,7 @@
   - Target session — cron jobs specify which session
   - Run log — log each execution result
 - [ ] feat: heartbeat
+- [ ] feat: make session selectable on repl mode
 
 ## Backlog
 
