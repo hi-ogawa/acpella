@@ -23,10 +23,7 @@
 
 Thin daemon: Telegram ↔ acpx ↔ coding agent (Codex, Claude Code, etc.).
 
-- **`src/config.ts`** — env vars with defaults and validation
-- **`src/acpx.ts`** — acpx interface: `ensureSession`, `prompt`
-- **`src/telegram.ts`** — grammy bot, message handler, session name mapping
-- **`src/daemon.ts`** — entry point, wires everything together
+- **`src/index.ts`** — single-file daemon: config, acpx interface, telegram bot, entry point
 
 Each Telegram chat maps to a named acpx session (`tg-<chatId>`). Forum threads get `tg-<chatId>-<threadId>`. The agent (acpx) runs as a subprocess; its binary is at `node_modules/.bin/acpx`.
 

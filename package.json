@@ -4,8 +4,8 @@
   "type": "module",
   "scripts": {
     "prepare": "vp config",
-    "start": "node --env-file=.env src/daemon.ts",
-    "dev": "node --env-file=.env --watch src/daemon.ts",
+    "start": "node --env-file=.env src/index.ts",
+    "dev": "node --env-file=.env --watch src/index.ts",
     "tsc": "tsc -b",
     "lint": "vp fmt",
     "lint-check": "vp fmt --check"
