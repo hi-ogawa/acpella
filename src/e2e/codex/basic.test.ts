@@ -16,19 +16,17 @@ function acpxCloseSession() {
   }
 }
 
-const daemon = startDaemon({ ACPELLA_HOME: FIXTURES_DIR });
-
 beforeAll(async () => {
   acpxCloseSession();
+  return () => {
+    acpxCloseSession();
+  };
+});
+
+it("round-trip with real codex", async ({ onTestFinished }) => {
+  const daemon = startDaemon({ ACPELLA_HOME: FIXTURES_DIR });
+  onTestFinished(() => daemon.stop());
   await daemon.waitForLine("Starting daemon");
-});
-
-afterAll(async () => {
-  await daemon.stop();
-  acpxCloseSession();
-});
-
-it("round-trip with real codex", async () => {
   daemon.send("reply with exactly: pong");
   await daemon.waitForLine("pong", 120_000);
 }, 120_000);
