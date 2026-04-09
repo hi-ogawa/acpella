@@ -36,6 +36,8 @@ function parseAgentText(stdout: string): string {
       if (!update) continue;
       if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
         texts.push(update.content.text);
+      } else if (update.sessionUpdate === "tool_call") {
+        console.log(`[acpx:update] tool_call: ${update.title}`);
       } else {
         console.log(`[acpx:update] ${update.sessionUpdate}`);
       }
