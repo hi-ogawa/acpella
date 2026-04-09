@@ -88,38 +88,10 @@ export async function startTestBotRepl(testBot: TestBot): Promise<void> {
       }
     }
   } catch (e) {
-    // TODO: silence only abort. surface others
-    // Ctrl+D throws AbortError — treat as exit
-    console.error(e);
+    if (!(e instanceof Error && e.name === "AbortError")) {
+      throw e;
+    }
   } finally {
     rl.close();
   }
 }
-
-// TODO: fix error on ctrl-D
-// ~/code/personal/acpella $ pnpm repl
-
-// > acpella@ repl /home/hiroshi/code/personal/acpella
-// > ACPELLA_TEST_BOT=1 node src/index.ts
-
-// Starting daemon (agent: codex, cwd: /home/hiroshi/code/personal/acpella, test: true)
-// > node:internal/readline/interface:1343
-//             this[kQuestionReject]?.(new AbortError('Aborted with Ctrl+D'));
-//                                     ^
-
-// AbortError: Aborted with Ctrl+D
-//     at [_ttyWrite] (node:internal/readline/interface:1343:37)
-//     at ReadStream.onkeypress (node:internal/readline/interface:284:20)
-//     at ReadStream.emit (node:events:508:28)
-//     at emitKeys (node:internal/readline/utils:371:14)
-//     at emitKeys.next (<anonymous>)
-//     at ReadStream.onData (node:internal/readline/emitKeypressEvents:64:36)
-//     at ReadStream.emit (node:events:508:28)
-//     at addChunk (node:internal/streams/readable:563:12)
-//     at readableAddChunkPushByteMode (node:internal/streams/readable:514:3)
-//     at Readable.push (node:internal/streams/readable:394:5) {
-//   code: 'ABORT_ERR'
-// }
-
-// Node.js v24.14.1
-//  ELIFECYCLE  Command failed with exit code 1.
