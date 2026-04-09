@@ -33,8 +33,11 @@ function parseAgentText(stdout: string): string {
     try {
       const msg: AcpxJsonLine = JSON.parse(line);
       const update: SessionUpdate | undefined = msg.params?.update;
-      if (update?.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
+      if (!update) continue;
+      if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
         texts.push(update.content.text);
+      } else {
+        console.log(`[acpx:update] ${update.sessionUpdate}`);
       }
     } catch {
       // skip non-json lines
