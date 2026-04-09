@@ -2,11 +2,6 @@ import { Bot } from "grammy";
 import { createHandler } from "./handler.ts";
 import { createTestBot, startTestBotRepl } from "./test-bot.ts";
 
-function sessionName(chatId: number, threadId?: number): string {
-  const base = `tg-${chatId}`;
-  return threadId ? `${base}-${threadId}` : base;
-}
-
 function main() {
   const agent = process.env.AGENT ?? "codex";
   const cwd = process.env.DAEMON_CWD ?? process.cwd();
@@ -75,6 +70,11 @@ function main() {
   } else {
     bot.start();
   }
+}
+
+function sessionName(chatId: number, threadId?: number): string {
+  const base = `tg-${chatId}`;
+  return threadId ? `${base}-${threadId}` : base;
 }
 
 main();

@@ -87,8 +87,10 @@ export async function startTestBotRepl(testBot: TestBot): Promise<void> {
         console.log(r.text);
       }
     }
-  } catch {
+  } catch (e) {
+    // TODO: silence only abort. surface others
     // Ctrl+D throws AbortError — treat as exit
+    console.error(e);
   } finally {
     rl.close();
   }
