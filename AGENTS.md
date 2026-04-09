@@ -10,11 +10,12 @@
 
 ## Key Docs
 
-| File                   | Purpose                         |
-| ---------------------- | ------------------------------- |
-| `docs/prd.md`          | MVP features checklist, backlog |
-| `docs/architecture.md` | Design decisions, data flow     |
-| `docs/tasks/`          | Per-task notes                  |
+| File                   | Purpose                               |
+| ---------------------- | ------------------------------------- |
+| `docs/prd.md`          | MVP features checklist, backlog       |
+| `docs/architecture.md` | Design decisions, data flow           |
+| `docs/references.md`   | Reference projects, local clone setup |
+| `docs/tasks/`          | Per-task notes                        |
 
 ## Architecture
 
