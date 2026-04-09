@@ -1,5 +1,7 @@
 import { spawn } from "node:child_process";
 
+// TODO: review slop
+
 export function startDaemon(env?: Record<string, string>) {
   const child = spawn("node", ["src/index.ts"], {
     cwd: import.meta.dirname + "/../..",
@@ -24,6 +26,7 @@ export function startDaemon(env?: Record<string, string>) {
     }
   });
 
+  // TODO: composable assertion
   async function waitForLine(match: string | RegExp, timeoutMs = 5000): Promise<string> {
     const found = lines.find((l) =>
       typeof match === "string" ? l.includes(match) : match.test(l),

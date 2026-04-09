@@ -1,11 +1,52 @@
-import { execFile } from "node:child_process";
+import type { SessionNotification, SessionUpdate } from "@agentclientprotocol/sdk";
 import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
-
-const execFileAsync = promisify(execFile);
+import { spawnAsync, type SpawnResult } from "./spawn.ts";
 
 // use local dep binary instead of npx
-const ACPX_BIN = fileURLToPath(new URL("../node_modules/.bin/acpx", import.meta.url));
+export const ACPX_BIN = fileURLToPath(new URL("../node_modules/.bin/acpx", import.meta.url));
+
+const DEBUG = !!process.env.ACPELLA_DEBUG;
+
+function runAcpx(args: string[], options: { timeout: number; cwd?: string }): Promise<SpawnResult> {
+  const finalArgs = DEBUG ? ["--verbose", ...args] : args;
+  return spawnAsync(ACPX_BIN, finalArgs, {
+    timeout: options.timeout,
+    cwd: options.cwd,
+    debug: DEBUG,
+    label: "acpx",
+  });
+}
+
+// --- acpx output parsing ---
+
+/** JSONRPC envelope emitted by `acpx --format json` */
+interface AcpxJsonLine {
+  jsonrpc: "2.0";
+  method: string;
+  params?: SessionNotification;
+}
+
+/** Extract agent text from acpx JSONRPC ndjson output */
+function parseAgentText(stdout: string): string {
+  const texts: string[] = [];
+  for (const line of stdout.trim().split("\n")) {
+    try {
+      const msg: AcpxJsonLine = JSON.parse(line);
+      const update: SessionUpdate | undefined = msg.params?.update;
+      if (!update) continue;
+      if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
+        texts.push(update.content.text);
+      } else if (update.sessionUpdate === "tool_call") {
+        console.log(`[acpx:update] tool_call: ${update.title}`);
+      } else {
+        console.log(`[acpx:update] ${update.sessionUpdate}`);
+      }
+    } catch {
+      // skip non-json lines
+    }
+  }
+  return texts.join("") || "(no response)";
+}
 
 // --- acpx ---
 
@@ -13,28 +54,17 @@ function acpxAgentArgs(agent: string): string[] {
   return agent.includes("/") ? ["--agent", agent] : [agent];
 }
 
-async function ensureSession(
-  _sessionName: string,
-  agentArgs: string[],
-  cwd: string,
-): Promise<void> {
-  await execFileAsync(
-    ACPX_BIN,
-    [
-      "--cwd",
-      cwd,
-      "--approve-all",
-      ...agentArgs,
-      "sessions",
-      "ensure",
-      // TODO: named session not working?
-      // "--name", sessionName,
-    ],
-    {
-      timeout: 60_000,
-      env: { ...process.env },
-    },
+async function ensureSession(sessionName: string, agentArgs: string[], cwd: string): Promise<void> {
+  await runAcpx(
+    ["--cwd", cwd, "--approve-all", ...agentArgs, "sessions", "ensure", "--name", sessionName],
+    { timeout: 60_000 },
   );
+}
+
+async function closeSession(sessionName: string, agentArgs: string[], cwd: string): Promise<void> {
+  await runAcpx(["--cwd", cwd, ...agentArgs, "sessions", "close", sessionName], {
+    timeout: 60_000,
+  });
 }
 
 async function acpxPrompt(
@@ -45,40 +75,12 @@ async function acpxPrompt(
 ): Promise<string> {
   await ensureSession(sessionName, agentArgs, cwd);
 
-  const { stdout } = await execFileAsync(
-    ACPX_BIN,
-    [
-      "--approve-all",
-      "--format",
-      "json",
-      ...agentArgs,
-      // TODO: named session not working?
-      // "-s", sessionName,
-      "prompt",
-      text,
-    ],
-    {
-      timeout: 300_000, // 5 min
-      maxBuffer: 10 * 1024 * 1024,
-      env: { ...process.env },
-    },
+  const { stdout } = await runAcpx(
+    ["--approve-all", "--format", "json", ...agentArgs, "prompt", "-s", sessionName, text],
+    { timeout: 60_000 },
   );
 
-  // parse JSONRPC envelope output — extract agent text chunks
-  const lines = stdout.trim().split("\n");
-  const texts: string[] = [];
-  for (const line of lines) {
-    try {
-      const msg = JSON.parse(line);
-      const update = msg.params?.update;
-      if (update?.sessionUpdate === "agent_message_chunk" && update.content?.type === "text") {
-        texts.push(update.content.text);
-      }
-    } catch {
-      // skip non-json lines
-    }
-  }
-  return texts.join("") || "(no response)";
+  return parseAgentText(stdout);
 }
 
 // --- handler ---
@@ -107,6 +109,10 @@ export function createHandler(config?: Partial<HandlerConfig>): {
   const handle = async (text: string, session: string) => {
     if (text === "/status") {
       return formatStatus(resolved.agent, resolved.cwd);
+    }
+    if (text === "/reset") {
+      await closeSession(session, agentArgs, resolved.cwd);
+      return "Session reset. Next message will start a fresh session.";
     }
     return acpxPrompt(session, text, agentArgs, resolved.cwd);
   };

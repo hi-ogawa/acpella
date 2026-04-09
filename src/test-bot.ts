@@ -54,7 +54,7 @@ export function createTestBot(): TestBot {
     bot,
     replies,
     async sendMessage(text, opts) {
-      const chatId = opts?.chatId ?? 123;
+      const chatId = opts?.chatId ?? Number(process.env.ACPELLA_TEST_CHAT_ID || "123");
       const userId = opts?.userId ?? 456;
       const update: Update = {
         update_id: updateId++,

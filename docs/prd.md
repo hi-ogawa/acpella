@@ -11,18 +11,18 @@
 - [ ] feat: session lifecycle
   - [ ] Daily refresh — close and recreate session at configurable hour
   - [ ] Session-per-thread — verify acpx handles named sessions correctly
-- [ ] fix: Named acpx session not working — investigate `acpx sessions ensure --name`
+- [x] fix: Named acpx session not working — was arg placement: `-s` is a `prompt` subcommand option, not `codex`
 - [ ] feat: system prompt (just use AGENTS.md convention)
 - [ ] feat: system commands
   - [x] status
-  - [ ] reset session
+  - [x] reset session
 - [ ] refactor: env config util
 - [ ] refactor: child process exec util
-  - debug log
+  - [x] debug log
 - [ ] chore: dog-fooding
   - In-flight message can be dropped when `pnpm dev` auto-restarts during processing
 - [x] test: test repl mode with toy acp
-- [ ] test: test repl mode with codex
+- [x] test: test repl mode with codex
 - [ ] fix: handle timeout — reply with error if acpx doesn't respond in 5 min
 - [ ] fix: queue — if message arrives while one is processing, queue it
 - [ ] feat: cron
@@ -31,6 +31,7 @@
   - Target session — cron jobs specify which session
   - Run log — log each execution result
 - [ ] feat: heartbeat
+- [ ] feat: make session selectable on repl mode
 
 ## Backlog
 
