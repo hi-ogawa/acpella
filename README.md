@@ -26,7 +26,6 @@ pnpm dev          # run with --watch
 | `ACPELLA_TELEGRAM_ALLOWED_CHAT_IDS` | no       | —               | Comma-separated chat IDs (group allowlist) |
 | `ACPELLA_AGENT`                     | no       | `codex`         | acpx agent name                            |
 | `ACPELLA_HOME`                      | no       | `process.cwd()` | Agent working directory                    |
-| `ACPELLA_TELEGRAM_API_ROOT`         | no       | —               | Override Telegram API root for testing     |
 | `ACPELLA_TEST_BOT`                  | no       | —               | Use the in-process test bot                |
 
 ## Docs

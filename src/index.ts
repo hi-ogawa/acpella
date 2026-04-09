@@ -34,9 +34,7 @@ function main() {
       process.exitCode = 1;
       return;
     }
-    bot = new Bot(token, {
-      client: { apiRoot: process.env.ACPELLA_TELEGRAM_API_ROOT },
-    });
+    bot = new Bot(token);
   }
 
   // --- wire handler (shared between real and test) ---
