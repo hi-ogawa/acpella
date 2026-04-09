@@ -12,12 +12,12 @@
 
 ## Key Docs
 
-| File                | Purpose                         |
-| ------------------- | ------------------------------- |
-| `docs/prd.md`       | MVP features checklist, backlog |
-| `docs/bootstrap.md` | Initial repo setup plan         |
-| `docs/deploy.md`    | systemd unit, install steps     |
-| `.env.example`      | All supported env vars          |
+| File             | Purpose                         |
+| ---------------- | ------------------------------- |
+| `docs/prd.md`    | MVP features checklist, backlog |
+| `docs/deploy.md` | systemd unit, install steps     |
+| `docs/tasks/`    | Per-task notes                  |
+| `.env.example`   | All supported env vars          |
 
 ## Architecture
 
@@ -32,6 +32,8 @@ Each Telegram chat maps to a named acpx session (`tg-<chatId>`). Forum threads g
 - File names: kebab-case
 - Run `.ts` scripts with `node` (not `tsx`/`ts-node`)
 - Prefer `undefined` over `null`
+- Prefer optional properties (`{ x?: T }`) over explicit undefined (`{ x: T | undefined }`)
+- Make props/params required when all call sites always pass them
 - Import with `.ts` extensions (NodeNext resolution)
 
 ## Agent Rules
