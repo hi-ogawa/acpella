@@ -5,6 +5,8 @@ import { createTestBot, startTestBotRepl } from "./test-bot.ts";
 function main() {
   const agent = process.env.AGENT ?? "codex";
   const cwd = process.env.DAEMON_CWD ?? process.cwd();
+
+  // TODO: require ALLOWED_USER_IDS
   const allowedUsers = new Set(
     (process.env.ALLOWED_USER_IDS ?? "").split(",").filter(Boolean).map(Number),
   );
@@ -18,7 +20,7 @@ function main() {
 
   const testMode = !!process.env.ACPELLA_TEST_BOT;
   let bot: Bot;
-  // impor type { TestBot }
+  // TODO: import type { TestBot }
   let testBot: ReturnType<typeof createTestBot> | undefined;
 
   if (testMode) {
@@ -28,7 +30,8 @@ function main() {
     const token = process.env.TELEGRAM_BOT_TOKEN;
     if (!token) {
       console.error("TELEGRAM_BOT_TOKEN is required");
-      process.exit(1);
+      process.exitCode = 1;
+      return;
     }
     bot = new Bot(token, {
       client: { apiRoot: process.env.TELEGRAM_API_ROOT },
