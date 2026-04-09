@@ -2,22 +2,19 @@
 
 ## Quick Reference
 
-| Command           | When                         |
-| ----------------- | ---------------------------- |
-| `pnpm start`      | Run daemon (requires `.env`) |
-| `pnpm dev`        | Run daemon with --watch      |
-| `pnpm tsc`        | Type check                   |
-| `pnpm lint`       | Format (with fixes)          |
-| `pnpm lint-check` | Check formatting (no fixes)  |
+| Command                 | When                         |
+| ----------------------- | ---------------------------- |
+| `pnpm start`            | Run daemon (requires `.env`) |
+| `pnpm dev`              | Run daemon with --watch      |
+| `pnpm lint && pnpm tsc` | Format (with fixes)          |
 
 ## Key Docs
 
-| File             | Purpose                         |
-| ---------------- | ------------------------------- |
-| `docs/prd.md`    | MVP features checklist, backlog |
-| `docs/deploy.md` | systemd unit, install steps     |
-| `docs/tasks/`    | Per-task notes                  |
-| `.env.example`   | All supported env vars          |
+| File                   | Purpose                         |
+| ---------------------- | ------------------------------- |
+| `docs/prd.md`          | MVP features checklist, backlog |
+| `docs/architecture.md` | Design decisions, data flow     |
+| `docs/tasks/`          | Per-task notes                  |
 
 ## Architecture
 
@@ -35,17 +32,3 @@ Each Telegram chat maps to a named acpx session (`tg-<chatId>`). Forum threads g
 - Prefer optional properties (`{ x?: T }`) over explicit undefined (`{ x: T | undefined }`)
 - Make props/params required when all call sites always pass them
 - Import with `.ts` extensions (NodeNext resolution)
-
-## Agent Rules
-
-- **Never run long-running tasks** (`pnpm start`, `pnpm dev`)
-- Use `pnpm tsc` to verify type correctness
-- **Run `pnpm lint` before every commit**
-- Confirm with user before committing
-
-## Git Workflow
-
-1. Commit logical changes separately
-2. **Run `pnpm lint` before every commit**
-3. Confirm with user before committing
-4. **Never rebase, never amend, never force push**
