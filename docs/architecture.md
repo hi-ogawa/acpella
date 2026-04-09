@@ -9,7 +9,7 @@ Telegram  ──►  acpella  ──►  acpx  ──►  agent (Codex, Claude C
               (daemon)     (CLI)        (ACP subprocess)
 ```
 
-**Why ACP**: ACP is the protocol Zed, Cursor, and other editors use to talk to coding agents. By speaking ACP, acpella is agent-agnostic — swap `AGENT=codex` for `AGENT=claude` without changing the daemon. The agent binary manages its own session state, tool execution, and memory.
+**Why ACP**: ACP is the protocol Zed, Cursor, and other editors use to talk to coding agents. By speaking ACP, acpella is agent-agnostic — swap `ACPELLA_AGENT=codex` for `ACPELLA_AGENT=claude` without changing the daemon. The agent binary manages its own session state, tool execution, and memory.
 
 **Why acpx**: acpx is a standalone ACP client CLI. acpella shells out to it instead of speaking ACP directly, which keeps the daemon code minimal and offloads session management to acpx.
 
@@ -32,7 +32,7 @@ User sends Telegram message
   │
   ▼
 grammy bot handler
-  │  checks allowlists (ALLOWED_USER_IDS, ALLOWED_CHAT_IDS)
+  │  checks allowlists (ACPELLA_TELEGRAM_ALLOWED_USER_IDS, ACPELLA_TELEGRAM_ALLOWED_CHAT_IDS)
   │  derives session name from chatId + threadId
   ▼
 acpxPrompt(sessionName, text)
@@ -86,4 +86,4 @@ acpella extracts text by filtering `params.update.sessionUpdate === "agent_messa
 
 **Shell out to acpx** — avoids owning the ACP client/session lifecycle. Tradeoff: subprocess overhead per prompt, no streaming to Telegram. Acceptable for a personal assistant.
 
-**No database** — session state lives in acpx. Memory lives in the agent's working directory (`DAEMON_CWD`). The daemon is stateless and restartable.
+**No database** — session state lives in acpx. Memory lives in the agent's working directory (`ACPELLA_HOME`). The daemon is stateless and restartable.

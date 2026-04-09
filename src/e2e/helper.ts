@@ -6,7 +6,7 @@ export function startDaemon(env?: Record<string, string>) {
     env: {
       ...process.env,
       ACPELLA_TEST_BOT: "1",
-      AGENT: "codex",
+      ACPELLA_AGENT: "codex",
       ...env,
     },
     stdio: ["pipe", "pipe", "pipe"],

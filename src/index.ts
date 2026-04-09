@@ -6,12 +6,11 @@ function main() {
   const { handle, config: handlerConfig } = createHandler();
   const { agent, cwd } = handlerConfig;
 
-  // TODO: require ALLOWED_USER_IDS
   const allowedUsers = new Set(
-    (process.env.ALLOWED_USER_IDS ?? "").split(",").filter(Boolean).map(Number),
+    (process.env.ACPELLA_TELEGRAM_ALLOWED_USER_IDS ?? "").split(",").filter(Boolean).map(Number),
   );
   const allowedChats = new Set(
-    (process.env.ALLOWED_CHAT_IDS ?? "").split(",").filter(Boolean).map(Number),
+    (process.env.ACPELLA_TELEGRAM_ALLOWED_CHAT_IDS ?? "").split(",").filter(Boolean).map(Number),
   );
 
   // --- create bot (real or test) ---
@@ -25,14 +24,19 @@ function main() {
     testBot = createTestBot();
     bot = testBot.bot;
   } else {
-    const token = process.env.TELEGRAM_BOT_TOKEN;
+    if (allowedUsers.size === 0) {
+      console.error("ACPELLA_TELEGRAM_ALLOWED_USER_IDS must be non-empty");
+      process.exitCode = 1;
+      return;
+    }
+    const token = process.env.ACPELLA_TELEGRAM_BOT_TOKEN;
     if (!token) {
-      console.error("TELEGRAM_BOT_TOKEN is required");
+      console.error("ACPELLA_TELEGRAM_BOT_TOKEN is required");
       process.exitCode = 1;
       return;
     }
     bot = new Bot(token, {
-      client: { apiRoot: process.env.TELEGRAM_API_ROOT },
+      client: { apiRoot: process.env.ACPELLA_TELEGRAM_API_ROOT },
     });
   }
 
