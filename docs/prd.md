@@ -39,6 +39,12 @@ Deterministic handlers, no agent involved:
 - Database
 - Voice / media handling
 
+## TODO
+
+- [ ] fix: Named acpx session not working — investigate `acpx sessions ensure --name`
+- [ ] refactor: env config util
+- [ ] refactor: child process exec util
+
 ## Backlog
 
 ### Cron
@@ -47,7 +53,3 @@ Deterministic handlers, no agent involved:
 - Poll loop — check schedule every 60s, fire due prompts into sessions
 - Target session — cron jobs specify which session
 - Run log — log each execution result
-
-## TODO
-
-- Named acpx session not working — investigate `acpx sessions ensure --name`
