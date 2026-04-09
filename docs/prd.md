@@ -21,7 +21,8 @@
   - debug log
 - [ ] chore: dog-fooding
   - In-flight message can be dropped when `pnpm dev` auto-restarts during processing
-- [ ] test: how to test?
+- [x] test: test repl mode with toy acp
+- [ ] test: test repl mode with codex
 - [ ] fix: handle timeout — reply with error if acpx doesn't respond in 5 min
 - [ ] fix: queue — if message arrives while one is processing, queue it
 - [ ] feat: cron
