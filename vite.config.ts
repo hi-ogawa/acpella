@@ -4,7 +4,9 @@ export default defineConfig({
   test: {
     dir: "./src",
   },
-  fmt: {},
+  fmt: {
+    ignorePatterns: ["./refs/**"],
+  },
   staged: {
     "*": "vp check --no-lint --fix",
   },
