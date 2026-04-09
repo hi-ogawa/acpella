@@ -77,17 +77,21 @@ export async function startTestBotRepl(testBot: TestBot): Promise<void> {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   const { replies, sendMessage } = testBot;
 
-  while (true) {
-    const text = await rl.question("> ");
-    if (!text || text === "/quit") break;
-    replies.length = 0;
-    await sendMessage(text);
-    for (const r of replies) {
-      console.log(r.text);
+  try {
+    while (true) {
+      const text = await rl.question("> ");
+      if (!text || text === "/quit") break;
+      replies.length = 0;
+      await sendMessage(text);
+      for (const r of replies) {
+        console.log(r.text);
+      }
     }
+  } catch {
+    // Ctrl+D throws AbortError — treat as exit
+  } finally {
+    rl.close();
   }
-
-  rl.close();
 }
 
 // TODO: fix error on ctrl-D

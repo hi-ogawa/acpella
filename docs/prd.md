@@ -1,5 +1,6 @@
 # TODO
 
+- [ ] chore: replace "daemon" with "service"
 - [ ] feat: telegram integration
   - [x] Receive text messages, reply with agent response
   - [x] Sender allowlist (user + chat)
