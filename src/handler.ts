@@ -1,3 +1,4 @@
+import type { SessionNotification, SessionUpdate } from "@agentclientprotocol/sdk";
 import { fileURLToPath } from "node:url";
 import { spawnAsync, type SpawnResult } from "./spawn.ts";
 
@@ -14,6 +15,32 @@ function runAcpx(args: string[], options: { timeout: number; cwd?: string }): Pr
     debug: DEBUG,
     label: "acpx",
   });
+}
+
+// --- acpx output parsing ---
+
+/** JSONRPC envelope emitted by `acpx --format json` */
+interface AcpxJsonLine {
+  jsonrpc: "2.0";
+  method: string;
+  params?: SessionNotification;
+}
+
+/** Extract agent text from acpx JSONRPC ndjson output */
+function parseAgentText(stdout: string): string {
+  const texts: string[] = [];
+  for (const line of stdout.trim().split("\n")) {
+    try {
+      const msg: AcpxJsonLine = JSON.parse(line);
+      const update: SessionUpdate | undefined = msg.params?.update;
+      if (update?.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
+        texts.push(update.content.text);
+      }
+    } catch {
+      // skip non-json lines
+    }
+  }
+  return texts.join("") || "(no response)";
 }
 
 // --- acpx ---
@@ -64,21 +91,7 @@ async function acpxPrompt(
     { timeout: 300_000 },
   );
 
-  // parse JSONRPC envelope output — extract agent text chunks
-  const lines = stdout.trim().split("\n");
-  const texts: string[] = [];
-  for (const line of lines) {
-    try {
-      const msg = JSON.parse(line);
-      const update = msg.params?.update;
-      if (update?.sessionUpdate === "agent_message_chunk" && update.content?.type === "text") {
-        texts.push(update.content.text);
-      }
-    } catch {
-      // skip non-json lines
-    }
-  }
-  return texts.join("") || "(no response)";
+  return parseAgentText(stdout);
 }
 
 // --- handler ---
