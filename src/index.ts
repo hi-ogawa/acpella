@@ -24,14 +24,14 @@ function main() {
     testBot = createTestBot();
     bot = testBot.bot;
   } else {
-    if (allowedUsers.size === 0) {
-      console.error("ACPELLA_TELEGRAM_ALLOWED_USER_IDS must be non-empty");
-      process.exitCode = 1;
-      return;
-    }
     const token = process.env.ACPELLA_TELEGRAM_BOT_TOKEN;
     if (!token) {
       console.error("ACPELLA_TELEGRAM_BOT_TOKEN is required");
+      process.exitCode = 1;
+      return;
+    }
+    if (allowedUsers.size === 0) {
+      console.error("ACPELLA_TELEGRAM_ALLOWED_USER_IDS must be non-empty");
       process.exitCode = 1;
       return;
     }
