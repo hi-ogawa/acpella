@@ -81,6 +81,12 @@ function sessionName(chatId: number, threadId?: number): string {
   return threadId ? `${base}-${threadId}` : base;
 }
 
+function formatStatus(agent: string, cwd: string): string {
+  return ["daemon state: running", `configured agent: ${agent}`, `working directory: ${cwd}`].join(
+    "\n",
+  );
+}
+
 // --- main ---
 
 function main() {
@@ -115,6 +121,11 @@ function main() {
     console.log(`[${name}] <- ${text}`);
 
     try {
+      if (text === "/status") {
+        await ctx.reply(formatStatus(agent, cwd));
+        return;
+      }
+
       const response = await acpxPrompt(name, text, agent, cwd);
       console.log(`[${name}] -> ${response.slice(0, 100)}...`);
       await ctx.reply(response);
