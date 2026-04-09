@@ -29,10 +29,12 @@ Prior personal project conventions: `yt-dlp-ext` — pnpm, vite-plus formatting,
 ```
 
 Dependencies:
+
 - `grammy` — Telegram bot
 - `acpx` — ACP client CLI, owned as direct dep; invoke via `./node_modules/.bin/acpx` (not npx — exact invocation TBD)
 
 Dev dependencies:
+
 - `typescript`
 - `@types/node`
 - `vite-plus` (formatting)

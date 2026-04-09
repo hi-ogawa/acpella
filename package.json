@@ -1,0 +1,23 @@
+{
+  "name": "acpella",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "prepare": "vp config",
+    "start": "node --env-file=.env src/daemon.ts",
+    "dev": "node --env-file=.env --watch src/daemon.ts",
+    "tsc": "tsc -b",
+    "lint": "vp fmt",
+    "lint-check": "vp fmt --check"
+  },
+  "dependencies": {
+    "acpx": "^0.5.3",
+    "grammy": "^1.42.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.2",
+    "typescript": "^6.0.2",
+    "vite-plus": "^0.1.16"
+  },
+  "packageManager": "pnpm@10.33.0"
+}
