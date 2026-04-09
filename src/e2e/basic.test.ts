@@ -13,7 +13,7 @@ describe("e2e smoke", () => {
   });
 
   it("echo agent round-trip", async () => {
-    const daemon = startDaemon({ AGENT: "node src/test-agent.ts" });
+    const daemon = startDaemon({ ACPELLA_AGENT: "node src/test-agent.ts" });
 
     await daemon.waitForLine("Starting daemon");
     daemon.send("hello world");

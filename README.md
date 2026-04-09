@@ -7,7 +7,7 @@ Thin daemon that connects a messaging channel (Telegram) to a coding agent via [
 ```bash
 pnpm install
 cp .env.example .env
-# fill in TELEGRAM_BOT_TOKEN and ALLOWED_USER_IDS
+# fill in ACPELLA_TELEGRAM_BOT_TOKEN and ACPELLA_TELEGRAM_ALLOWED_USER_IDS
 ```
 
 ## Run
@@ -19,13 +19,14 @@ pnpm dev          # run with --watch
 
 ## Config
 
-| Variable             | Required | Default         | Description                                |
-| -------------------- | -------- | --------------- | ------------------------------------------ |
-| `TELEGRAM_BOT_TOKEN` | yes      | —               | Bot token from @BotFather                  |
-| `ALLOWED_USER_IDS`   | yes      | —               | Comma-separated numeric Telegram user IDs  |
-| `ALLOWED_CHAT_IDS`   | no       | —               | Comma-separated chat IDs (group allowlist) |
-| `AGENT`              | no       | `codex`         | acpx agent name                            |
-| `DAEMON_CWD`         | no       | `process.cwd()` | Agent working directory                    |
+| Variable                            | Required | Default         | Description                                |
+| ----------------------------------- | -------- | --------------- | ------------------------------------------ |
+| `ACPELLA_TELEGRAM_BOT_TOKEN`        | yes      | —               | Bot token from @BotFather                  |
+| `ACPELLA_TELEGRAM_ALLOWED_USER_IDS` | yes      | —               | Comma-separated numeric Telegram user IDs  |
+| `ACPELLA_TELEGRAM_ALLOWED_CHAT_IDS` | no       | —               | Comma-separated chat IDs (group allowlist) |
+| `ACPELLA_AGENT`                     | no       | `codex`         | acpx agent name                            |
+| `ACPELLA_HOME`                      | no       | `process.cwd()` | Agent working directory                    |
+| `ACPELLA_TEST_BOT`                  | no       | —               | Use the in-process test bot                |
 
 ## Docs
 

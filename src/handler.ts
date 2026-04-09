@@ -99,8 +99,8 @@ export function createHandler(config?: Partial<HandlerConfig>): {
   config: HandlerConfig;
 } {
   const resolved: HandlerConfig = {
-    agent: config?.agent ?? process.env.AGENT ?? "codex",
-    cwd: config?.cwd ?? process.env.DAEMON_CWD ?? process.cwd(),
+    agent: config?.agent ?? process.env.ACPELLA_AGENT ?? "codex",
+    cwd: config?.cwd ?? process.env.ACPELLA_HOME ?? process.cwd(),
   };
   const agentArgs = acpxAgentArgs(resolved.agent);
 

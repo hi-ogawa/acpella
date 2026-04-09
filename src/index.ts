@@ -1,39 +1,40 @@
 import { Bot } from "grammy";
 import { createHandler } from "./handler.ts";
-import { createTestBot, startTestBotRepl } from "./test-bot.ts";
+import { createTestBot, startTestBotRepl, type TestBot } from "./test-bot.ts";
 
 function main() {
   const { handle, config: handlerConfig } = createHandler();
   const { agent, cwd } = handlerConfig;
 
-  // TODO: require ALLOWED_USER_IDS
   const allowedUsers = new Set(
-    (process.env.ALLOWED_USER_IDS ?? "").split(",").filter(Boolean).map(Number),
+    (process.env.ACPELLA_TELEGRAM_ALLOWED_USER_IDS ?? "").split(",").filter(Boolean).map(Number),
   );
   const allowedChats = new Set(
-    (process.env.ALLOWED_CHAT_IDS ?? "").split(",").filter(Boolean).map(Number),
+    (process.env.ACPELLA_TELEGRAM_ALLOWED_CHAT_IDS ?? "").split(",").filter(Boolean).map(Number),
   );
 
   // --- create bot (real or test) ---
 
   const testMode = !!process.env.ACPELLA_TEST_BOT;
   let bot: Bot;
-  // TODO: import type { TestBot }
-  let testBot: ReturnType<typeof createTestBot> | undefined;
+  let testBot: TestBot | undefined;
 
   if (testMode) {
     testBot = createTestBot();
     bot = testBot.bot;
   } else {
-    const token = process.env.TELEGRAM_BOT_TOKEN;
+    const token = process.env.ACPELLA_TELEGRAM_BOT_TOKEN;
     if (!token) {
-      console.error("TELEGRAM_BOT_TOKEN is required");
+      console.error("ACPELLA_TELEGRAM_BOT_TOKEN is required");
       process.exitCode = 1;
       return;
     }
-    bot = new Bot(token, {
-      client: { apiRoot: process.env.TELEGRAM_API_ROOT },
-    });
+    if (allowedUsers.size === 0) {
+      console.error("ACPELLA_TELEGRAM_ALLOWED_USER_IDS must be non-empty");
+      process.exitCode = 1;
+      return;
+    }
+    bot = new Bot(token);
   }
 
   // --- wire handler (shared between real and test) ---

@@ -9,7 +9,7 @@ git clone https://github.com/hi-ogawa/acpella ~/code/personal/acpella
 cd ~/code/personal/acpella
 pnpm install
 cp .env.example .env
-# fill in TELEGRAM_BOT_TOKEN and ALLOWED_USER_IDS
+# fill in ACPELLA_TELEGRAM_BOT_TOKEN and ACPELLA_TELEGRAM_ALLOWED_USER_IDS
 ```
 
 ## systemd
