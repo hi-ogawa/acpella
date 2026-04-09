@@ -1,11 +1,8 @@
 # Bootstrap plan
 
-Scaffold acpella as a proper TypeScript project, migrating the working prototype from `journal-private`.
+Scaffold acpella as a proper TypeScript project.
 
 ## Reference
-
-Prototype lives at:
-`~/code/personal/journal-private/2026-04-06-openclaw-alternatives/prototype/`
 
 Prior personal project conventions: `yt-dlp-ext` — pnpm, vite-plus formatting, strict tsconfig, AGENTS.md quick reference.
 
@@ -77,7 +74,7 @@ src/
 ### 4. Docs + config files
 
 - `AGENTS.md` — Quick Reference (commands), Key Docs (table), Architecture, Conventions, Agent Rules
-- `docs/prd.md` — MVP features checklist, backlog (migrate from journal-private `notes/mvp.md`)
+- `docs/prd.md` — MVP features checklist, backlog
 - `docs/background/architecture.md` — design decisions, ACP integration notes
 - `.env.example` — copy from prototype, document all vars
 - `.gitignore` — `node_modules/`, `.env`
