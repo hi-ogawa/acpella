@@ -1,6 +1,6 @@
 import { Bot } from "grammy";
 import { createHandler } from "./handler.ts";
-import { createTestBot, startTestBotRepl } from "./test-bot.ts";
+import { createTestBot, startTestBotRepl, type TestBot } from "./test-bot.ts";
 
 function main() {
   const { handle, config: handlerConfig } = createHandler();
@@ -17,8 +17,7 @@ function main() {
 
   const testMode = !!process.env.ACPELLA_TEST_BOT;
   let bot: Bot;
-  // TODO: import type { TestBot }
-  let testBot: ReturnType<typeof createTestBot> | undefined;
+  let testBot: TestBot | undefined;
 
   if (testMode) {
     testBot = createTestBot();
