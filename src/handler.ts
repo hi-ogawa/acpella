@@ -9,14 +9,22 @@ const ACPX_BIN = fileURLToPath(new URL("../node_modules/.bin/acpx", import.meta.
 
 // --- acpx ---
 
-async function ensureSession(_sessionName: string, agent: string, cwd: string): Promise<void> {
+function acpxAgentArgs(agent: string): string[] {
+  return agent.includes("/") ? ["--agent", agent] : [agent];
+}
+
+async function ensureSession(
+  _sessionName: string,
+  agentArgs: string[],
+  cwd: string,
+): Promise<void> {
   await execFileAsync(
     ACPX_BIN,
     [
       "--cwd",
       cwd,
       "--approve-all",
-      agent,
+      ...agentArgs,
       "sessions",
       "ensure",
       // TODO: named session not working?
@@ -32,10 +40,10 @@ async function ensureSession(_sessionName: string, agent: string, cwd: string): 
 async function acpxPrompt(
   sessionName: string,
   text: string,
-  agent: string,
+  agentArgs: string[],
   cwd: string,
 ): Promise<string> {
-  await ensureSession(sessionName, agent, cwd);
+  await ensureSession(sessionName, agentArgs, cwd);
 
   const { stdout } = await execFileAsync(
     ACPX_BIN,
@@ -43,7 +51,7 @@ async function acpxPrompt(
       "--approve-all",
       "--format",
       "json",
-      agent,
+      ...agentArgs,
       // TODO: named session not working?
       // "-s", sessionName,
       "prompt",
@@ -86,13 +94,22 @@ export function formatStatus(agent: string, cwd: string): string {
   );
 }
 
-export function createHandler(
-  config: HandlerConfig,
-): (text: string, session: string) => Promise<string> {
-  return async (text, session) => {
-    if (text === "/status") {
-      return formatStatus(config.agent, config.cwd);
-    }
-    return acpxPrompt(session, text, config.agent, config.cwd);
+export function createHandler(config?: Partial<HandlerConfig>): {
+  handle: (text: string, session: string) => Promise<string>;
+  config: HandlerConfig;
+} {
+  const resolved: HandlerConfig = {
+    agent: config?.agent ?? process.env.AGENT ?? "codex",
+    cwd: config?.cwd ?? process.env.DAEMON_CWD ?? process.cwd(),
   };
+  const agentArgs = acpxAgentArgs(resolved.agent);
+
+  const handle = async (text: string, session: string) => {
+    if (text === "/status") {
+      return formatStatus(resolved.agent, resolved.cwd);
+    }
+    return acpxPrompt(session, text, agentArgs, resolved.cwd);
+  };
+
+  return { handle, config: resolved };
 }

@@ -3,8 +3,8 @@ import { createHandler } from "./handler.ts";
 import { createTestBot, startTestBotRepl } from "./test-bot.ts";
 
 function main() {
-  const agent = process.env.AGENT ?? "codex";
-  const cwd = process.env.DAEMON_CWD ?? process.cwd();
+  const { handle, config: handlerConfig } = createHandler();
+  const { agent, cwd } = handlerConfig;
 
   // TODO: require ALLOWED_USER_IDS
   const allowedUsers = new Set(
@@ -13,8 +13,6 @@ function main() {
   const allowedChats = new Set(
     (process.env.ALLOWED_CHAT_IDS ?? "").split(",").filter(Boolean).map(Number),
   );
-
-  const handle = createHandler({ agent, cwd });
 
   // --- create bot (real or test) ---
 

@@ -6,6 +6,7 @@
 | ----------------------- | ---------------------------- |
 | `pnpm start`            | Run daemon (requires `.env`) |
 | `pnpm dev`              | Run daemon with --watch      |
+| `pnpm test`             | E2E smoke test (vitest)      |
 | `pnpm lint && pnpm tsc` | Lint                         |
 
 ## Key Docs

@@ -11,4 +11,14 @@ describe("e2e smoke", () => {
 
     await daemon.stop();
   });
+
+  it("echo agent round-trip", async () => {
+    const daemon = startDaemon({ AGENT: "node src/test-agent.ts" });
+
+    await daemon.waitForLine("Starting daemon");
+    daemon.send("hello world");
+    await daemon.waitForLine("echo: hello world");
+
+    await daemon.stop();
+  }, 30_000);
 });
