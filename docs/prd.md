@@ -15,7 +15,7 @@
 - [ ] feat: system prompt (just use AGENTS.md convention)
 - [ ] feat: system commands
   - [x] status
-  - [ ] reset session
+  - [x] reset session
 - [ ] refactor: env config util
 - [ ] refactor: child process exec util
   - debug log

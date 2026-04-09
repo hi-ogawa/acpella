@@ -59,6 +59,12 @@ async function ensureSession(sessionName: string, agentArgs: string[], cwd: stri
   );
 }
 
+async function closeSession(sessionName: string, agentArgs: string[], cwd: string): Promise<void> {
+  await runAcpx(["--cwd", cwd, ...agentArgs, "sessions", "close", sessionName], {
+    timeout: 60_000,
+  });
+}
+
 async function acpxPrompt(
   sessionName: string,
   text: string,
@@ -101,6 +107,10 @@ export function createHandler(config?: Partial<HandlerConfig>): {
   const handle = async (text: string, session: string) => {
     if (text === "/status") {
       return formatStatus(resolved.agent, resolved.cwd);
+    }
+    if (text === "/reset") {
+      await closeSession(session, agentArgs, resolved.cwd);
+      return "Session reset. Next message will start a fresh session.";
     }
     return acpxPrompt(session, text, agentArgs, resolved.cwd);
   };
