@@ -9,8 +9,8 @@
     "repl": "ACPELLA_TEST_BOT=1 ACPELLA_TELEGRAM_ALLOWED_USER_IDS=456 node src/index.ts",
     "test": "vitest",
     "tsc": "tsc -b",
-    "lint": "vp fmt",
-    "lint-check": "vp fmt --check"
+    "lint": "vp check --no-lint --fix",
+    "lint-check": "vp check --no-lint"
   },
   "dependencies": {
     "acpx": "^0.5.3",
