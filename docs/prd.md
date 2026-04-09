@@ -42,6 +42,7 @@ Deterministic handlers, no agent involved:
 ## TODO
 
 - [ ] fix: Named acpx session not working — investigate `acpx sessions ensure --name`
+- [ ] fix: In-flight message can be dropped when `pnpm dev` auto-restarts during processing
 - [ ] refactor: env config util
 - [ ] refactor: child process exec util
 
