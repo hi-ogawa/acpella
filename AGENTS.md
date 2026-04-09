@@ -6,16 +6,16 @@
 | ----------------------- | ---------------------------- |
 | `pnpm start`            | Run daemon (requires `.env`) |
 | `pnpm dev`              | Run daemon with --watch      |
-| `pnpm lint && pnpm tsc` | Format (with fixes)          |
+| `pnpm lint && pnpm tsc` | Lint                         |
 
 ## Key Docs
 
-| File                   | Purpose                               |
-| ---------------------- | ------------------------------------- |
-| `docs/prd.md`          | MVP features checklist, backlog       |
-| `docs/architecture.md` | Design decisions, data flow           |
-| `docs/references.md`   | Reference projects, local clone setup |
-| `docs/tasks/`          | Per-task notes                        |
+| File                         | Purpose                               |
+| ---------------------------- | ------------------------------------- |
+| `docs/prd.md`                | MVP features checklist, backlog       |
+| `docs/architecture.md`       | Design decisions, data flow           |
+| `docs/references.md`         | Reference projects, local clone setup |
+| `docs/tasks/YYYY-MM-DD-*.md` | Per-task notes                        |
 
 ## Architecture
 
@@ -24,6 +24,18 @@ Thin daemon: Telegram ↔ acpx ↔ coding agent (Codex, Claude Code, etc.).
 - **`src/index.ts`** — single-file daemon: config, acpx interface, telegram bot, entry point
 
 Each Telegram chat maps to a named acpx session (`tg-<chatId>`). Forum threads get `tg-<chatId>-<threadId>`. The agent (acpx) runs as a subprocess; its binary is at `node_modules/.bin/acpx`.
+
+## Task Documents
+
+For non-trivial work, create `docs/tasks/YYYY-MM-DD-<topic>.md` **before implementing**.
+
+Task docs should enable **handoff to a fresh agent** - include enough context to continue without conversation history.
+
+**Structure:**
+
+- Problem context and approach
+- Reference files/patterns to follow
+- Implementation plan
 
 ## Conventions
 
