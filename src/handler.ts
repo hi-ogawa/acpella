@@ -1,11 +1,20 @@
-import { execFile } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
-
-const execFileAsync = promisify(execFile);
+import { spawnAsync, type SpawnResult } from "./spawn.ts";
 
 // use local dep binary instead of npx
 const ACPX_BIN = fileURLToPath(new URL("../node_modules/.bin/acpx", import.meta.url));
+
+const DEBUG = !!process.env.ACPELLA_DEBUG;
+
+function runAcpx(args: string[], options: { timeout: number; cwd?: string }): Promise<SpawnResult> {
+  const finalArgs = DEBUG ? ["--verbose", ...args] : args;
+  return spawnAsync(ACPX_BIN, finalArgs, {
+    timeout: options.timeout,
+    cwd: options.cwd,
+    debug: DEBUG,
+    label: "acpx",
+  });
+}
 
 // --- acpx ---
 
@@ -18,8 +27,7 @@ async function ensureSession(
   agentArgs: string[],
   cwd: string,
 ): Promise<void> {
-  await execFileAsync(
-    ACPX_BIN,
+  await runAcpx(
     [
       "--cwd",
       cwd,
@@ -30,10 +38,7 @@ async function ensureSession(
       // TODO: named session not working?
       // "--name", sessionName,
     ],
-    {
-      timeout: 60_000,
-      env: { ...process.env },
-    },
+    { timeout: 60_000 },
   );
 }
 
@@ -45,8 +50,7 @@ async function acpxPrompt(
 ): Promise<string> {
   await ensureSession(sessionName, agentArgs, cwd);
 
-  const { stdout } = await execFileAsync(
-    ACPX_BIN,
+  const { stdout } = await runAcpx(
     [
       "--approve-all",
       "--format",
@@ -57,11 +61,7 @@ async function acpxPrompt(
       "prompt",
       text,
     ],
-    {
-      timeout: 300_000, // 5 min
-      maxBuffer: 10 * 1024 * 1024,
-      env: { ...process.env },
-    },
+    { timeout: 300_000 },
   );
 
   // parse JSONRPC envelope output — extract agent text chunks
