@@ -7,7 +7,8 @@
     "start": "node --env-file=.env src/index.ts",
     "dev": "node --env-file=.env --watch src/index.ts",
     "repl": "ACPELLA_TEST_BOT=1 ACPELLA_TELEGRAM_ALLOWED_USER_IDS=456 node src/index.ts",
-    "test": "vitest",
+    "test": "vitest --project=unit",
+    "test-codex": "vitest --project=codex",
     "tsc": "tsc -b",
     "lint": "vp check --no-lint --fix",
     "lint-check": "vp check --no-lint"
