@@ -1,5 +1,7 @@
 import { spawn } from "node:child_process";
 
+// TODO: review slop
+
 export interface SpawnResult {
   stdout: string;
   stderr: string;
@@ -17,7 +19,7 @@ export interface SpawnOptions {
 export function spawnAsync(
   bin: string,
   args: string[],
-  options: SpawnOptions,
+  options: SpawnOptions = { timeout: 60_000 },
 ): Promise<SpawnResult> {
   return new Promise((resolve, reject) => {
     const label = options.label ?? "spawn";

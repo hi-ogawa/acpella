@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { spawnAsync, type SpawnResult } from "./spawn.ts";
 
 // use local dep binary instead of npx
-const ACPX_BIN = fileURLToPath(new URL("../node_modules/.bin/acpx", import.meta.url));
+export const ACPX_BIN = fileURLToPath(new URL("../node_modules/.bin/acpx", import.meta.url));
 
 const DEBUG = !!process.env.ACPELLA_DEBUG;
 
@@ -77,7 +77,7 @@ async function acpxPrompt(
 
   const { stdout } = await runAcpx(
     ["--approve-all", "--format", "json", ...agentArgs, "prompt", "-s", sessionName, text],
-    { timeout: 300_000 },
+    { timeout: 60_000 },
   );
 
   return parseAgentText(stdout);
