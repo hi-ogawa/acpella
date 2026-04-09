@@ -20,5 +20,5 @@ describe("e2e smoke", () => {
     await daemon.waitForLine("echo: hello world");
 
     await daemon.stop();
-  }, 30_000);
+  });
 });
