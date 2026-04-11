@@ -1,15 +1,19 @@
 import { describe, it, expect } from "vitest";
-import { startAcpAgent } from "./index.ts";
+import { startAcpManager } from "./index.ts";
 import path from "node:path";
 
-describe(startAcpAgent, () => {
+// TODO: test
+// - multiple updates per prompt
+// - load session
+
+describe(startAcpManager, () => {
   it("round-trip prompt with echo agent", async () => {
-    const agent = await startAcpAgent({
+    const manager = await startAcpManager({
       command: "node src/test-agent.ts",
       cwd: path.join(import.meta.dirname, "../.."),
     });
+    const agent = await manager.newSession();
     const result = agent.prompt("hello");
-
     const updates: unknown[] = [];
     for await (const update of result.queue) {
       updates.push(update);
