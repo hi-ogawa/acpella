@@ -138,3 +138,5 @@ async function createSession(options: { agent: SpanwedAgent; sessionId: string }
     },
   };
 }
+
+export type AcpSession = Awaited<ReturnType<typeof createSession>>;

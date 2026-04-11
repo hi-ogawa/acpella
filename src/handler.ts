@@ -1,91 +1,6 @@
-import type { SessionNotification, SessionUpdate } from "@agentclientprotocol/sdk";
-import { fileURLToPath } from "node:url";
-import { spawnAsync, type SpawnResult } from "./spawn.ts";
-
-// use local dep binary instead of npx
-export const ACPX_BIN = fileURLToPath(new URL("../node_modules/.bin/acpx", import.meta.url));
-
-const DEBUG = !!process.env.ACPELLA_DEBUG;
-
-function runAcpx(args: string[], options: { timeout: number; cwd?: string }): Promise<SpawnResult> {
-  const finalArgs = DEBUG ? ["--verbose", ...args] : args;
-  return spawnAsync(ACPX_BIN, finalArgs, {
-    timeout: options.timeout,
-    cwd: options.cwd,
-    debug: DEBUG,
-    label: "acpx",
-  });
-}
-
-// --- acpx output parsing ---
-
-/** JSONRPC envelope emitted by `acpx --format json` */
-interface AcpxJsonLine {
-  jsonrpc: "2.0";
-  method: string;
-  params?: SessionNotification;
-}
-
-/** Extract agent text from acpx JSONRPC ndjson output */
-function parseAgentText(stdout: string): string {
-  const texts: string[] = [];
-  for (const line of stdout.trim().split("\n")) {
-    try {
-      const msg: AcpxJsonLine = JSON.parse(line);
-      const update: SessionUpdate | undefined = msg.params?.update;
-      if (!update) {
-        continue;
-      }
-      if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
-        texts.push(update.content.text);
-      } else if (update.sessionUpdate === "tool_call") {
-        console.log(`[acpx:update] tool_call: ${update.title}`);
-      } else {
-        console.log(`[acpx:update] ${update.sessionUpdate}`);
-      }
-    } catch {
-      // skip non-json lines
-    }
-  }
-  return texts.join("") || "(no response)";
-}
-
-// --- acpx ---
-
-function acpxAgentArgs(agent: string): string[] {
-  return agent.includes("/") ? ["--agent", agent] : [agent];
-}
-
-async function ensureSession(sessionName: string, agentArgs: string[], cwd: string): Promise<void> {
-  await runAcpx(
-    ["--cwd", cwd, "--approve-all", ...agentArgs, "sessions", "ensure", "--name", sessionName],
-    { timeout: 60_000 },
-  );
-}
-
-async function closeSession(sessionName: string, agentArgs: string[], cwd: string): Promise<void> {
-  await runAcpx(["--cwd", cwd, ...agentArgs, "sessions", "close", sessionName], {
-    timeout: 60_000,
-  });
-}
-
-async function acpxPrompt(
-  sessionName: string,
-  text: string,
-  agentArgs: string[],
-  cwd: string,
-): Promise<string> {
-  await ensureSession(sessionName, agentArgs, cwd);
-
-  const { stdout } = await runAcpx(
-    ["--approve-all", "--format", "json", ...agentArgs, "prompt", "-s", sessionName, text],
-    { timeout: 60_000 },
-  );
-
-  return parseAgentText(stdout);
-}
-
-// --- handler ---
+import fs from "node:fs/promises";
+import path from "node:path";
+import { startAcpManager, type AcpSession } from "./acp/index.ts";
 
 export interface HandlerConfig {
   agent: string;
@@ -98,25 +13,107 @@ export function formatStatus(agent: string, cwd: string): string {
   );
 }
 
-export function createHandler(config?: Partial<HandlerConfig>): {
+const AGENT_MAP = {
+  codex: path.join(
+    import.meta.dirname,
+    "..",
+    "node_modules/@zed-industries/codex-acp/bin/codex-acp.js",
+  ),
+};
+
+export async function createHandler(): Promise<{
   handle: (text: string, session: string) => Promise<string>;
   config: HandlerConfig;
-} {
+}> {
   const resolved: HandlerConfig = {
-    agent: config?.agent ?? process.env.ACPELLA_AGENT ?? "codex",
-    cwd: config?.cwd ?? process.env.ACPELLA_HOME ?? process.cwd(),
+    agent: process.env.ACPELLA_AGENT ?? AGENT_MAP.codex,
+    cwd: process.env.ACPELLA_HOME ?? process.cwd(),
   };
-  const agentArgs = acpxAgentArgs(resolved.agent);
 
-  const handle = async (text: string, session: string) => {
+  const manager = await startAcpManager({ command: resolved.agent, cwd: resolved.cwd });
+  const sessions = new Map<string, AcpSession>();
+  const stateFile = path.join(resolved.cwd, "acpella.json");
+
+  async function readState(): Promise<Record<string, string>> {
+    try {
+      const raw = await fs.readFile(stateFile, "utf8");
+      return JSON.parse(raw) as Record<string, string>;
+    } catch (e) {
+      console.error("[acp] readState failed:", e);
+      return {};
+    }
+  }
+
+  async function writeState(state: Record<string, string>): Promise<void> {
+    await fs.writeFile(stateFile, JSON.stringify(state, null, 2));
+  }
+
+  async function ensureSession(name: string): Promise<AcpSession> {
+    const existing = sessions.get(name);
+    if (existing) {
+      return existing;
+    }
+    const state = await readState();
+    const persistedId = state[name];
+    if (persistedId) {
+      try {
+        const session = await manager.loadSession({
+          sessionCwd: resolved.cwd,
+          sessionId: persistedId,
+        });
+        sessions.set(name, session);
+        return session;
+      } catch (e) {
+        console.error("[acp] loadSession failed, creating new session:", e);
+      }
+    }
+    const session = await manager.newSession({ sessionCwd: resolved.cwd });
+    sessions.set(name, session);
+    await writeState({ ...state, [name]: session.sessionId });
+    return session;
+  }
+
+  async function removeSession(name: string): Promise<void> {
+    const state = await readState();
+    const sessionId = sessions.get(name)?.sessionId ?? state[name];
+    sessions.get(name)?.close();
+    sessions.delete(name);
+    if (sessionId) {
+      try {
+        await manager.closeSession({ sessionId });
+      } catch (e) {
+        console.error("[acp] closeSession failed:", e);
+      }
+    }
+    if (name in state) {
+      const { [name]: _, ...rest } = state;
+      await writeState(rest);
+    }
+  }
+
+  const handle = async (text: string, sessionName: string): Promise<string> => {
     if (text === "/status") {
       return formatStatus(resolved.agent, resolved.cwd);
     }
     if (text === "/reset") {
-      await closeSession(session, agentArgs, resolved.cwd);
+      await removeSession(sessionName);
       return "Session reset. Next message will start a fresh session.";
     }
-    return acpxPrompt(session, text, agentArgs, resolved.cwd);
+
+    const session = await ensureSession(sessionName);
+    const { queue } = session.prompt(text);
+
+    const texts: string[] = [];
+    for await (const update of queue) {
+      if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
+        texts.push(update.content.text);
+      } else if (update.sessionUpdate === "tool_call") {
+        console.log(`[acp:update] tool_call: ${update.title}`);
+      } else {
+        console.log(`[acp:update] ${update.sessionUpdate}`);
+      }
+    }
+    return texts.join("") || "(no response)";
   };
 
   return { handle, config: resolved };

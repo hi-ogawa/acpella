@@ -1,7 +1,9 @@
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { beforeAll, it, vi } from "vitest";
-import { ACPX_BIN } from "../../handler.ts";
 import { spawnAsync } from "../../spawn.ts";
+
+const ACPX_BIN = fileURLToPath(new URL("../../../../node_modules/.bin/acpx", import.meta.url));
 import { startDaemon } from "../helper.ts";
 
 const FIXTURES_DIR = path.join(import.meta.dirname, "fixtures");
