@@ -43,7 +43,7 @@ class EchoAgent implements Agent {
   }
 
   async newSession(_params: NewSessionRequest): Promise<NewSessionResponse> {
-    return { sessionId: crypto.randomUUID() };
+    return { sessionId: "__testNewSession" };
   }
 
   async loadSession(params: LoadSessionRequest): Promise<LoadSessionResponse> {
