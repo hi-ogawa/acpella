@@ -63,7 +63,7 @@ export async function startAcpAgent({ command, cwd }: { command: string; cwd: st
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-    // TODO: pending prompt
+    // TODO: ensure single in-flight prompt per session
     // TODO: cancel prompt
     prompt(text: string) {
       const queue = new AsyncQueue<SessionUpdate>();
