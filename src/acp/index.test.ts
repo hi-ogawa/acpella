@@ -68,6 +68,8 @@ describe(startAcpManager, () => {
         },
       ]
     `);
+
+    await manager.closeSession({ sessionId: "__testLoadSession" });
   });
 });
 

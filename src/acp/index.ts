@@ -45,6 +45,14 @@ export async function startAcpManager(options: { command: string; cwd: string })
       });
       return createSession({ agent, sessionId });
     },
+    async closeSession(sessionOptions: { sessionId: string }): Promise<void> {
+      const agent = await spawnAgent(options);
+      try {
+        await agent.connection.unstable_closeSession({ sessionId: sessionOptions.sessionId });
+      } finally {
+        agent.child.kill();
+      }
+    },
     async listSessions(): Promise<ListSessionsResponse> {
       const agent = await spawnAgent(options);
       try {
