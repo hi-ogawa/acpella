@@ -65,10 +65,10 @@ export async function startAcpAgent(command: string, cwd: string) {
     },
     // TODO: pending prompt
     // TODO: cancel prompt
-    async *prompt(text: string): AsyncGenerator<SessionUpdate> {
+    prompt(text: string) {
       const queue = new AsyncQueue<SessionUpdate>();
       const unsubscribe = manager.subscribe((u) => queue.push(u));
-      connection
+      const promise = connection
         .prompt({
           sessionId,
           prompt: [{ type: "text", text }],
@@ -76,12 +76,14 @@ export async function startAcpAgent(command: string, cwd: string) {
         .then(
           () => queue.finish(),
           (err) => queue.error(err),
-        );
-      try {
-        yield* queue;
-      } finally {
-        unsubscribe();
-      }
+        )
+        .finally(() => {
+          unsubscribe();
+        });
+      return {
+        promise,
+        queue,
+      };
     },
     close(): void {
       child.kill();
