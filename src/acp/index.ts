@@ -1,4 +1,4 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawn } from "node:child_process";
 import { Readable, Writable } from "node:stream";
 import { AsyncQueue } from "../async-queue.ts";
 import {
@@ -12,7 +12,7 @@ import {
 // TODO: review slop (NEVER REMOVE THIS COMMENT)
 
 /** Spawn an agent adapter, initialize, and create a session. */
-export async function startAcpAgent(command: string, cwd: string): Promise<AcpManager> {
+export async function startAcpAgent(command: string, cwd: string) {
   const [cmd, ...args] = command.trim().split(/\s+/);
   // TODO:
   // handle stderr
@@ -24,9 +24,6 @@ export async function startAcpAgent(command: string, cwd: string): Promise<AcpMa
     Readable.toWeb(child.stdout!) as ReadableStream,
   );
 
-  // Construction ordering: `client` must exist before `AcpManager` does,
-  // so it can't close over `this.listeners`. Hoist `listeners` into the
-  // closure and pass it into the constructor to share the same reference.
   const listeners = new Set<(u: SessionUpdate) => void>();
 
   const client: Client = {
@@ -49,62 +46,49 @@ export async function startAcpAgent(command: string, cwd: string): Promise<AcpMa
     protocolVersion: PROTOCOL_VERSION,
     clientCapabilities: {},
   });
-  initializeResposne;
+  const { agentInfo } = initializeResposne;
 
-  // TODO: somehow need explicit satisfies to have IDE kicks in
+  // TODO: support restore session
+  // manager should expose listSessions, newSession, loadSession
   const newSessionResponse = await connection.newSession({
     cwd,
     mcpServers: [],
   });
+  const { sessionId } = newSessionResponse;
 
-  return new AcpManager(newSessionResponse.sessionId, connection, child, listeners);
+  function subscribe(listener: (update: SessionUpdate) => void): () => void {
+    listeners.add(listener);
+    return () => listeners.delete(listener);
+  }
+
+  return {
+    agentInfo,
+    sessionId,
+    subscribe,
+    // TODO: pending prompt
+    // TODO: cancel prompt
+    async *prompt(text: string): AsyncGenerator<SessionUpdate> {
+      const queue = new AsyncQueue<SessionUpdate>();
+      const unsubscribe = subscribe((u) => queue.push(u));
+      connection
+        .prompt({
+          sessionId,
+          prompt: [{ type: "text", text }],
+        })
+        .then(
+          () => queue.finish(),
+          (err) => queue.error(err),
+        );
+      try {
+        yield* queue;
+      } finally {
+        unsubscribe();
+      }
+    },
+    close(): void {
+      child.kill();
+    },
+  };
 }
 
-export class AcpManager {
-  sessionId: string;
-  private connection: ClientSideConnection;
-  private child: ChildProcess;
-  private listeners: Set<(u: SessionUpdate) => void>;
-
-  constructor(
-    sessionId: string,
-    connection: ClientSideConnection,
-    child: ChildProcess,
-    listeners: Set<(u: SessionUpdate) => void>,
-  ) {
-    this.sessionId = sessionId;
-    this.connection = connection;
-    this.child = child;
-    this.listeners = listeners;
-  }
-
-  subscribe(listener: (update: SessionUpdate) => void): () => void {
-    this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
-  }
-
-  // TODO: pending prompt
-  // TODO: cancel prompt
-  async *prompt(text: string): AsyncGenerator<SessionUpdate> {
-    const queue = new AsyncQueue<SessionUpdate>();
-    const unsubscribe = this.subscribe((u) => queue.push(u));
-    this.connection
-      .prompt({
-        sessionId: this.sessionId,
-        prompt: [{ type: "text", text }],
-      })
-      .then(
-        () => queue.finish(),
-        (err) => queue.error(err),
-      );
-    try {
-      yield* queue;
-    } finally {
-      unsubscribe();
-    }
-  }
-
-  close(): void {
-    this.child.kill();
-  }
-}
+export type AcpManager = Awaited<ReturnType<typeof startAcpAgent>>;
