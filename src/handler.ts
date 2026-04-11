@@ -26,6 +26,9 @@ export async function createHandler(): Promise<{
 
   const manager = await startAcpManager({ command: resolved.agent, cwd: resolved.cwd });
   const sessions = new Map<string, AcpSession>();
+
+  // TODO: support jsonc
+  // TODO: use generic config util
   const stateFile = path.join(resolved.cwd, "acpella.json");
 
   async function readState(): Promise<Record<string, string>> {
@@ -102,6 +105,7 @@ export async function createHandler(): Promise<{
     const session = await ensureSession(sessionName);
     const { queue } = session.prompt(text);
 
+    // TODO: stream and split as needed
     const texts: string[] = [];
     for await (const update of queue) {
       if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
