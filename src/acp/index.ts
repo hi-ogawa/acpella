@@ -24,13 +24,12 @@ import {
 //
 // Option B was chosen for simplicity, matching acpx's real-world behavior.
 
-// TODO: differentiate command cwd and session cwd
 export async function startAcpManager(options: { command: string; cwd: string }) {
   return {
-    newSession() {
-      return spawnSession(options);
+    newSession(sessionOptions: { sessionCwd: string }) {
+      return spawnSession({ ...options, ...sessionOptions });
     },
-    loadSession(sessionOptions: { sessionId: string }) {
+    loadSession(sessionOptions: { sessionCwd: string; sessionId: string }) {
       return spawnSession({ ...options, ...sessionOptions });
     },
     async listSessions(): Promise<ListSessionsResponse> {
@@ -88,15 +87,20 @@ async function spawnAgent({ command, cwd }: { command: string; cwd: string }) {
   return { child, connection, subscribe };
 }
 
-async function spawnSession(options: { command: string; cwd: string; sessionId?: string }) {
+async function spawnSession(options: {
+  command: string;
+  cwd: string;
+  sessionCwd: string;
+  sessionId?: string;
+}) {
   const agent = await spawnAgent(options);
 
   let sessionId: string;
   if (options.sessionId) {
     sessionId = options.sessionId;
-    await agent.connection.loadSession({ sessionId, cwd: options.cwd, mcpServers: [] });
+    await agent.connection.loadSession({ sessionId, cwd: options.sessionCwd, mcpServers: [] });
   } else {
-    const session = await agent.connection.newSession({ cwd: options.cwd, mcpServers: [] });
+    const session = await agent.connection.newSession({ cwd: options.sessionCwd, mcpServers: [] });
     sessionId = session.sessionId;
   }
 

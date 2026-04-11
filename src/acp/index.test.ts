@@ -12,7 +12,9 @@ describe(startAcpManager, () => {
       command: "node src/test-agent.ts",
       cwd: path.join(import.meta.dirname, "../.."),
     });
-    const session = await manager.newSession();
+    const session = await manager.newSession({
+      sessionCwd: "/session-cwd",
+    });
     onTestFinished(() => session.close());
 
     const result = session.prompt("hello");
@@ -49,6 +51,7 @@ describe(startAcpManager, () => {
 
     const session = await manager.loadSession({
       sessionId: "__testLoadSession",
+      sessionCwd: "/session-cwd",
     });
     onTestFinished(() => session.close());
 
