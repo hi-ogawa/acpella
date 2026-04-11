@@ -17,7 +17,7 @@ cp .env.example .env
 ```ini
 # /etc/systemd/system/acpella.service
 [Unit]
-Description=acpella daemon
+Description=acpella service
 After=network.target
 
 [Service]
@@ -25,7 +25,7 @@ Type=simple
 User=hiroshi
 WorkingDirectory=/home/hiroshi/code/personal/acpella
 EnvironmentFile=/home/hiroshi/code/personal/acpella/.env
-ExecStart=/usr/bin/node src/daemon.ts
+ExecStart=/usr/bin/node src/index.ts
 Restart=on-failure
 RestartSec=10
 

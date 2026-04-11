@@ -69,7 +69,7 @@ async function main() {
 
   // --- start ---
 
-  console.log(`Starting daemon (agent: ${agent}, cwd: ${cwd}, test: ${testMode})`);
+  console.log(`Starting service (agent: ${agent}, cwd: ${cwd}, test: ${testMode})`);
 
   if (testBot) {
     await startTestBotRepl(testBot);

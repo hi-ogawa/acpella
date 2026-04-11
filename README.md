@@ -1,6 +1,6 @@
 # acpella
 
-Thin daemon that connects a messaging channel (Telegram) to a coding agent via [ACP](https://github.com/agentclientprotocol/agent-client-protocol). Agent-agnostic — works with Codex, Claude Code, or any ACP-compatible agent.
+Thin service that connects a messaging channel (Telegram) to a coding agent via [ACP](https://github.com/agentclientprotocol/agent-client-protocol). Agent-agnostic — works with Codex, Claude Code, or any ACP-compatible agent.
 
 ## Setup
 
@@ -13,7 +13,7 @@ cp .env.example .env
 ## Run
 
 ```bash
-pnpm start        # run daemon
+pnpm start        # run service
 pnpm dev          # run with --watch
 ```
 
