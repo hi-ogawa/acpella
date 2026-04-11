@@ -43,7 +43,7 @@ class EchoAgent implements Agent {
   }
 
   async newSession(_params: NewSessionRequest): Promise<NewSessionResponse> {
-    return { sessionId: "__testNewSession" };
+    return { sessionId: "__testLoadSession" };
   }
 
   async loadSession(params: LoadSessionRequest): Promise<LoadSessionResponse> {
