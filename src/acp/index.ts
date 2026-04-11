@@ -26,11 +26,24 @@ import {
 
 export async function startAcpManager(options: { command: string; cwd: string }) {
   return {
-    newSession(sessionOptions: { sessionCwd: string }) {
-      return spawnSession({ ...options, ...sessionOptions });
+    async newSession(sessionOptions: { sessionCwd: string }) {
+      const agent = await spawnAgent(options);
+      const session = await agent.connection.newSession({
+        cwd: sessionOptions.sessionCwd,
+        mcpServers: [],
+      });
+      const sessionId = session.sessionId;
+      return createSession({ agent, sessionId });
     },
-    loadSession(sessionOptions: { sessionCwd: string; sessionId: string }) {
-      return spawnSession({ ...options, ...sessionOptions });
+    async loadSession(sessionOptions: { sessionCwd: string; sessionId: string }) {
+      const agent = await spawnAgent(options);
+      const { sessionId } = sessionOptions;
+      await agent.connection.loadSession({
+        sessionId,
+        cwd: sessionOptions.sessionCwd,
+        mcpServers: [],
+      });
+      return createSession({ agent, sessionId });
     },
     async listSessions(): Promise<ListSessionsResponse> {
       const agent = await spawnAgent(options);
@@ -42,6 +55,8 @@ export async function startAcpManager(options: { command: string; cwd: string })
     },
   };
 }
+
+type SpanwedAgent = Awaited<ReturnType<typeof spawnAgent>>;
 
 async function spawnAgent({ command, cwd }: { command: string; cwd: string }) {
   const [cmd, ...args] = command.trim().split(/\s+/);
@@ -87,32 +102,17 @@ async function spawnAgent({ command, cwd }: { command: string; cwd: string }) {
   return { child, connection, subscribe };
 }
 
-async function spawnSession(options: {
-  command: string;
-  cwd: string;
-  sessionCwd: string;
-  sessionId?: string;
-}) {
-  const agent = await spawnAgent(options);
-
-  let sessionId: string;
-  if (options.sessionId) {
-    sessionId = options.sessionId;
-    await agent.connection.loadSession({ sessionId, cwd: options.sessionCwd, mcpServers: [] });
-  } else {
-    const session = await agent.connection.newSession({ cwd: options.sessionCwd, mcpServers: [] });
-    sessionId = session.sessionId;
-  }
-
+async function createSession(options: { agent: SpanwedAgent; sessionId: string }) {
+  const { agent } = options;
   return {
-    sessionId,
+    sessionId: options.sessionId,
     // TODO: ensure single in-flight prompt per session
     // TODO: cancel prompt
     prompt(text: string) {
       const queue = new AsyncQueue<SessionUpdate>();
       const unsubscribe = agent.subscribe((u) => queue.push(u));
       const promise = agent.connection.prompt({
-        sessionId,
+        sessionId: options.sessionId,
         prompt: [{ type: "text", text }],
       });
       promise
