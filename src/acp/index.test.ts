@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, onTestFinished } from "vitest";
 import { startAcpManager } from "./index.ts";
 import path from "node:path";
 
@@ -12,8 +12,12 @@ describe(startAcpManager, () => {
       command: "node src/test-agent.ts",
       cwd: path.join(import.meta.dirname, "../.."),
     });
-    const agent = await manager.newSession();
-    const result = agent.prompt("hello");
+    const session = await manager.newSession();
+    onTestFinished(() => {
+      session.close();
+    });
+
+    const result = session.prompt("hello");
     const updates: unknown[] = [];
     for await (const update of result.queue) {
       updates.push(update);
