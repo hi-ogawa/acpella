@@ -7,7 +7,7 @@ import path from "node:path";
 // - load session
 
 describe(startAcpManager, () => {
-  it("round-trip prompt with echo agent", async () => {
+  it("basic", async () => {
     const manager = await startAcpManager({
       command: "node src/test-agent.ts",
       cwd: path.join(import.meta.dirname, "../.."),

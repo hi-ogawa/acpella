@@ -29,8 +29,8 @@ export async function startAcpManager(options: { command: string; cwd: string })
     newSession: () => {
       return spawnSession(options);
     },
-    loadSession: (sessionId: string) => {
-      return spawnSession({ ...options, sessionId });
+    loadSession: (sessionOptions: { sessionId: string }) => {
+      return spawnSession({ ...options, ...sessionOptions });
     },
   };
 }
