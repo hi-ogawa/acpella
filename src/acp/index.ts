@@ -28,6 +28,7 @@ export async function startAcpAgent({ command, cwd }: { command: string; cwd: st
 
   const client: Client = {
     async requestPermission(params) {
+      // acpx --approve-all like behavior
       const first = params.options[0];
       if (!first) {
         return { outcome: { outcome: "cancelled" } };
@@ -50,6 +51,9 @@ export async function startAcpAgent({ command, cwd }: { command: string; cwd: st
 
   // TODO: support restore session
   // manager should expose listSessions, newSession, loadSession
+  // connection.listSessions;
+  // connection.loadSession;
+  // connection.unstable_closeSession;
   const newSessionResponse = await connection.newSession({
     cwd,
     mcpServers: [],
