@@ -17,19 +17,19 @@ import {
 
 export class AcpSession {
   sessionId: string;
-  private conn: ClientSideConnection;
-  private proc: ChildProcess;
+  private connection: ClientSideConnection;
+  private child: ChildProcess;
   private setListener: (fn: ((u: SessionUpdate) => void) | undefined) => void;
 
   private constructor(
     sessionId: string,
-    conn: ClientSideConnection,
-    proc: ChildProcess,
+    connection: ClientSideConnection,
+    child: ChildProcess,
     setListener: (fn: ((u: SessionUpdate) => void) | undefined) => void,
   ) {
     this.sessionId = sessionId;
-    this.conn = conn;
-    this.proc = proc;
+    this.connection = connection;
+    this.child = child;
     this.setListener = setListener;
   }
 
@@ -39,11 +39,11 @@ export class AcpSession {
     // TODO:
     // handle stderr
     // handle process exit
-    const proc = spawn(cmd, args, { stdio: ["pipe", "pipe", "inherit"], cwd });
+    const child = spawn(cmd, args, { stdio: ["pipe", "pipe", "inherit"], cwd });
 
     const stream = ndJsonStream(
-      Writable.toWeb(proc.stdin!),
-      Readable.toWeb(proc.stdout!) as ReadableStream,
+      Writable.toWeb(child.stdin!),
+      Readable.toWeb(child.stdout!) as ReadableStream,
     );
 
     // listener lives here in the closure — clientImpl closes over it directly,
@@ -61,28 +61,29 @@ export class AcpSession {
       },
     };
 
-    const conn = new ClientSideConnection((_agent: Agent) => clientImpl, stream);
-    await conn.initialize({
+    const connection = new ClientSideConnection((_agent: Agent) => clientImpl, stream);
+    await connection.initialize({
       protocolVersion: PROTOCOL_VERSION,
       clientCapabilities: {},
     } satisfies InitializeRequest);
 
     // TODO: somehow need explicit satisfies to have IDE kicks in
-    const { sessionId } = await conn.newSession({
+    const { sessionId } = await connection.newSession({
       cwd,
       mcpServers: [],
     } satisfies NewSessionRequest);
 
-    return new AcpSession(sessionId, conn, proc, (fn) => {
+    return new AcpSession(sessionId, connection, child, (fn) => {
       listener = fn;
     });
   }
 
-  /** Send a prompt, yielding SessionUpdate events as they arrive. */
+  // TODO: pending prompt
+  // TODO: cancel prompt
   async *prompt(text: string): AsyncGenerator<SessionUpdate> {
     const queue = new AsyncQueue<SessionUpdate>();
     this.setListener((u) => queue.push(u));
-    this.conn
+    this.connection
       .prompt({
         sessionId: this.sessionId,
         prompt: [{ type: "text", text }],
@@ -98,8 +99,7 @@ export class AcpSession {
     }
   }
 
-  /** Kill the agent process. */
   close(): void {
-    this.proc.kill();
+    this.child.kill();
   }
 }
