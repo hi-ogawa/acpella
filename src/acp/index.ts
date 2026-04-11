@@ -12,7 +12,7 @@ import {
 // TODO: review slop (NEVER REMOVE THIS COMMENT)
 
 /** Spawn an agent adapter, initialize, and create a session. */
-export async function startAcpAgent(command: string, cwd: string) {
+export async function startAcpAgent({ command, cwd }: { command: string; cwd: string }) {
   const [cmd, ...args] = command.trim().split(/\s+/);
   // TODO:
   // handle stderr
