@@ -19,7 +19,7 @@ export class AsyncQueue<T> {
   }
 
   async *[Symbol.asyncIterator](): AsyncGenerator<T> {
-    while (!this.done || this.queue.length > 0) {
+    do {
       while (this.queue.length > 0) {
         yield this.queue.shift()!;
       }
@@ -28,7 +28,7 @@ export class AsyncQueue<T> {
           this.notify = r;
         });
       }
-    }
+    } while (!this.done);
     if (this.err !== undefined) {
       throw this.err;
     }
