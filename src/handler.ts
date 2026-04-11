@@ -33,7 +33,9 @@ function parseAgentText(stdout: string): string {
     try {
       const msg: AcpxJsonLine = JSON.parse(line);
       const update: SessionUpdate | undefined = msg.params?.update;
-      if (!update) continue;
+      if (!update) {
+        continue;
+      }
       if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
         texts.push(update.content.text);
       } else if (update.sessionUpdate === "tool_call") {

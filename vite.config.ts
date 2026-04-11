@@ -4,7 +4,17 @@ export default defineConfig({
   fmt: {
     ignorePatterns: ["./refs/**"],
   },
+  lint: {
+    ignorePatterns: ["./refs/**"],
+    rules: {
+      curly: "error",
+    },
+    options: {
+      typeAware: true,
+      typeCheck: true,
+    },
+  },
   staged: {
-    "*": "vp check --no-lint --fix",
+    "*": "vp check --fix",
   },
 });

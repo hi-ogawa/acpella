@@ -31,7 +31,9 @@ export function startDaemon(env?: Record<string, string>) {
     const found = lines.find((l) =>
       typeof match === "string" ? l.includes(match) : match.test(l),
     );
-    if (found) return found;
+    if (found) {
+      return found;
+    }
 
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {

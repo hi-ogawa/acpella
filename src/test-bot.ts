@@ -80,7 +80,9 @@ export async function startTestBotRepl(testBot: TestBot): Promise<void> {
   try {
     while (true) {
       const text = await rl.question("> ");
-      if (!text || text === "/quit") break;
+      if (!text || text === "/quit") {
+        break;
+      }
       replies.length = 0;
       await sendMessage(text);
       for (const r of replies) {
