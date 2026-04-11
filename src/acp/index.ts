@@ -15,26 +15,26 @@ import {
 
 // TODO: review slop (NEVER REMOVE THIS COMMENT)
 
-export class AcpSession {
+export class AcpManager {
   sessionId: string;
   private connection: ClientSideConnection;
   private child: ChildProcess;
-  private setListener: (fn: ((u: SessionUpdate) => void) | undefined) => void;
+  private listeners: Set<(u: SessionUpdate) => void>;
 
   private constructor(
     sessionId: string,
     connection: ClientSideConnection,
     child: ChildProcess,
-    setListener: (fn: ((u: SessionUpdate) => void) | undefined) => void,
+    listeners: Set<(u: SessionUpdate) => void>,
   ) {
     this.sessionId = sessionId;
     this.connection = connection;
     this.child = child;
-    this.setListener = setListener;
+    this.listeners = listeners;
   }
 
   /** Spawn an agent adapter, initialize, and create a session. */
-  static async start(command: string, cwd: string): Promise<AcpSession> {
+  static async start(command: string, cwd: string): Promise<AcpManager> {
     const [cmd, ...args] = command.trim().split(/\s+/);
     // TODO:
     // handle stderr
@@ -46,9 +46,12 @@ export class AcpSession {
       Readable.toWeb(child.stdout!) as ReadableStream,
     );
 
-    // listener lives here in the closure — clientImpl closes over it directly,
-    // no forward reference to the session needed.
-    let listener: ((u: SessionUpdate) => void) | undefined;
+    // Inherent cycle: the SDK requires clientImpl at connection construction time,
+    // but clientImpl needs to dispatch updates to the session's listeners — which
+    // don't exist yet. We break it by hoisting listeners into the closure so
+    // clientImpl can close over it directly, then pass it into the constructor
+    // rather than referencing `this`.
+    const listeners = new Set<(u: SessionUpdate) => void>();
 
     const clientImpl: Client = {
       async requestPermission(params) {
@@ -57,7 +60,7 @@ export class AcpSession {
         return { outcome: { outcome: "selected", optionId: first.optionId } };
       },
       async sessionUpdate(n) {
-        listener?.(n.update);
+        for (const fn of listeners) fn(n.update);
       },
     };
 
@@ -68,21 +71,24 @@ export class AcpSession {
     } satisfies InitializeRequest);
 
     // TODO: somehow need explicit satisfies to have IDE kicks in
-    const { sessionId } = await connection.newSession({
+    const session = await connection.newSession({
       cwd,
       mcpServers: [],
     } satisfies NewSessionRequest);
 
-    return new AcpSession(sessionId, connection, child, (fn) => {
-      listener = fn;
-    });
+    return new AcpManager(session.sessionId, connection, child, listeners);
+  }
+
+  subscribe(listener: (update: SessionUpdate) => void): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
   }
 
   // TODO: pending prompt
   // TODO: cancel prompt
   async *prompt(text: string): AsyncGenerator<SessionUpdate> {
     const queue = new AsyncQueue<SessionUpdate>();
-    this.setListener((u) => queue.push(u));
+    const unsubscribe = this.subscribe((u) => queue.push(u));
     this.connection
       .prompt({
         sessionId: this.sessionId,
@@ -95,7 +101,7 @@ export class AcpSession {
     try {
       yield* queue;
     } finally {
-      this.setListener(undefined);
+      unsubscribe();
     }
   }
 
