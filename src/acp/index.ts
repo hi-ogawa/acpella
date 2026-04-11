@@ -5,12 +5,7 @@ import {
   ClientSideConnection,
   PROTOCOL_VERSION,
   ndJsonStream,
-  type SessionNotification,
-  type RequestPermissionRequest,
   type Client,
-  type InitializeRequest,
-  type NewSessionRequest,
-  type PromptRequest,
   type SessionUpdate,
 } from "@agentclientprotocol/sdk";
 
@@ -35,14 +30,14 @@ export async function startAcpAgent(command: string, cwd: string): Promise<AcpMa
   const listeners = new Set<(u: SessionUpdate) => void>();
 
   const client: Client = {
-    async requestPermission(params: RequestPermissionRequest) {
+    async requestPermission(params) {
       const first = params.options[0];
       if (!first) {
         return { outcome: { outcome: "cancelled" } };
       }
       return { outcome: { outcome: "selected", optionId: first.optionId } };
     },
-    async sessionUpdate(params: SessionNotification) {
+    async sessionUpdate(params) {
       for (const fn of listeners) {
         fn(params.update);
       }
@@ -53,14 +48,14 @@ export async function startAcpAgent(command: string, cwd: string): Promise<AcpMa
   const initializeResposne = await connection.initialize({
     protocolVersion: PROTOCOL_VERSION,
     clientCapabilities: {},
-  } satisfies InitializeRequest);
+  });
   initializeResposne;
 
   // TODO: somehow need explicit satisfies to have IDE kicks in
   const newSessionResponse = await connection.newSession({
     cwd,
     mcpServers: [],
-  } satisfies NewSessionRequest);
+  });
 
   return new AcpManager(newSessionResponse.sessionId, connection, child, listeners);
 }
@@ -97,7 +92,7 @@ export class AcpManager {
       .prompt({
         sessionId: this.sessionId,
         prompt: [{ type: "text", text }],
-      } satisfies PromptRequest)
+      })
       .then(
         () => queue.finish(),
         (err) => queue.error(err),
