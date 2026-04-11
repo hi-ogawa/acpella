@@ -29,6 +29,7 @@ export async function createHandler(): Promise<{
 
   // TODO: support jsonc
   // TODO: use generic config util
+  // TODO: schema
   const stateFile = path.join(resolved.cwd, "acpella.json");
 
   function readState(): Record<string, string> {
