@@ -59,7 +59,7 @@ export async function startAcpAgent(command: string, cwd: string) {
   const manager = {
     agentInfo,
     sessionId,
-    subscribe(listener: (update: SessionUpdate) => void): () => void {
+    subscribe(listener: (update: SessionUpdate) => void) {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
@@ -68,24 +68,26 @@ export async function startAcpAgent(command: string, cwd: string) {
     prompt(text: string) {
       const queue = new AsyncQueue<SessionUpdate>();
       const unsubscribe = manager.subscribe((u) => queue.push(u));
-      const promise = connection
-        .prompt({
-          sessionId,
-          prompt: [{ type: "text", text }],
-        })
-        .then(
-          () => queue.finish(),
-          (err) => queue.error(err),
-        )
-        .finally(() => {
+      const promise = (async () => {
+        try {
+          await connection.prompt({
+            sessionId,
+            prompt: [{ type: "text", text }],
+          });
+          queue.finish();
+        } catch (e) {
+          queue.finish(e);
+          throw e;
+        } finally {
           unsubscribe();
-        });
+        }
+      })();
       return {
         promise,
         queue,
       };
     },
-    close(): void {
+    close() {
       child.kill();
     },
   };

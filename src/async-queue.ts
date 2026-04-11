@@ -11,15 +11,9 @@ export class AsyncQueue<T> {
     this.notify = undefined;
   }
 
-  finish(): void {
+  finish(err?: unknown): void {
     this.done = true;
-    this.notify?.();
-    this.notify = undefined;
-  }
-
-  error(err: unknown): void {
     this.err = err;
-    this.done = true;
     this.notify?.();
     this.notify = undefined;
   }
