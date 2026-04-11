@@ -12,6 +12,8 @@ import {
   type InitializeResponse,
   type NewSessionRequest,
   type NewSessionResponse,
+  type LoadSessionRequest,
+  type LoadSessionResponse,
   type AuthenticateRequest,
   type AuthenticateResponse,
   type SetSessionModeRequest,
@@ -32,13 +34,19 @@ class EchoAgent implements Agent {
   async initialize(_params: InitializeRequest): Promise<InitializeResponse> {
     return {
       protocolVersion: PROTOCOL_VERSION,
-      agentCapabilities: { loadSession: false },
+      agentCapabilities: { loadSession: true },
     };
   }
 
   async newSession(_params: NewSessionRequest): Promise<NewSessionResponse> {
-    const sessionId = crypto.randomUUID();
-    return { sessionId };
+    return { sessionId: crypto.randomUUID() };
+  }
+
+  async loadSession(params: LoadSessionRequest): Promise<LoadSessionResponse> {
+    if (params.sessionId !== "__testLoadSession") {
+      throw new Error(`unknown session: ${params.sessionId}`);
+    }
+    return {};
   }
 
   async authenticate(_params: AuthenticateRequest): Promise<AuthenticateResponse> {

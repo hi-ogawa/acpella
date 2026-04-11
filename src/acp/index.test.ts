@@ -13,15 +13,10 @@ describe(startAcpManager, () => {
       cwd: path.join(import.meta.dirname, "../.."),
     });
     const session = await manager.newSession();
-    onTestFinished(() => {
-      session.close();
-    });
+    onTestFinished(() => session.close());
 
     const result = session.prompt("hello");
-    const updates: unknown[] = [];
-    for await (const update of result.queue) {
-      updates.push(update);
-    }
+    const updates = await arrayFromAsyncIterator(result.queue);
     expect(updates).toMatchInlineSnapshot(`
       [
         {
@@ -34,4 +29,37 @@ describe(startAcpManager, () => {
       ]
     `);
   });
+
+  it("loadSession", async () => {
+    const manager = await startAcpManager({
+      command: "node src/test-agent.ts",
+      cwd: path.join(import.meta.dirname, "../.."),
+    });
+    const session = await manager.loadSession({
+      sessionId: "__testLoadSession",
+    });
+    onTestFinished(() => session.close());
+
+    const result = session.prompt("world");
+    const updates = await arrayFromAsyncIterator(result.queue);
+    expect(updates).toMatchInlineSnapshot(`
+      [
+        {
+          "content": {
+            "text": "echo: world",
+            "type": "text",
+          },
+          "sessionUpdate": "agent_message_chunk",
+        },
+      ]
+    `);
+  });
 });
+
+async function arrayFromAsyncIterator<T>(iter: AsyncIterable<T>): Promise<T[]> {
+  const result: T[] = [];
+  for await (const item of iter) {
+    result.push(item);
+  }
+  return result;
+}
