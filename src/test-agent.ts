@@ -3,6 +3,7 @@
 // Minimal ACP-compatible echo agent for testing.
 // Echoes back the prompt text as an agent_message_chunk.
 
+import { Readable, Writable } from "node:stream";
 import {
   AgentSideConnection,
   ndJsonStream,
@@ -20,7 +21,6 @@ import {
   type PromptResponse,
   type CancelNotification,
 } from "@agentclientprotocol/sdk";
-import { Readable, Writable } from "node:stream";
 
 class EchoAgent implements Agent {
   private connection: AgentSideConnection;

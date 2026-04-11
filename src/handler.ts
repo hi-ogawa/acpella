@@ -1,5 +1,5 @@
-import type { SessionNotification, SessionUpdate } from "@agentclientprotocol/sdk";
 import { fileURLToPath } from "node:url";
+import type { SessionNotification, SessionUpdate } from "@agentclientprotocol/sdk";
 import { spawnAsync, type SpawnResult } from "./spawn.ts";
 
 // use local dep binary instead of npx
