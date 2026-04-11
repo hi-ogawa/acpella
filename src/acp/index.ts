@@ -56,20 +56,18 @@ export async function startAcpAgent(command: string, cwd: string) {
   });
   const { sessionId } = newSessionResponse;
 
-  function subscribe(listener: (update: SessionUpdate) => void): () => void {
-    listeners.add(listener);
-    return () => listeners.delete(listener);
-  }
-
-  return {
+  const manager = {
     agentInfo,
     sessionId,
-    subscribe,
+    subscribe(listener: (update: SessionUpdate) => void): () => void {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
     // TODO: pending prompt
     // TODO: cancel prompt
     async *prompt(text: string): AsyncGenerator<SessionUpdate> {
       const queue = new AsyncQueue<SessionUpdate>();
-      const unsubscribe = subscribe((u) => queue.push(u));
+      const unsubscribe = manager.subscribe((u) => queue.push(u));
       connection
         .prompt({
           sessionId,
@@ -89,6 +87,8 @@ export async function startAcpAgent(command: string, cwd: string) {
       child.kill();
     },
   };
+
+  return manager;
 }
 
 export type AcpManager = Awaited<ReturnType<typeof startAcpAgent>>;
