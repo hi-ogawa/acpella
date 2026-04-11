@@ -11,7 +11,16 @@ import {
 
 // TODO: review slop (NEVER REMOVE THIS COMMENT)
 
-/** Spawn an agent adapter, initialize, and create a session. */
+// Design: session ownership
+//
+//   Option A: startAcpAgent → manager, manager.newSession() → session
+//     manager owns process lifecycle (spawn + initialize).
+//     session owns conversation lifecycle (newSession + prompt + close).
+//     The ACP protocol allows multiple sessions per process.
+//
+//   Option B: startAcpSession → session (each session owns its own process)
+//     Simpler. acpx actually does this — one process per named session.
+
 export async function startAcpAgent({ command, cwd }: { command: string; cwd: string }) {
   const [cmd, ...args] = command.trim().split(/\s+/);
   // TODO:
