@@ -1,4 +1,4 @@
-import fs from "node:fs/promises";
+import fs from "node:fs";
 import path from "node:path";
 import { startAcpManager, type AcpSession } from "./acp/index.ts";
 
@@ -31,18 +31,20 @@ export async function createHandler(): Promise<{
   // TODO: use generic config util
   const stateFile = path.join(resolved.cwd, "acpella.json");
 
-  async function readState(): Promise<Record<string, string>> {
+  function readState(): Record<string, string> {
+    if (!fs.existsSync(stateFile)) {
+      return {};
+    }
     try {
-      const raw = await fs.readFile(stateFile, "utf8");
-      return JSON.parse(raw) as Record<string, string>;
+      return JSON.parse(fs.readFileSync(stateFile, "utf8")) as Record<string, string>;
     } catch (e) {
       console.error("[acp] readState failed:", e);
       return {};
     }
   }
 
-  async function writeState(state: Record<string, string>): Promise<void> {
-    await fs.writeFile(stateFile, JSON.stringify(state, null, 2));
+  function writeState(state: Record<string, string>): void {
+    fs.writeFileSync(stateFile, JSON.stringify(state, null, 2));
   }
 
   async function ensureSession(name: string): Promise<AcpSession> {
@@ -50,7 +52,7 @@ export async function createHandler(): Promise<{
     if (existing) {
       return existing;
     }
-    const state = await readState();
+    const state = readState();
     const persistedId = state[name];
     if (persistedId) {
       try {
@@ -66,12 +68,12 @@ export async function createHandler(): Promise<{
     }
     const session = await manager.newSession({ sessionCwd: resolved.cwd });
     sessions.set(name, session);
-    await writeState({ ...state, [name]: session.sessionId });
+    writeState({ ...state, [name]: session.sessionId });
     return session;
   }
 
   async function removeSession(name: string): Promise<void> {
-    const state = await readState();
+    const state = readState();
     const sessionId = sessions.get(name)?.sessionId ?? state[name];
     sessions.get(name)?.close();
     sessions.delete(name);
@@ -84,7 +86,7 @@ export async function createHandler(): Promise<{
     }
     if (name in state) {
       const { [name]: _, ...rest } = state;
-      await writeState(rest);
+      writeState(rest);
     }
   }
 
