@@ -2,7 +2,7 @@ import { Bot } from "grammy";
 import { createHandler } from "./handler.ts";
 import { createTestBot, startTestBotRepl, type TestBot } from "./test-bot.ts";
 
-function main() {
+async function main() {
   const { handle, config: handlerConfig } = createHandler();
   const { agent, cwd } = handlerConfig;
 
@@ -44,8 +44,12 @@ function main() {
     const chatId = ctx.chat.id;
     const threadId = ctx.message.message_thread_id;
 
-    if (allowedChats.size > 0 && !allowedChats.has(chatId)) return;
-    if (!userId || (allowedUsers.size > 0 && !allowedUsers.has(userId))) return;
+    if (allowedChats.size > 0 && !allowedChats.has(chatId)) {
+      return;
+    }
+    if (!userId || (allowedUsers.size > 0 && !allowedUsers.has(userId))) {
+      return;
+    }
 
     const name = sessionName(chatId, threadId);
     const text = ctx.message.text;
@@ -68,9 +72,9 @@ function main() {
   console.log(`Starting daemon (agent: ${agent}, cwd: ${cwd}, test: ${testMode})`);
 
   if (testBot) {
-    startTestBotRepl(testBot);
+    await startTestBotRepl(testBot);
   } else {
-    bot.start();
+    await bot.start();
   }
 }
 
@@ -79,4 +83,7 @@ function sessionName(chatId: number, threadId?: number): string {
   return threadId ? `${base}-${threadId}` : base;
 }
 
-main();
+main().catch((err) => {
+  console.error(err);
+  process.exitCode = 1;
+});
