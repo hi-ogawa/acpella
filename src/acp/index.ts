@@ -7,6 +7,7 @@ import {
   ndJsonStream,
   type Client,
   type SessionUpdate,
+  type ListSessionsResponse,
 } from "@agentclientprotocol/sdk";
 
 // TODO: review slop (NEVER REMOVE THIS COMMENT)
@@ -26,11 +27,19 @@ import {
 // TODO: differentiate command cwd and session cwd
 export async function startAcpManager(options: { command: string; cwd: string }) {
   return {
-    newSession: () => {
+    newSession() {
       return spawnSession(options);
     },
-    loadSession: (sessionOptions: { sessionId: string }) => {
+    loadSession(sessionOptions: { sessionId: string }) {
       return spawnSession({ ...options, ...sessionOptions });
+    },
+    async listSessions(): Promise<ListSessionsResponse> {
+      const agent = await spawnAgent(options);
+      try {
+        return await agent.connection.listSessions({ cwd: options.cwd });
+      } finally {
+        agent.child.kill();
+      }
     },
   };
 }

@@ -35,6 +35,18 @@ describe(startAcpManager, () => {
       command: "node src/test-agent.ts",
       cwd: path.join(import.meta.dirname, "../.."),
     });
+    const listedSessions = await manager.listSessions();
+    expect(listedSessions).toMatchInlineSnapshot(`
+      {
+        "sessions": [
+          {
+            "cwd": "/",
+            "sessionId": "__testLoadSession",
+          },
+        ],
+      }
+    `);
+
     const session = await manager.loadSession({
       sessionId: "__testLoadSession",
     });

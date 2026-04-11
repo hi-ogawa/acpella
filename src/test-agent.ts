@@ -14,6 +14,8 @@ import {
   type NewSessionResponse,
   type LoadSessionRequest,
   type LoadSessionResponse,
+  type ListSessionsRequest,
+  type ListSessionsResponse,
   type AuthenticateRequest,
   type AuthenticateResponse,
   type SetSessionModeRequest,
@@ -47,6 +49,12 @@ class EchoAgent implements Agent {
       throw new Error(`unknown session: ${params.sessionId}`);
     }
     return {};
+  }
+
+  async listSessions(_params: ListSessionsRequest): Promise<ListSessionsResponse> {
+    return {
+      sessions: [{ sessionId: "__testLoadSession", cwd: "/" }],
+    };
   }
 
   async authenticate(_params: AuthenticateRequest): Promise<AuthenticateResponse> {
