@@ -37,6 +37,8 @@ export async function startAcpAgent({ command, cwd }: { command: string; cwd: st
     },
     async sessionUpdate(params) {
       for (const fn of listeners) {
+        // TODO
+        // params.sessionId;
         fn(params.update);
       }
     },
