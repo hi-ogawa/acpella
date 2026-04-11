@@ -45,6 +45,7 @@ Task docs should enable **handoff to a fresh agent** - include enough context to
 - Prefer `undefined` over `null`
 - Prefer optional properties (`{ x?: T }`) over explicit undefined (`{ x: T | undefined }`)
 - Make props/params required when all call sites always pass them
+- Prefer a single options object over multiple primitive arguments (e.g. `fn({ a, b })` not `fn(a, b)`)
 - Import with `.ts` extensions (NodeNext resolution)
 
 ## Rule
