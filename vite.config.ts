@@ -3,6 +3,9 @@ import { defineConfig } from "vite-plus";
 export default defineConfig({
   fmt: {
     ignorePatterns: ["./refs/**"],
+    sortImports: {
+      newlinesBetween: false,
+    },
   },
   lint: {
     ignorePatterns: ["./refs/**"],
