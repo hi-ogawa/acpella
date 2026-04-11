@@ -5,7 +5,8 @@ import {
   ClientSideConnection,
   PROTOCOL_VERSION,
   ndJsonStream,
-  type Agent,
+  type SessionNotification,
+  type RequestPermissionRequest,
   type Client,
   type InitializeRequest,
   type NewSessionRequest,
@@ -46,25 +47,24 @@ export class AcpManager {
       Readable.toWeb(child.stdout!) as ReadableStream,
     );
 
-    // Inherent cycle: the SDK requires clientImpl at connection construction time,
-    // but clientImpl needs to dispatch updates to the session's listeners — which
-    // don't exist yet. We break it by hoisting listeners into the closure so
-    // clientImpl can close over it directly, then pass it into the constructor
-    // rather than referencing `this`.
     const listeners = new Set<(u: SessionUpdate) => void>();
 
-    const clientImpl: Client = {
-      async requestPermission(params) {
+    const client: Client = {
+      async requestPermission(params: RequestPermissionRequest) {
         const first = params.options[0];
-        if (!first) return { outcome: { outcome: "cancelled" } };
+        if (!first) {
+          return { outcome: { outcome: "cancelled" } };
+        }
         return { outcome: { outcome: "selected", optionId: first.optionId } };
       },
-      async sessionUpdate(n) {
-        for (const fn of listeners) fn(n.update);
+      async sessionUpdate(params: SessionNotification) {
+        for (const fn of listeners) {
+          fn(params.update);
+        }
       },
     };
 
-    const connection = new ClientSideConnection((_agent: Agent) => clientImpl, stream);
+    const connection = new ClientSideConnection(() => client, stream);
     await connection.initialize({
       protocolVersion: PROTOCOL_VERSION,
       clientCapabilities: {},
