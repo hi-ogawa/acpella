@@ -26,12 +26,17 @@ export class AsyncQueue<T> {
 
   async *[Symbol.asyncIterator](): AsyncGenerator<T> {
     while (!this.done || this.queue.length > 0) {
-      while (this.queue.length > 0) yield this.queue.shift()!;
-      if (!this.done)
+      while (this.queue.length > 0) {
+        yield this.queue.shift()!;
+      }
+      if (!this.done) {
         await new Promise<void>((r) => {
           this.notify = r;
         });
+      }
     }
-    if (this.err !== undefined) throw this.err;
+    if (this.err !== undefined) {
+      throw this.err;
+    }
   }
 }
