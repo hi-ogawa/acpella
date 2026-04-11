@@ -68,20 +68,18 @@ export async function startAcpAgent({ command, cwd }: { command: string; cwd: st
     prompt(text: string) {
       const queue = new AsyncQueue<SessionUpdate>();
       const unsubscribe = manager.subscribe((u) => queue.push(u));
-      const promise = (async () => {
-        try {
-          await connection.prompt({
-            sessionId,
-            prompt: [{ type: "text", text }],
-          });
-          queue.finish();
-        } catch (e) {
-          queue.finish(e);
-          throw e;
-        } finally {
+      const promise = connection.prompt({
+        sessionId,
+        prompt: [{ type: "text", text }],
+      });
+      promise
+        .then(
+          () => queue.finish(),
+          (e) => queue.finish(e),
+        )
+        .finally(() => {
           unsubscribe();
-        }
-      })();
+        });
       return {
         promise,
         queue,
@@ -94,5 +92,3 @@ export async function startAcpAgent({ command, cwd }: { command: string; cwd: st
 
   return manager;
 }
-
-export type AcpManager = Awaited<ReturnType<typeof startAcpAgent>>;
