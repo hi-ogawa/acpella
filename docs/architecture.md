@@ -2,22 +2,22 @@
 
 ## Overview
 
-acpella is a thin daemon that bridges a messaging channel (Telegram) to a coding agent via ACP (Agent Client Protocol). It replaces OpenClaw with ~150 lines by delegating all agent complexity to acpx.
+acpella is a thin service that bridges a messaging channel (Telegram) to a coding agent via ACP (Agent Client Protocol). It replaces OpenClaw with ~150 lines by delegating all agent complexity to acpx.
 
 ```
 Telegram  ──►  acpella  ──►  acpx  ──►  agent (Codex, Claude Code, ...)
-              (daemon)     (CLI)        (ACP subprocess)
+              (service)    (CLI)        (ACP subprocess)
 ```
 
-**Why ACP**: ACP is the protocol Zed, Cursor, and other editors use to talk to coding agents. By speaking ACP, acpella is agent-agnostic — swap `ACPELLA_AGENT=codex` for `ACPELLA_AGENT=claude` without changing the daemon. The agent binary manages its own session state, tool execution, and memory.
+**Why ACP**: ACP is the protocol Zed, Cursor, and other editors use to talk to coding agents. By speaking ACP, acpella is agent-agnostic — swap `ACPELLA_AGENT=codex` for `ACPELLA_AGENT=claude` without changing the service. The agent binary manages its own session state, tool execution, and memory.
 
-**Why acpx**: acpx is a standalone ACP client CLI. acpella shells out to it instead of speaking ACP directly, which keeps the daemon code minimal and offloads session management to acpx.
+**Why acpx**: acpx is a standalone ACP client CLI. acpella shells out to it instead of speaking ACP directly, which keeps the service code minimal and offloads session management to acpx.
 
 ## Components
 
 ### `src/index.ts`
 
-Single-file daemon. Three sections:
+Single-file service. Three sections:
 
 **acpx interface** — `ensureSession` and `acpxPrompt` shell out to `node_modules/.bin/acpx`. `acpxPrompt` runs `acpx ... prompt <text>` with `--format json`, capturing stdout as JSONRPC-envelope newline-delimited JSON, then extracts `agent_message_chunk` text to assemble the response.
 
@@ -42,7 +42,7 @@ acpxPrompt(sessionName, text)
   │
   └─► acpx --format json <agent> prompt <text>
         agent runs, streams JSONRPC lines to stdout
-        daemon collects agent_message_chunk lines → joins text
+        service collects agent_message_chunk lines → joins text
   │
   ▼
 ctx.reply(response)
@@ -82,8 +82,8 @@ acpella extracts text by filtering `params.update.sessionUpdate === "agent_messa
 
 ## Key decisions
 
-**Single file** — the daemon is small enough that modules add indirection without benefit. Split when it grows.
+**Single file** — the service is small enough that modules add indirection without benefit. Split when it grows.
 
 **Shell out to acpx** — avoids owning the ACP client/session lifecycle. Tradeoff: subprocess overhead per prompt, no streaming to Telegram. Acceptable for a personal assistant.
 
-**No database** — session state lives in acpx. Memory lives in the agent's working directory (`ACPELLA_HOME`). The daemon is stateless and restartable.
+**No database** — session state lives in acpx. Memory lives in the agent's working directory (`ACPELLA_HOME`). The service is stateless and restartable.

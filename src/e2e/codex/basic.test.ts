@@ -2,7 +2,7 @@ import path from "node:path";
 import { beforeAll, it, vi } from "vitest";
 import { ACPX_BIN } from "../../handler.ts";
 import { spawnAsync } from "../../spawn.ts";
-import { startDaemon } from "../helper.ts";
+import { startService } from "../helper.ts";
 
 const FIXTURES_DIR = path.join(import.meta.dirname, "fixtures");
 const TEST_CHAT_ID = `10101010`;
@@ -34,14 +34,14 @@ beforeAll(async () => {
 });
 
 it("round-trip with real codex", async ({ onTestFinished }) => {
-  const daemon = startDaemon({
+  const service = startService({
     ACPELLA_HOME: FIXTURES_DIR,
     ACPELLA_TEST_CHAT_ID: TEST_CHAT_ID,
   });
   onTestFinished(async () => {
-    await daemon.stop();
+    await service.stop();
   });
-  await daemon.waitForLine("Starting daemon");
-  daemon.send("reply with exactly: pong");
-  await daemon.waitForLine("pong");
+  await service.waitForLine("Starting service");
+  service.send("reply with exactly: pong");
+  await service.waitForLine("pong");
 });

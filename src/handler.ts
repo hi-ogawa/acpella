@@ -93,7 +93,7 @@ export interface HandlerConfig {
 }
 
 export function formatStatus(agent: string, cwd: string): string {
-  return ["daemon state: running", `configured agent: ${agent}`, `working directory: ${cwd}`].join(
+  return ["service state: running", `configured agent: ${agent}`, `working directory: ${cwd}`].join(
     "\n",
   );
 }

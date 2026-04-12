@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 
 // TODO: review slop
 
-export function startDaemon(env?: Record<string, string>) {
+export function startService(env?: Record<string, string>) {
   const child = spawn("node", ["src/index.ts"], {
     cwd: import.meta.dirname + "/../..",
     env: {
