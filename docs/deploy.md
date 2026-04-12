@@ -5,8 +5,8 @@ Run acpella alongside existing openclaw on the same machine.
 ## Setup
 
 ```bash
-git clone https://github.com/hi-ogawa/acpella ~/code/personal/acpella
-cd ~/code/personal/acpella
+git clone https://github.com/hi-ogawa/acpella
+cd acpella
 pnpm install
 cp .env.example .env
 # fill in ACPELLA_TELEGRAM_BOT_TOKEN and ACPELLA_TELEGRAM_ALLOWED_USER_IDS
