@@ -52,7 +52,8 @@ export function loadConfig(): AppConfig {
       allowedUserIds: parseIdList(env.ACPELLA_TELEGRAM_ALLOWED_USER_IDS) ?? [],
       allowedChatIds: parseIdList(env.ACPELLA_TELEGRAM_ALLOWED_CHAT_IDS) ?? [],
     },
-    testChatId: parseOptionalId(env.ACPELLA_TEST_CHAT_ID) ?? 123,
+    // TODO: make use of this for test
+    testChatId: parseOptionalId(env.ACPELLA_TEST_CHAT_ID) ?? 10101010,
   };
 }
 

@@ -2,12 +2,10 @@
 
 ## Quick Reference
 
-| Command      | When                          |
-| ------------ | ----------------------------- |
-| `pnpm start` | Run service (requires `.env`) |
-| `pnpm dev`   | Run service with --watch      |
-| `pnpm test`  | E2E smoke test (vitest)       |
-| `pnpm lint`  | Lint                          |
+| Command     | When                    |
+| ----------- | ----------------------- |
+| `pnpm test` | E2E smoke test (vitest) |
+| `pnpm lint` | Lint                    |
 
 ## Key Docs
 
