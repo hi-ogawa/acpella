@@ -24,7 +24,7 @@ export async function createHandler(config: AppConfig): Promise<{
   const manager = await startAcpManager({ command: config.agent.command, cwd: config.home });
   const state = createSessionStateStore(config);
 
-  async function promptSession(name: string, text: string): Promise<string> {
+  async function handlePrompt(name: string, text: string): Promise<string> {
     const persistedId = state.getSessionId(name);
     const isNewSession = !persistedId;
     const session = persistedId
@@ -57,8 +57,9 @@ export async function createHandler(config: AppConfig): Promise<{
     }
   }
 
-  async function removeSession(name: string): Promise<void> {
-    const sessionId = state.getSessionId(name);
+  async function handleCloseSession(name: string, sessionIdArg?: string): Promise<void> {
+    const currentSessionId = state.getSessionId(name);
+    const sessionId = sessionIdArg ?? currentSessionId;
     if (sessionId) {
       try {
         await manager.closeSession({ sessionId });
@@ -66,11 +67,12 @@ export async function createHandler(config: AppConfig): Promise<{
         console.error("[acp] closeSession failed:", e);
       }
     }
-    state.deleteSession(name);
+    if (!sessionIdArg || sessionIdArg === currentSessionId) {
+      state.deleteSession(name);
+    }
   }
 
-  async function createNewSession(name: string): Promise<string> {
-    await removeSession(name);
+  async function handleNewSession(name: string): Promise<string> {
     const session = await manager.newSession({ sessionCwd: config.home });
     try {
       state.setSessionId(name, session.sessionId);
@@ -80,7 +82,7 @@ export async function createHandler(config: AppConfig): Promise<{
     }
   }
 
-  async function loadSession(name: string, sessionId: string | undefined): Promise<string> {
+  async function handleLoadSession(name: string, sessionId: string | undefined): Promise<string> {
     if (!sessionId) {
       return "Usage: /session load <sessionId>";
     }
@@ -93,7 +95,7 @@ export async function createHandler(config: AppConfig): Promise<{
     }
   }
 
-  function formatCurrentSession(name: string): string {
+  function handleCurrentSession(name: string): string {
     return [
       `session: ${name}`,
       `agent: ${config.agent.alias}`,
@@ -101,7 +103,7 @@ export async function createHandler(config: AppConfig): Promise<{
     ].join("\n");
   }
 
-  async function formatDebug(): Promise<string> {
+  async function handleListSessions(): Promise<string> {
     const stateSessions = state.listSessions();
     const agentSessions = await manager.listSessions();
     const agentSessionIds = new Set(agentSessions.sessions.map((session) => session.sessionId));
@@ -140,15 +142,15 @@ export async function createHandler(config: AppConfig): Promise<{
     }
     switch (subcommand) {
       case undefined:
-        return formatCurrentSession(sessionName);
+        return handleCurrentSession(sessionName);
       case "list":
-        return formatDebug();
+        return handleListSessions();
       case "new":
-        return createNewSession(sessionName);
+        return handleNewSession(sessionName);
       case "load":
-        return loadSession(sessionName, args[0]);
+        return handleLoadSession(sessionName, args[0]);
       case "close":
-        await removeSession(sessionName);
+        await handleCloseSession(sessionName, args[0]);
         return "Session closed. Next message will start a fresh session.";
       default:
         return [
@@ -157,7 +159,7 @@ export async function createHandler(config: AppConfig): Promise<{
           "/session list",
           "/session new",
           "/session load <sessionId>",
-          "/session close",
+          "/session close [sessionId]",
         ].join("\n");
     }
   }
@@ -171,7 +173,7 @@ export async function createHandler(config: AppConfig): Promise<{
       return sessionCommandResponse;
     }
 
-    return promptSession(sessionName, text);
+    return handlePrompt(sessionName, text);
   };
 
   return { handle };
