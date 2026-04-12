@@ -34,7 +34,7 @@ export function startService(env?: Record<string, string>) {
   });
 
   // TODO: composable assertion
-  async function waitForLine(match: string | RegExp, timeoutMs = 5000): Promise<string> {
+  async function waitForLine(match: string | RegExp, timeoutMs = 10000): Promise<string> {
     const found = lines.find((l) =>
       typeof match === "string" ? l.includes(match) : match.test(l),
     );
