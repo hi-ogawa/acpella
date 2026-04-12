@@ -287,12 +287,12 @@ function splitMessageText(text: string, limit: number): string[] {
   const parts: string[] = [];
   let remaining = text.trim();
   while (remaining.length > limit) {
-    const splitIndex = findSplitIndex(remaining, limit);
-    const part = remaining.slice(0, splitIndex).trim();
+    const result = splitHead(remaining, limit);
+    const part = result.head.trim();
     if (part) {
       parts.push(part);
     }
-    remaining = remaining.slice(splitIndex).trim();
+    remaining = result.tail.trim();
   }
   if (remaining) {
     parts.push(remaining);
