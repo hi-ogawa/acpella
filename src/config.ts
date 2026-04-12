@@ -47,7 +47,6 @@ const rawConfigSchema = z
     agent: z.string().min(1).optional(),
     agents: z.record(z.string().min(1), rawAgentSchema).optional(),
     home: z.string().min(1).optional(),
-    stateFile: z.string().min(1).optional(),
     telegram: z
       .object({
         allowedUserIds: z.array(z.number().int()).optional(),
@@ -89,11 +88,6 @@ export function loadConfig(): AppConfig {
     envHome: env.ACPELLA_HOME,
   });
 
-  const stateFile = resolveStateFile({
-    home,
-    fileStateFile: fileConfig?.stateFile,
-  });
-
   const agents = resolveAgents({
     configDir,
     fileAgents: fileConfig?.agents,
@@ -105,7 +99,7 @@ export function loadConfig(): AppConfig {
   return {
     agent,
     home,
-    stateFile,
+    stateFile: path.join(home, ".acpella", "state.json"),
     telegram: {
       token: env.ACPELLA_TELEGRAM_BOT_TOKEN,
       allowedUserIds:
@@ -134,11 +128,6 @@ function resolveHome(options: {
     return path.resolve(options.configDir, options.fileHome);
   }
   return process.cwd();
-}
-
-function resolveStateFile(options: { home: string; fileStateFile: string | undefined }): string {
-  const raw = options.fileStateFile ?? ".acpella/state.json";
-  return path.isAbsolute(raw) ? raw : path.resolve(options.home, raw);
 }
 
 function resolveAgents(options: {
