@@ -1,89 +1,34 @@
 # Architecture
 
-## Overview
+## Purpose
 
-acpella is a thin service that bridges a messaging channel (Telegram) to a coding agent via ACP (Agent Client Protocol). It replaces OpenClaw with ~150 lines by delegating all agent complexity to acpx.
+acpella is a drastically simplified OpenClaw replacement: a small service that connects Telegram conversations to an ACP-compatible AI agent. The goal is to keep messaging, routing, and safety policy in acpella while leaving agent memory, tool execution, workspace behavior, and model-specific features to the agent.
 
-```
-Telegram  ──►  acpella  ──►  acpx  ──►  agent (Codex, Claude Code, ...)
-              (service)    (CLI)        (ACP subprocess)
-```
+Telegram is the first messaging surface; ACP is the agent boundary, so the service can use different ACP agents without redesigning the messaging layer.
 
-**Why ACP**: ACP is the protocol Zed, Cursor, and other editors use to talk to coding agents. By speaking ACP, acpella is agent-agnostic — swap `ACPELLA_AGENT=codex` for `ACPELLA_AGENT=claude` without changing the service. The agent binary manages its own session state, tool execution, and memory.
+## System Model
 
-**Why acpx**: acpx is a standalone ACP client CLI. acpella shells out to it instead of speaking ACP directly, which keeps the service code minimal and offloads session management to acpx.
-
-## Components
-
-### `src/cli.ts`
-
-Single-file service. Three sections:
-
-**acpx interface** — `ensureSession` and `acpxPrompt` shell out to `node_modules/.bin/acpx`. `acpxPrompt` runs `acpx ... prompt <text>` with `--format json`, capturing stdout as JSONRPC-envelope newline-delimited JSON, then extracts `agent_message_chunk` text to assemble the response.
-
-**Telegram** — grammy long-polling bot. One handler: `message:text`. Maps each chat/thread to a session name (`tg-<chatId>` or `tg-<chatId>-<threadId>`), calls `acpxPrompt`, replies with the result.
-
-**main** — reads env config, constructs the bot, starts polling.
-
-## Data flow
-
-```
-User sends Telegram message
-  │
-  ▼
-grammy bot handler
-  │  checks allowlists (ACPELLA_TELEGRAM_ALLOWED_USER_IDS, ACPELLA_TELEGRAM_ALLOWED_CHAT_IDS)
-  │  derives session name from chatId + threadId
-  ▼
-acpxPrompt(sessionName, text)
-  │
-  ├─► ensureSession → acpx sessions ensure
-  │     starts agent subprocess if not running
-  │
-  └─► acpx --format json <agent> prompt <text>
-        agent runs, streams JSONRPC lines to stdout
-        service collects agent_message_chunk lines → joins text
-  │
-  ▼
-ctx.reply(response)
+```text
+Telegram / local REPL
+  -> acpella conversation router
+  -> ACP agent adapter
+  -> AI agent
 ```
 
-## Session model
+The messaging side handles identity, chat/thread context, and replies. The router decides whether a message is a local service command or an agent prompt. The ACP side talks to the selected agent and returns assistant text.
 
-Each Telegram chat maps to one acpx session:
+## Conversation Model
 
-| Chat type    | Session name             |
-| ------------ | ------------------------ |
-| DM           | `tg-<chatId>`            |
-| Group        | `tg-<chatId>`            |
-| Forum thread | `tg-<chatId>-<threadId>` |
+Each Telegram conversation maps to one agent conversation. Direct chats and normal group chats use the chat id. Forum topics include the thread id so separate topics do not share context.
 
-`ensureSession` is called before every prompt — acpx is idempotent if the session already exists. The agent process runs as a long-lived subprocess managed by acpx; acpella does not own its lifecycle.
+acpella stores only the lightweight mapping needed to reconnect a messaging conversation to an agent conversation. The agent owns its own memory, workspace state, tool execution, and resumability.
 
-## acpx output format
+## Operational Model
 
-`acpx --format json` emits newline-delimited JSONRPC 2.0 envelopes:
+Telegram access is restricted by a required user allowlist and an optional chat allowlist. Local service commands are handled by acpella and are not sent to the agent.
 
-```json
-{
-  "jsonrpc": "2.0",
-  "method": "session/update",
-  "params": {
-    "sessionId": "...",
-    "update": {
-      "sessionUpdate": "agent_message_chunk",
-      "content": { "type": "text", "text": "Hello" }
-    }
-  }
-}
-```
+The service is restartable: local conversation mappings are kept on disk, while deeper agent state remains with the agent. If the agent cannot start, cannot resume a conversation, or fails during a prompt, acpella reports a bounded error back to the messaging surface.
 
-acpella extracts text by filtering `params.update.sessionUpdate === "agent_message_chunk"` and joining `params.update.content.text` chunks.
+## Tradeoffs
 
-## Key decisions
-
-**Single file** — the service is small enough that modules add indirection without benefit. Split when it grows.
-
-**Shell out to acpx** — avoids owning the ACP client/session lifecycle. Tradeoff: subprocess overhead per prompt, no streaming to Telegram. Acceptable for a personal assistant.
-
-**No database** — session state lives in acpx. Memory lives in the agent's working directory (`ACPELLA_HOME`). The service is stateless and restartable.
+acpella intentionally keeps little state and avoids a database. Responses are currently returned after the agent finishes rather than streamed. Message queueing, Telegram formatting, long-message splitting, and scheduled prompts are delivery-layer features that can be added without changing the ACP boundary.
