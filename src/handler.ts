@@ -92,7 +92,7 @@ export async function createHandler(config: AppConfig): Promise<{
       name,
       text: promptText,
     });
-    return [`Created session: ${result.sessionId}`, result.text || "(no response)"].join("\n\n");
+    return result.text || "(no response)";
   }
 
   async function handleLoadSession(name: string, sessionId: string | undefined): Promise<string> {
