@@ -30,7 +30,7 @@ export function spawnAsync(
 
     const child = spawn(bin, args, {
       cwd: options.cwd,
-      env: options.env ?? { ...process.env },
+      env: options.env,
       stdio: ["ignore", "pipe", "pipe"],
     });
 

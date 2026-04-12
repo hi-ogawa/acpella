@@ -1,30 +1,24 @@
 import { Bot } from "grammy";
+import { loadConfig } from "./config.ts";
 import { createHandler } from "./handler.ts";
 import { createTestBot, startTestBotRepl, type TestBot } from "./test-bot.ts";
 
 async function main() {
-  const { handle, config } = await createHandler();
-  const { agent, cwd } = config;
-
-  const allowedUsers = new Set(
-    (process.env.ACPELLA_TELEGRAM_ALLOWED_USER_IDS ?? "").split(",").filter(Boolean).map(Number),
-  );
-  const allowedChats = new Set(
-    (process.env.ACPELLA_TELEGRAM_ALLOWED_CHAT_IDS ?? "").split(",").filter(Boolean).map(Number),
-  );
+  const config = loadConfig();
+  const { handle } = await createHandler(config);
+  const allowedUsers = new Set(config.telegram.allowedUserIds);
+  const allowedChats = new Set(config.telegram.allowedChatIds);
 
   // --- create bot (real or test) ---
 
-  const testMode = !!process.env.ACPELLA_TEST_BOT;
   let bot: Bot;
   let testBot: TestBot | undefined;
 
-  if (testMode) {
-    testBot = createTestBot();
+  if (config.testMode) {
+    testBot = createTestBot({ chatId: config.testChatId });
     bot = testBot.bot;
   } else {
-    const token = process.env.ACPELLA_TELEGRAM_BOT_TOKEN;
-    if (!token) {
+    if (!config.telegram.token) {
       console.error("ACPELLA_TELEGRAM_BOT_TOKEN is required");
       process.exitCode = 1;
       return;
@@ -34,7 +28,7 @@ async function main() {
       process.exitCode = 1;
       return;
     }
-    bot = new Bot(token);
+    bot = new Bot(config.telegram.token);
   }
 
   // --- wire handler (shared between real and test) ---
@@ -69,7 +63,9 @@ async function main() {
 
   // --- start ---
 
-  console.log(`Starting service (agent: ${agent}, cwd: ${cwd}, test: ${testMode})`);
+  console.log(
+    `Starting service (agent: ${config.agent.alias}, home: ${config.home}, test: ${config.testMode})`,
+  );
 
   if (testBot) {
     await startTestBotRepl(testBot);
