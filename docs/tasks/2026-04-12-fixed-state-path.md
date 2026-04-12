@@ -29,5 +29,7 @@ resolved runtime value, and force the persistence file under the resolved app ho
 5. Keep `state.ts` consuming `config.stateFile`.
 6. Remove redundant `home` data from persisted state scopes because the state file is already
    stored under the resolved home.
-7. Keep tests isolated through the existing temporary `ACPELLA_HOME`.
-8. Run lint and the unit/e2e smoke tests.
+7. Remove redundant `agent` metadata from persisted state scopes because the scope key is already
+   the resolved agent command.
+8. Keep tests isolated through the existing temporary `ACPELLA_HOME`.
+9. Run lint and the unit/e2e smoke tests.

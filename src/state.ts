@@ -16,10 +16,6 @@ const stateSchema = z
     scopes: z.record(
       z.string().min(1),
       z.object({
-        agent: z.object({
-          alias: z.string().min(1),
-          command: z.string().min(1),
-        }),
         sessions: z.record(
           z.string().min(1),
           z.object({
@@ -63,7 +59,6 @@ export function createSessionStateStore(
       return existing;
     }
     const scope: Scope = {
-      agent: config.agent,
       sessions: {},
     };
     state.scopes[scopeKey] = scope;
