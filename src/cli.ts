@@ -37,7 +37,7 @@ async function main() {
 
 Options:
   --repl                 Run local in-process REPL.
-  --setup-systemd        Print a systemd unit for this checkout.
+  --setup-systemd        Setup systemd service.
   -h, --help             Show this help.
 `);
     return;
