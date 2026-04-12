@@ -25,7 +25,7 @@ Type=simple
 User=hiroshi
 WorkingDirectory=/home/hiroshi/code/personal/acpella
 EnvironmentFile=/home/hiroshi/code/personal/acpella/.env
-ExecStart=/usr/bin/node src/index.ts
+ExecStart=/usr/bin/node src/cli.ts
 Restart=on-failure
 RestartSec=10
 

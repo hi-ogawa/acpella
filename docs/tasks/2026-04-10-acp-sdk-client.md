@@ -20,7 +20,7 @@ Replace `src/handler.ts` with an in-process ACP client:
 3. **Hold sessions in memory** — a `Map<sessionName, { conn, agentSessionId }>` in the daemon process; sessions survive across messages, reset on `/reset`, lost on daemon restart (acceptable for MVP)
 4. **No prompt queue needed** — grammY serializes updates per-chat already
 
-External API (`handle(text, session)`) stays the same. Nothing in `index.ts` changes.
+External API (`handle(text, session)`) stays the same. Nothing in `cli.ts` changes.
 
 ## Reference
 
