@@ -40,15 +40,21 @@ export async function createHandler(config: AppConfig): Promise<{
         isNewSession && config.prompt.text
           ? formatFirstPrompt({ customPrompt: config.prompt.text, userText: text })
           : text;
-      const response = await promptAndCollect({
-        session,
-        text: promptText,
-        logPrefix: "[acp:update]",
-      });
+      const { queue } = session.prompt(promptText);
+      const texts: string[] = [];
+      for await (const update of queue) {
+        if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
+          texts.push(update.content.text);
+        } else if (update.sessionUpdate === "tool_call") {
+          console.log(`[acp:update] tool_call: ${update.title}`);
+        } else {
+          console.log(`[acp:update] ${update.sessionUpdate}`);
+        }
+      }
       if (isNewSession) {
         state.setSessionId(name, session.sessionId);
       }
-      return response || "(no response)";
+      return texts.join("") || "(no response)";
     } finally {
       session.close();
     }
@@ -195,29 +201,6 @@ function formatAgentSessions(response: Pick<ListSessionsResponse, "sessions">): 
       .filter(Boolean)
       .join(" "),
   );
-}
-
-type HandlerSession = Awaited<
-  ReturnType<Awaited<ReturnType<typeof startAcpManager>>["newSession"]>
->;
-
-async function promptAndCollect(options: {
-  session: HandlerSession;
-  text: string;
-  logPrefix: string;
-}): Promise<string> {
-  const { queue } = options.session.prompt(options.text);
-  const texts: string[] = [];
-  for await (const update of queue) {
-    if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
-      texts.push(update.content.text);
-    } else if (update.sessionUpdate === "tool_call") {
-      console.log(`${options.logPrefix} tool_call: ${update.title}`);
-    } else {
-      console.log(`${options.logPrefix} ${update.sessionUpdate}`);
-    }
-  }
-  return texts.join("");
 }
 
 function formatFirstPrompt(options: { customPrompt: string; userText: string }): string {
