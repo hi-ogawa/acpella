@@ -17,21 +17,13 @@ export interface AppConfig {
   testChatId: number;
 }
 
-interface AgentAlias {
-  command: string;
-}
-
-const builtinAgents: Record<string, AgentAlias> = {
-  codex: {
-    command: path.join(
-      import.meta.dirname,
-      "..",
-      "node_modules/@zed-industries/codex-acp/bin/codex-acp.js",
-    ),
-  },
-  test: {
-    command: `node ${path.join(import.meta.dirname, "lib/test-agent.ts")}`,
-  },
+const builtinAgents: Record<string, string> = {
+  codex: path.join(
+    import.meta.dirname,
+    "..",
+    "node_modules/@zed-industries/codex-acp/bin/codex-acp.js",
+  ),
+  test: `node ${path.join(import.meta.dirname, "lib/test-agent.ts")}`,
 };
 
 const envSchema = z
@@ -71,7 +63,7 @@ function resolveAgent(options: { name: string }): AppConfig["agent"] {
   const alias = options.name;
   const knownAgent = builtinAgents[alias];
   if (knownAgent) {
-    return { alias, command: knownAgent.command };
+    return { alias, command: knownAgent };
   }
   return { alias, command: alias };
 }
