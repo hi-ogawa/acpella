@@ -4,9 +4,9 @@
   "type": "module",
   "scripts": {
     "prepare": "vp config",
-    "start": "node --env-file=.env src/index.ts",
-    "dev": "node --env-file=.env --watch src/index.ts",
-    "repl": "node src/index.ts --repl",
+    "start": "node --env-file=.env src/cli.ts",
+    "dev": "node --env-file=.env --watch src/cli.ts",
+    "repl": "node src/cli.ts --repl",
     "test": "vitest --project=unit",
     "test-codex": "vitest --project=codex",
     "lint": "vp check --fix",

@@ -1,6 +1,6 @@
 // In-process test bot: real grammy Bot, fake transport.
 // Bot receives updates via handleUpdate(), replies are captured in-memory.
-// Activated from index.ts via --repl.
+// Activated from cli.ts via --repl.
 
 import { createInterface } from "node:readline/promises";
 import { Bot } from "grammy";

@@ -15,7 +15,7 @@ policy.
 ## Reference Files
 
 - [`src/handler.ts`](../../src/handler.ts) - currently owns env reads and session state persistence
-- [`src/index.ts`](../../src/index.ts) - currently owns Telegram env reads and service wiring
+- [`src/cli.ts`](../../src/cli.ts) - currently owns Telegram env reads and service wiring
 - [`docs/prd.md`](../prd.md) - tracks `refactor: env config util`
 - [`docs/architecture.md`](../architecture.md) - describes current service/session model
 
@@ -191,7 +191,7 @@ Recommended split:
 - `src/handler.ts`
   - accepts resolved handler/session config
   - does not inspect env or config files
-- `src/index.ts`
+- `src/cli.ts`
   - calls `loadConfig()`
   - wires Telegram and handler from typed config
 
@@ -246,6 +246,6 @@ Resolve paths once in `src/config.ts` and expose absolute paths in `AppConfig`.
 2. Add `src/state.ts` with versioned state parsing/writing and scoped session APIs.
 3. Refactor `src/handler.ts` to accept resolved config and state helpers instead of reading env or
    touching `acpella.json` directly.
-4. Refactor `src/index.ts` to call `loadConfig()` once and pass typed config into Telegram and
+4. Refactor `src/cli.ts` to call `loadConfig()` once and pass typed config into Telegram and
    handler setup.
 5. Update tests to use config/env overrides without relying on repo-root `acpella.json`.

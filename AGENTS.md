@@ -22,7 +22,7 @@
 
 Thin service: Telegram ↔ acpx ↔ coding agent (Codex, Claude Code, etc.).
 
-- **`src/index.ts`** — single-file service: config, acpx interface, telegram bot, entry point
+- **`src/cli.ts`** — single-file service: config, acpx interface, telegram bot, entry point
 
 Each Telegram chat maps to a named acpx session (`tg-<chatId>`). Forum threads get `tg-<chatId>-<threadId>`. The agent (acpx) runs as a subprocess; its binary is at `node_modules/.bin/acpx`.
 
