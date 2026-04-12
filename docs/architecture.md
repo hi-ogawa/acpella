@@ -2,16 +2,16 @@
 
 ## Overview
 
-acpella is a thin service that bridges a messaging channel (Telegram) to a coding agent via ACP (Agent Client Protocol). It keeps the messaging layer small while delegating agent behavior, tools, and memory to an ACP-compatible agent.
+acpella is a thin service that bridges a messaging channel (Telegram) to a coding agent via ACP (Agent Client Protocol). It replaces OpenClaw with ~150 lines by delegating all agent complexity to acpx.
 
 ```
-Telegram  ──►  acpella  ──►  ACP agent (Codex, Claude Code, ...)
-              (service)      (subprocess)
+Telegram  ──►  acpella  ──►  acpx  ──►  agent (Codex, Claude Code, ...)
+              (service)    (CLI)        (ACP subprocess)
 ```
 
 **Why ACP**: ACP is the protocol Zed, Cursor, and other editors use to talk to coding agents. By speaking ACP, acpella is agent-agnostic — swap `ACPELLA_AGENT=codex` for `ACPELLA_AGENT=claude` without changing the service. The agent binary manages its own session state, tool execution, and memory.
 
-**Why direct ACP**: acpella spawns the configured ACP agent and talks to it through the ACP TypeScript SDK. acpella owns Telegram session mapping and lightweight persistence, while the agent owns actual reasoning and tool execution.
+**Why acpx**: acpx is a standalone ACP client CLI. acpella shells out to it instead of speaking ACP directly, which keeps the service code minimal and offloads session management to acpx.
 
 ## Components
 
@@ -19,7 +19,7 @@ Telegram  ──►  acpella  ──►  ACP agent (Codex, Claude Code, ...)
 
 Single-file service. Three sections:
 
-**ACP manager** — starts the configured agent subprocess, initializes ACP, creates or loads sessions, sends prompts, and extracts `agent_message_chunk` text to assemble the response.
+**acpx interface** — `ensureSession` and `acpxPrompt` shell out to `node_modules/.bin/acpx`. `acpxPrompt` runs `acpx ... prompt <text>` with `--format json`, capturing stdout as JSONRPC-envelope newline-delimited JSON, then extracts `agent_message_chunk` text to assemble the response.
 
 **Telegram** — grammy long-polling bot. One handler: `message:text`. Maps each chat/thread to a session name (`tg-<chatId>` or `tg-<chatId>-<threadId>`), calls `acpxPrompt`, replies with the result.
 
@@ -35,16 +35,14 @@ grammy bot handler
   │  checks allowlists (ACPELLA_TELEGRAM_ALLOWED_USER_IDS, ACPELLA_TELEGRAM_ALLOWED_CHAT_IDS)
   │  derives session name from chatId + threadId
   ▼
-handler(sessionName, text)
+acpxPrompt(sessionName, text)
   │
-  ├─► load existing session or create a new ACP session
+  ├─► ensureSession → acpx sessions ensure
+  │     starts agent subprocess if not running
   │
-  ├─► if new and ACPELLA_PROMPT_FILE is configured:
-  │     send initialization prompt
-  │
-  └─► send user prompt
-        agent streams session/update messages
-        service collects agent_message_chunk updates → joins text
+  └─► acpx --format json <agent> prompt <text>
+        agent runs, streams JSONRPC lines to stdout
+        service collects agent_message_chunk lines → joins text
   │
   ▼
 ctx.reply(response)
@@ -52,7 +50,7 @@ ctx.reply(response)
 
 ## Session model
 
-Each Telegram chat maps to one ACP session:
+Each Telegram chat maps to one acpx session:
 
 | Chat type    | Session name             |
 | ------------ | ------------------------ |
@@ -60,13 +58,11 @@ Each Telegram chat maps to one ACP session:
 | Group        | `tg-<chatId>`            |
 | Forum thread | `tg-<chatId>-<threadId>` |
 
-The session id is stored in `.acpella/state.json` under `ACPELLA_HOME`. `/session new` creates a
-fresh session for the current chat/thread. If `ACPELLA_PROMPT_FILE` is configured, the prompt file is
-sent once when a new session is created, including sessions created by `/session new`.
+`ensureSession` is called before every prompt — acpx is idempotent if the session already exists. The agent process runs as a long-lived subprocess managed by acpx; acpella does not own its lifecycle.
 
-## ACP updates
+## acpx output format
 
-The ACP agent emits `session/update` notifications:
+`acpx --format json` emits newline-delimited JSONRPC 2.0 envelopes:
 
 ```json
 {
@@ -82,15 +78,12 @@ The ACP agent emits `session/update` notifications:
 }
 ```
 
-acpella extracts text by filtering updates where `sessionUpdate === "agent_message_chunk"` and
-joining `content.text` chunks.
+acpella extracts text by filtering `params.update.sessionUpdate === "agent_message_chunk"` and joining `params.update.content.text` chunks.
 
 ## Key decisions
 
-**Direct ACP subprocess** — avoids depending on a separate CLI for prompt dispatch while keeping the service agent-agnostic.
+**Single file** — the service is small enough that modules add indirection without benefit. Split when it grows.
 
-**No database** — session mapping lives in `.acpella/state.json`. Agent memory lives in the agent's working directory (`ACPELLA_HOME`). The service remains restartable.
+**Shell out to acpx** — avoids owning the ACP client/session lifecycle. Tradeoff: subprocess overhead per prompt, no streaming to Telegram. Acceptable for a personal assistant.
 
-**Custom prompt file** — `ACPELLA_PROMPT_FILE` is sent as a normal ACP prompt turn when a session is
-created. Existing sessions are unchanged; restart acpella and run `/session new` to apply prompt file
-changes to a chat/thread.
+**No database** — session state lives in acpx. Memory lives in the agent's working directory (`ACPELLA_HOME`). The service is stateless and restartable.
