@@ -1,40 +1,30 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { env, getuid } from "node:process";
 
 export function handleSetupSystemd(): void {
   const workingDirectory = process.cwd();
-  const options = {
-    description: "acpella service",
-    envFile: resolve(workingDirectory, ".env"),
-    nodeBin: process.execPath,
-    scope: "user",
-    serviceName: "acpella",
-    user: defaultUser(),
-    workingDirectory,
-  };
+  const description = "acpella service";
+  const envFile = resolve(workingDirectory, ".env");
+  const nodeBin = process.execPath;
+  const serviceName = "acpella";
 
-  const envLine = existsSync(options.envFile)
-    ? `EnvironmentFile=${escapeSystemdValue(options.envFile)}\n`
-    : `EnvironmentFile=-${escapeSystemdValue(options.envFile)}\n`;
-  const userLine = options.scope === "system" ? `User=${escapeSystemdValue(options.user)}\n` : "";
-  const installTarget = options.scope === "system" ? "multi-user.target" : "default.target";
-  const networkLines =
-    options.scope === "system" ? "After=network-online.target\nWants=network-online.target\n" : "";
+  const envLine = existsSync(envFile)
+    ? `EnvironmentFile=${escapeSystemdValue(envFile)}\n`
+    : `EnvironmentFile=-${escapeSystemdValue(envFile)}\n`;
 
   process.stdout.write(`[Unit]
-Description=${escapeSystemdValue(options.description)}
-${networkLines}
+Description=${escapeSystemdValue(description)}
+
 [Service]
 Type=simple
-SyslogIdentifier=${escapeSystemdValue(options.serviceName)}
-${userLine}WorkingDirectory=${escapeSystemdValue(options.workingDirectory)}
-${envLine}ExecStart=${escapeSystemdValue(options.nodeBin)} ${escapeSystemdValue(resolve(options.workingDirectory, "src/cli.ts"))}
+SyslogIdentifier=${escapeSystemdValue(serviceName)}
+WorkingDirectory=${escapeSystemdValue(workingDirectory)}
+${envLine}ExecStart=${escapeSystemdValue(nodeBin)} ${escapeSystemdValue(resolve(workingDirectory, "src/cli.ts"))}
 Restart=on-failure
 RestartSec=10
 
 [Install]
-WantedBy=${installTarget}
+WantedBy=default.target
 `);
 }
 
@@ -43,18 +33,4 @@ function escapeSystemdValue(value: string): string {
     return value;
   }
   return `"${value.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
-}
-
-function defaultUser(): string {
-  if (env.USER) {
-    return env.USER;
-  }
-  if (env.LOGNAME) {
-    return env.LOGNAME;
-  }
-  const uid = getuid?.();
-  if (uid !== undefined) {
-    return String(uid);
-  }
-  return "acpella";
 }
