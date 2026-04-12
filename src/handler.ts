@@ -209,11 +209,7 @@ prompt file: ${config.prompt.file ?? "none"}`;
   }
 
   const handle = async (options: { session: string; context: Context }): Promise<void> => {
-    const message = options.context.message;
-    const text = message && "text" in message ? message.text : undefined;
-    if (!text) {
-      return;
-    }
+    const text = options.context.message!.text!;
     const sessionName = options.session;
 
     if (text === "/status") {
