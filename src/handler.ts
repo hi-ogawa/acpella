@@ -214,5 +214,6 @@ Use these additional instructions for this session:
 ${options.customPrompt.trim()}
 </custom_instructions>
 
-${options.userText}`;
+${options.userText}
+`;
 }

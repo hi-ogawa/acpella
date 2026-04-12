@@ -28,9 +28,6 @@ pnpm cli --repl # run local in-process REPL
 | `ACPELLA_HOME`                      | no       | `process.cwd()`                 | Agent working directory                       |
 | `ACPELLA_PROMPT_FILE`               | no       | —                               | Prompt file sent once when creating a session |
 
-Relative `ACPELLA_PROMPT_FILE` paths resolve from `ACPELLA_HOME`. If the prompt file changes,
-restart acpella and run `/session new` in the chat/thread that should use the new prompt.
-
 ## Docs
 
 - [`docs/architecture.md`](docs/architecture.md) — design decisions, data flow
