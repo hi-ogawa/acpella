@@ -2,7 +2,7 @@ import { parseArgs } from "node:util";
 import { Bot } from "grammy";
 import { loadConfig } from "./config.ts";
 import { createHandler } from "./handler.ts";
-import { createTestBot, startTestBotRepl, type TestBot } from "./repl.ts";
+import { createTestBot, type TestBot } from "./repl.ts";
 
 async function main() {
   const { values: cli } = parseArgs({
@@ -93,7 +93,7 @@ async function main() {
   );
 
   if (testBot) {
-    await startTestBotRepl(testBot);
+    await testBot.startRepl();
   } else {
     await bot.start();
   }
