@@ -25,22 +25,21 @@ export async function createHandler(config: AppConfig): Promise<{
   const manager = await startAcpManager({ command: config.agent.command, cwd: config.home });
   const state = createSessionStateStore(config);
 
-  async function handlePrompt(name: string, text: string): Promise<string> {
-    const persistedId = state.getSessionId(name);
-    const isNewSession = !persistedId;
-    const session = persistedId
+  async function runPrompt(options: {
+    name: string;
+    text: string;
+    sessionId?: string;
+  }): Promise<{ sessionId: string; text: string }> {
+    const isNewSession = !options.sessionId;
+    const session = options.sessionId
       ? await manager.loadSession({
           sessionCwd: config.home,
-          sessionId: persistedId,
+          sessionId: options.sessionId,
         })
       : await manager.newSession({ sessionCwd: config.home });
 
     try {
-      const promptText =
-        isNewSession && config.prompt.text
-          ? formatFirstPrompt({ customPrompt: config.prompt.text, userText: text })
-          : text;
-      const { queue } = session.prompt(promptText);
+      const { queue } = session.prompt(options.text);
       const texts: string[] = [];
       for await (const update of queue) {
         if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
@@ -52,12 +51,22 @@ export async function createHandler(config: AppConfig): Promise<{
         }
       }
       if (isNewSession) {
-        state.setSessionId(name, session.sessionId);
+        state.setSessionId(options.name, session.sessionId);
       }
-      return texts.join("") || "(no response)";
+      return { sessionId: session.sessionId, text: texts.join("") };
     } finally {
       session.close();
     }
+  }
+
+  async function handlePrompt(name: string, text: string): Promise<string> {
+    const sessionId = state.getSessionId(name);
+    const promptText =
+      !sessionId && config.prompt.text
+        ? formatFirstPrompt({ customPrompt: config.prompt.text, userText: text })
+        : text;
+    const result = await runPrompt({ name, text: promptText, sessionId });
+    return result.text || "(no response)";
   }
 
   async function handleCloseSession(name: string, sessionIdArg?: string): Promise<void> {
@@ -75,14 +84,15 @@ export async function createHandler(config: AppConfig): Promise<{
     }
   }
 
-  async function handleNewSession(name: string): Promise<string> {
-    const session = await manager.newSession({ sessionCwd: config.home });
-    try {
-      state.setSessionId(name, session.sessionId);
-      return `Created session: ${session.sessionId}`;
-    } finally {
-      session.close();
-    }
+  async function handleNewSession(name: string, text: string): Promise<string> {
+    const promptText = config.prompt.text
+      ? formatFirstPrompt({ customPrompt: config.prompt.text, userText: text })
+      : text;
+    const result = await runPrompt({
+      name,
+      text: promptText,
+    });
+    return [`Created session: ${result.sessionId}`, result.text || "(no response)"].join("\n\n");
   }
 
   async function handleLoadSession(name: string, sessionId: string | undefined): Promise<string> {
@@ -147,7 +157,7 @@ export async function createHandler(config: AppConfig): Promise<{
       case "list":
         return handleListSessions();
       case "new":
-        return handleNewSession(sessionName);
+        return handleNewSession(sessionName, args.join(" "));
       case "load":
         return handleLoadSession(sessionName, args[0]);
       case "close":
