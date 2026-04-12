@@ -43,11 +43,11 @@ export async function createHandler(config: AppConfig): Promise<{
 
       for await (const update of queue) {
         if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
-          await responseWriter.appendText(update.content.text);
+          await responseWriter.write(update.content.text);
         } else if (update.sessionUpdate === "tool_call") {
           console.log(`[acp:update] tool_call: ${update.title}`);
           await responseWriter.flush();
-          await responseWriter.write(`Tool: ${update.title}`);
+          await responseWriter.write(`Tool: ${update.title}`, { force: true });
         } else {
           console.log(`[acp:update] ${update.sessionUpdate}`);
         }
@@ -319,7 +319,7 @@ function createResponseWriter(options: { context: Context; limit: number }) {
   let bufferedText = "";
   let sentResponse = false;
 
-  async function write(text: string): Promise<void> {
+  async function send(text: string): Promise<void> {
     await sendTextResponse({
       context: options.context,
       limit: options.limit,
@@ -333,7 +333,7 @@ function createResponseWriter(options: { context: Context; limit: number }) {
       bufferedText = "";
       return;
     }
-    await write(bufferedText);
+    await send(bufferedText);
     bufferedText = "";
   }
 
@@ -343,18 +343,21 @@ function createResponseWriter(options: { context: Context; limit: number }) {
       const part = bufferedText.slice(0, splitIndex).trim();
       bufferedText = bufferedText.slice(splitIndex);
       if (part) {
-        await write(part);
+        await send(part);
       }
     }
   }
 
   return {
-    async appendText(text: string): Promise<void> {
+    async write(text: string, writeOptions?: { force?: boolean }): Promise<void> {
+      if (writeOptions?.force) {
+        await send(text);
+        return;
+      }
       bufferedText += text;
       await flushOversizedText();
     },
     flush,
-    write,
     async finish(): Promise<void> {
       await flush();
       if (!sentResponse) {
