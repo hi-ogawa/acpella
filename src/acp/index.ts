@@ -72,7 +72,9 @@ async function spawnAgent({ command, cwd }: { command: string; cwd: string }) {
   // handle process exit
   const child = spawn(cmd, args, { stdio: ["pipe", "pipe", "pipe"], cwd });
   const earlyExit = createEarlyExitPromise(child);
-  pipeAgentStderr(child.stderr);
+  if (child.stderr) {
+    pipeAgentStderr(child.stderr);
+  }
 
   const stream = ndJsonStream(
     Writable.toWeb(child.stdin!),
@@ -153,11 +155,7 @@ function createEarlyExitPromise(child: ChildProcess): {
   };
 }
 
-function pipeAgentStderr(stderr: Readable | undefined | null): void {
-  if (!stderr) {
-    return;
-  }
-
+function pipeAgentStderr(stderr: Readable): void {
   let buffered = "";
   stderr.setEncoding("utf8");
   stderr.on("data", (chunk) => {
