@@ -69,6 +69,38 @@ export async function createHandler(config: AppConfig): Promise<{
     state.deleteSession(name);
   }
 
+  async function createNewSession(name: string): Promise<string> {
+    await removeSession(name);
+    const session = await manager.newSession({ sessionCwd: config.home });
+    try {
+      state.setSessionId(name, session.sessionId);
+      return `Created session: ${session.sessionId}`;
+    } finally {
+      session.close();
+    }
+  }
+
+  async function loadSession(name: string, sessionId: string | undefined): Promise<string> {
+    if (!sessionId) {
+      return "Usage: /session load <sessionId>";
+    }
+    const session = await manager.loadSession({ sessionCwd: config.home, sessionId });
+    try {
+      state.setSessionId(name, session.sessionId);
+      return `Loaded session: ${session.sessionId}`;
+    } finally {
+      session.close();
+    }
+  }
+
+  function formatCurrentSession(name: string): string {
+    return [
+      `session: ${name}`,
+      `agent: ${config.agent.alias}`,
+      `session id: ${state.getSessionId(name) ?? "none"}`,
+    ].join("\n");
+  }
+
   async function formatDebug(): Promise<string> {
     const stateSessions = state.listSessions();
     const agentSessions = await manager.listSessions();
@@ -98,16 +130,45 @@ export async function createHandler(config: AppConfig): Promise<{
     ].join("\n");
   }
 
+  async function handleSessionCommand(
+    text: string,
+    sessionName: string,
+  ): Promise<string | undefined> {
+    const [command, subcommand, ...args] = text.trim().split(/\s+/);
+    if (command !== "/session") {
+      return undefined;
+    }
+    switch (subcommand) {
+      case undefined:
+        return formatCurrentSession(sessionName);
+      case "list":
+        return formatDebug();
+      case "new":
+        return createNewSession(sessionName);
+      case "load":
+        return loadSession(sessionName, args[0]);
+      case "close":
+        await removeSession(sessionName);
+        return "Session closed. Next message will start a fresh session.";
+      default:
+        return [
+          "Usage:",
+          "/session",
+          "/session list",
+          "/session new",
+          "/session load <sessionId>",
+          "/session close",
+        ].join("\n");
+    }
+  }
+
   const handle = async (text: string, sessionName: string): Promise<string> => {
     if (text === "/status") {
       return formatStatus(config);
     }
-    if (text === "/debug") {
-      return formatDebug();
-    }
-    if (text === "/reset") {
-      await removeSession(sessionName);
-      return "Session reset. Next message will start a fresh session.";
+    const sessionCommandResponse = await handleSessionCommand(text, sessionName);
+    if (sessionCommandResponse) {
+      return sessionCommandResponse;
     }
 
     return promptSession(sessionName, text);
