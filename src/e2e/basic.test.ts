@@ -23,4 +23,15 @@ describe("e2e smoke", () => {
     service.send("hello world");
     await service.waitForLine("echo: hello world");
   });
+
+  it("reports agent startup failure", async ({ onTestFinished }) => {
+    const service = startService({ ACPELLA_AGENT: "no-such-command" });
+    onTestFinished(async () => {
+      await service.stop();
+    });
+
+    await service.waitForLine("Starting service");
+    service.send("hello world");
+    await service.waitForLine("Error: ACP agent failed to start: spawn no-such-command ENOENT");
+  });
 });
