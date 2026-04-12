@@ -7,9 +7,17 @@ import path from "node:path";
 const REPO_ROOT = path.join(import.meta.dirname, "../..");
 const TMP_ROOT = path.join(import.meta.dirname, ".tmp");
 
-export function startService(env?: Record<string, string>) {
+export function startService(
+  env?: Record<string, string>,
+  options?: {
+    sourceDir?: string;
+  },
+) {
   fs.mkdirSync(TMP_ROOT, { recursive: true });
   const home = fs.mkdtempSync(path.join(TMP_ROOT, "acpella-"));
+  if (options?.sourceDir) {
+    fs.cpSync(options.sourceDir, home, { recursive: true });
+  }
   const child = spawn("node", ["src/cli.ts", "--repl"], {
     cwd: REPO_ROOT,
     env: {
