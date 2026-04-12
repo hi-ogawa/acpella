@@ -36,50 +36,24 @@ export async function createHandler(config: AppConfig): Promise<{
 
     try {
       const { queue } = session.prompt(promptText);
-      let bufferedText = "";
-      let sentResponse = false;
-
-      async function flushBufferedText(): Promise<void> {
-        if (!bufferedText.trim()) {
-          bufferedText = "";
-          return;
-        }
-        await sendTextResponse(options.context, bufferedText);
-        sentResponse = true;
-        bufferedText = "";
-      }
-
-      async function flushOversizedText(): Promise<void> {
-        while (bufferedText.length > MESSAGE_SPLIT_BUDGET) {
-          const splitIndex = findSplitIndex(bufferedText, MESSAGE_SPLIT_BUDGET);
-          const part = bufferedText.slice(0, splitIndex).trim();
-          bufferedText = bufferedText.slice(splitIndex);
-          if (part) {
-            await options.context.reply(part);
-            sentResponse = true;
-          }
-        }
-      }
+      const responseWriter = createResponseWriter({
+        context: options.context,
+        limit: MESSAGE_SPLIT_BUDGET,
+      });
 
       for await (const update of queue) {
         if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
-          bufferedText += update.content.text;
-          await flushOversizedText();
+          await responseWriter.appendText(update.content.text);
         } else if (update.sessionUpdate === "tool_call") {
           console.log(`[acp:update] tool_call: ${update.title}`);
-          await flushBufferedText();
-          await sendTextResponse(options.context, `Tool: ${update.title}`);
-          sentResponse = true;
+          await responseWriter.sendToolCall(update.title);
         } else {
           console.log(`[acp:update] ${update.sessionUpdate}`);
         }
       }
-      await flushBufferedText();
+      await responseWriter.finish();
       if (!options.sessionId) {
         state.setSessionId(options.name, session.sessionId);
-      }
-      if (!sentResponse) {
-        await options.context.reply("(no response)");
       }
     } finally {
       session.close();
@@ -211,7 +185,11 @@ Usage:
 /session load <sessionId>
 /session close [sessionId]`;
     }
-    await sendTextResponse(options.context, response);
+    await sendTextResponse({
+      context: options.context,
+      limit: MESSAGE_SPLIT_BUDGET,
+      text: response,
+    });
     return true;
   }
 
@@ -230,7 +208,11 @@ prompt file: ${config.prompt.file ?? "none"}`;
     const sessionName = options.session;
 
     if (text === "/status") {
-      await sendTextResponse(options.context, handleStatus());
+      await sendTextResponse({
+        context: options.context,
+        limit: MESSAGE_SPLIT_BUDGET,
+        text: handleStatus(),
+      });
       return;
     }
     const handledSessionCommand = await handleSessionCommand({
@@ -288,10 +270,14 @@ ${options.userText}
 `;
 }
 
-async function sendTextResponse(context: Context, text: string): Promise<void> {
-  const parts = splitMessageText(text, MESSAGE_SPLIT_BUDGET);
+async function sendTextResponse(options: {
+  context: Context;
+  limit: number;
+  text: string;
+}): Promise<void> {
+  const parts = splitMessageText(options.text, options.limit);
   for (const part of parts) {
-    await context.reply(part);
+    await options.context.reply(part);
   }
 }
 
@@ -326,4 +312,61 @@ function findSplitIndex(text: string, budget: number): number {
     return spaceIndex + 1;
   }
   return budget;
+}
+
+function createResponseWriter(options: { context: Context; limit: number }) {
+  let bufferedText = "";
+  let sentResponse = false;
+
+  async function flushText(): Promise<void> {
+    if (!bufferedText.trim()) {
+      bufferedText = "";
+      return;
+    }
+    await sendTextResponse({
+      context: options.context,
+      limit: options.limit,
+      text: bufferedText,
+    });
+    sentResponse = true;
+    bufferedText = "";
+  }
+
+  async function flushOversizedText(): Promise<void> {
+    while (bufferedText.length > options.limit) {
+      const splitIndex = findSplitIndex(bufferedText, options.limit);
+      const part = bufferedText.slice(0, splitIndex).trim();
+      bufferedText = bufferedText.slice(splitIndex);
+      if (part) {
+        await sendTextResponse({
+          context: options.context,
+          limit: options.limit,
+          text: part,
+        });
+        sentResponse = true;
+      }
+    }
+  }
+
+  return {
+    async appendText(text: string): Promise<void> {
+      bufferedText += text;
+      await flushOversizedText();
+    },
+    async sendToolCall(title: string): Promise<void> {
+      await flushText();
+      await sendTextResponse({
+        context: options.context,
+        limit: options.limit,
+        text: `Tool: ${title}`,
+      });
+      sentResponse = true;
+    },
+    async finish(): Promise<void> {
+      await flushText();
+      if (!sentResponse) {
+        await options.context.reply("(no response)");
+      }
+    },
+  };
 }
