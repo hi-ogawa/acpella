@@ -46,8 +46,8 @@ export function loadConfig(): AppConfig {
   const env = envSchema.parse(process.env);
   const home = env.ACPELLA_HOME ? path.resolve(env.ACPELLA_HOME) : process.cwd();
 
-  const agentName = env.ACPELLA_AGENT ?? "codex";
-  const agent = resolveAgent({ name: agentName });
+  const agentAlias = env.ACPELLA_AGENT ?? "codex";
+  const agentCommand = builtinAgents[agentAlias] || agentAlias;
 
   const promptFile = env.ACPELLA_PROMPT_FILE
     ? path.resolve(home, env.ACPELLA_PROMPT_FILE)
@@ -55,7 +55,7 @@ export function loadConfig(): AppConfig {
   const promptText = promptFile ? fs.readFileSync(promptFile, "utf8") : undefined;
 
   return {
-    agent,
+    agent: { alias: agentAlias, command: agentCommand },
     home,
     stateFile: path.join(home, ".acpella", "state.json"),
     telegram: {
@@ -70,15 +70,6 @@ export function loadConfig(): AppConfig {
     // TODO: make use of this for test
     testChatId: parseOptionalId(env.ACPELLA_TEST_CHAT_ID) ?? 10101010,
   };
-}
-
-function resolveAgent(options: { name: string }): AppConfig["agent"] {
-  const alias = options.name;
-  const knownAgent = builtinAgents[alias];
-  if (knownAgent) {
-    return { alias, command: knownAgent };
-  }
-  return { alias, command: alias };
 }
 
 function parseIdList(value: string | undefined): number[] | undefined {
