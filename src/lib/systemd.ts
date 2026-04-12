@@ -1,4 +1,3 @@
-import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 
 export function handleSetupSystemd(): void {
@@ -8,10 +7,6 @@ export function handleSetupSystemd(): void {
   const nodeBin = process.execPath;
   const serviceName = "acpella";
 
-  const envLine = existsSync(envFile)
-    ? `EnvironmentFile=${escapeSystemdValue(envFile)}\n`
-    : `EnvironmentFile=-${escapeSystemdValue(envFile)}\n`;
-
   process.stdout.write(`[Unit]
 Description=${escapeSystemdValue(description)}
 
@@ -19,7 +14,8 @@ Description=${escapeSystemdValue(description)}
 Type=simple
 SyslogIdentifier=${escapeSystemdValue(serviceName)}
 WorkingDirectory=${escapeSystemdValue(workingDirectory)}
-${envLine}ExecStart=${escapeSystemdValue(nodeBin)} ${escapeSystemdValue(resolve(workingDirectory, "src/cli.ts"))}
+EnvironmentFile=${escapeSystemdValue(envFile)}
+ExecStart=${escapeSystemdValue(nodeBin)} ${escapeSystemdValue(resolve(workingDirectory, "src/cli.ts"))}
 Restart=on-failure
 RestartSec=10
 
