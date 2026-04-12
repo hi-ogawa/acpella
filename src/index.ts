@@ -4,6 +4,7 @@ import { createHandler } from "./handler.ts";
 import { createTestBot, startTestBotRepl, type TestBot } from "./repl.ts";
 
 async function main() {
+  const cli = parseCliArgs(process.argv.slice(2));
   const config = loadConfig();
   const { handle } = await createHandler(config);
   const allowedUsers = new Set(config.telegram.allowedUserIds);
@@ -14,7 +15,7 @@ async function main() {
   let bot: Bot;
   let testBot: TestBot | undefined;
 
-  if (config.testMode) {
+  if (cli.repl) {
     testBot = createTestBot({ chatId: config.testChatId });
     bot = testBot.bot;
   } else {
@@ -48,13 +49,13 @@ async function main() {
     const name = sessionName(chatId, threadId);
     const text = ctx.message.text;
 
-    if (!config.testMode) {
+    if (!cli.repl) {
       console.log(`[${name}] <- ${text}`);
     }
 
     try {
       const response = await handle(text, name);
-      if (!config.testMode) {
+      if (!cli.repl) {
         console.log(`[${name}] -> ${response.slice(0, 100)}...`);
       }
       await ctx.reply(response);
@@ -68,7 +69,7 @@ async function main() {
   // --- start ---
 
   console.log(
-    `Starting service (agent: ${config.agent.alias}, home: ${config.home}, test: ${config.testMode})`,
+    `Starting service (agent: ${config.agent.alias}, home: ${config.home}, repl: ${cli.repl})`,
   );
 
   if (testBot) {
@@ -81,6 +82,14 @@ async function main() {
 function sessionName(chatId: number, threadId?: number): string {
   const base = `tg-${chatId}`;
   return threadId ? `${base}-${threadId}` : base;
+}
+
+function parseCliArgs(args: string[]): { repl: boolean } {
+  const unknown = args.filter((arg) => arg !== "--repl");
+  if (unknown.length > 0) {
+    throw new Error(`Unknown argument: ${unknown.join(", ")}`);
+  }
+  return { repl: args.includes("--repl") };
 }
 
 main().catch((err) => {

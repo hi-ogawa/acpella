@@ -10,11 +10,10 @@ const TMP_ROOT = path.join(import.meta.dirname, ".tmp");
 export function startService(env?: Record<string, string>) {
   fs.mkdirSync(TMP_ROOT, { recursive: true });
   const home = fs.mkdtempSync(path.join(TMP_ROOT, "acpella-"));
-  const child = spawn("node", ["src/index.ts"], {
+  const child = spawn("node", ["src/index.ts", "--repl"], {
     cwd: REPO_ROOT,
     env: {
       ...process.env,
-      ACPELLA_TEST_BOT: "1",
       ACPELLA_AGENT: "test",
       ACPELLA_HOME: home,
       ...env,

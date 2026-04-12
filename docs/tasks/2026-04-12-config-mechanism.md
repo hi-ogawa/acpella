@@ -222,8 +222,9 @@ Suggested env schema:
 - `ACPELLA_TELEGRAM_BOT_TOKEN`: secret, env-only
 - `ACPELLA_TELEGRAM_ALLOWED_USER_IDS`: overrides `telegram.allowedUserIds`
 - `ACPELLA_TELEGRAM_ALLOWED_CHAT_IDS`: overrides `telegram.allowedChatIds`
-- `ACPELLA_TEST_BOT`: enables in-process test bot mode
 - `ACPELLA_TEST_CHAT_ID`: sets the default in-process test bot chat id
+
+REPL/test-bot mode is selected with the `--repl` CLI flag, not an environment variable.
 
 For allowlists, use override semantics rather than merging. Merging makes it harder to remove an ID
 in a deployment.

@@ -15,6 +15,7 @@ cp .env.example .env
 ```bash
 pnpm start        # run service
 pnpm dev          # run with --watch
+pnpm repl         # run local in-process REPL
 ```
 
 ## Config
@@ -26,7 +27,7 @@ pnpm dev          # run with --watch
 | `ACPELLA_TELEGRAM_ALLOWED_CHAT_IDS` | no       | —               | Comma-separated chat IDs (group allowlist) |
 | `ACPELLA_AGENT`                     | no       | `codex`         | acpx agent name                            |
 | `ACPELLA_HOME`                      | no       | `process.cwd()` | Agent working directory                    |
-| `ACPELLA_TEST_BOT`                  | no       | —               | Use the in-process test bot                |
+| `ACPELLA_TEST_CHAT_ID`              | no       | `123`           | Chat ID used by `--repl`                   |
 
 ## Docs
 

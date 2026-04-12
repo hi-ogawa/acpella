@@ -6,7 +6,7 @@
     "prepare": "vp config",
     "start": "node --env-file=.env src/index.ts",
     "dev": "node --env-file=.env --watch src/index.ts",
-    "repl": "ACPELLA_TEST_BOT=1 node src/index.ts",
+    "repl": "node src/index.ts --repl",
     "test": "vitest --project=unit",
     "test-codex": "vitest --project=codex",
     "lint": "vp check --fix",
