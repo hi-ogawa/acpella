@@ -15,10 +15,11 @@
 - [ ] feat: system prompt (just use AGENTS.md convention)
 - [ ] feat: system commands
   - [x] status
-  - [x] reset session
+  - [x] session current/list/new/load/close
 - [ ] refactor: env config util
 - [ ] refactor: child process exec util
   - [x] debug log
+- [ ] perf: warmed agent process/session cache
 - [ ] chore: dog-fooding
   - In-flight message can be dropped when `pnpm dev` auto-restarts during processing
 - [x] test: test repl mode with toy acp

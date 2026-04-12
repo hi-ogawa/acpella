@@ -2,4 +2,6 @@ node_modules/
 .env
 *.tsbuildinfo
 refs/
-acpella.json
+acpella.config.json
+.acpella/
+src/e2e/.tmp/

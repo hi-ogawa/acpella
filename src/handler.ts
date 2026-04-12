@@ -1,123 +1,201 @@
-import { fileURLToPath } from "node:url";
-import type { SessionNotification, SessionUpdate } from "@agentclientprotocol/sdk";
-import { spawnAsync, type SpawnResult } from "./spawn.ts";
+import type { ListSessionsResponse } from "@agentclientprotocol/sdk";
+import { startAcpManager } from "./acp/index.ts";
+import type { AppConfig } from "./config.ts";
+import { createSessionStateStore } from "./state.ts";
 
-// use local dep binary instead of npx
-export const ACPX_BIN = fileURLToPath(new URL("../node_modules/.bin/acpx", import.meta.url));
-
-const DEBUG = !!process.env.ACPELLA_DEBUG;
-
-function runAcpx(args: string[], options: { timeout: number; cwd?: string }): Promise<SpawnResult> {
-  const finalArgs = DEBUG ? ["--verbose", ...args] : args;
-  return spawnAsync(ACPX_BIN, finalArgs, {
-    timeout: options.timeout,
-    cwd: options.cwd,
-    debug: DEBUG,
-    label: "acpx",
-  });
+interface StateSession {
+  name: string;
+  sessionId: string;
 }
 
-// --- acpx output parsing ---
-
-/** JSONRPC envelope emitted by `acpx --format json` */
-interface AcpxJsonLine {
-  jsonrpc: "2.0";
-  method: string;
-  params?: SessionNotification;
+export function formatStatus(config: AppConfig): string {
+  return [
+    "service state: running",
+    `configured agent: ${config.agent.alias}`,
+    `agent command: ${config.agent.command}`,
+    `home: ${config.home}`,
+    `state file: ${config.stateFile}`,
+  ].join("\n");
 }
 
-/** Extract agent text from acpx JSONRPC ndjson output */
-function parseAgentText(stdout: string): string {
-  const texts: string[] = [];
-  for (const line of stdout.trim().split("\n")) {
+export async function createHandler(config: AppConfig): Promise<{
+  handle: (text: string, session: string) => Promise<string>;
+}> {
+  const manager = await startAcpManager({ command: config.agent.command, cwd: config.home });
+  const state = createSessionStateStore(config);
+
+  async function handlePrompt(name: string, text: string): Promise<string> {
+    const persistedId = state.getSessionId(name);
+    const isNewSession = !persistedId;
+    const session = persistedId
+      ? await manager.loadSession({
+          sessionCwd: config.home,
+          sessionId: persistedId,
+        })
+      : await manager.newSession({ sessionCwd: config.home });
+
     try {
-      const msg: AcpxJsonLine = JSON.parse(line);
-      const update: SessionUpdate | undefined = msg.params?.update;
-      if (!update) {
-        continue;
+      const { queue } = session.prompt(text);
+
+      // TODO: stream and split as needed
+      const texts: string[] = [];
+      for await (const update of queue) {
+        if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
+          texts.push(update.content.text);
+        } else if (update.sessionUpdate === "tool_call") {
+          console.log(`[acp:update] tool_call: ${update.title}`);
+        } else {
+          console.log(`[acp:update] ${update.sessionUpdate}`);
+        }
       }
-      if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
-        texts.push(update.content.text);
-      } else if (update.sessionUpdate === "tool_call") {
-        console.log(`[acpx:update] tool_call: ${update.title}`);
-      } else {
-        console.log(`[acpx:update] ${update.sessionUpdate}`);
+      if (isNewSession) {
+        state.setSessionId(name, session.sessionId);
       }
-    } catch {
-      // skip non-json lines
+      return texts.join("") || "(no response)";
+    } finally {
+      session.close();
     }
   }
-  return texts.join("") || "(no response)";
-}
 
-// --- acpx ---
+  async function handleCloseSession(name: string, sessionIdArg?: string): Promise<void> {
+    const currentSessionId = state.getSessionId(name);
+    const sessionId = sessionIdArg ?? currentSessionId;
+    if (sessionId) {
+      try {
+        await manager.closeSession({ sessionId });
+      } catch (e) {
+        console.error("[acp] closeSession failed:", e);
+      }
+    }
+    if (!sessionIdArg || sessionIdArg === currentSessionId) {
+      state.deleteSession(name);
+    }
+  }
 
-function acpxAgentArgs(agent: string): string[] {
-  return agent.includes("/") ? ["--agent", agent] : [agent];
-}
+  async function handleNewSession(name: string): Promise<string> {
+    const session = await manager.newSession({ sessionCwd: config.home });
+    try {
+      state.setSessionId(name, session.sessionId);
+      return `Created session: ${session.sessionId}`;
+    } finally {
+      session.close();
+    }
+  }
 
-async function ensureSession(sessionName: string, agentArgs: string[], cwd: string): Promise<void> {
-  await runAcpx(
-    ["--cwd", cwd, "--approve-all", ...agentArgs, "sessions", "ensure", "--name", sessionName],
-    { timeout: 60_000 },
-  );
-}
+  async function handleLoadSession(name: string, sessionId: string | undefined): Promise<string> {
+    if (!sessionId) {
+      return "Usage: /session load <sessionId>";
+    }
+    const session = await manager.loadSession({ sessionCwd: config.home, sessionId });
+    try {
+      state.setSessionId(name, session.sessionId);
+      return `Loaded session: ${session.sessionId}`;
+    } finally {
+      session.close();
+    }
+  }
 
-async function closeSession(sessionName: string, agentArgs: string[], cwd: string): Promise<void> {
-  await runAcpx(["--cwd", cwd, ...agentArgs, "sessions", "close", sessionName], {
-    timeout: 60_000,
-  });
-}
+  function handleCurrentSession(name: string): string {
+    return [
+      `session: ${name}`,
+      `agent: ${config.agent.alias}`,
+      `session id: ${state.getSessionId(name) ?? "none"}`,
+    ].join("\n");
+  }
 
-async function acpxPrompt(
-  sessionName: string,
-  text: string,
-  agentArgs: string[],
-  cwd: string,
-): Promise<string> {
-  await ensureSession(sessionName, agentArgs, cwd);
+  async function handleListSessions(): Promise<string> {
+    const stateSessions = state.listSessions();
+    const agentSessions = await manager.listSessions();
+    const agentSessionIds = new Set(agentSessions.sessions.map((session) => session.sessionId));
+    const stateSessionIds = new Set(stateSessions.map((session) => session.sessionId));
+    const missingInAgent = stateSessions.filter(
+      (session) => !agentSessionIds.has(session.sessionId),
+    );
+    const untrackedAgentSessions = agentSessions.sessions.filter(
+      (session) => !stateSessionIds.has(session.sessionId),
+    );
 
-  const { stdout } = await runAcpx(
-    ["--approve-all", "--format", "json", ...agentArgs, "prompt", "-s", sessionName, text],
-    { timeout: 60_000 },
-  );
+    return [
+      `state sessions (${stateSessions.length}):`,
+      ...formatStateSessions(stateSessions),
+      "",
+      `agent sessions (${agentSessions.sessions.length}):`,
+      ...formatAgentSessions(agentSessions),
+      "",
+      `state missing in agent (${missingInAgent.length}):`,
+      ...formatStateSessions(missingInAgent),
+      "",
+      `agent not tracked by state (${untrackedAgentSessions.length}):`,
+      ...formatAgentSessions({ sessions: untrackedAgentSessions }),
+    ].join("\n");
+  }
 
-  return parseAgentText(stdout);
-}
+  async function handleSessionCommand(
+    text: string,
+    sessionName: string,
+  ): Promise<string | undefined> {
+    const [command, subcommand, ...args] = text.trim().split(/\s+/);
+    if (command !== "/session") {
+      return undefined;
+    }
+    switch (subcommand) {
+      case undefined:
+        return handleCurrentSession(sessionName);
+      case "list":
+        return handleListSessions();
+      case "new":
+        return handleNewSession(sessionName);
+      case "load":
+        return handleLoadSession(sessionName, args[0]);
+      case "close":
+        await handleCloseSession(sessionName, args[0]);
+        return "Session closed. Next message will start a fresh session.";
+      default:
+        return [
+          "Usage:",
+          "/session",
+          "/session list",
+          "/session new",
+          "/session load <sessionId>",
+          "/session close [sessionId]",
+        ].join("\n");
+    }
+  }
 
-// --- handler ---
-
-export interface HandlerConfig {
-  agent: string;
-  cwd: string;
-}
-
-export function formatStatus(agent: string, cwd: string): string {
-  return ["service state: running", `configured agent: ${agent}`, `working directory: ${cwd}`].join(
-    "\n",
-  );
-}
-
-export function createHandler(config?: Partial<HandlerConfig>): {
-  handle: (text: string, session: string) => Promise<string>;
-  config: HandlerConfig;
-} {
-  const resolved: HandlerConfig = {
-    agent: config?.agent ?? process.env.ACPELLA_AGENT ?? "codex",
-    cwd: config?.cwd ?? process.env.ACPELLA_HOME ?? process.cwd(),
-  };
-  const agentArgs = acpxAgentArgs(resolved.agent);
-
-  const handle = async (text: string, session: string) => {
+  const handle = async (text: string, sessionName: string): Promise<string> => {
     if (text === "/status") {
-      return formatStatus(resolved.agent, resolved.cwd);
+      return formatStatus(config);
     }
-    if (text === "/reset") {
-      await closeSession(session, agentArgs, resolved.cwd);
-      return "Session reset. Next message will start a fresh session.";
+    const sessionCommandResponse = await handleSessionCommand(text, sessionName);
+    if (sessionCommandResponse) {
+      return sessionCommandResponse;
     }
-    return acpxPrompt(session, text, agentArgs, resolved.cwd);
+
+    return handlePrompt(sessionName, text);
   };
 
-  return { handle, config: resolved };
+  return { handle };
+}
+
+function formatStateSessions(sessions: StateSession[]): string[] {
+  if (sessions.length === 0) {
+    return ["- none"];
+  }
+  return sessions.map((session) => `- ${session.name} -> ${session.sessionId}`);
+}
+
+function formatAgentSessions(response: Pick<ListSessionsResponse, "sessions">): string[] {
+  if (response.sessions.length === 0) {
+    return ["- none"];
+  }
+  return response.sessions.map((session) =>
+    [
+      `- ${session.sessionId}`,
+      `cwd=${session.cwd}`,
+      session.title ? `title=${session.title}` : undefined,
+      session.updatedAt ? `updatedAt=${session.updatedAt}` : undefined,
+    ]
+      .filter(Boolean)
+      .join(" "),
+  );
 }

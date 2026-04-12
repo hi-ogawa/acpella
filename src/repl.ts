@@ -30,7 +30,7 @@ export interface TestBot {
   ) => Promise<void>;
 }
 
-export function createTestBot(): TestBot {
+export function createTestBot(options: { chatId: number }): TestBot {
   const replies: { chatId: number; text: string }[] = [];
 
   const bot = new Bot("test-token", { botInfo });
@@ -54,7 +54,7 @@ export function createTestBot(): TestBot {
     bot,
     replies,
     async sendMessage(text, opts) {
-      const chatId = opts?.chatId ?? Number(process.env.ACPELLA_TEST_CHAT_ID || "123");
+      const chatId = opts?.chatId ?? options.chatId;
       const userId = opts?.userId ?? 456;
       const update: Update = {
         update_id: updateId++,
@@ -79,7 +79,6 @@ export async function startTestBotRepl(testBot: TestBot): Promise<void> {
 
   try {
     while (true) {
-      // TODO: handle Ctrl+D
       const text = await rl.question("> ");
       if (!text || text === "/quit") {
         break;
