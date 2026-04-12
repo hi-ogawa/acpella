@@ -103,11 +103,10 @@ Options:
     }
 
     try {
-      const response = await handler.handle(text, name);
+      await handler.handle({ session: name, context: ctx });
       if (!cli.repl) {
-        console.log(`[${name}] -> ${response.slice(0, 100)}...`);
+        console.log(`[${name}] -> response sent`);
       }
-      await ctx.reply(response);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`[${name}] error: ${msg}`);

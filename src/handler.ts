@@ -1,7 +1,10 @@
 import type { ListSessionsResponse } from "@agentclientprotocol/sdk";
+import type { Context } from "grammy";
 import { startAcpManager } from "./acp/index.ts";
 import type { AppConfig } from "./config.ts";
 import { createSessionStateStore } from "./state.ts";
+
+const MESSAGE_SPLIT_BUDGET = 3900;
 
 interface StateSession {
   name: string;
@@ -9,16 +12,17 @@ interface StateSession {
 }
 
 export async function createHandler(config: AppConfig): Promise<{
-  handle: (text: string, session: string) => Promise<string>;
+  handle: (options: { session: string; context: Context }) => Promise<void>;
 }> {
   const manager = await startAcpManager({ command: config.agent.command, cwd: config.home });
   const state = createSessionStateStore(config);
 
   async function handlePrompt(options: {
+    context: Context;
     name: string;
     text: string;
     sessionId?: string;
-  }): Promise<string> {
+  }): Promise<void> {
     const session = options.sessionId
       ? await manager.loadSession({
           sessionCwd: config.home,
@@ -31,22 +35,52 @@ export async function createHandler(config: AppConfig): Promise<{
         : options.text;
 
     try {
-      // TODO: stream and split as needed
       const { queue } = session.prompt(promptText);
-      const texts: string[] = [];
+      let bufferedText = "";
+      let sentResponse = false;
+
+      async function flushBufferedText(): Promise<void> {
+        if (!bufferedText.trim()) {
+          bufferedText = "";
+          return;
+        }
+        await sendTextResponse(options.context, bufferedText);
+        sentResponse = true;
+        bufferedText = "";
+      }
+
+      async function flushOversizedText(): Promise<void> {
+        while (bufferedText.length > MESSAGE_SPLIT_BUDGET) {
+          const splitIndex = findSplitIndex(bufferedText, MESSAGE_SPLIT_BUDGET);
+          const part = bufferedText.slice(0, splitIndex).trim();
+          bufferedText = bufferedText.slice(splitIndex);
+          if (part) {
+            await options.context.reply(part);
+            sentResponse = true;
+          }
+        }
+      }
+
       for await (const update of queue) {
         if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
-          texts.push(update.content.text);
+          bufferedText += update.content.text;
+          await flushOversizedText();
         } else if (update.sessionUpdate === "tool_call") {
           console.log(`[acp:update] tool_call: ${update.title}`);
+          await flushBufferedText();
+          await sendTextResponse(options.context, `Tool: ${update.title}`);
+          sentResponse = true;
         } else {
           console.log(`[acp:update] ${update.sessionUpdate}`);
         }
       }
+      await flushBufferedText();
       if (!options.sessionId) {
         state.setSessionId(options.name, session.sessionId);
       }
-      return texts.join("") || "(no response)";
+      if (!sentResponse) {
+        await options.context.reply("(no response)");
+      }
     } finally {
       session.close();
     }
@@ -67,8 +101,9 @@ export async function createHandler(config: AppConfig): Promise<{
     }
   }
 
-  async function handleNewSession(name: string, text: string): Promise<string> {
+  async function handleNewSession(context: Context, name: string, text: string): Promise<void> {
     return handlePrompt({
+      context,
       name,
       text,
     });
@@ -123,27 +158,34 @@ export async function createHandler(config: AppConfig): Promise<{
   }
 
   async function handleSessionCommand(
+    context: Context,
     text: string,
     sessionName: string,
-  ): Promise<string | undefined> {
+  ): Promise<boolean> {
     const [command, subcommand, ...args] = text.trim().split(/\s+/);
     if (command !== "/session") {
-      return undefined;
+      return false;
     }
+    let response: string;
     switch (subcommand) {
       case undefined:
-        return handleCurrentSession(sessionName);
+        response = handleCurrentSession(sessionName);
+        break;
       case "list":
-        return handleListSessions();
+        response = await handleListSessions();
+        break;
       case "new":
-        return handleNewSession(sessionName, args.join(" "));
+        await handleNewSession(context, sessionName, args.join(" "));
+        return true;
       case "load":
-        return handleLoadSession(sessionName, args[0]);
+        response = await handleLoadSession(sessionName, args[0]);
+        break;
       case "close":
         await handleCloseSession(sessionName, args[0]);
-        return "Session closed. Next message will start a fresh session.";
+        response = "Session closed. Next message will start a fresh session.";
+        break;
       default:
-        return [
+        response = [
           "Usage:",
           "/session",
           "/session list",
@@ -152,6 +194,8 @@ export async function createHandler(config: AppConfig): Promise<{
           "/session close [sessionId]",
         ].join("\n");
     }
+    await sendTextResponse(context, response);
+    return true;
   }
 
   function handleStatus(): string {
@@ -164,16 +208,25 @@ state file: ${config.stateFile}
 prompt file: ${config.prompt.file ?? "none"}`;
   }
 
-  const handle = async (text: string, sessionName: string): Promise<string> => {
-    if (text === "/status") {
-      return handleStatus();
+  const handle = async (options: { session: string; context: Context }): Promise<void> => {
+    const message = options.context.message;
+    const text = message && "text" in message ? message.text : undefined;
+    if (!text) {
+      return;
     }
-    const sessionCommandResponse = await handleSessionCommand(text, sessionName);
-    if (sessionCommandResponse) {
-      return sessionCommandResponse;
+    const sessionName = options.session;
+
+    if (text === "/status") {
+      await sendTextResponse(options.context, handleStatus());
+      return;
+    }
+    const handledSessionCommand = await handleSessionCommand(options.context, text, sessionName);
+    if (handledSessionCommand) {
+      return;
     }
 
-    return handlePrompt({
+    await handlePrompt({
+      context: options.context,
       name: sessionName,
       text,
       sessionId: state.getSessionId(sessionName),
@@ -216,4 +269,44 @@ ${options.customPrompt.trim()}
 
 ${options.userText}
 `;
+}
+
+async function sendTextResponse(context: Context, text: string): Promise<void> {
+  const parts = splitMessageText(text);
+  for (const part of parts) {
+    await context.reply(part);
+  }
+}
+
+function splitMessageText(text: string): string[] {
+  const parts: string[] = [];
+  let remaining = text.trim();
+  while (remaining.length > MESSAGE_SPLIT_BUDGET) {
+    const splitIndex = findSplitIndex(remaining, MESSAGE_SPLIT_BUDGET);
+    const part = remaining.slice(0, splitIndex).trim();
+    if (part) {
+      parts.push(part);
+    }
+    remaining = remaining.slice(splitIndex).trim();
+  }
+  if (remaining) {
+    parts.push(remaining);
+  }
+  return parts;
+}
+
+function findSplitIndex(text: string, budget: number): number {
+  const paragraphIndex = text.lastIndexOf("\n\n", budget);
+  if (paragraphIndex > budget / 2) {
+    return paragraphIndex + 2;
+  }
+  const lineIndex = text.lastIndexOf("\n", budget);
+  if (lineIndex > budget / 2) {
+    return lineIndex + 1;
+  }
+  const spaceIndex = text.lastIndexOf(" ", budget);
+  if (spaceIndex > budget / 2) {
+    return spaceIndex + 1;
+  }
+  return budget;
 }
