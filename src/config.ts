@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
 
@@ -12,6 +13,10 @@ export interface AppConfig {
     token?: string;
     allowedUserIds: number[];
     allowedChatIds: number[];
+  };
+  prompt: {
+    file?: string;
+    text?: string;
   };
   testChatId: number;
 }
@@ -29,6 +34,7 @@ const envSchema = z
   .object({
     ACPELLA_AGENT: z.string().optional(),
     ACPELLA_HOME: z.string().optional(),
+    ACPELLA_PROMPT_FILE: z.string().optional(),
     ACPELLA_TELEGRAM_BOT_TOKEN: z.string().optional(),
     ACPELLA_TELEGRAM_ALLOWED_USER_IDS: z.string().optional(),
     ACPELLA_TELEGRAM_ALLOWED_CHAT_IDS: z.string().optional(),
@@ -40,11 +46,16 @@ export function loadConfig(): AppConfig {
   const env = envSchema.parse(process.env);
   const home = env.ACPELLA_HOME ? path.resolve(env.ACPELLA_HOME) : process.cwd();
 
-  const agentName = env.ACPELLA_AGENT ?? "codex";
-  const agent = resolveAgent({ name: agentName });
+  const agentAlias = env.ACPELLA_AGENT ?? "codex";
+  const agentCommand = builtinAgents[agentAlias] || agentAlias;
+
+  const promptFile = env.ACPELLA_PROMPT_FILE
+    ? path.resolve(home, env.ACPELLA_PROMPT_FILE)
+    : undefined;
+  const promptText = promptFile ? fs.readFileSync(promptFile, "utf8") : undefined;
 
   return {
-    agent,
+    agent: { alias: agentAlias, command: agentCommand },
     home,
     stateFile: path.join(home, ".acpella", "state.json"),
     telegram: {
@@ -52,18 +63,13 @@ export function loadConfig(): AppConfig {
       allowedUserIds: parseIdList(env.ACPELLA_TELEGRAM_ALLOWED_USER_IDS) ?? [],
       allowedChatIds: parseIdList(env.ACPELLA_TELEGRAM_ALLOWED_CHAT_IDS) ?? [],
     },
+    prompt: {
+      file: promptFile,
+      text: promptText,
+    },
     // TODO: make use of this for test
     testChatId: parseOptionalId(env.ACPELLA_TEST_CHAT_ID) ?? 10101010,
   };
-}
-
-function resolveAgent(options: { name: string }): AppConfig["agent"] {
-  const alias = options.name;
-  const knownAgent = builtinAgents[alias];
-  if (knownAgent) {
-    return { alias, command: knownAgent };
-  }
-  return { alias, command: alias };
 }
 
 function parseIdList(value: string | undefined): number[] | undefined {

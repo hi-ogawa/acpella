@@ -8,36 +8,31 @@ interface StateSession {
   sessionId: string;
 }
 
-export function formatStatus(config: AppConfig): string {
-  return [
-    "service state: running",
-    `configured agent: ${config.agent.alias}`,
-    `agent command: ${config.agent.command}`,
-    `home: ${config.home}`,
-    `state file: ${config.stateFile}`,
-  ].join("\n");
-}
-
 export async function createHandler(config: AppConfig): Promise<{
   handle: (text: string, session: string) => Promise<string>;
 }> {
   const manager = await startAcpManager({ command: config.agent.command, cwd: config.home });
   const state = createSessionStateStore(config);
 
-  async function handlePrompt(name: string, text: string): Promise<string> {
-    const persistedId = state.getSessionId(name);
-    const isNewSession = !persistedId;
-    const session = persistedId
+  async function handlePrompt(options: {
+    name: string;
+    text: string;
+    sessionId?: string;
+  }): Promise<string> {
+    const session = options.sessionId
       ? await manager.loadSession({
           sessionCwd: config.home,
-          sessionId: persistedId,
+          sessionId: options.sessionId,
         })
       : await manager.newSession({ sessionCwd: config.home });
+    const promptText =
+      !options.sessionId && config.prompt.text
+        ? formatFirstPrompt({ customPrompt: config.prompt.text, userText: options.text })
+        : options.text;
 
     try {
-      const { queue } = session.prompt(text);
-
       // TODO: stream and split as needed
+      const { queue } = session.prompt(promptText);
       const texts: string[] = [];
       for await (const update of queue) {
         if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
@@ -48,8 +43,8 @@ export async function createHandler(config: AppConfig): Promise<{
           console.log(`[acp:update] ${update.sessionUpdate}`);
         }
       }
-      if (isNewSession) {
-        state.setSessionId(name, session.sessionId);
+      if (!options.sessionId) {
+        state.setSessionId(options.name, session.sessionId);
       }
       return texts.join("") || "(no response)";
     } finally {
@@ -72,14 +67,11 @@ export async function createHandler(config: AppConfig): Promise<{
     }
   }
 
-  async function handleNewSession(name: string): Promise<string> {
-    const session = await manager.newSession({ sessionCwd: config.home });
-    try {
-      state.setSessionId(name, session.sessionId);
-      return `Created session: ${session.sessionId}`;
-    } finally {
-      session.close();
-    }
+  async function handleNewSession(name: string, text: string): Promise<string> {
+    return handlePrompt({
+      name,
+      text,
+    });
   }
 
   async function handleLoadSession(name: string, sessionId: string | undefined): Promise<string> {
@@ -144,7 +136,7 @@ export async function createHandler(config: AppConfig): Promise<{
       case "list":
         return handleListSessions();
       case "new":
-        return handleNewSession(sessionName);
+        return handleNewSession(sessionName, args.join(" "));
       case "load":
         return handleLoadSession(sessionName, args[0]);
       case "close":
@@ -162,16 +154,30 @@ export async function createHandler(config: AppConfig): Promise<{
     }
   }
 
+  function handleStatus(): string {
+    return `\
+service state: running
+configured agent: ${config.agent.alias}
+agent command: ${config.agent.command}
+home: ${config.home}
+state file: ${config.stateFile}
+prompt file: ${config.prompt.file ?? "none"}`;
+  }
+
   const handle = async (text: string, sessionName: string): Promise<string> => {
     if (text === "/status") {
-      return formatStatus(config);
+      return handleStatus();
     }
     const sessionCommandResponse = await handleSessionCommand(text, sessionName);
     if (sessionCommandResponse) {
       return sessionCommandResponse;
     }
 
-    return handlePrompt(sessionName, text);
+    return handlePrompt({
+      name: sessionName,
+      text,
+      sessionId: state.getSessionId(sessionName),
+    });
   };
 
   return { handle };
@@ -198,4 +204,16 @@ function formatAgentSessions(response: Pick<ListSessionsResponse, "sessions">): 
       .filter(Boolean)
       .join(" "),
   );
+}
+
+function formatFirstPrompt(options: { customPrompt: string; userText: string }): string {
+  return `\
+Use these additional instructions for this session:
+
+<custom_instructions>
+${options.customPrompt.trim()}
+</custom_instructions>
+
+${options.userText}
+`;
 }

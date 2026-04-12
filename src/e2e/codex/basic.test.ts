@@ -1,4 +1,3 @@
-import fs from "node:fs";
 import path from "node:path";
 import { it, vi } from "vitest";
 import { startService } from "../helper.ts";
@@ -8,17 +7,32 @@ vi.setConfig({
 });
 
 it("basic", async ({ onTestFinished }) => {
-  const service = startService({
-    ACPELLA_AGENT: "codex",
-  });
+  const service = startService(
+    {
+      ACPELLA_AGENT: "codex",
+    },
+    { sourceDir: path.join(import.meta.dirname, "fixtures/basic") },
+  );
   onTestFinished(async () => {
     await service.stop();
   });
-  fs.cpSync(
-    path.join(import.meta.dirname, "fixtures/basic/AGENTS.md"),
-    path.join(service.home, "AGENTS.md"),
-  );
   await service.waitForLine("Starting service");
   service.send("hello");
   await service.waitForLine("world");
+});
+
+it("uses custom prompt file", async ({ onTestFinished }) => {
+  const service = startService(
+    {
+      ACPELLA_AGENT: "codex",
+      ACPELLA_PROMPT_FILE: "custom-prompt.md",
+    },
+    { sourceDir: path.join(import.meta.dirname, "fixtures/custom-prompt") },
+  );
+  onTestFinished(async () => {
+    await service.stop();
+  });
+  await service.waitForLine("Starting service");
+  service.send("ping-custom-prompt");
+  await service.waitForLine("pong-custom-prompt");
 });
