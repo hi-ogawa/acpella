@@ -21,7 +21,6 @@ const stateSchema = z
           alias: z.string().min(1),
           command: z.string().min(1),
         }),
-        home: z.string().min(1),
         sessions: z.record(
           z.string().min(1),
           z.object({
@@ -37,7 +36,7 @@ type State = z.infer<typeof stateSchema>;
 type Scope = State["scopes"][string];
 
 export function createSessionStateStore(
-  config: Pick<AppConfig, "agent" | "home" | "stateFile">,
+  config: Pick<AppConfig, "agent" | "stateFile">,
 ): SessionStateStore {
   const scopeKey = createScopeKey(config);
 
@@ -66,7 +65,6 @@ export function createSessionStateStore(
     }
     const scope: Scope = {
       agent: config.agent,
-      home: config.home,
       sessions: {},
     };
     state.scopes[scopeKey] = scope;
@@ -101,8 +99,8 @@ export function createSessionStateStore(
   };
 }
 
-function createScopeKey(config: Pick<AppConfig, "agent" | "home">): string {
-  return `${config.agent.alias}:${hash(config.agent.command)}:${hash(config.home)}`;
+function createScopeKey(config: Pick<AppConfig, "agent">): string {
+  return `${config.agent.alias}:${hash(config.agent.command)}`;
 }
 
 function hash(value: string): string {

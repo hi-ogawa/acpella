@@ -27,5 +27,7 @@ resolved runtime value, and force the persistence file under the resolved app ho
 3. Resolve the agent from `ACPELLA_AGENT`, falling back to the built-in `codex` alias.
 4. Keep `AppConfig.stateFile` and set it inline in `loadConfig()` from the resolved app home.
 5. Keep `state.ts` consuming `config.stateFile`.
-6. Keep tests isolated through the existing temporary `ACPELLA_HOME`.
-7. Run lint and the unit/e2e smoke tests.
+6. Remove redundant `home` data from persisted state scopes because the state file is already
+   stored under the resolved home.
+7. Keep tests isolated through the existing temporary `ACPELLA_HOME`.
+8. Run lint and the unit/e2e smoke tests.
