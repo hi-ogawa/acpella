@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { env, getuid } from "node:process";
 
-export function renderSystemdUnit(): string {
+export function handleSetupSystemd(): void {
   const workingDirectory = process.cwd();
   const options = {
     description: "acpella service",
@@ -22,7 +22,7 @@ export function renderSystemdUnit(): string {
   const networkLines =
     options.scope === "system" ? "After=network-online.target\nWants=network-online.target\n" : "";
 
-  return `[Unit]
+  process.stdout.write(`[Unit]
 Description=${escapeSystemdValue(options.description)}
 ${networkLines}
 [Service]
@@ -35,7 +35,7 @@ RestartSec=10
 
 [Install]
 WantedBy=${installTarget}
-`;
+`);
 }
 
 function escapeSystemdValue(value: string): string {
