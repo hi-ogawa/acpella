@@ -1,9 +1,15 @@
 import { Bot } from "grammy";
 import { loadConfig } from "./config.ts";
 import { createHandler } from "./handler.ts";
+import { runSystemdUnitCommand } from "./lib/systemd.ts";
 import { createTestBot, startTestBotRepl, type TestBot } from "./repl.ts";
 
 async function main() {
+  const handled = handleCli({ argv: process.argv.slice(2) });
+  if (handled) {
+    return;
+  }
+
   const config = loadConfig();
   const { handle } = await createHandler(config);
   const allowedUsers = new Set(config.telegram.allowedUserIds);
@@ -81,6 +87,30 @@ async function main() {
 function sessionName(chatId: number, threadId?: number): string {
   const base = `tg-${chatId}`;
   return threadId ? `${base}-${threadId}` : base;
+}
+
+function handleCli(options: { argv: string[] }): boolean {
+  const [command, ...args] = options.argv;
+  if (!command) {
+    return false;
+  }
+  if (command === "--help" || command === "-h") {
+    process.stdout.write(renderHelp());
+    return true;
+  }
+  if (command !== "generate-systemd-unit") {
+    throw new Error(`Unknown command: ${command}`);
+  }
+
+  runSystemdUnitCommand({ argv: args });
+  return true;
+}
+
+function renderHelp(): string {
+  return `Usage:
+  node src/index.ts
+  node src/index.ts generate-systemd-unit [options]
+`;
 }
 
 main().catch((err) => {
