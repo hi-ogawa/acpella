@@ -73,17 +73,7 @@ function resolveAgent(options: { name: string }): AppConfig["agent"] {
   if (knownAgent) {
     return { alias, command: knownAgent.command };
   }
-  return { alias, command: resolveCommand({ command: alias, baseDir: process.cwd() }) };
-}
-
-function resolveCommand(options: { command: string; baseDir: string }): string {
-  const [cmd, ...args] = options.command.trim().split(/\s+/);
-  if (!cmd) {
-    throw new Error("Agent command must be non-empty");
-  }
-  const resolvedCmd =
-    cmd.includes(path.sep) && !path.isAbsolute(cmd) ? path.resolve(options.baseDir, cmd) : cmd;
-  return [resolvedCmd, ...args].join(" ");
+  return { alias, command: alias };
 }
 
 function parseIdList(value: string | undefined): number[] | undefined {
