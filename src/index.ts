@@ -48,11 +48,15 @@ async function main() {
     const name = sessionName(chatId, threadId);
     const text = ctx.message.text;
 
-    console.log(`[${name}] <- ${text}`);
+    if (!config.testMode) {
+      console.log(`[${name}] <- ${text}`);
+    }
 
     try {
       const response = await handle(text, name);
-      console.log(`[${name}] -> ${response.slice(0, 100)}...`);
+      if (!config.testMode) {
+        console.log(`[${name}] -> ${response.slice(0, 100)}...`);
+      }
       await ctx.reply(response);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
