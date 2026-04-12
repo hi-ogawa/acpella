@@ -15,6 +15,12 @@ const AGENT_MAP = {
   ),
 };
 
+export function formatStatus(agent: string, cwd: string): string {
+  return ["service state: running", `configured agent: ${agent}`, `working directory: ${cwd}`].join(
+    "\n",
+  );
+}
+
 export async function createHandler(): Promise<{
   handle: (text: string, session: string) => Promise<string>;
   config: HandlerConfig;
@@ -93,12 +99,7 @@ export async function createHandler(): Promise<{
 
   const handle = async (text: string, sessionName: string): Promise<string> => {
     if (text === "/status") {
-      const response = [
-        "daemon state: running",
-        `configured agent: ${resolved.agent}`,
-        `working directory: ${resolved.cwd}`,
-      ].join("\n");
-      return response;
+      return formatStatus(resolved.agent, resolved.cwd);
     }
     if (text === "/reset") {
       await removeSession(sessionName);

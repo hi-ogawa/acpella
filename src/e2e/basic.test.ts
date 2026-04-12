@@ -1,24 +1,24 @@
 import { describe, it } from "vitest";
-import { startDaemon } from "./helper.ts";
+import { startService } from "./helper.ts";
 
 describe("e2e smoke", () => {
   it("starts and responds to /status", async () => {
-    const daemon = startDaemon();
+    const service = startService();
 
-    await daemon.waitForLine("Starting daemon");
-    daemon.send("/status");
-    await daemon.waitForLine("configured agent: codex");
+    await service.waitForLine("Starting service");
+    service.send("/status");
+    await service.waitForLine("configured agent: codex");
 
-    await daemon.stop();
+    await service.stop();
   });
 
   it("echo agent round-trip", async () => {
-    const daemon = startDaemon({ ACPELLA_AGENT: "node src/test-agent.ts" });
+    const service = startService({ ACPELLA_AGENT: "node src/test-agent.ts" });
 
-    await daemon.waitForLine("Starting daemon");
-    daemon.send("hello world");
-    await daemon.waitForLine("echo: hello world");
+    await service.waitForLine("Starting service");
+    service.send("hello world");
+    await service.waitForLine("echo: hello world");
 
-    await daemon.stop();
+    await service.stop();
   });
 });

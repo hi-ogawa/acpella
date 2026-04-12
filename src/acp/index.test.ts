@@ -1,6 +1,6 @@
+import path from "node:path";
 import { describe, it, expect, onTestFinished } from "vitest";
 import { startAcpManager } from "./index.ts";
-import path from "node:path";
 
 // TODO: test
 // - multiple updates per prompt

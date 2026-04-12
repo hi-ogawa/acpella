@@ -1,6 +1,5 @@
 import { spawn } from "node:child_process";
 import { Readable, Writable } from "node:stream";
-import { AsyncQueue } from "../async-queue.ts";
 import {
   ClientSideConnection,
   PROTOCOL_VERSION,
@@ -9,6 +8,7 @@ import {
   type SessionUpdate,
   type ListSessionsResponse,
 } from "@agentclientprotocol/sdk";
+import { AsyncQueue } from "../async-queue.ts";
 
 // TODO: review slop (NEVER REMOVE THIS COMMENT)
 
