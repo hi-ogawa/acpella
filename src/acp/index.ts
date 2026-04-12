@@ -68,8 +68,6 @@ type SpanwedAgent = Awaited<ReturnType<typeof spawnAgent>>;
 
 async function spawnAgent({ command, cwd }: { command: string; cwd: string }) {
   const [cmd, ...args] = command.trim().split(/\s+/);
-  // TODO:
-  // handle process exit
   const child = spawn(cmd, args, { stdio: ["pipe", "pipe", "pipe"], cwd });
   const earlyExit = createEarlyExitPromise(child);
   if (child.stderr) {
@@ -203,5 +201,3 @@ async function createSession(options: { agent: SpanwedAgent; sessionId: string }
     },
   };
 }
-
-export type AcpSession = Awaited<ReturnType<typeof createSession>>;
