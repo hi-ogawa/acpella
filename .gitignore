@@ -4,3 +4,4 @@ node_modules/
 refs/
 acpella.config.json
 .acpella/
+src/e2e/.tmp/

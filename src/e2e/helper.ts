@@ -1,14 +1,22 @@
 import { spawn } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
 
 // TODO: review slop
 
+const REPO_ROOT = path.join(import.meta.dirname, "../..");
+const TMP_ROOT = path.join(import.meta.dirname, ".tmp");
+
 export function startService(env?: Record<string, string>) {
+  fs.mkdirSync(TMP_ROOT, { recursive: true });
+  const home = fs.mkdtempSync(path.join(TMP_ROOT, "acpella-"));
   const child = spawn("node", ["src/index.ts"], {
-    cwd: import.meta.dirname + "/../..",
+    cwd: REPO_ROOT,
     env: {
       ...process.env,
       ACPELLA_TEST_BOT: "1",
-      ACPELLA_AGENT: "codex",
+      ACPELLA_AGENT: "test",
+      ACPELLA_HOME: home,
       ...env,
     },
     stdio: ["pipe", "pipe", "pipe"],
@@ -61,6 +69,7 @@ export function startService(env?: Record<string, string>) {
   async function stop() {
     child.stdin.end();
     await new Promise<void>((resolve) => child.on("close", resolve));
+    fs.rmSync(home, { recursive: true, force: true });
   }
 
   return { child, lines, send, waitForLine, stop };
