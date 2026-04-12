@@ -19,13 +19,17 @@ pnpm cli --repl # run local in-process REPL
 
 ## Config
 
-| Variable                            | Required | Default                         | Description                                |
-| ----------------------------------- | -------- | ------------------------------- | ------------------------------------------ |
-| `ACPELLA_TELEGRAM_BOT_TOKEN`        | yes      | —                               | Bot token from @BotFather                  |
-| `ACPELLA_TELEGRAM_ALLOWED_USER_IDS` | yes      | —                               | Comma-separated numeric Telegram user IDs  |
-| `ACPELLA_TELEGRAM_ALLOWED_CHAT_IDS` | no       | —                               | Comma-separated chat IDs (group allowlist) |
-| `ACPELLA_AGENT`                     | no       | `npx @zed-industries/codex-acp` | acp agent command                          |
-| `ACPELLA_HOME`                      | no       | `process.cwd()`                 | Agent working directory                    |
+| Variable                            | Required | Default                         | Description                                   |
+| ----------------------------------- | -------- | ------------------------------- | --------------------------------------------- |
+| `ACPELLA_TELEGRAM_BOT_TOKEN`        | yes      | —                               | Bot token from @BotFather                     |
+| `ACPELLA_TELEGRAM_ALLOWED_USER_IDS` | yes      | —                               | Comma-separated numeric Telegram user IDs     |
+| `ACPELLA_TELEGRAM_ALLOWED_CHAT_IDS` | no       | —                               | Comma-separated chat IDs (group allowlist)    |
+| `ACPELLA_AGENT`                     | no       | `npx @zed-industries/codex-acp` | acp agent command                             |
+| `ACPELLA_HOME`                      | no       | `process.cwd()`                 | Agent working directory                       |
+| `ACPELLA_PROMPT_FILE`               | no       | —                               | Prompt file sent once when creating a session |
+
+Relative `ACPELLA_PROMPT_FILE` paths resolve from `ACPELLA_HOME`. If the prompt file changes,
+restart acpella and run `/session new` in the chat/thread that should use the new prompt.
 
 ## Docs
 
