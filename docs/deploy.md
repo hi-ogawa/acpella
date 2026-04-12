@@ -5,8 +5,8 @@ Run acpella alongside existing openclaw on the same machine.
 ## Setup
 
 ```bash
-git clone https://github.com/hi-ogawa/acpella
-cd acpella
+git clone https://github.com/hi-ogawa/acpella ~/code/personal/acpella
+cd ~/code/personal/acpella
 pnpm install
 cp .env.example .env
 # fill in ACPELLA_TELEGRAM_BOT_TOKEN and ACPELLA_TELEGRAM_ALLOWED_USER_IDS
@@ -34,7 +34,7 @@ Type=simple
 SyslogIdentifier=acpella
 WorkingDirectory=/home/hiroshi/code/personal/acpella
 EnvironmentFile=/home/hiroshi/code/personal/acpella/.env
-ExecStart=/home/hiroshi/.local/share/mise/installs/node/24.12.0/bin/node /home/hiroshi/code/personal/acpella/src/index.ts
+ExecStart=/home/hiroshi/.local/share/mise/installs/node/24.12.0/bin/node /home/hiroshi/code/personal/acpella/src/cli.ts
 Restart=on-failure
 RestartSec=10
 
@@ -72,5 +72,5 @@ sudo systemctl enable --now acpella
 ## Manual run
 
 ```bash
-pnpm start
+pnpm cli
 ```

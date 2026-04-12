@@ -2,12 +2,10 @@
 
 ## Quick Reference
 
-| Command      | When                          |
-| ------------ | ----------------------------- |
-| `pnpm start` | Run service (requires `.env`) |
-| `pnpm dev`   | Run service with --watch      |
-| `pnpm test`  | E2E smoke test (vitest)       |
-| `pnpm lint`  | Lint                          |
+| Command     | When                      |
+| ----------- | ------------------------- |
+| `pnpm test` | E2E                       |
+| `pnpm lint` | Format + Lint + Typecheck |
 
 ## Key Docs
 
@@ -18,17 +16,9 @@
 | `docs/references.md`         | Reference projects, local clone setup |
 | `docs/tasks/YYYY-MM-DD-*.md` | Per-task notes                        |
 
-## Architecture
-
-Thin service: Telegram ↔ acpx ↔ coding agent (Codex, Claude Code, etc.).
-
-- **`src/index.ts`** — single-file service: config, acpx interface, telegram bot, entry point
-
-Each Telegram chat maps to a named acpx session (`tg-<chatId>`). Forum threads get `tg-<chatId>-<threadId>`. The agent (acpx) runs as a subprocess; its binary is at `node_modules/.bin/acpx`.
-
 ## Task Documents
 
-For non-trivial work, create `docs/tasks/YYYY-MM-DD-<topic>.md` **before implementing**.
+When asked to plan the detail of task, create `docs/tasks/YYYY-MM-DD-<topic>.md` **before implementing**.
 
 Task docs should enable **handoff to a fresh agent** - include enough context to continue without conversation history.
 

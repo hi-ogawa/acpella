@@ -15,7 +15,7 @@ Telegram  ──►  acpella  ──►  acpx  ──►  agent (Codex, Claude C
 
 ## Components
 
-### `src/index.ts`
+### `src/cli.ts`
 
 Single-file service. Three sections:
 

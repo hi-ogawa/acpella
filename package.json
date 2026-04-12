@@ -4,10 +4,8 @@
   "type": "module",
   "scripts": {
     "prepare": "vp config",
-    "start": "node --env-file=.env src/index.ts",
-    "dev": "node --env-file=.env --watch src/index.ts",
-    "repl": "ACPELLA_TEST_BOT=1 node src/index.ts",
-    "generate-systemd-unit": "node src/index.ts generate-systemd-unit",
+    "cli": "node --env-file-if-exists=.env src/cli.ts",
+    "generate-systemd-unit": "node src/cli.ts generate-systemd-unit",
     "test": "vitest --project=unit",
     "test-codex": "vitest --project=codex",
     "lint": "vp check --fix",

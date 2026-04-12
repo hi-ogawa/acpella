@@ -13,7 +13,6 @@ export interface AppConfig {
     allowedUserIds: number[];
     allowedChatIds: number[];
   };
-  testMode: boolean;
   testChatId: number;
 }
 
@@ -33,7 +32,6 @@ const envSchema = z
     ACPELLA_TELEGRAM_BOT_TOKEN: z.string().optional(),
     ACPELLA_TELEGRAM_ALLOWED_USER_IDS: z.string().optional(),
     ACPELLA_TELEGRAM_ALLOWED_CHAT_IDS: z.string().optional(),
-    ACPELLA_TEST_BOT: z.string().optional(),
     ACPELLA_TEST_CHAT_ID: z.string().optional(),
   })
   .loose();
@@ -54,8 +52,8 @@ export function loadConfig(): AppConfig {
       allowedUserIds: parseIdList(env.ACPELLA_TELEGRAM_ALLOWED_USER_IDS) ?? [],
       allowedChatIds: parseIdList(env.ACPELLA_TELEGRAM_ALLOWED_CHAT_IDS) ?? [],
     },
-    testMode: env.ACPELLA_TEST_BOT === "1",
-    testChatId: parseOptionalId(env.ACPELLA_TEST_CHAT_ID) ?? 123,
+    // TODO: make use of this for test
+    testChatId: parseOptionalId(env.ACPELLA_TEST_CHAT_ID) ?? 10101010,
   };
 }
 

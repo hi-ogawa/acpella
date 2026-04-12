@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 import { Readable, Writable } from "node:stream";
 import {
   ClientSideConnection,
@@ -68,10 +68,11 @@ type SpanwedAgent = Awaited<ReturnType<typeof spawnAgent>>;
 
 async function spawnAgent({ command, cwd }: { command: string; cwd: string }) {
   const [cmd, ...args] = command.trim().split(/\s+/);
-  // TODO:
-  // handle stderr
-  // handle process exit
-  const child = spawn(cmd, args, { stdio: ["pipe", "pipe", "inherit"], cwd });
+  const child = spawn(cmd, args, { stdio: ["pipe", "pipe", "pipe"], cwd });
+  const earlyExit = createEarlyExitPromise(child);
+  if (child.stderr) {
+    pipeAgentStderr(child.stderr);
+  }
 
   const stream = ndJsonStream(
     Writable.toWeb(child.stdin!),
@@ -97,10 +98,17 @@ async function spawnAgent({ command, cwd }: { command: string; cwd: string }) {
   };
 
   const connection = new ClientSideConnection(() => client, stream);
-  await connection.initialize({
-    protocolVersion: PROTOCOL_VERSION,
-    clientCapabilities: {},
-  });
+  try {
+    await Promise.race([
+      connection.initialize({
+        protocolVersion: PROTOCOL_VERSION,
+        clientCapabilities: {},
+      }),
+      earlyExit.promise,
+    ]);
+  } finally {
+    earlyExit.cleanup();
+  }
 
   function subscribe(listener: (update: SessionUpdate) => void) {
     listeners.add(listener);
@@ -108,6 +116,61 @@ async function spawnAgent({ command, cwd }: { command: string; cwd: string }) {
   }
 
   return { child, connection, subscribe };
+}
+
+function createEarlyExitPromise(child: ChildProcess): {
+  promise: Promise<never>;
+  cleanup: () => void;
+} {
+  let onError: (error: Error) => void;
+  let onExit: (code: number | null, signal: NodeJS.Signals | null) => void;
+
+  const promise = new Promise<never>((_, reject) => {
+    onError = (error) => {
+      reject(new Error(`ACP agent failed to start: ${error.message}`));
+    };
+
+    onExit = (code, signal) => {
+      reject(
+        new Error(
+          `ACP agent exited before initialize completed: code=${code ?? "none"} signal=${
+            signal ?? "none"
+          }`,
+        ),
+      );
+    };
+
+    child.once("error", onError);
+    child.once("exit", onExit);
+  });
+
+  return {
+    promise,
+    cleanup() {
+      child.off("error", onError);
+      child.off("exit", onExit);
+    },
+  };
+}
+
+function pipeAgentStderr(stderr: Readable): void {
+  let buffered = "";
+  stderr.setEncoding("utf8");
+  stderr.on("data", (chunk) => {
+    buffered += String(chunk);
+    let newlineIndex = buffered.indexOf("\n");
+    while (newlineIndex !== -1) {
+      const line = buffered.slice(0, newlineIndex).replace(/\r$/, "");
+      console.error(`[acp:stderr] ${line}`);
+      buffered = buffered.slice(newlineIndex + 1);
+      newlineIndex = buffered.indexOf("\n");
+    }
+  });
+  stderr.on("end", () => {
+    if (buffered) {
+      console.error(`[acp:stderr] ${buffered.replace(/\r$/, "")}`);
+    }
+  });
 }
 
 async function createSession(options: { agent: SpanwedAgent; sessionId: string }) {
@@ -138,5 +201,3 @@ async function createSession(options: { agent: SpanwedAgent; sessionId: string }
     },
   };
 }
-
-export type AcpSession = Awaited<ReturnType<typeof createSession>>;

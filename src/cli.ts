@@ -1,29 +1,44 @@
+import { parseArgs } from "node:util";
 import { Bot } from "grammy";
 import { loadConfig } from "./config.ts";
 import { createHandler } from "./handler.ts";
 import { runSystemdUnitCommand } from "./lib/systemd.ts";
-import { createTestBot, startTestBotRepl, type TestBot } from "./repl.ts";
+import { createTestBot, type TestBot } from "./repl.ts";
 
 async function main() {
-  const handled = handleCli({ argv: process.argv.slice(2) });
+  const argv = process.argv.slice(2);
+  const handled = handleCli({ argv });
   if (handled) {
     return;
   }
 
+  const { values: cli } = parseArgs({
+    args: argv,
+    options: {
+      repl: {
+        type: "boolean",
+        default: false,
+      },
+    },
+    strict: true,
+  });
   const config = loadConfig();
   const { handle } = await createHandler(config);
-  const allowedUsers = new Set(config.telegram.allowedUserIds);
-  const allowedChats = new Set(config.telegram.allowedChatIds);
 
   // --- create bot (real or test) ---
 
   let bot: Bot;
   let testBot: TestBot | undefined;
+  let allowedUsers: Set<number> | undefined;
+  let allowedChats: Set<number> | undefined;
 
-  if (config.testMode) {
+  if (cli.repl) {
     testBot = createTestBot({ chatId: config.testChatId });
     bot = testBot.bot;
   } else {
+    allowedUsers = new Set(config.telegram.allowedUserIds);
+    allowedChats = new Set(config.telegram.allowedChatIds);
+
     if (!config.telegram.token) {
       console.error("ACPELLA_TELEGRAM_BOT_TOKEN is required");
       process.exitCode = 1;
@@ -40,27 +55,34 @@ async function main() {
   // --- wire handler (shared between real and test) ---
 
   bot.on("message:text", async (ctx) => {
-    const userId = ctx.from?.id;
     const chatId = ctx.chat.id;
     const threadId = ctx.message.message_thread_id;
 
-    if (allowedChats.size > 0 && !allowedChats.has(chatId)) {
-      return;
-    }
-    if (!userId || (allowedUsers.size > 0 && !allowedUsers.has(userId))) {
-      return;
+    if (!cli.repl) {
+      const userId = ctx.from?.id;
+
+      if (allowedChats?.size && !allowedChats.has(chatId)) {
+        console.error(`[${sessionName(chatId, threadId)}] rejected: chat ${chatId} is not allowed`);
+        return;
+      }
+      if (!userId || (allowedUsers?.size && !allowedUsers.has(userId))) {
+        console.error(
+          `[${sessionName(chatId, threadId)}] rejected: user ${userId ?? "unknown"} is not allowed`,
+        );
+        return;
+      }
     }
 
     const name = sessionName(chatId, threadId);
     const text = ctx.message.text;
 
-    if (!config.testMode) {
+    if (!cli.repl) {
       console.log(`[${name}] <- ${text}`);
     }
 
     try {
       const response = await handle(text, name);
-      if (!config.testMode) {
+      if (!cli.repl) {
         console.log(`[${name}] -> ${response.slice(0, 100)}...`);
       }
       await ctx.reply(response);
@@ -74,11 +96,11 @@ async function main() {
   // --- start ---
 
   console.log(
-    `Starting service (agent: ${config.agent.alias}, home: ${config.home}, test: ${config.testMode})`,
+    `Starting service (agent: ${config.agent.alias}, home: ${config.home}, repl: ${cli.repl})`,
   );
 
   if (testBot) {
-    await startTestBotRepl(testBot);
+    await testBot.startRepl();
   } else {
     await bot.start();
   }
@@ -108,8 +130,8 @@ function handleCli(options: { argv: string[] }): boolean {
 
 function renderHelp(): string {
   return `Usage:
-  node src/index.ts
-  node src/index.ts generate-systemd-unit [options]
+  node src/cli.ts [--repl]
+  node src/cli.ts generate-systemd-unit [options]
 `;
 }
 

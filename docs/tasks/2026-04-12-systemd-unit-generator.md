@@ -16,14 +16,14 @@ System units are still useful for machine-level service management, so keep a `-
 ## Reference files/patterns to follow
 
 - `package.json` uses `node` directly for `.ts` entrypoints.
-- `pnpm start` runs `node --env-file=.env src/index.ts`.
+- `pnpm cli` runs `node --env-file-if-exists=.env src/cli.ts`.
 - `src/lib/systemd.ts` owns unit option parsing and rendering.
 - `docs/deploy.md` contains the existing static systemd unit.
 - Project conventions prefer kebab-case file names, `.ts` extensions, and options objects for functions.
 
 ## Implementation plan
 
-- Add `generate-systemd-unit` CLI mode to `src/index.ts`.
+- Add `generate-systemd-unit` CLI mode to `src/cli.ts`.
 - Keep the systemd option parsing/rendering in `src/lib/systemd.ts`.
 - Add a `generate-systemd-unit` package script that calls the entrypoint CLI.
 - Update deploy docs to show user-unit generation and the system-unit fallback.

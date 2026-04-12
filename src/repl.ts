@@ -1,6 +1,6 @@
 // In-process test bot: real grammy Bot, fake transport.
 // Bot receives updates via handleUpdate(), replies are captured in-memory.
-// Activated from index.ts via ACPELLA_TEST_BOT=1.
+// Activated from cli.ts via --repl.
 
 import { createInterface } from "node:readline/promises";
 import { Bot } from "grammy";
@@ -21,16 +21,9 @@ const botInfo: UserFromGetMe = {
   allows_users_to_create_topics: false,
 };
 
-export interface TestBot {
-  bot: Bot;
-  replies: { chatId: number; text: string }[];
-  sendMessage: (
-    text: string,
-    opts?: { chatId?: number; userId?: number; threadId?: number },
-  ) => Promise<void>;
-}
+export type TestBot = ReturnType<typeof createTestBot>;
 
-export function createTestBot(options: { chatId: number }): TestBot {
+export function createTestBot(options: { chatId: number }) {
   const replies: { chatId: number; text: string }[] = [];
 
   const bot = new Bot("test-token", { botInfo });
@@ -50,50 +43,48 @@ export function createTestBot(options: { chatId: number }): TestBot {
 
   let updateId = 1;
 
+  async function sendMessage(text: string) {
+    const chatId = options.chatId;
+    const userId = 456;
+    const update: Update = {
+      update_id: updateId++,
+      message: {
+        message_id: updateId,
+        date: Math.floor(Date.now() / 1000),
+        chat: { id: chatId, type: "private" as const, first_name: "Test" },
+        from: { id: userId, is_bot: false, first_name: "Test" },
+        text,
+      },
+    };
+    await bot.handleUpdate(update);
+  }
+
+  async function startRepl() {
+    const rl = createInterface({ input: process.stdin, output: process.stdout });
+
+    try {
+      while (true) {
+        const text = await rl.question("> ");
+        if (!text || text === "/quit") {
+          break;
+        }
+        replies.length = 0;
+        await sendMessage(text);
+        for (const r of replies) {
+          console.log(r.text);
+        }
+      }
+    } catch (e) {
+      if (!(e instanceof Error && e.name === "AbortError")) {
+        throw e;
+      }
+    } finally {
+      rl.close();
+    }
+  }
+
   return {
     bot,
-    replies,
-    async sendMessage(text, opts) {
-      const chatId = opts?.chatId ?? options.chatId;
-      const userId = opts?.userId ?? 456;
-      const update: Update = {
-        update_id: updateId++,
-        message: {
-          message_id: updateId,
-          date: Math.floor(Date.now() / 1000),
-          chat: { id: chatId, type: "private" as const, first_name: "Test" },
-          from: { id: userId, is_bot: false, first_name: "Test" },
-          text,
-          ...(opts?.threadId ? { message_thread_id: opts.threadId } : {}),
-        },
-      };
-      await bot.handleUpdate(update);
-    },
+    startRepl,
   };
-}
-
-/** Start interactive REPL for a wired test bot */
-export async function startTestBotRepl(testBot: TestBot): Promise<void> {
-  const rl = createInterface({ input: process.stdin, output: process.stdout });
-  const { replies, sendMessage } = testBot;
-
-  try {
-    while (true) {
-      const text = await rl.question("> ");
-      if (!text || text === "/quit") {
-        break;
-      }
-      replies.length = 0;
-      await sendMessage(text);
-      for (const r of replies) {
-        console.log(r.text);
-      }
-    }
-  } catch (e) {
-    if (!(e instanceof Error && e.name === "AbortError")) {
-      throw e;
-    }
-  } finally {
-    rl.close();
-  }
 }

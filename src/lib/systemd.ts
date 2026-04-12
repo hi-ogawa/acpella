@@ -98,7 +98,7 @@ ${networkLines}
 Type=simple
 SyslogIdentifier=${escapeSystemdValue(options.serviceName)}
 ${userLine}WorkingDirectory=${escapeSystemdValue(options.workingDirectory)}
-${envLine}ExecStart=${escapeSystemdValue(options.nodeBin)} ${escapeSystemdValue(resolve(options.workingDirectory, "src/index.ts"))}
+${envLine}ExecStart=${escapeSystemdValue(options.nodeBin)} ${escapeSystemdValue(resolve(options.workingDirectory, "src/cli.ts"))}
 Restart=on-failure
 RestartSec=10
 
@@ -108,7 +108,7 @@ WantedBy=${installTarget}
 }
 
 export function renderSystemdUnitHelp(defaults: SystemdUnitOptions): string {
-  return `Usage: node src/index.ts generate-systemd-unit [options]
+  return `Usage: node src/cli.ts generate-systemd-unit [options]
 
 Print a systemd unit for this acpella checkout.
 
