@@ -13,12 +13,8 @@ export interface SystemdUnitOptions {
 }
 
 export function renderDefaultSystemdUnit(): string {
-  return renderSystemdUnit(defaultSystemdUnitOptions());
-}
-
-function defaultSystemdUnitOptions(): SystemdUnitOptions {
   const workingDirectory = process.cwd();
-  return {
+  return renderSystemdUnit({
     description: "acpella service",
     envFile: resolve(workingDirectory, ".env"),
     nodeBin: process.execPath,
@@ -26,10 +22,10 @@ function defaultSystemdUnitOptions(): SystemdUnitOptions {
     serviceName: "acpella",
     user: defaultUser(),
     workingDirectory,
-  };
+  });
 }
 
-export function renderSystemdUnit(options: SystemdUnitOptions): string {
+function renderSystemdUnit(options: SystemdUnitOptions): string {
   const envLine = existsSync(options.envFile)
     ? `EnvironmentFile=${escapeSystemdValue(options.envFile)}\n`
     : `EnvironmentFile=-${escapeSystemdValue(options.envFile)}\n`;
