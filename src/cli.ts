@@ -2,7 +2,7 @@ import { parseArgs } from "node:util";
 import { Bot } from "grammy";
 import { loadConfig } from "./config.ts";
 import { createHandler } from "./handler.ts";
-import { renderDefaultSystemdUnit } from "./lib/systemd.ts";
+import { renderSystemdUnit } from "./lib/systemd.ts";
 import { createTestBot, type TestBot } from "./repl.ts";
 
 async function main() {
@@ -28,7 +28,7 @@ async function main() {
   });
 
   if (cli["setup-systemd"]) {
-    process.stdout.write(renderDefaultSystemdUnit());
+    process.stdout.write(renderSystemdUnit());
     return;
   }
 

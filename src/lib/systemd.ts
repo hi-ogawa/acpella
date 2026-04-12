@@ -2,19 +2,9 @@ import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { env, getuid } from "node:process";
 
-export interface SystemdUnitOptions {
-  description: string;
-  envFile: string;
-  nodeBin: string;
-  scope: "system" | "user";
-  serviceName: string;
-  user: string;
-  workingDirectory: string;
-}
-
-export function renderDefaultSystemdUnit(): string {
+export function renderSystemdUnit(): string {
   const workingDirectory = process.cwd();
-  return renderSystemdUnit({
+  const options = {
     description: "acpella service",
     envFile: resolve(workingDirectory, ".env"),
     nodeBin: process.execPath,
@@ -22,10 +12,8 @@ export function renderDefaultSystemdUnit(): string {
     serviceName: "acpella",
     user: defaultUser(),
     workingDirectory,
-  });
-}
+  };
 
-function renderSystemdUnit(options: SystemdUnitOptions): string {
   const envLine = existsSync(options.envFile)
     ? `EnvironmentFile=${escapeSystemdValue(options.envFile)}\n`
     : `EnvironmentFile=-${escapeSystemdValue(options.envFile)}\n`;
