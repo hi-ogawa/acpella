@@ -25,63 +25,6 @@ export function defaultSystemdUnitOptions(): SystemdUnitOptions {
   };
 }
 
-export function runSystemdUnitCommand(options: { argv: string[] }): void {
-  const defaults = defaultSystemdUnitOptions();
-  if (options.argv.includes("--help") || options.argv.includes("-h")) {
-    process.stdout.write(renderSystemdUnitHelp(defaults));
-    return;
-  }
-
-  const unitOptions = parseSystemdUnitArgs({
-    argv: options.argv,
-    defaults,
-  });
-
-  process.stdout.write(renderSystemdUnit(unitOptions));
-}
-
-export function parseSystemdUnitArgs(options: {
-  argv: string[];
-  defaults: SystemdUnitOptions;
-}): SystemdUnitOptions {
-  const parsed = { ...options.defaults };
-
-  for (let index = 0; index < options.argv.length; index += 1) {
-    const arg = options.argv[index];
-    if (arg === "--") {
-      continue;
-    }
-    if (arg === "--system") {
-      parsed.scope = "system";
-      continue;
-    }
-    if (arg === "--user-unit") {
-      parsed.scope = "user";
-      continue;
-    }
-
-    const value = readOptionValue({ argv: options.argv, index });
-    if (arg === "--description") {
-      parsed.description = value.value;
-    } else if (arg === "--env-file") {
-      parsed.envFile = resolve(value.value);
-    } else if (arg === "--node-bin") {
-      parsed.nodeBin = resolve(value.value);
-    } else if (arg === "--service-name") {
-      parsed.serviceName = value.value;
-    } else if (arg === "--user") {
-      parsed.user = value.value;
-    } else if (arg === "--working-directory") {
-      parsed.workingDirectory = resolve(value.value);
-    } else {
-      throw new Error(`Unknown option: ${arg}`);
-    }
-    index = value.index;
-  }
-
-  return parsed;
-}
-
 export function renderSystemdUnit(options: SystemdUnitOptions): string {
   const envLine = existsSync(options.envFile)
     ? `EnvironmentFile=${escapeSystemdValue(options.envFile)}\n`
@@ -108,32 +51,16 @@ WantedBy=${installTarget}
 }
 
 export function renderSystemdUnitHelp(defaults: SystemdUnitOptions): string {
-  return `Usage: node src/cli.ts generate-systemd-unit [options]
+  return `Usage: node src/cli.ts --setup-systemd [options]
 
 Print a systemd unit for this acpella checkout.
 
 Options:
-  --user-unit                 Generate a user unit. Default.
-  --system                    Generate a system unit for /etc/systemd/system.
-  --service-name <name>       Service name metadata. Default: ${defaults.serviceName}
-  --description <text>        Unit description. Default: ${defaults.description}
-  --user <user>               System unit service user. Default: ${defaults.user}
-  --working-directory <path>  Project checkout. Default: ${defaults.workingDirectory}
-  --env-file <path>           Environment file. Default: ${defaults.envFile}
-  --node-bin <path>           Node executable. Default: ${defaults.nodeBin}
+  working directory: ${defaults.workingDirectory}
+  env file: ${defaults.envFile}
+  node: ${defaults.nodeBin}
   -h, --help                  Show this help.
 `;
-}
-
-function readOptionValue(options: { argv: string[]; index: number }): {
-  index: number;
-  value: string;
-} {
-  const value = options.argv[options.index + 1];
-  if (!value || value.startsWith("--")) {
-    throw new Error(`Missing value for ${options.argv[options.index]}`);
-  }
-  return { index: options.index + 1, value };
 }
 
 function escapeSystemdValue(value: string): string {

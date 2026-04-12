@@ -2,16 +2,11 @@ import { parseArgs } from "node:util";
 import { Bot } from "grammy";
 import { loadConfig } from "./config.ts";
 import { createHandler } from "./handler.ts";
-import { runSystemdUnitCommand } from "./lib/systemd.ts";
+import { defaultSystemdUnitOptions, renderSystemdUnit } from "./lib/systemd.ts";
 import { createTestBot, type TestBot } from "./repl.ts";
 
 async function main() {
   const argv = process.argv.slice(2);
-  const handled = handleCli({ argv });
-  if (handled) {
-    return;
-  }
-
   const { values: cli } = parseArgs({
     args: argv,
     options: {
@@ -19,9 +14,35 @@ async function main() {
         type: "boolean",
         default: false,
       },
+      help: {
+        type: "boolean",
+        short: "h",
+        default: false,
+      },
+      "setup-systemd": {
+        type: "boolean",
+        default: false,
+      },
     },
     strict: true,
   });
+
+  if (cli["setup-systemd"]) {
+    process.stdout.write(renderSystemdUnit(defaultSystemdUnitOptions()));
+    return;
+  }
+
+  if (cli.help) {
+    process.stdout.write(`Usage: node src/cli.ts [options]
+
+Options:
+  --repl                 Run local in-process REPL.
+  --setup-systemd        Print a systemd unit for this checkout.
+  -h, --help             Show this help.
+`);
+    return;
+  }
+
   const config = loadConfig();
   const { handle } = await createHandler(config);
 
@@ -109,30 +130,6 @@ async function main() {
 function sessionName(chatId: number, threadId?: number): string {
   const base = `tg-${chatId}`;
   return threadId ? `${base}-${threadId}` : base;
-}
-
-function handleCli(options: { argv: string[] }): boolean {
-  const [command, ...args] = options.argv;
-  if (!command) {
-    return false;
-  }
-  if (command === "--help" || command === "-h") {
-    process.stdout.write(renderHelp());
-    return true;
-  }
-  if (command !== "generate-systemd-unit") {
-    throw new Error(`Unknown command: ${command}`);
-  }
-
-  runSystemdUnitCommand({ argv: args });
-  return true;
-}
-
-function renderHelp(): string {
-  return `Usage:
-  node src/cli.ts [--repl]
-  node src/cli.ts generate-systemd-unit [options]
-`;
 }
 
 main().catch((err) => {

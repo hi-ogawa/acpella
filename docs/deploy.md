@@ -17,9 +17,9 @@ cp .env.example .env
 Generate a user unit for the current checkout:
 
 ```bash
-pnpm generate-systemd-unit
+pnpm cli --setup-systemd
 mkdir -p ~/.config/systemd/user
-pnpm generate-systemd-unit > ~/.config/systemd/user/acpella.service
+pnpm cli --setup-systemd > ~/.config/systemd/user/acpella.service
 ```
 
 Example output:
@@ -53,20 +53,6 @@ For the user service to start at boot before you log in, enable lingering once:
 
 ```bash
 loginctl enable-linger "$USER"
-```
-
-Options for a different install path:
-
-```bash
-pnpm generate-systemd-unit -- --working-directory /opt/acpella --env-file /etc/acpella.env
-```
-
-Generate a system unit instead when you want it managed by the system instance:
-
-```bash
-pnpm generate-systemd-unit -- --system | sudo tee /etc/systemd/system/acpella.service
-sudo systemctl daemon-reload
-sudo systemctl enable --now acpella
 ```
 
 ## Manual run

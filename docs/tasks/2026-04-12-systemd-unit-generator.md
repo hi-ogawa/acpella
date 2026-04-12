@@ -7,11 +7,9 @@ Deploying acpella through systemd currently requires copying a static unit from 
 The CLI should print a user unit to stdout by default. This keeps installation explicit, easy to inspect, and usable without writing to `/etc/systemd/system`:
 
 ```bash
-pnpm generate-systemd-unit
-pnpm generate-systemd-unit > ~/.config/systemd/user/acpella.service
+pnpm cli --setup-systemd
+pnpm cli --setup-systemd > ~/.config/systemd/user/acpella.service
 ```
-
-System units are still useful for machine-level service management, so keep a `--system` option.
 
 ## Reference files/patterns to follow
 
@@ -23,8 +21,7 @@ System units are still useful for machine-level service management, so keep a `-
 
 ## Implementation plan
 
-- Add `generate-systemd-unit` CLI mode to `src/cli.ts`.
+- Add `--setup-systemd` CLI mode to `src/cli.ts`.
 - Keep the systemd option parsing/rendering in `src/lib/systemd.ts`.
-- Add a `generate-systemd-unit` package script that calls the entrypoint CLI.
-- Update deploy docs to show user-unit generation and the system-unit fallback.
+- Update deploy docs to show user-unit generation.
 - Run lint/check if available.

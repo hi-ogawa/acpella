@@ -5,7 +5,6 @@
   "scripts": {
     "prepare": "vp config",
     "cli": "node --env-file-if-exists=.env src/cli.ts",
-    "generate-systemd-unit": "node src/cli.ts generate-systemd-unit",
     "test": "vitest --project=unit",
     "test-codex": "vitest --project=codex",
     "lint": "vp check --fix",
