@@ -48,7 +48,8 @@ export function loadConfig(): AppConfig {
 
   const agentName = env.ACPELLA_AGENT ?? "codex";
   const agent = resolveAgent({ name: agentName });
-  const promptFile = env.ACPELLA_PROMPT_FILE?.trim()
+
+  const promptFile = env.ACPELLA_PROMPT_FILE
     ? path.resolve(home, env.ACPELLA_PROMPT_FILE)
     : undefined;
   const promptText = promptFile ? fs.readFileSync(promptFile, "utf8") : undefined;
@@ -64,7 +65,7 @@ export function loadConfig(): AppConfig {
     },
     prompt: {
       file: promptFile,
-      text: promptText?.trim() ? promptText : undefined,
+      text: promptText,
     },
     // TODO: make use of this for test
     testChatId: parseOptionalId(env.ACPELLA_TEST_CHAT_ID) ?? 10101010,
