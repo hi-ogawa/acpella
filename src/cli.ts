@@ -1,3 +1,4 @@
+import { parseArgs } from "node:util";
 import { Bot } from "grammy";
 import { loadConfig } from "./config.ts";
 import { createHandler } from "./handler.ts";
@@ -95,11 +96,17 @@ function sessionName(chatId: number, threadId?: number): string {
 }
 
 function parseCliArgs(args: string[]): { repl: boolean } {
-  const unknown = args.filter((arg) => arg !== "--repl");
-  if (unknown.length > 0) {
-    throw new Error(`Unknown argument: ${unknown.join(", ")}`);
-  }
-  return { repl: args.includes("--repl") };
+  const { values } = parseArgs({
+    args,
+    options: {
+      repl: {
+        type: "boolean",
+        default: false,
+      },
+    },
+    strict: true,
+  });
+  return { repl: values.repl };
 }
 
 main().catch((err) => {
