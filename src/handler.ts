@@ -1,3 +1,4 @@
+import fs from "node:fs/promises";
 import type { ListSessionsResponse } from "@agentclientprotocol/sdk";
 import type { Context } from "grammy";
 import { startAcpManager } from "./acp/index.ts";
@@ -23,15 +24,30 @@ export async function createHandler(config: AppConfig): Promise<{
     text: string;
     sessionId?: string;
   }): Promise<void> {
+    // Read the prompt file before creating the session so a read failure is
+    // reported to the user without leaving an orphaned agent session.
+    let customPrompt: string | undefined;
+    if (!options.sessionId && config.prompt.file) {
+      try {
+        customPrompt = await fs.readFile(config.prompt.file, "utf8");
+      } catch (e) {
+        await options.context.reply(
+          `Error: failed to read prompt file (${config.prompt.file}): ${e instanceof Error ? e.message : String(e)}`,
+        );
+        return;
+      }
+    }
+
     const session = options.sessionId
       ? await manager.loadSession({
           sessionCwd: config.home,
           sessionId: options.sessionId,
         })
       : await manager.newSession({ sessionCwd: config.home });
+
     const promptText =
-      !options.sessionId && config.prompt.text
-        ? formatFirstPrompt({ customPrompt: config.prompt.text, userText: options.text })
+      customPrompt !== undefined
+        ? formatFirstPrompt({ customPrompt, userText: options.text })
         : options.text;
 
     try {

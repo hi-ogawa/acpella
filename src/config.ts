@@ -16,7 +16,6 @@ export interface AppConfig {
   };
   prompt: {
     file?: string;
-    text?: string;
   };
   testChatId: number;
 }
@@ -52,7 +51,9 @@ export function loadConfig(): AppConfig {
   const promptFile = env.ACPELLA_PROMPT_FILE
     ? path.resolve(home, env.ACPELLA_PROMPT_FILE)
     : undefined;
-  const promptText = promptFile ? fs.readFileSync(promptFile, "utf8") : undefined;
+  if (promptFile) {
+    fs.readFileSync(promptFile, "utf8");
+  }
 
   return {
     agent: { alias: agentAlias, command: agentCommand },
@@ -65,7 +66,6 @@ export function loadConfig(): AppConfig {
     },
     prompt: {
       file: promptFile,
-      text: promptText,
     },
     // TODO: make use of this for test
     testChatId: parseOptionalId(env.ACPELLA_TEST_CHAT_ID) ?? 10101010,
