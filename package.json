@@ -5,7 +5,6 @@
   "scripts": {
     "prepare": "vp config",
     "cli": "node --env-file-if-exists=.env src/cli.ts",
-    "cli-dev": "node --env-file=.env --watch src/cli.ts",
     "test": "vitest --project=unit",
     "test-codex": "vitest --project=codex",
     "lint": "vp check --fix",
