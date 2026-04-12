@@ -42,6 +42,7 @@ export async function createHandler(config: AppConfig): Promise<{
         : options.text;
 
     try {
+      // TODO: stream and split as needed
       const { queue } = session.prompt(promptText);
       const texts: string[] = [];
       for await (const update of queue) {
