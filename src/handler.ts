@@ -340,9 +340,9 @@ function createResponseWriter(options: { context: Context; limit: number }) {
 
   async function flushOversizedText(): Promise<void> {
     while (bufferedText.length > options.limit) {
-      const splitIndex = findSplitIndex(bufferedText, options.limit);
-      const part = bufferedText.slice(0, splitIndex).trim();
-      bufferedText = bufferedText.slice(splitIndex);
+      const result = splitHead(bufferedText, options.limit);
+      bufferedText = result.tail;
+      const part = result.head.trim();
       if (part) {
         await send(part);
       }
@@ -361,5 +361,13 @@ function createResponseWriter(options: { context: Context; limit: number }) {
         await options.context.reply("(no response)");
       }
     },
+  };
+}
+
+function splitHead(text: string, limit: number): { head: string; tail: string } {
+  const splitIndex = findSplitIndex(text, limit);
+  return {
+    head: text.slice(0, splitIndex),
+    tail: text.slice(splitIndex),
   };
 }
