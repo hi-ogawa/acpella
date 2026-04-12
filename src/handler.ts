@@ -24,9 +24,6 @@ export async function createHandler(config: AppConfig): Promise<{
 }> {
   const manager = await startAcpManager({ command: config.agent.command, cwd: config.home });
   const state = createSessionStateStore(config);
-  const initializationPrompt = config.prompt.text
-    ? formatInitializationPrompt({ customPrompt: config.prompt.text })
-    : undefined;
 
   async function handlePrompt(name: string, text: string): Promise<string> {
     const persistedId = state.getSessionId(name);
@@ -39,17 +36,19 @@ export async function createHandler(config: AppConfig): Promise<{
       : await manager.newSession({ sessionCwd: config.home });
 
     try {
-      const responses: string[] = [];
-      if (isNewSession) {
-        responses.push(await initializeSession({ session, prompt: initializationPrompt }));
-      }
-
-      const response = await promptAndCollect({ session, text, logPrefix: "[acp:update]" });
-      responses.push(response);
+      const promptText =
+        isNewSession && config.prompt.text
+          ? formatFirstPrompt({ customPrompt: config.prompt.text, userText: text })
+          : text;
+      const response = await promptAndCollect({
+        session,
+        text: promptText,
+        logPrefix: "[acp:update]",
+      });
       if (isNewSession) {
         state.setSessionId(name, session.sessionId);
       }
-      return responses.filter(Boolean).join("\n\n") || "(no response)";
+      return response || "(no response)";
     } finally {
       session.close();
     }
@@ -73,9 +72,8 @@ export async function createHandler(config: AppConfig): Promise<{
   async function handleNewSession(name: string): Promise<string> {
     const session = await manager.newSession({ sessionCwd: config.home });
     try {
-      const response = await initializeSession({ session, prompt: initializationPrompt });
       state.setSessionId(name, session.sessionId);
-      return [`Created session: ${session.sessionId}`, response].filter(Boolean).join("\n\n");
+      return `Created session: ${session.sessionId}`;
     } finally {
       session.close();
     }
@@ -203,20 +201,6 @@ type HandlerSession = Awaited<
   ReturnType<Awaited<ReturnType<typeof startAcpManager>>["newSession"]>
 >;
 
-async function initializeSession(options: {
-  session: HandlerSession;
-  prompt: string | undefined;
-}): Promise<string> {
-  if (!options.prompt) {
-    return "";
-  }
-  return promptAndCollect({
-    session: options.session,
-    text: options.prompt,
-    logPrefix: "[acp:init]",
-  });
-}
-
 async function promptAndCollect(options: {
   session: HandlerSession;
   text: string;
@@ -236,15 +220,16 @@ async function promptAndCollect(options: {
   return texts.join("");
 }
 
-function formatInitializationPrompt(options: { customPrompt: string }): string {
+function formatFirstPrompt(options: { customPrompt: string; userText: string }): string {
   return [
     "Additional user preferences for this acpella bridge. Follow these unless they conflict with",
     "higher-priority system, developer, repository, or security instructions.",
     "",
-    'Record these preferences for this session. Do not summarize them. Reply only with "OK".',
-    "",
     "<acpella_custom_instructions>",
     options.customPrompt.trim(),
     "</acpella_custom_instructions>",
+    "",
+    "User request:",
+    options.userText,
   ].join("\n");
 }
