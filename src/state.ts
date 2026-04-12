@@ -8,6 +8,7 @@ export interface SessionStateStore {
   getSessionId: (sessionName: string) => string | undefined;
   setSessionId: (sessionName: string, sessionId: string) => void;
   deleteSession: (sessionName: string) => void;
+  listSessions: () => { name: string; sessionId: string }[];
 }
 
 const stateSchema = z
@@ -90,6 +91,12 @@ export function createSessionStateStore(
       }
       delete scope.sessions[sessionName];
       writeState(state);
+    },
+    listSessions() {
+      const sessions = readState().scopes[scopeKey]?.sessions ?? {};
+      return Object.entries(sessions)
+        .map(([name, session]) => ({ name, sessionId: session.sessionId }))
+        .sort((a, b) => a.name.localeCompare(b.name));
     },
   };
 }

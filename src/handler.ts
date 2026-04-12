@@ -1,6 +1,12 @@
+import type { ListSessionsResponse } from "@agentclientprotocol/sdk";
 import { startAcpManager } from "./acp/index.ts";
 import type { AppConfig } from "./config.ts";
 import { createSessionStateStore } from "./state.ts";
+
+interface StateSession {
+  name: string;
+  sessionId: string;
+}
 
 export function formatStatus(config: AppConfig): string {
   return [
@@ -63,9 +69,41 @@ export async function createHandler(config: AppConfig): Promise<{
     state.deleteSession(name);
   }
 
+  async function formatDebug(): Promise<string> {
+    const stateSessions = state.listSessions();
+    const agentSessions = await manager.listSessions();
+    const agentSessionIds = new Set(agentSessions.sessions.map((session) => session.sessionId));
+    const stateSessionIds = new Set(stateSessions.map((session) => session.sessionId));
+    const missingInAgent = stateSessions.filter(
+      (session) => !agentSessionIds.has(session.sessionId),
+    );
+    const untrackedAgentSessions = agentSessions.sessions.filter(
+      (session) => !stateSessionIds.has(session.sessionId),
+    );
+
+    return [
+      "debug",
+      "",
+      `state sessions (${stateSessions.length}):`,
+      ...formatStateSessions(stateSessions),
+      "",
+      `agent sessions (${agentSessions.sessions.length}):`,
+      ...formatAgentSessions(agentSessions),
+      "",
+      `state missing in agent (${missingInAgent.length}):`,
+      ...formatStateSessions(missingInAgent),
+      "",
+      `agent not tracked by state (${untrackedAgentSessions.length}):`,
+      ...formatAgentSessions({ sessions: untrackedAgentSessions }),
+    ].join("\n");
+  }
+
   const handle = async (text: string, sessionName: string): Promise<string> => {
     if (text === "/status") {
       return formatStatus(config);
+    }
+    if (text === "/debug") {
+      return formatDebug();
     }
     if (text === "/reset") {
       await removeSession(sessionName);
@@ -76,4 +114,27 @@ export async function createHandler(config: AppConfig): Promise<{
   };
 
   return { handle };
+}
+
+function formatStateSessions(sessions: StateSession[]): string[] {
+  if (sessions.length === 0) {
+    return ["- none"];
+  }
+  return sessions.map((session) => `- ${session.name} -> ${session.sessionId}`);
+}
+
+function formatAgentSessions(response: Pick<ListSessionsResponse, "sessions">): string[] {
+  if (response.sessions.length === 0) {
+    return ["- none"];
+  }
+  return response.sessions.map((session) =>
+    [
+      `- ${session.sessionId}`,
+      `cwd=${session.cwd}`,
+      session.title ? `title=${session.title}` : undefined,
+      session.updatedAt ? `updatedAt=${session.updatedAt}` : undefined,
+    ]
+      .filter(Boolean)
+      .join(" "),
+  );
 }

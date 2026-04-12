@@ -32,6 +32,9 @@ const builtinAgents: Record<string, AgentAlias> = {
       "node_modules/@zed-industries/codex-acp/bin/codex-acp.js",
     ),
   },
+  test: {
+    command: `node ${path.join(import.meta.dirname, "test-agent.ts")}`,
+  },
 };
 
 const rawAgentSchema = z.object({
