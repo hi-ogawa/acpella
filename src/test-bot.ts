@@ -79,6 +79,7 @@ export async function startTestBotRepl(testBot: TestBot): Promise<void> {
 
   try {
     while (true) {
+      // TODO: handle Ctrl+D
       const text = await rl.question("> ");
       if (!text || text === "/quit") {
         break;

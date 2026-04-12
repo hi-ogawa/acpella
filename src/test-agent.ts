@@ -13,6 +13,12 @@ import {
   type InitializeResponse,
   type NewSessionRequest,
   type NewSessionResponse,
+  type LoadSessionRequest,
+  type LoadSessionResponse,
+  type ListSessionsRequest,
+  type ListSessionsResponse,
+  type CloseSessionRequest,
+  type CloseSessionResponse,
   type AuthenticateRequest,
   type AuthenticateResponse,
   type SetSessionModeRequest,
@@ -32,13 +38,32 @@ class EchoAgent implements Agent {
   async initialize(_params: InitializeRequest): Promise<InitializeResponse> {
     return {
       protocolVersion: PROTOCOL_VERSION,
-      agentCapabilities: { loadSession: false },
+      agentCapabilities: { loadSession: true },
     };
   }
 
   async newSession(_params: NewSessionRequest): Promise<NewSessionResponse> {
-    const sessionId = crypto.randomUUID();
-    return { sessionId };
+    return { sessionId: "__testLoadSession" };
+  }
+
+  async loadSession(params: LoadSessionRequest): Promise<LoadSessionResponse> {
+    if (params.sessionId !== "__testLoadSession") {
+      throw new Error(`unknown session: ${params.sessionId}`);
+    }
+    return {};
+  }
+
+  async listSessions(_params: ListSessionsRequest): Promise<ListSessionsResponse> {
+    return {
+      sessions: [{ sessionId: "__testLoadSession", cwd: "/" }],
+    };
+  }
+
+  async unstable_closeSession(params: CloseSessionRequest): Promise<CloseSessionResponse> {
+    if (params.sessionId !== "__testLoadSession") {
+      throw new Error(`unknown session: ${params.sessionId}`);
+    }
+    return {};
   }
 
   async authenticate(_params: AuthenticateRequest): Promise<AuthenticateResponse> {
@@ -71,7 +96,11 @@ class EchoAgent implements Agent {
   async cancel(_params: CancelNotification): Promise<void> {}
 }
 
-const input = Writable.toWeb(process.stdout);
-const output = Readable.toWeb(process.stdin) as ReadableStream<Uint8Array>;
-const stream = ndJsonStream(input, output);
-new AgentSideConnection((conn) => new EchoAgent(conn), stream);
+function main() {
+  const input = Writable.toWeb(process.stdout);
+  const output = Readable.toWeb(process.stdin) as ReadableStream<Uint8Array>;
+  const stream = ndJsonStream(input, output);
+  new AgentSideConnection((conn) => new EchoAgent(conn), stream);
+}
+
+main();

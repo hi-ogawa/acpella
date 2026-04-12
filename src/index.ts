@@ -3,8 +3,8 @@ import { createHandler } from "./handler.ts";
 import { createTestBot, startTestBotRepl, type TestBot } from "./test-bot.ts";
 
 async function main() {
-  const { handle, config: handlerConfig } = createHandler();
-  const { agent, cwd } = handlerConfig;
+  const { handle, config } = await createHandler();
+  const { agent, cwd } = config;
 
   const allowedUsers = new Set(
     (process.env.ACPELLA_TELEGRAM_ALLOWED_USER_IDS ?? "").split(",").filter(Boolean).map(Number),
