@@ -47,12 +47,7 @@ export async function createHandler(config: AppConfig): Promise<{
         } else if (update.sessionUpdate === "tool_call") {
           console.log(`[acp:update] tool_call: ${update.title}`);
           await responseWriter.flush();
-          await sendTextResponse({
-            context: options.context,
-            limit: MESSAGE_SPLIT_BUDGET,
-            text: `Tool: ${update.title}`,
-          });
-          responseWriter.markSent();
+          await responseWriter.write(`Tool: ${update.title}`);
         } else {
           console.log(`[acp:update] ${update.sessionUpdate}`);
         }
@@ -324,17 +319,21 @@ function createResponseWriter(options: { context: Context; limit: number }) {
   let bufferedText = "";
   let sentResponse = false;
 
+  async function write(text: string): Promise<void> {
+    await sendTextResponse({
+      context: options.context,
+      limit: options.limit,
+      text,
+    });
+    sentResponse = true;
+  }
+
   async function flush(): Promise<void> {
     if (!bufferedText.trim()) {
       bufferedText = "";
       return;
     }
-    await sendTextResponse({
-      context: options.context,
-      limit: options.limit,
-      text: bufferedText,
-    });
-    sentResponse = true;
+    await write(bufferedText);
     bufferedText = "";
   }
 
@@ -344,12 +343,7 @@ function createResponseWriter(options: { context: Context; limit: number }) {
       const part = bufferedText.slice(0, splitIndex).trim();
       bufferedText = bufferedText.slice(splitIndex);
       if (part) {
-        await sendTextResponse({
-          context: options.context,
-          limit: options.limit,
-          text: part,
-        });
-        sentResponse = true;
+        await write(part);
       }
     }
   }
@@ -360,9 +354,7 @@ function createResponseWriter(options: { context: Context; limit: number }) {
       await flushOversizedText();
     },
     flush,
-    markSent(): void {
-      sentResponse = true;
-    },
+    write,
     async finish(): Promise<void> {
       await flush();
       if (!sentResponse) {
