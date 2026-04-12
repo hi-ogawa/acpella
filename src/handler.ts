@@ -86,9 +86,12 @@ export async function createHandler(config: AppConfig): Promise<{
     }
   }
 
-  async function handleCloseSession(name: string, sessionIdArg?: string): Promise<void> {
-    const currentSessionId = state.getSessionId(name);
-    const sessionId = sessionIdArg ?? currentSessionId;
+  async function handleCloseSession(options: {
+    name: string;
+    sessionIdArg?: string;
+  }): Promise<void> {
+    const currentSessionId = state.getSessionId(options.name);
+    const sessionId = options.sessionIdArg ?? currentSessionId;
     if (sessionId) {
       try {
         await manager.closeSession({ sessionId });
@@ -96,37 +99,44 @@ export async function createHandler(config: AppConfig): Promise<{
         console.error("[acp] closeSession failed:", e);
       }
     }
-    if (!sessionIdArg || sessionIdArg === currentSessionId) {
-      state.deleteSession(name);
+    if (!options.sessionIdArg || options.sessionIdArg === currentSessionId) {
+      state.deleteSession(options.name);
     }
   }
 
-  async function handleNewSession(context: Context, name: string, text: string): Promise<void> {
+  async function handleNewSession(options: {
+    context: Context;
+    name: string;
+    text: string;
+  }): Promise<void> {
     return handlePrompt({
-      context,
-      name,
-      text,
+      context: options.context,
+      name: options.name,
+      text: options.text,
     });
   }
 
-  async function handleLoadSession(name: string, sessionId: string | undefined): Promise<string> {
-    if (!sessionId) {
+  async function handleLoadSession(options: { name: string; sessionId?: string }): Promise<string> {
+    if (!options.sessionId) {
       return "Usage: /session load <sessionId>";
     }
-    const session = await manager.loadSession({ sessionCwd: config.home, sessionId });
+    const session = await manager.loadSession({
+      sessionCwd: config.home,
+      sessionId: options.sessionId,
+    });
     try {
-      state.setSessionId(name, session.sessionId);
+      state.setSessionId(options.name, session.sessionId);
       return `Loaded session: ${session.sessionId}`;
     } finally {
       session.close();
     }
   }
 
-  function handleCurrentSession(name: string): string {
+  function handleCurrentSession(options: { name: string }): string {
     return [
-      `session: ${name}`,
+      `session: ${options.name}`,
       `agent: ${config.agent.alias}`,
-      `session id: ${state.getSessionId(name) ?? "none"}`,
+      `session id: ${state.getSessionId(options.name) ?? "none"}`,
     ].join("\n");
   }
 
@@ -157,31 +167,41 @@ export async function createHandler(config: AppConfig): Promise<{
     ].join("\n");
   }
 
-  async function handleSessionCommand(
-    context: Context,
-    text: string,
-    sessionName: string,
-  ): Promise<boolean> {
-    const [command, subcommand, ...args] = text.trim().split(/\s+/);
+  async function handleSessionCommand(options: {
+    context: Context;
+    text: string;
+    sessionName: string;
+  }): Promise<boolean> {
+    const [command, subcommand, ...args] = options.text.trim().split(/\s+/);
     if (command !== "/session") {
       return false;
     }
     let response: string;
     switch (subcommand) {
       case undefined:
-        response = handleCurrentSession(sessionName);
+        response = handleCurrentSession({ name: options.sessionName });
         break;
       case "list":
         response = await handleListSessions();
         break;
       case "new":
-        await handleNewSession(context, sessionName, args.join(" "));
+        await handleNewSession({
+          context: options.context,
+          name: options.sessionName,
+          text: args.join(" "),
+        });
         return true;
       case "load":
-        response = await handleLoadSession(sessionName, args[0]);
+        response = await handleLoadSession({
+          name: options.sessionName,
+          sessionId: args[0],
+        });
         break;
       case "close":
-        await handleCloseSession(sessionName, args[0]);
+        await handleCloseSession({
+          name: options.sessionName,
+          sessionIdArg: args[0],
+        });
         response = "Session closed. Next message will start a fresh session.";
         break;
       default:
@@ -194,7 +214,7 @@ export async function createHandler(config: AppConfig): Promise<{
           "/session close [sessionId]",
         ].join("\n");
     }
-    await sendTextResponse(context, response);
+    await sendTextResponse(options.context, response);
     return true;
   }
 
@@ -216,7 +236,11 @@ prompt file: ${config.prompt.file ?? "none"}`;
       await sendTextResponse(options.context, handleStatus());
       return;
     }
-    const handledSessionCommand = await handleSessionCommand(options.context, text, sessionName);
+    const handledSessionCommand = await handleSessionCommand({
+      context: options.context,
+      text,
+      sessionName,
+    });
     if (handledSessionCommand) {
       return;
     }
