@@ -268,17 +268,17 @@ ${options.userText}
 }
 
 async function sendTextResponse(context: Context, text: string): Promise<void> {
-  const parts = splitMessageText(text);
+  const parts = splitMessageText(text, MESSAGE_SPLIT_BUDGET);
   for (const part of parts) {
     await context.reply(part);
   }
 }
 
-function splitMessageText(text: string): string[] {
+function splitMessageText(text: string, limit: number): string[] {
   const parts: string[] = [];
   let remaining = text.trim();
-  while (remaining.length > MESSAGE_SPLIT_BUDGET) {
-    const splitIndex = findSplitIndex(remaining, MESSAGE_SPLIT_BUDGET);
+  while (remaining.length > limit) {
+    const splitIndex = findSplitIndex(remaining, limit);
     const part = remaining.slice(0, splitIndex).trim();
     if (part) {
       parts.push(part);
