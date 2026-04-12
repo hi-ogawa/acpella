@@ -47,7 +47,8 @@ export async function createHandler(config: AppConfig): Promise<{
         } else if (update.sessionUpdate === "tool_call") {
           console.log(`[acp:update] tool_call: ${update.title}`);
           await responseWriter.flush();
-          await responseWriter.write(`Tool: ${update.title}`, { force: true });
+          await responseWriter.write(`Tool: ${update.title}`);
+          await responseWriter.flush();
         } else {
           console.log(`[acp:update] ${update.sessionUpdate}`);
         }
@@ -349,11 +350,7 @@ function createResponseWriter(options: { context: Context; limit: number }) {
   }
 
   return {
-    async write(text: string, writeOptions?: { force?: boolean }): Promise<void> {
-      if (writeOptions?.force) {
-        await send(text);
-        return;
-      }
+    async write(text: string): Promise<void> {
       bufferedText += text;
       await flushOversizedText();
     },
