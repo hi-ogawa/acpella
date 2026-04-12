@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 import { Readable, Writable } from "node:stream";
 import {
   ClientSideConnection,
@@ -71,6 +71,7 @@ async function spawnAgent({ command, cwd }: { command: string; cwd: string }) {
   // TODO:
   // handle process exit
   const child = spawn(cmd, args, { stdio: ["pipe", "pipe", "pipe"], cwd });
+  const earlyExit = createEarlyExitPromise(child);
   pipeAgentStderr(child.stderr);
 
   const stream = ndJsonStream(
@@ -97,10 +98,17 @@ async function spawnAgent({ command, cwd }: { command: string; cwd: string }) {
   };
 
   const connection = new ClientSideConnection(() => client, stream);
-  await connection.initialize({
-    protocolVersion: PROTOCOL_VERSION,
-    clientCapabilities: {},
-  });
+  try {
+    await Promise.race([
+      connection.initialize({
+        protocolVersion: PROTOCOL_VERSION,
+        clientCapabilities: {},
+      }),
+      earlyExit.promise,
+    ]);
+  } finally {
+    earlyExit.cleanup();
+  }
 
   function subscribe(listener: (update: SessionUpdate) => void) {
     listeners.add(listener);
@@ -108,6 +116,41 @@ async function spawnAgent({ command, cwd }: { command: string; cwd: string }) {
   }
 
   return { child, connection, subscribe };
+}
+
+function createEarlyExitPromise(child: ChildProcess): {
+  promise: Promise<never>;
+  cleanup: () => void;
+} {
+  let onError: (error: Error) => void;
+  let onExit: (code: number | null, signal: NodeJS.Signals | null) => void;
+
+  const promise = new Promise<never>((_, reject) => {
+    onError = (error) => {
+      reject(new Error(`ACP agent failed to start: ${error.message}`));
+    };
+
+    onExit = (code, signal) => {
+      reject(
+        new Error(
+          `ACP agent exited before initialize completed: code=${code ?? "none"} signal=${
+            signal ?? "none"
+          }`,
+        ),
+      );
+    };
+
+    child.once("error", onError);
+    child.once("exit", onExit);
+  });
+
+  return {
+    promise,
+    cleanup() {
+      child.off("error", onError);
+      child.off("exit", onExit);
+    },
+  };
 }
 
 function pipeAgentStderr(stderr: Readable | undefined | null): void {
