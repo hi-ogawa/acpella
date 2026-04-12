@@ -116,8 +116,6 @@ export async function createHandler(config: AppConfig): Promise<{
     );
 
     return [
-      "debug",
-      "",
       `state sessions (${stateSessions.length}):`,
       ...formatStateSessions(stateSessions),
       "",
