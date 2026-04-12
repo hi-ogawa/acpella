@@ -8,17 +8,6 @@ interface StateSession {
   sessionId: string;
 }
 
-export function formatStatus(config: AppConfig): string {
-  return [
-    "service state: running",
-    `configured agent: ${config.agent.alias}`,
-    `agent command: ${config.agent.command}`,
-    `home: ${config.home}`,
-    `state file: ${config.stateFile}`,
-    `prompt file: ${config.prompt.file ?? "none"}`,
-  ].join("\n");
-}
-
 export async function createHandler(config: AppConfig): Promise<{
   handle: (text: string, session: string) => Promise<string>;
 }> {
@@ -165,9 +154,19 @@ export async function createHandler(config: AppConfig): Promise<{
     }
   }
 
+  function handleStatus(): string {
+    return `\
+service state: running
+configured agent: ${config.agent.alias}
+agent command: ${config.agent.command}
+home: ${config.home}
+state file: ${config.stateFile}
+prompt file: ${config.prompt.file ?? "none"}`;
+  }
+
   const handle = async (text: string, sessionName: string): Promise<string> => {
     if (text === "/status") {
-      return formatStatus(config);
+      return handleStatus();
     }
     const sessionCommandResponse = await handleSessionCommand(text, sessionName);
     if (sessionCommandResponse) {
@@ -208,15 +207,12 @@ function formatAgentSessions(response: Pick<ListSessionsResponse, "sessions">): 
 }
 
 function formatFirstPrompt(options: { customPrompt: string; userText: string }): string {
-  return [
-    "Additional user preferences for this acpella bridge. Follow these unless they conflict with",
-    "higher-priority system, developer, repository, or security instructions.",
-    "",
-    "<acpella_custom_instructions>",
-    options.customPrompt.trim(),
-    "</acpella_custom_instructions>",
-    "",
-    "User request:",
-    options.userText,
-  ].join("\n");
+  return `\
+Use these additional instructions for this session:
+
+<custom_instructions>
+${options.customPrompt.trim()}
+</custom_instructions>
+
+${options.userText}`;
 }

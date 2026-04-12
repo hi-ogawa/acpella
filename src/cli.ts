@@ -16,7 +16,6 @@ async function main() {
     strict: true,
   });
   const config = loadConfig();
-  const { handle } = await createHandler(config);
 
   // --- create bot (real or test) ---
 
@@ -47,6 +46,8 @@ async function main() {
 
   // --- wire handler (shared between real and test) ---
 
+  const handler = await createHandler(config);
+
   bot.on("message:text", async (ctx) => {
     const chatId = ctx.chat.id;
     const threadId = ctx.message.message_thread_id;
@@ -74,7 +75,7 @@ async function main() {
     }
 
     try {
-      const response = await handle(text, name);
+      const response = await handler.handle(text, name);
       if (!cli.repl) {
         console.log(`[${name}] -> ${response.slice(0, 100)}...`);
       }
