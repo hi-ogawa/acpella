@@ -72,5 +72,5 @@ export function startService(env?: Record<string, string>) {
     fs.rmSync(home, { recursive: true, force: true });
   }
 
-  return { child, lines, send, waitForLine, stop };
+  return { child, lines, send, waitForLine, stop, home };
 }
