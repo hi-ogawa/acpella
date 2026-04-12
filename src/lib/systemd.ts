@@ -12,7 +12,11 @@ export interface SystemdUnitOptions {
   workingDirectory: string;
 }
 
-export function defaultSystemdUnitOptions(): SystemdUnitOptions {
+export function renderDefaultSystemdUnit(): string {
+  return renderSystemdUnit(defaultSystemdUnitOptions());
+}
+
+function defaultSystemdUnitOptions(): SystemdUnitOptions {
   const workingDirectory = process.cwd();
   return {
     description: "acpella service",
