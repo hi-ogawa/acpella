@@ -2,19 +2,47 @@ import { parseArgs } from "node:util";
 import { Bot } from "grammy";
 import { loadConfig } from "./config.ts";
 import { createHandler } from "./handler.ts";
+import { handleSetupSystemd } from "./lib/systemd.ts";
 import { createTestBot, type TestBot } from "./repl.ts";
 
 async function main() {
+  const argv = process.argv.slice(2);
   const { values: cli } = parseArgs({
-    args: process.argv.slice(2),
+    args: argv,
     options: {
       repl: {
+        type: "boolean",
+        default: false,
+      },
+      help: {
+        type: "boolean",
+        short: "h",
+        default: false,
+      },
+      "setup-systemd": {
         type: "boolean",
         default: false,
       },
     },
     strict: true,
   });
+
+  if (cli["setup-systemd"]) {
+    handleSetupSystemd();
+    return;
+  }
+
+  if (cli.help) {
+    process.stdout.write(`Usage: node src/cli.ts [options]
+
+Options:
+  --repl                 Run local in-process REPL.
+  --setup-systemd        Setup systemd service.
+  -h, --help             Show this help.
+`);
+    return;
+  }
+
   const config = loadConfig();
 
   // --- create bot (real or test) ---
