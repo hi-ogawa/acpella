@@ -1,4 +1,3 @@
-import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
 
@@ -18,48 +17,17 @@ export interface AppConfig {
   testChatId: number;
 }
 
-interface AgentAlias {
-  command: string;
-}
-
-const CONFIG_FILE = "acpella.config.json";
-
-const builtinAgents: Record<string, AgentAlias> = {
-  codex: {
-    command: path.join(
-      import.meta.dirname,
-      "..",
-      "node_modules/@zed-industries/codex-acp/bin/codex-acp.js",
-    ),
-  },
-  test: {
-    command: `node ${path.join(import.meta.dirname, "lib/test-agent.ts")}`,
-  },
+const builtinAgents: Record<string, string> = {
+  codex: path.join(
+    import.meta.dirname,
+    "..",
+    "node_modules/@zed-industries/codex-acp/bin/codex-acp.js",
+  ),
+  test: `node ${path.join(import.meta.dirname, "lib/test-agent.ts")}`,
 };
-
-const rawAgentSchema = z.object({
-  command: z.string().min(1),
-});
-
-const rawConfigSchema = z
-  .object({
-    version: z.literal(1),
-    agent: z.string().min(1).optional(),
-    agents: z.record(z.string().min(1), rawAgentSchema).optional(),
-    home: z.string().min(1).optional(),
-    stateFile: z.string().min(1).optional(),
-    telegram: z
-      .object({
-        allowedUserIds: z.array(z.number().int()).optional(),
-        allowedChatIds: z.array(z.number().int()).optional(),
-      })
-      .optional(),
-  })
-  .strict();
 
 const envSchema = z
   .object({
-    ACPELLA_CONFIG: z.string().optional(),
     ACPELLA_AGENT: z.string().optional(),
     ACPELLA_HOME: z.string().optional(),
     ACPELLA_TELEGRAM_BOT_TOKEN: z.string().optional(),
@@ -72,108 +40,32 @@ const envSchema = z
 
 export function loadConfig(): AppConfig {
   const env = envSchema.parse(process.env);
-  const defaultConfigPath = path.resolve(CONFIG_FILE);
-  const configPath = env.ACPELLA_CONFIG
-    ? path.resolve(env.ACPELLA_CONFIG)
-    : fs.existsSync(defaultConfigPath)
-      ? defaultConfigPath
-      : undefined;
-  const fileConfig = configPath
-    ? rawConfigSchema.parse(JSON.parse(fs.readFileSync(configPath, "utf8")) as unknown)
-    : undefined;
-  const configDir = configPath ? path.dirname(configPath) : process.cwd();
+  const home = env.ACPELLA_HOME ? path.resolve(env.ACPELLA_HOME) : process.cwd();
 
-  const home = resolveHome({
-    fileHome: fileConfig?.home,
-    configDir,
-    envHome: env.ACPELLA_HOME,
-  });
-
-  const stateFile = resolveStateFile({
-    home,
-    fileStateFile: fileConfig?.stateFile,
-  });
-
-  const agents = resolveAgents({
-    configDir,
-    fileAgents: fileConfig?.agents,
-  });
-
-  const agentName = env.ACPELLA_AGENT ?? fileConfig?.agent ?? "codex";
-  const agent = resolveAgent({ agents, name: agentName });
+  const agentName = env.ACPELLA_AGENT ?? "codex";
+  const agent = resolveAgent({ name: agentName });
 
   return {
     agent,
     home,
-    stateFile,
+    stateFile: path.join(home, ".acpella", "state.json"),
     telegram: {
       token: env.ACPELLA_TELEGRAM_BOT_TOKEN,
-      allowedUserIds:
-        parseIdList(env.ACPELLA_TELEGRAM_ALLOWED_USER_IDS) ??
-        fileConfig?.telegram?.allowedUserIds ??
-        [],
-      allowedChatIds:
-        parseIdList(env.ACPELLA_TELEGRAM_ALLOWED_CHAT_IDS) ??
-        fileConfig?.telegram?.allowedChatIds ??
-        [],
+      allowedUserIds: parseIdList(env.ACPELLA_TELEGRAM_ALLOWED_USER_IDS) ?? [],
+      allowedChatIds: parseIdList(env.ACPELLA_TELEGRAM_ALLOWED_CHAT_IDS) ?? [],
     },
     testMode: env.ACPELLA_TEST_BOT === "1",
     testChatId: parseOptionalId(env.ACPELLA_TEST_CHAT_ID) ?? 123,
   };
 }
 
-function resolveHome(options: {
-  fileHome: string | undefined;
-  configDir: string;
-  envHome: string | undefined;
-}): string {
-  if (options.envHome) {
-    return path.resolve(options.envHome);
-  }
-  if (options.fileHome) {
-    return path.resolve(options.configDir, options.fileHome);
-  }
-  return process.cwd();
-}
-
-function resolveStateFile(options: { home: string; fileStateFile: string | undefined }): string {
-  const raw = options.fileStateFile ?? ".acpella/state.json";
-  return path.isAbsolute(raw) ? raw : path.resolve(options.home, raw);
-}
-
-function resolveAgents(options: {
-  configDir: string;
-  fileAgents: Record<string, AgentAlias> | undefined;
-}): Record<string, AgentAlias> {
-  const fileAgents = Object.fromEntries(
-    Object.entries(options.fileAgents ?? {}).map(([alias, agent]) => [
-      alias,
-      { command: resolveCommand({ command: agent.command, baseDir: options.configDir }) },
-    ]),
-  );
-  return { ...builtinAgents, ...fileAgents };
-}
-
-function resolveAgent(options: {
-  agents: Record<string, AgentAlias>;
-  name: string;
-}): AppConfig["agent"] {
+function resolveAgent(options: { name: string }): AppConfig["agent"] {
   const alias = options.name;
-  const knownAgent = options.agents[alias];
+  const knownAgent = builtinAgents[alias];
   if (knownAgent) {
-    return { alias, command: knownAgent.command };
+    return { alias, command: knownAgent };
   }
-  return { alias, command: resolveCommand({ command: alias, baseDir: process.cwd() }) };
-}
-
-function resolveCommand(options: { command: string; baseDir: string }): string {
-  const [cmd, ...args] = options.command.trim().split(/\s+/);
-  if (!cmd) {
-    throw new Error("Agent command must be non-empty");
-  }
-  const resolvedCmd =
-    cmd.includes(path.sep) && !path.isAbsolute(cmd) ? path.resolve(options.baseDir, cmd) : cmd;
-  return [resolvedCmd, ...args].join(" ");
+  return { alias, command: alias };
 }
 
 function parseIdList(value: string | undefined): number[] | undefined {

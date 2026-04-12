@@ -1,4 +1,3 @@
-import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
@@ -17,11 +16,6 @@ const stateSchema = z
     scopes: z.record(
       z.string().min(1),
       z.object({
-        agent: z.object({
-          alias: z.string().min(1),
-          command: z.string().min(1),
-        }),
-        home: z.string().min(1),
         sessions: z.record(
           z.string().min(1),
           z.object({
@@ -37,9 +31,9 @@ type State = z.infer<typeof stateSchema>;
 type Scope = State["scopes"][string];
 
 export function createSessionStateStore(
-  config: Pick<AppConfig, "agent" | "home" | "stateFile">,
+  config: Pick<AppConfig, "agent" | "stateFile">,
 ): SessionStateStore {
-  const scopeKey = createScopeKey(config);
+  const scopeKey = config.agent.command;
 
   function readState(): State {
     if (!fs.existsSync(config.stateFile)) {
@@ -65,8 +59,6 @@ export function createSessionStateStore(
       return existing;
     }
     const scope: Scope = {
-      agent: config.agent,
-      home: config.home,
       sessions: {},
     };
     state.scopes[scopeKey] = scope;
@@ -99,14 +91,6 @@ export function createSessionStateStore(
         .sort((a, b) => a.name.localeCompare(b.name));
     },
   };
-}
-
-function createScopeKey(config: Pick<AppConfig, "agent" | "home">): string {
-  return `${config.agent.alias}:${hash(config.agent.command)}:${hash(config.home)}`;
-}
-
-function hash(value: string): string {
-  return crypto.createHash("sha256").update(value).digest("hex").slice(0, 8);
 }
 
 function emptyState(): State {
