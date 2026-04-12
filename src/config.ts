@@ -48,7 +48,10 @@ export function loadConfig(): AppConfig {
 
   const agentName = env.ACPELLA_AGENT ?? "codex";
   const agent = resolveAgent({ name: agentName });
-  const prompt = loadPromptConfig({ file: env.ACPELLA_PROMPT_FILE, home });
+  const promptFile = env.ACPELLA_PROMPT_FILE?.trim()
+    ? path.resolve(home, env.ACPELLA_PROMPT_FILE)
+    : undefined;
+  const promptText = promptFile ? fs.readFileSync(promptFile, "utf8") : undefined;
 
   return {
     agent,
@@ -59,7 +62,10 @@ export function loadConfig(): AppConfig {
       allowedUserIds: parseIdList(env.ACPELLA_TELEGRAM_ALLOWED_USER_IDS) ?? [],
       allowedChatIds: parseIdList(env.ACPELLA_TELEGRAM_ALLOWED_CHAT_IDS) ?? [],
     },
-    prompt,
+    prompt: {
+      file: promptFile,
+      text: promptText?.trim() ? promptText : undefined,
+    },
     // TODO: make use of this for test
     testChatId: parseOptionalId(env.ACPELLA_TEST_CHAT_ID) ?? 10101010,
   };
@@ -99,21 +105,4 @@ function parseOptionalId(value: string | undefined): number | undefined {
     throw new Error(`Invalid numeric id: ${value}`);
   }
   return id;
-}
-
-function loadPromptConfig(options: {
-  file: string | undefined;
-  home: string;
-}): AppConfig["prompt"] {
-  if (options.file === undefined || options.file.trim() === "") {
-    return {};
-  }
-  const file = path.isAbsolute(options.file)
-    ? options.file
-    : path.resolve(options.home, options.file);
-  const text = fs.readFileSync(file, "utf8");
-  if (text.trim() === "") {
-    return { file };
-  }
-  return { file, text };
 }
