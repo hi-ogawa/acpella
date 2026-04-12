@@ -25,7 +25,6 @@ it("uses custom prompt file", async ({ onTestFinished }) => {
   const service = startService(
     {
       ACPELLA_AGENT: "codex",
-      ACPELLA_PROMPT_FILE: "custom-prompt.md",
     },
     { sourceDir: path.join(import.meta.dirname, "fixtures/custom-prompt") },
   );

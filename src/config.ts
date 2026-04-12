@@ -34,7 +34,6 @@ const envSchema = z
   .object({
     ACPELLA_AGENT: z.string().optional(),
     ACPELLA_HOME: z.string().optional(),
-    ACPELLA_PROMPT_FILE: z.string().optional(),
     ACPELLA_TELEGRAM_BOT_TOKEN: z.string().optional(),
     ACPELLA_TELEGRAM_ALLOWED_USER_IDS: z.string().optional(),
     ACPELLA_TELEGRAM_ALLOWED_CHAT_IDS: z.string().optional(),
@@ -49,9 +48,8 @@ export function loadConfig(): AppConfig {
   const agentAlias = env.ACPELLA_AGENT ?? "codex";
   const agentCommand = builtinAgents[agentAlias] || agentAlias;
 
-  const promptFile = env.ACPELLA_PROMPT_FILE
-    ? path.resolve(home, env.ACPELLA_PROMPT_FILE)
-    : undefined;
+  const agentsFilePath = path.join(home, ".acpella", "AGENTS.md");
+  const promptFile = fs.existsSync(agentsFilePath) ? agentsFilePath : undefined;
   const promptText = promptFile ? fs.readFileSync(promptFile, "utf8") : undefined;
 
   return {
