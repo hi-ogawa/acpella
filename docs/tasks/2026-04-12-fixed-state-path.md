@@ -2,12 +2,12 @@
 
 ## Problem Context
 
-`src/config.ts` currently exposes `stateFile` as application config and accepts `stateFile`
-from `acpella.config.json`. That makes persisted service state look like a user-facing behavior
-setting and keeps state-file path ownership in the config loader.
+`src/config.ts` grew support for a user config file while the current service can be configured
+well enough through environment variables. The config file path and `home` interaction also creates
+unnecessary ordering questions.
 
-For this refactor step, keep `AppConfig.stateFile` as a resolved runtime value, remove `stateFile`
-from raw user config, and force the persistence file under the resolved app home:
+For this refactor step, remove config file support entirely, keep `AppConfig.stateFile` as a
+resolved runtime value, and force the persistence file under the resolved app home:
 
 ```text
 <config.home>/.acpella/state.json
@@ -22,9 +22,9 @@ from raw user config, and force the persistence file under the resolved app home
 
 ## Implementation Plan
 
-1. Remove `stateFile` from the raw config schema only.
-2. Make `home` independent of raw config so the default config file can be inferred from it.
-3. Infer the default config path as `<home>/acpella.config.json`.
+1. Remove `ACPELLA_CONFIG`, raw config schemas, and config file loading.
+2. Resolve `home` from `ACPELLA_HOME`, falling back to `process.cwd()`.
+3. Resolve the agent from `ACPELLA_AGENT`, falling back to the built-in `codex` alias.
 4. Keep `AppConfig.stateFile` and set it inline in `loadConfig()` from the resolved app home.
 5. Keep `state.ts` consuming `config.stateFile`.
 6. Keep tests isolated through the existing temporary `ACPELLA_HOME`.
