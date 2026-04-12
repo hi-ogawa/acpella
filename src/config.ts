@@ -46,7 +46,6 @@ const rawConfigSchema = z
     version: z.literal(1),
     agent: z.string().min(1).optional(),
     agents: z.record(z.string().min(1), rawAgentSchema).optional(),
-    home: z.string().min(1).optional(),
     telegram: z
       .object({
         allowedUserIds: z.array(z.number().int()).optional(),
@@ -71,9 +70,8 @@ const envSchema = z
 
 export function loadConfig(): AppConfig {
   const env = envSchema.parse(process.env);
-  const envHome = env.ACPELLA_HOME ? path.resolve(env.ACPELLA_HOME) : undefined;
-  const defaultHome = envHome ?? process.cwd();
-  const defaultConfigPath = path.join(defaultHome, CONFIG_FILE);
+  const home = env.ACPELLA_HOME ? path.resolve(env.ACPELLA_HOME) : process.cwd();
+  const defaultConfigPath = path.join(home, CONFIG_FILE);
   const configPath = env.ACPELLA_CONFIG
     ? path.resolve(env.ACPELLA_CONFIG)
     : fs.existsSync(defaultConfigPath)
@@ -82,13 +80,7 @@ export function loadConfig(): AppConfig {
   const fileConfig = configPath
     ? rawConfigSchema.parse(JSON.parse(fs.readFileSync(configPath, "utf8")) as unknown)
     : undefined;
-  const configDir = configPath ? path.dirname(configPath) : process.cwd();
-
-  const home = envHome
-    ? envHome
-    : fileConfig?.home
-      ? path.resolve(configDir, fileConfig.home)
-      : process.cwd();
+  const configDir = configPath ? path.dirname(configPath) : home;
 
   const agents = resolveAgents({
     configDir,
