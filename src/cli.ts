@@ -5,7 +5,16 @@ import { createHandler } from "./handler.ts";
 import { createTestBot, startTestBotRepl, type TestBot } from "./repl.ts";
 
 async function main() {
-  const cli = parseCliArgs(process.argv.slice(2));
+  const { values: cli } = parseArgs({
+    args: process.argv.slice(2),
+    options: {
+      repl: {
+        type: "boolean",
+        default: false,
+      },
+    },
+    strict: true,
+  });
   const config = loadConfig();
   const { handle } = await createHandler(config);
 
@@ -93,20 +102,6 @@ async function main() {
 function sessionName(chatId: number, threadId?: number): string {
   const base = `tg-${chatId}`;
   return threadId ? `${base}-${threadId}` : base;
-}
-
-function parseCliArgs(args: string[]): { repl: boolean } {
-  const { values } = parseArgs({
-    args,
-    options: {
-      repl: {
-        type: "boolean",
-        default: false,
-      },
-    },
-    strict: true,
-  });
-  return { repl: values.repl };
 }
 
 main().catch((err) => {
