@@ -82,11 +82,11 @@ export function loadConfig(): AppConfig {
     : undefined;
   const configDir = configPath ? path.dirname(configPath) : process.cwd();
 
-  const home = resolveHome({
-    fileHome: fileConfig?.home,
-    configDir,
-    envHome: env.ACPELLA_HOME,
-  });
+  const home = env.ACPELLA_HOME
+    ? path.resolve(env.ACPELLA_HOME)
+    : fileConfig?.home
+      ? path.resolve(configDir, fileConfig.home)
+      : process.cwd();
 
   const agents = resolveAgents({
     configDir,
@@ -114,20 +114,6 @@ export function loadConfig(): AppConfig {
     testMode: env.ACPELLA_TEST_BOT === "1",
     testChatId: parseOptionalId(env.ACPELLA_TEST_CHAT_ID) ?? 123,
   };
-}
-
-function resolveHome(options: {
-  fileHome: string | undefined;
-  configDir: string;
-  envHome: string | undefined;
-}): string {
-  if (options.envHome) {
-    return path.resolve(options.envHome);
-  }
-  if (options.fileHome) {
-    return path.resolve(options.configDir, options.fileHome);
-  }
-  return process.cwd();
 }
 
 function resolveAgents(options: {
