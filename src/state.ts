@@ -1,4 +1,3 @@
-import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
@@ -38,7 +37,7 @@ type Scope = State["scopes"][string];
 export function createSessionStateStore(
   config: Pick<AppConfig, "agent" | "stateFile">,
 ): SessionStateStore {
-  const scopeKey = createScopeKey(config);
+  const scopeKey = config.agent.command;
 
   function readState(): State {
     if (!fs.existsSync(config.stateFile)) {
@@ -97,14 +96,6 @@ export function createSessionStateStore(
         .sort((a, b) => a.name.localeCompare(b.name));
     },
   };
-}
-
-function createScopeKey(config: Pick<AppConfig, "agent">): string {
-  return `${config.agent.alias}:${hash(config.agent.command)}`;
-}
-
-function hash(value: string): string {
-  return crypto.createHash("sha256").update(value).digest("hex").slice(0, 8);
 }
 
 function emptyState(): State {
