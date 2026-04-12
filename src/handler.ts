@@ -46,7 +46,13 @@ export async function createHandler(config: AppConfig): Promise<{
           await responseWriter.appendText(update.content.text);
         } else if (update.sessionUpdate === "tool_call") {
           console.log(`[acp:update] tool_call: ${update.title}`);
-          await responseWriter.sendToolCall(update.title);
+          await responseWriter.flush();
+          await sendTextResponse({
+            context: options.context,
+            limit: MESSAGE_SPLIT_BUDGET,
+            text: `Tool: ${update.title}`,
+          });
+          responseWriter.markSent();
         } else {
           console.log(`[acp:update] ${update.sessionUpdate}`);
         }
@@ -318,7 +324,7 @@ function createResponseWriter(options: { context: Context; limit: number }) {
   let bufferedText = "";
   let sentResponse = false;
 
-  async function flushText(): Promise<void> {
+  async function flush(): Promise<void> {
     if (!bufferedText.trim()) {
       bufferedText = "";
       return;
@@ -353,17 +359,12 @@ function createResponseWriter(options: { context: Context; limit: number }) {
       bufferedText += text;
       await flushOversizedText();
     },
-    async sendToolCall(title: string): Promise<void> {
-      await flushText();
-      await sendTextResponse({
-        context: options.context,
-        limit: options.limit,
-        text: `Tool: ${title}`,
-      });
+    flush,
+    markSent(): void {
       sentResponse = true;
     },
     async finish(): Promise<void> {
-      await flushText();
+      await flush();
       if (!sentResponse) {
         await options.context.reply("(no response)");
       }
