@@ -50,19 +50,6 @@ WantedBy=${installTarget}
 `;
 }
 
-export function renderSystemdUnitHelp(defaults: SystemdUnitOptions): string {
-  return `Usage: node src/cli.ts --setup-systemd [options]
-
-Print a systemd unit for this acpella checkout.
-
-Options:
-  working directory: ${defaults.workingDirectory}
-  env file: ${defaults.envFile}
-  node: ${defaults.nodeBin}
-  -h, --help                  Show this help.
-`;
-}
-
 function escapeSystemdValue(value: string): string {
   if (/^[A-Za-z0-9_./:@%+=,-]+$/.test(value)) {
     return value;
