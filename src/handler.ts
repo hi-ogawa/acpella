@@ -133,11 +133,10 @@ export async function createHandler(config: AppConfig): Promise<{
   }
 
   function handleCurrentSession(options: { name: string }): string {
-    return [
-      `session: ${options.name}`,
-      `agent: ${config.agent.alias}`,
-      `session id: ${state.getSessionId(options.name) ?? "none"}`,
-    ].join("\n");
+    return `\
+session: ${options.name}
+agent: ${config.agent.alias}
+session id: ${state.getSessionId(options.name) ?? "none"}`;
   }
 
   async function handleListSessions(): Promise<string> {
@@ -152,19 +151,18 @@ export async function createHandler(config: AppConfig): Promise<{
       (session) => !stateSessionIds.has(session.sessionId),
     );
 
-    return [
-      `state sessions (${stateSessions.length}):`,
-      ...formatStateSessions(stateSessions),
-      "",
-      `agent sessions (${agentSessions.sessions.length}):`,
-      ...formatAgentSessions(agentSessions),
-      "",
-      `state missing in agent (${missingInAgent.length}):`,
-      ...formatStateSessions(missingInAgent),
-      "",
-      `agent not tracked by state (${untrackedAgentSessions.length}):`,
-      ...formatAgentSessions({ sessions: untrackedAgentSessions }),
-    ].join("\n");
+    return `\
+state sessions (${stateSessions.length}):
+${formatStateSessions(stateSessions).join("\n")}
+
+agent sessions (${agentSessions.sessions.length}):
+${formatAgentSessions(agentSessions).join("\n")}
+
+state missing in agent (${missingInAgent.length}):
+${formatStateSessions(missingInAgent).join("\n")}
+
+agent not tracked by state (${untrackedAgentSessions.length}):
+${formatAgentSessions({ sessions: untrackedAgentSessions }).join("\n")}`;
   }
 
   async function handleSessionCommand(options: {
@@ -205,14 +203,13 @@ export async function createHandler(config: AppConfig): Promise<{
         response = "Session closed. Next message will start a fresh session.";
         break;
       default:
-        response = [
-          "Usage:",
-          "/session",
-          "/session list",
-          "/session new",
-          "/session load <sessionId>",
-          "/session close [sessionId]",
-        ].join("\n");
+        response = `\
+Usage:
+/session
+/session list
+/session new
+/session load <sessionId>
+/session close [sessionId]`;
     }
     await sendTextResponse(options.context, response);
     return true;
