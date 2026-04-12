@@ -68,7 +68,7 @@ const envSchema = z
     ACPELLA_TEST_BOT: z.string().optional(),
     ACPELLA_TEST_CHAT_ID: z.string().optional(),
   })
-  .passthrough();
+  .loose();
 
 export function loadConfig(): AppConfig {
   const env = envSchema.parse(process.env);
