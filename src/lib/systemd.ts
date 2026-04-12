@@ -1,4 +1,6 @@
-import { resolve } from "node:path";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { dirname, resolve } from "node:path";
 
 export function handleSetupSystemd(): void {
   const workingDirectory = process.cwd();
@@ -6,8 +8,9 @@ export function handleSetupSystemd(): void {
   const envFile = resolve(workingDirectory, ".env");
   const nodeBin = process.execPath;
   const serviceName = "acpella";
+  const unitFile = resolve(homedir(), ".config/systemd/user/acpella.service");
 
-  process.stdout.write(`[Unit]
+  const unit = `[Unit]
 Description=${escapeSystemdValue(description)}
 
 [Service]
@@ -21,7 +24,15 @@ RestartSec=10
 
 [Install]
 WantedBy=default.target
-`);
+`;
+
+  mkdirSync(dirname(unitFile), { recursive: true });
+  writeFileSync(unitFile, unit);
+
+  console.log(`Wrote ${unitFile}`);
+  console.log("Run these commands to enable it:");
+  console.log("  systemctl --user daemon-reload");
+  console.log("  systemctl --user enable --now acpella");
 }
 
 function escapeSystemdValue(value: string): string {

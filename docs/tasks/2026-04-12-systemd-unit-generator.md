@@ -4,11 +4,10 @@
 
 Deploying acpella through systemd currently requires copying a static unit from `docs/deploy.md` and editing user-specific paths by hand. Add a CLI helper that generates a unit from the current checkout so the deploy path, Node binary, environment file, and service user match the local installation.
 
-The CLI should print a user unit to stdout by default. This keeps installation explicit, easy to inspect, and usable without writing to `/etc/systemd/system`:
+The CLI should write a user unit to `~/.config/systemd/user/acpella.service` and print the manual `systemctl --user` commands:
 
 ```bash
 pnpm cli --setup-systemd
-pnpm cli --setup-systemd > ~/.config/systemd/user/acpella.service
 ```
 
 ## Reference files/patterns to follow
