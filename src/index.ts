@@ -1,7 +1,7 @@
 import { Bot } from "grammy";
 import { loadConfig } from "./config.ts";
 import { createHandler } from "./handler.ts";
-import { createTestBot, startTestBotRepl, type TestBot } from "./test-bot.ts";
+import { createTestBot, startTestBotRepl, type TestBot } from "./repl.ts";
 
 async function main() {
   const config = loadConfig();

@@ -4,12 +4,11 @@ import { startAcpManager } from "./index.ts";
 
 // TODO: test
 // - multiple updates per prompt
-// - load session
 
 describe(startAcpManager, () => {
   it("basic", async () => {
     const manager = await startAcpManager({
-      command: "node src/test-agent.ts",
+      command: "node src/lib/test-agent.ts",
       cwd: path.join(import.meta.dirname, "../.."),
     });
     const session = await manager.newSession({
@@ -34,7 +33,7 @@ describe(startAcpManager, () => {
 
   it("loadSession", async () => {
     const manager = await startAcpManager({
-      command: "node src/test-agent.ts",
+      command: "node src/lib/test-agent.ts",
       cwd: path.join(import.meta.dirname, "../.."),
     });
     const listedSessions = await manager.listSessions();

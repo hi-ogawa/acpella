@@ -8,7 +8,7 @@ import {
   type SessionUpdate,
   type ListSessionsResponse,
 } from "@agentclientprotocol/sdk";
-import { AsyncQueue } from "../async-queue.ts";
+import { AsyncQueue } from "../lib/async-queue.ts";
 
 // TODO: review slop (NEVER REMOVE THIS COMMENT)
 

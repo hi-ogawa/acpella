@@ -33,7 +33,7 @@ const builtinAgents: Record<string, AgentAlias> = {
     ),
   },
   test: {
-    command: `node ${path.join(import.meta.dirname, "test-agent.ts")}`,
+    command: `node ${path.join(import.meta.dirname, "lib/test-agent.ts")}`,
   },
 };
 
