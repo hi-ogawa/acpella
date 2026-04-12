@@ -45,9 +45,13 @@ async function main() {
       const userId = ctx.from?.id;
 
       if (allowedChats?.size && !allowedChats.has(chatId)) {
+        console.error(`[${sessionName(chatId, threadId)}] rejected: chat ${chatId} is not allowed`);
         return;
       }
       if (!userId || (allowedUsers?.size && !allowedUsers.has(userId))) {
+        console.error(
+          `[${sessionName(chatId, threadId)}] rejected: user ${userId ?? "unknown"} is not allowed`,
+        );
         return;
       }
     }
