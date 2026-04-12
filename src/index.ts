@@ -12,16 +12,13 @@ async function main() {
 
   let bot: Bot;
   let testBot: TestBot | undefined;
-  let allowedUsers: Set<number> | undefined;
-  let allowedChats: Set<number> | undefined;
+  let allowedUsers = new Set(config.telegram.allowedUserIds);
+  let allowedChats = new Set(config.telegram.allowedChatIds);
 
   if (cli.repl) {
     testBot = createTestBot({ chatId: config.testChatId });
     bot = testBot.bot;
   } else {
-    allowedUsers = new Set(config.telegram.allowedUserIds);
-    allowedChats = new Set(config.telegram.allowedChatIds);
-
     if (!config.telegram.token) {
       console.error("ACPELLA_TELEGRAM_BOT_TOKEN is required");
       process.exitCode = 1;
