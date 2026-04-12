@@ -69,9 +69,9 @@ type SpanwedAgent = Awaited<ReturnType<typeof spawnAgent>>;
 async function spawnAgent({ command, cwd }: { command: string; cwd: string }) {
   const [cmd, ...args] = command.trim().split(/\s+/);
   // TODO:
-  // handle stderr
   // handle process exit
-  const child = spawn(cmd, args, { stdio: ["pipe", "pipe", "inherit"], cwd });
+  const child = spawn(cmd, args, { stdio: ["pipe", "pipe", "pipe"], cwd });
+  pipeAgentStderr(child.stderr);
 
   const stream = ndJsonStream(
     Writable.toWeb(child.stdin!),
@@ -108,6 +108,30 @@ async function spawnAgent({ command, cwd }: { command: string; cwd: string }) {
   }
 
   return { child, connection, subscribe };
+}
+
+function pipeAgentStderr(stderr: Readable | undefined | null): void {
+  if (!stderr) {
+    return;
+  }
+
+  let buffered = "";
+  stderr.setEncoding("utf8");
+  stderr.on("data", (chunk) => {
+    buffered += String(chunk);
+    let newlineIndex = buffered.indexOf("\n");
+    while (newlineIndex !== -1) {
+      const line = buffered.slice(0, newlineIndex).replace(/\r$/, "");
+      console.error(`[acp:stderr] ${line}`);
+      buffered = buffered.slice(newlineIndex + 1);
+      newlineIndex = buffered.indexOf("\n");
+    }
+  });
+  stderr.on("end", () => {
+    if (buffered) {
+      console.error(`[acp:stderr] ${buffered.replace(/\r$/, "")}`);
+    }
+  });
 }
 
 async function createSession(options: { agent: SpanwedAgent; sessionId: string }) {
