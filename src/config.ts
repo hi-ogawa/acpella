@@ -71,7 +71,9 @@ const envSchema = z
 
 export function loadConfig(): AppConfig {
   const env = envSchema.parse(process.env);
-  const defaultConfigPath = path.resolve(CONFIG_FILE);
+  const envHome = env.ACPELLA_HOME ? path.resolve(env.ACPELLA_HOME) : undefined;
+  const defaultHome = envHome ?? process.cwd();
+  const defaultConfigPath = path.join(defaultHome, CONFIG_FILE);
   const configPath = env.ACPELLA_CONFIG
     ? path.resolve(env.ACPELLA_CONFIG)
     : fs.existsSync(defaultConfigPath)
@@ -82,8 +84,8 @@ export function loadConfig(): AppConfig {
     : undefined;
   const configDir = configPath ? path.dirname(configPath) : process.cwd();
 
-  const home = env.ACPELLA_HOME
-    ? path.resolve(env.ACPELLA_HOME)
+  const home = envHome
+    ? envHome
     : fileConfig?.home
       ? path.resolve(configDir, fileConfig.home)
       : process.cwd();

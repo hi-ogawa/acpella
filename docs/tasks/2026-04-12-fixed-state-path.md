@@ -23,7 +23,8 @@ from raw user config, and force the persistence file under the resolved app home
 ## Implementation Plan
 
 1. Remove `stateFile` from the raw config schema only.
-2. Keep `AppConfig.stateFile` and set it inline in `loadConfig()` from the resolved app home.
-3. Keep `state.ts` consuming `config.stateFile`.
-4. Keep tests isolated through the existing temporary `ACPELLA_HOME`.
-5. Run lint and the unit/e2e smoke tests.
+2. Infer the default config path from the app home candidate as `<home>/acpella.config.json`.
+3. Keep `AppConfig.stateFile` and set it inline in `loadConfig()` from the resolved app home.
+4. Keep `state.ts` consuming `config.stateFile`.
+5. Keep tests isolated through the existing temporary `ACPELLA_HOME`.
+6. Run lint and the unit/e2e smoke tests.
