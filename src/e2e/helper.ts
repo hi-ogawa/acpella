@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { onTestFinished } from "vitest";
+import { onTestFinished, TestRunner } from "vitest";
 
 // TODO: review slop
 
@@ -44,6 +44,11 @@ export function startService(
     }
   });
 
+  const test = TestRunner.getCurrentTest()!;
+  test.context.signal.addEventListener("abort", () => {
+    child.kill();
+  });
+
   const lines: string[] = [];
   let stdout = "";
   let stderr = "";
@@ -63,6 +68,8 @@ export function startService(
 
   // TODO: composable assertion
   // TODO: race with donePromise
+  // TODO: surface error on timeout
+
   async function waitForLine(match: string, timeoutMs = 10000): Promise<string> {
     const found = lines.find((l) => l.includes(match));
     if (found) {
