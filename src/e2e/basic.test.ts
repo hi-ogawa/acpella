@@ -2,36 +2,24 @@ import { describe, it } from "vitest";
 import { startService } from "./helper.ts";
 
 describe("e2e smoke", () => {
-  it("starts and responds to /status", async ({ onTestFinished }) => {
+  it("starts and responds to /status", async () => {
     const service = startService();
-    onTestFinished(async () => {
-      await service.stop();
-    });
-
-    await service.waitForLine("Starting service");
+    await service.waitForOutput("Starting service");
     service.write("/status");
-    await service.waitForLine("configured agent: test");
+    await service.waitForOutput("configured agent: test");
   });
 
-  it("echo agent round-trip", async ({ onTestFinished }) => {
+  it("echo agent round-trip", async () => {
     const service = startService();
-    onTestFinished(async () => {
-      await service.stop();
-    });
-
-    await service.waitForLine("Starting service");
+    await service.waitForOutput("Starting service");
     service.write("hello world");
-    await service.waitForLine("echo: hello world");
+    await service.waitForOutput("echo: hello world");
   });
 
-  it("reports agent startup failure", async ({ onTestFinished }) => {
+  it("reports agent startup failure", async () => {
     const service = startService({ ACPELLA_AGENT: "no-such-command" });
-    onTestFinished(async () => {
-      await service.stop();
-    });
-
-    await service.waitForLine("Starting service");
+    await service.waitForOutput("Starting service");
     service.write("hello world");
-    await service.waitForLine("Error: ACP agent failed to start: spawn no-such-command ENOENT");
+    await service.waitForOutput("Error: ACP agent failed to start: spawn no-such-command ENOENT");
   });
 });
