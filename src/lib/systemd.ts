@@ -3,23 +3,24 @@ import { homedir, tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 
 export function handleSetupSystemd(): void {
-  const workingDirectory = process.cwd();
-  const unitFile = resolve(homedir(), ".config/systemd/user/acpella.service");
-  const unit = buildSystemdUnit({
-    workingDirectory,
+  const unitContent = buildSystemdUnit({
+    workingDirectory: process.cwd(),
     env: process.env,
     home: homedir(),
     nodeBin: process.execPath,
     tmpDir: tmpdir(),
   });
 
+  const unitFile = resolve(homedir(), ".config/systemd/user/acpella.service");
   mkdirSync(dirname(unitFile), { recursive: true });
-  writeFileSync(unitFile, unit);
+  writeFileSync(unitFile, unitContent);
 
-  console.log(`Wrote ${unitFile}`);
-  console.log("Run these commands to enable it:");
-  console.log("  systemctl --user daemon-reload");
-  console.log("  systemctl --user enable --now acpella");
+  console.log(`\
+Wrote ${unitFile}
+Run these commands to enable it:
+  systemctl --user daemon-reload
+  systemctl --user enable --now acpella
+`);
 }
 
 export function buildSystemdUnit(options: {
