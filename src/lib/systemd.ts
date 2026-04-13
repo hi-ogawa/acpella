@@ -17,9 +17,17 @@ export function handleSetupSystemd(): void {
 
   console.log(`\
 Wrote ${unitFile}
-Run these commands to enable it:
+
+First install:
   systemctl --user daemon-reload
   systemctl --user enable --now acpella
+
+After updating this unit:
+  systemctl --user daemon-reload
+  systemctl --user restart acpella
+
+Logs:
+  journalctl --user -u acpella -f
 `);
 }
 
