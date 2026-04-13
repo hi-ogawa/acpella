@@ -2,6 +2,7 @@ import fs from "node:fs";
 import type { ListSessionsResponse } from "@agentclientprotocol/sdk";
 import type { Context } from "grammy";
 import { startAcpManager } from "./acp/index.ts";
+import type { AgentSession } from "./acp/index.ts";
 import type { AppConfig } from "./config.ts";
 import { createSessionStateStore } from "./state.ts";
 
@@ -17,6 +18,8 @@ export async function createHandler(config: AppConfig): Promise<{
 }> {
   const manager = await startAcpManager({ command: config.agent.command, cwd: config.home });
   const state = createSessionStateStore(config);
+  const activeSessions = new Map<string, AgentSession>();
+  const cancelledSessions = new WeakSet<AgentSession>();
 
   async function handlePrompt(options: {
     context: Context;
@@ -24,6 +27,15 @@ export async function createHandler(config: AppConfig): Promise<{
     text: string;
     sessionId?: string;
   }): Promise<void> {
+    if (activeSessions.has(options.name)) {
+      await sendSystemResponse({
+        context: options.context,
+        limit: MESSAGE_SPLIT_BUDGET,
+        text: "Agent turn already in progress. Send /cancel to stop it.",
+      });
+      return;
+    }
+
     const session = options.sessionId
       ? await manager.loadSession({
           sessionCwd: config.home,
@@ -44,6 +56,7 @@ export async function createHandler(config: AppConfig): Promise<{
         context: options.context,
         limit: MESSAGE_SPLIT_BUDGET,
       });
+      activeSessions.set(options.name, session);
 
       for await (const update of queue) {
         if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
@@ -57,13 +70,52 @@ export async function createHandler(config: AppConfig): Promise<{
           console.log(`[acp:update] ${update.sessionUpdate}`);
         }
       }
+      if (cancelledSessions.has(session)) {
+        await responseWriter.flush();
+        await sendSystemResponse({
+          context: options.context,
+          limit: MESSAGE_SPLIT_BUDGET,
+          text: "Agent turn cancelled.",
+        });
+        return;
+      }
       await responseWriter.finish();
       if (!options.sessionId) {
         state.setSessionId(options.name, session.sessionId);
       }
     } finally {
+      if (activeSessions.get(options.name) === session) {
+        activeSessions.delete(options.name);
+      }
       session.close();
     }
+  }
+
+  async function handleCancel(options: { context: Context; sessionName: string }): Promise<void> {
+    const session = activeSessions.get(options.sessionName);
+    if (!session) {
+      await sendSystemResponse({
+        context: options.context,
+        limit: MESSAGE_SPLIT_BUDGET,
+        text: "No active agent turn.",
+      });
+      return;
+    }
+
+    cancelledSessions.add(session);
+    let response = "Cancelled current agent turn.";
+    try {
+      await session.cancel();
+    } catch (e) {
+      console.error("[acp] cancel failed, killing agent process:", e);
+      session.close();
+      response = "Cancelled current agent turn by killing the agent process.";
+    }
+    await sendSystemResponse({
+      context: options.context,
+      limit: MESSAGE_SPLIT_BUDGET,
+      text: response,
+    });
   }
 
   async function handleCloseSession(options: {
@@ -191,7 +243,7 @@ Usage:
 /session load <sessionId>
 /session close [sessionId]`;
     }
-    await sendTextResponse({
+    await sendSystemResponse({
       context: options.context,
       limit: MESSAGE_SPLIT_BUDGET,
       text: response,
@@ -214,10 +266,17 @@ prompt file: ${config.prompt.file ?? "none"}`;
     const sessionName = options.session;
 
     if (text === "/status") {
-      await sendTextResponse({
+      await sendSystemResponse({
         context: options.context,
         limit: MESSAGE_SPLIT_BUDGET,
         text: handleStatus(),
+      });
+      return;
+    }
+    if (text === "/cancel") {
+      await handleCancel({
+        context: options.context,
+        sessionName,
       });
       return;
     }
@@ -300,6 +359,18 @@ async function sendTextResponse(options: {
   for (const part of parts) {
     await options.context.reply(part);
   }
+}
+
+async function sendSystemResponse(options: {
+  context: Context;
+  limit: number;
+  text: string;
+}): Promise<void> {
+  await sendTextResponse({
+    context: options.context,
+    limit: options.limit,
+    text: `⚙️ ${options.text}`,
+  });
 }
 
 function splitMessageText(text: string, limit: number): string[] {

@@ -65,6 +65,7 @@ export async function startAcpManager(options: { command: string; cwd: string })
 }
 
 type SpanwedAgent = Awaited<ReturnType<typeof spawnAgent>>;
+export type AgentSession = Awaited<ReturnType<typeof createSession>>;
 
 async function spawnAgent({ command, cwd }: { command: string; cwd: string }) {
   const [cmd, ...args] = command.trim().split(/\s+/);
@@ -177,8 +178,6 @@ async function createSession(options: { agent: SpanwedAgent; sessionId: string }
   const { agent } = options;
   return {
     sessionId: options.sessionId,
-    // TODO: ensure single in-flight prompt per session
-    // TODO: cancel prompt
     prompt(text: string) {
       const queue = new AsyncQueue<SessionUpdate>();
       const unsubscribe = agent.subscribe((u) => queue.push(u));
@@ -195,6 +194,9 @@ async function createSession(options: { agent: SpanwedAgent; sessionId: string }
           unsubscribe();
         });
       return { promise, queue };
+    },
+    async cancel(): Promise<void> {
+      await agent.connection.cancel({ sessionId: options.sessionId });
     },
     close() {
       agent.child.kill();
