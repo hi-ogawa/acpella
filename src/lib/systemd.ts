@@ -36,7 +36,6 @@ export function buildSystemdUnit(options: {
     HOME: options.home,
     TMPDIR: options.env.TMPDIR?.trim() || options.tmpDir,
     PATH: buildServicePath({
-      envPath: options.env.PATH,
       nodeBin: options.nodeBin,
     }),
   };
@@ -61,19 +60,8 @@ WantedBy=default.target
 `;
 }
 
-export function buildServicePath(options: {
-  envPath: string | undefined;
-  nodeBin: string;
-}): string {
-  const dirs = [
-    dirname(options.nodeBin),
-    ...splitPath(options.envPath).filter(
-      (entry) => !(entry.includes("/run/user/") && entry.includes("/fnm_multishells/")),
-    ),
-    "/usr/local/bin",
-    "/usr/bin",
-    "/bin",
-  ];
+export function buildServicePath(options: { nodeBin: string }): string {
+  const dirs = [dirname(options.nodeBin), "/usr/local/bin", "/usr/bin", "/bin"];
 
   return uniqueNonEmpty(dirs).join(":");
 }
@@ -82,10 +70,6 @@ function renderEnvironmentLines(env: Record<string, string>): string {
   return Object.entries(env)
     .map(([key, value]) => `Environment=${escapeSystemdValue(`${key}=${value}`)}`)
     .join("\n");
-}
-
-function splitPath(pathValue: string | undefined): string[] {
-  return (pathValue ?? "").split(":").map((entry) => entry.trim());
 }
 
 function uniqueNonEmpty(values: string[]): string[] {

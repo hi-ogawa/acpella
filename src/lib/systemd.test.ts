@@ -4,7 +4,6 @@ import { buildServicePath, buildSystemdUnit } from "./systemd.ts";
 describe(buildServicePath, () => {
   it("puts the current Node bin directory first", () => {
     const pathValue = buildServicePath({
-      envPath: "/usr/bin:/bin",
       nodeBin: "/home/alice/.local/share/fnm/node-versions/v24.13.0/installation/bin/node",
     });
 
@@ -13,19 +12,17 @@ describe(buildServicePath, () => {
     );
   });
 
-  it("filters volatile fnm multishell directories from the inherited PATH", () => {
+  it("does not copy the inherited PATH", () => {
     const pathValue = buildServicePath({
-      envPath: "/run/user/1000/fnm_multishells/123_456/bin:/home/alice/.local/bin:/custom/bin",
       nodeBin: "/home/alice/.local/share/fnm/node-versions/v24.13.0/installation/bin/node",
     });
 
     expect(pathValue).not.toContain("fnm_multishells");
-    expect(pathValue.split(":")).toContain("/custom/bin");
+    expect(pathValue.split(":")).not.toContain("/custom/bin");
   });
 
   it("includes system fallback paths", () => {
     const parts = buildServicePath({
-      envPath: undefined,
       nodeBin: "/opt/node/bin/node",
     }).split(":");
 
@@ -51,7 +48,7 @@ describe(buildSystemdUnit, () => {
     expect(unit).toContain("Environment=HOME=/home/alice\n");
     expect(unit).toContain("Environment=TMPDIR=/var/tmp/acpella\n");
     expect(unit).toContain(
-      "Environment=PATH=/home/alice/.local/share/fnm/node-versions/v24.13.0/installation/bin:/usr/bin",
+      "Environment=PATH=/home/alice/.local/share/fnm/node-versions/v24.13.0/installation/bin:/usr/local/bin:/usr/bin:/bin",
     );
     expect(unit).not.toContain("fnm_multishells");
   });

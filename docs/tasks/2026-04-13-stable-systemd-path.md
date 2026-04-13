@@ -6,7 +6,7 @@ Issue: <https://github.com/hi-ogawa/acpella/issues/24>
 
 After reboot, `acpella.service` can start because the generated unit uses `process.execPath` as an absolute Node binary in `ExecStart`. Agent prompts can still fail when the configured ACP child process runs an npm package wrapper whose shebang is `#!/usr/bin/env node`. In that rebooted user-systemd environment, `PATH` may not include the active fnm Node installation and the host may not have `/usr/bin/node`, so the wrapper exits and acpella later sees `write EPIPE`.
 
-The fix should make `pnpm cli --setup-systemd` render a stable service environment. The unit should explicitly set `HOME`, `TMPDIR`, and `PATH`, put `dirname(process.execPath)` first, avoid transient fnm multishell path entries, and include fallback system paths.
+The fix should make `pnpm cli --setup-systemd` render a stable service environment. The unit should explicitly set `HOME`, `TMPDIR`, and `PATH`, put `dirname(process.execPath)` first, avoid copying transient login-shell path entries, and include fallback system paths.
 
 ## Reference files/patterns to follow
 
@@ -34,12 +34,12 @@ OpenClaw avoids volatile `/run/user/.../fnm_multishells/...` entries mostly by n
 - Add a small `buildServicePath` helper in `src/lib/systemd.ts`.
 - Put `dirname(process.execPath)` first in the rendered `PATH`.
 - Include fallback system paths.
-- Preserve selected entries from `process.env.PATH`, but filter entries containing `/run/user/` and `/fnm_multishells/`.
+- Do not copy `process.env.PATH`; this follows OpenClaw's minimal service PATH approach and avoids volatile entries such as `/run/user/.../fnm_multishells/...` by construction.
 - Render inline `Environment=HOME=...`, `Environment=TMPDIR=...`, and `Environment=PATH=...` lines.
 - Add `After=network-online.target` and `Wants=network-online.target`.
 - Add focused unit tests for:
   - Node bin directory is first.
-  - transient fnm multishell entries are not included.
+  - inherited login-shell path entries are not copied.
   - system fallback paths are present.
   - environment lines are escaped when needed.
 - Run `pnpm test` or at least the unit project for the changed tests, then `pnpm lint-check` if time permits.
