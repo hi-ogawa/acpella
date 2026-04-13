@@ -1,8 +1,10 @@
 import { parseArgs } from "node:util";
+import { run, sequentialize } from "@grammyjs/runner";
 import { Bot } from "grammy";
 import { loadConfig } from "./config.ts";
 import { createHandler } from "./handler.ts";
 import { handleSetupSystemd } from "./lib/systemd.ts";
+import { telegramSequentialKey, telegramSessionName } from "./lib/telegram.ts";
 import { createTestBot, type TestBot } from "./repl.ts";
 
 async function main() {
@@ -75,27 +77,28 @@ Options:
   // --- wire handler (shared between real and test) ---
 
   const handler = await createHandler(config);
+  if (!cli.repl) {
+    bot.use(sequentialize(telegramSequentialKey));
+  }
 
   bot.on("message:text", async (ctx) => {
     const chatId = ctx.chat.id;
     const threadId = ctx.message.message_thread_id;
+    const name = telegramSessionName({ chatId, threadId });
 
     if (!cli.repl) {
       const userId = ctx.from?.id;
 
       if (allowedChats?.size && !allowedChats.has(chatId)) {
-        console.error(`[${sessionName(chatId, threadId)}] rejected: chat ${chatId} is not allowed`);
+        console.error(`[${name}] rejected: chat ${chatId} is not allowed`);
         return;
       }
       if (!userId || (allowedUsers?.size && !allowedUsers.has(userId))) {
-        console.error(
-          `[${sessionName(chatId, threadId)}] rejected: user ${userId ?? "unknown"} is not allowed`,
-        );
+        console.error(`[${name}] rejected: user ${userId ?? "unknown"} is not allowed`);
         return;
       }
     }
 
-    const name = sessionName(chatId, threadId);
     const text = ctx.message.text;
 
     if (!cli.repl) {
@@ -123,13 +126,13 @@ Options:
   if (testBot) {
     await testBot.startRepl();
   } else {
-    await bot.start();
+    await run(bot, {
+      sink: {
+        // @grammyjs/runner defaults to 500; keep acpella conservative because prompts spawn child agents.
+        concurrency: 4,
+      },
+    }).task();
   }
-}
-
-function sessionName(chatId: number, threadId?: number): string {
-  const base = `tg-${chatId}`;
-  return threadId ? `${base}-${threadId}` : base;
 }
 
 main().catch((err) => {
