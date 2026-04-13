@@ -16,6 +16,7 @@
   - Target session — cron jobs specify which session
   - Run log — log each execution result
 - [ ] chore: publish as npm package
+- [ ] refactor: review slop
 
 ## Backlog
 
