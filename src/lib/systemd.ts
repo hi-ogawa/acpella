@@ -40,7 +40,8 @@ export function buildSystemdUnit(options: {
     .map(([key, value]) => `Environment=${escapeSystemdValue(`${key}=${value}`)}`)
     .join("\n");
 
-  return `[Unit]
+  return `\
+[Unit]
 Description=${escapeSystemdValue("acpella service")}
 After=network-online.target
 Wants=network-online.target

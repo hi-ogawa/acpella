@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildSystemdUnit } from "./systemd.ts";
 
 describe(buildSystemdUnit, () => {
-  it("renders network ordering and stable environment lines", () => {
+  it("basic", () => {
     const unit = buildSystemdUnit({
       workingDirectory: "/home/alice/code/acpella",
       env: {
@@ -13,15 +13,27 @@ describe(buildSystemdUnit, () => {
       nodeBin: "/home/alice/.local/share/fnm/node-versions/v24.13.0/installation/bin/node",
       tmpDir: "/tmp",
     });
+    expect(unit).toMatchInlineSnapshot(`
+      "[Unit]
+      Description="acpella service"
+      After=network-online.target
+      Wants=network-online.target
 
-    expect(unit).toContain("After=network-online.target\n");
-    expect(unit).toContain("Wants=network-online.target\n");
-    expect(unit).toContain('Environment="HOME=/home/alice with space"\n');
-    expect(unit).toContain("Environment=TMPDIR=/var/tmp/acpella\n");
-    expect(unit).toContain(
-      "Environment=PATH=/home/alice/.local/share/fnm/node-versions/v24.13.0/installation/bin:/usr/local/bin:/usr/bin:/bin",
-    );
-    expect(unit).not.toContain("fnm_multishells");
-    expect(unit).not.toContain("/custom/bin");
+      [Service]
+      Type=simple
+      SyslogIdentifier=acpella
+      WorkingDirectory=/home/alice/code/acpella
+      EnvironmentFile=/home/alice/code/acpella/.env
+      Environment="HOME=/home/alice with space"
+      Environment=TMPDIR=/var/tmp/acpella
+      Environment=PATH=/home/alice/.local/share/fnm/node-versions/v24.13.0/installation/bin:/usr/local/bin:/usr/bin:/bin
+      ExecStart=/home/alice/.local/share/fnm/node-versions/v24.13.0/installation/bin/node /home/alice/code/acpella/src/cli.ts
+      Restart=on-failure
+      RestartSec=10
+
+      [Install]
+      WantedBy=default.target
+      "
+    `);
   });
 });
