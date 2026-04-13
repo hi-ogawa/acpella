@@ -45,15 +45,20 @@ export function startService(
   });
 
   const lines: string[] = [];
-  let buf = "";
+  let stdout = "";
+  let stderr = "";
 
   child.stdout.on("data", (chunk: Buffer) => {
-    buf += chunk.toString();
-    const parts = buf.split("\n");
-    buf = parts.pop()!;
+    stdout += chunk.toString();
+    const parts = stdout.split("\n");
+    stdout = parts.pop()!;
     for (const line of parts) {
       lines.push(line);
     }
+  });
+
+  child.stderr.on("data", (chunk: Buffer) => {
+    stderr += chunk.toString();
   });
 
   // TODO: composable assertion
