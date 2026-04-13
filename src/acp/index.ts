@@ -69,7 +69,11 @@ export type AgentSession = Awaited<ReturnType<typeof createSession>>;
 
 async function spawnAgent({ command, cwd }: { command: string; cwd: string }) {
   const [cmd, ...args] = command.trim().split(/\s+/);
-  const child = spawn(cmd, args, { stdio: ["pipe", "pipe", "pipe"], cwd });
+  const child = spawn(cmd, args, {
+    stdio: ["pipe", "pipe", "pipe"],
+    cwd,
+    env: createAgentEnv(process.env),
+  });
   const earlyExit = createEarlyExitPromise(child);
   if (child.stderr) {
     pipeAgentStderr(child.stderr);
@@ -117,6 +121,18 @@ async function spawnAgent({ command, cwd }: { command: string; cwd: string }) {
   }
 
   return { child, connection, subscribe };
+}
+
+export function createAgentEnv(source: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {};
+
+  for (const [key, value] of Object.entries(source)) {
+    if (!key.startsWith("ACPELLA_")) {
+      env[key] = value;
+    }
+  }
+
+  return env;
 }
 
 function createEarlyExitPromise(child: ChildProcess): {

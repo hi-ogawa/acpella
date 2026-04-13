@@ -82,11 +82,20 @@ class EchoAgent implements Agent {
         .map((c) => c.text)
         .join("") || "(empty)";
 
+    let reportText: string;
+    if (text.startsWith("__env:")) {
+      const key = text.slice(6);
+      const value = process.env[key] ?? "(unset)";
+      reportText = `env: ${key}=${value}`;
+    } else {
+      reportText = `echo: ${text}`;
+    }
+
     await this.connection.sessionUpdate({
       sessionId: params.sessionId,
       update: {
         sessionUpdate: "agent_message_chunk",
-        content: { type: "text", text: `echo: ${text}` },
+        content: { type: "text", text: reportText },
       },
     });
 
