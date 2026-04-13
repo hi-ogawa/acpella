@@ -13,6 +13,17 @@ interface StateSession {
   sessionId: string;
 }
 
+interface Reply {
+  send: (text: string, options?: { system?: boolean }) => Promise<void>;
+  stream: () => ResponseWriter;
+}
+
+interface ResponseWriter {
+  write: (text: string) => Promise<void>;
+  flush: () => Promise<void>;
+  finish: () => Promise<void>;
+}
+
 export async function createHandler(
   config: AppConfig,
   options: {
@@ -27,16 +38,14 @@ export async function createHandler(
   const cancelledSessions = new WeakSet<AgentSession>();
 
   async function handlePrompt(options: {
-    context: Context;
+    reply: Reply;
     name: string;
     text: string;
     sessionId?: string;
   }): Promise<void> {
     if (activeSessions.has(options.name)) {
-      await sendSystemResponse({
-        context: options.context,
-        limit: MESSAGE_SPLIT_BUDGET,
-        text: "Agent turn already in progress. Send /cancel to stop it.",
+      await options.reply.send("Agent turn already in progress. Send /cancel to stop it.", {
+        system: true,
       });
       return;
     }
@@ -57,10 +66,7 @@ export async function createHandler(
         : options.text;
 
       const { queue } = session.prompt(promptText);
-      const responseWriter = createResponseWriter({
-        context: options.context,
-        limit: MESSAGE_SPLIT_BUDGET,
-      });
+      const responseWriter = options.reply.stream();
       activeSessions.set(options.name, session);
 
       for await (const update of queue) {
@@ -77,11 +83,7 @@ export async function createHandler(
       }
       if (cancelledSessions.has(session)) {
         await responseWriter.flush();
-        await sendSystemResponse({
-          context: options.context,
-          limit: MESSAGE_SPLIT_BUDGET,
-          text: "Agent turn cancelled.",
-        });
+        await options.reply.send("Agent turn cancelled.", { system: true });
         return;
       }
       await responseWriter.finish();
@@ -96,14 +98,10 @@ export async function createHandler(
     }
   }
 
-  async function handleCancel(options: { context: Context; sessionName: string }): Promise<void> {
+  async function handleCancel(options: { reply: Reply; sessionName: string }): Promise<void> {
     const session = activeSessions.get(options.sessionName);
     if (!session) {
-      await sendSystemResponse({
-        context: options.context,
-        limit: MESSAGE_SPLIT_BUDGET,
-        text: "No active agent turn.",
-      });
+      await options.reply.send("No active agent turn.", { system: true });
       return;
     }
 
@@ -116,11 +114,7 @@ export async function createHandler(
       session.close();
       response = "Cancelled current agent turn by killing the agent process.";
     }
-    await sendSystemResponse({
-      context: options.context,
-      limit: MESSAGE_SPLIT_BUDGET,
-      text: response,
-    });
+    await options.reply.send(response, { system: true });
   }
 
   async function handleCloseSession(options: {
@@ -142,12 +136,12 @@ export async function createHandler(
   }
 
   async function handleNewSession(options: {
-    context: Context;
+    reply: Reply;
     name: string;
     text: string;
   }): Promise<void> {
     return handlePrompt({
-      context: options.context,
+      reply: options.reply,
       name: options.name,
       text: options.text,
     });
@@ -203,7 +197,7 @@ ${formatAgentSessions({ sessions: untrackedAgentSessions }).join("\n")}`;
   }
 
   async function handleSessionCommand(options: {
-    context: Context;
+    reply: Reply;
     text: string;
     sessionName: string;
   }): Promise<boolean> {
@@ -221,7 +215,7 @@ ${formatAgentSessions({ sessions: untrackedAgentSessions }).join("\n")}`;
         break;
       case "new":
         await handleNewSession({
-          context: options.context,
+          reply: options.reply,
           name: options.sessionName,
           text: args.join(" "),
         });
@@ -248,16 +242,12 @@ Usage:
 /session load <sessionId>
 /session close [sessionId]`;
     }
-    await sendSystemResponse({
-      context: options.context,
-      limit: MESSAGE_SPLIT_BUDGET,
-      text: response,
-    });
+    await options.reply.send(response, { system: true });
     return true;
   }
 
   async function handleServiceCommand(commandOptions: {
-    context: Context;
+    reply: Reply;
     text: string;
   }): Promise<boolean> {
     const [command, subcommand] = commandOptions.text.trim().split(/\s+/);
@@ -265,19 +255,11 @@ Usage:
       return false;
     }
     if (subcommand === "exit") {
-      await sendSystemResponse({
-        context: commandOptions.context,
-        limit: MESSAGE_SPLIT_BUDGET,
-        text: "Exiting acpella.",
-      });
+      await commandOptions.reply.send("Exiting acpella.", { system: true });
       options.onServiceExit();
       return true;
     }
-    await sendSystemResponse({
-      context: commandOptions.context,
-      limit: MESSAGE_SPLIT_BUDGET,
-      text: "Usage: /service exit",
-    });
+    await commandOptions.reply.send("Usage: /service exit", { system: true });
     return true;
   }
 
@@ -294,31 +276,31 @@ prompt file: ${config.prompt.file ?? "none"}`;
   const handle = async (options: { session: string; context: Context }): Promise<void> => {
     const text = options.context.message!.text!;
     const sessionName = options.session;
+    const reply = createReply({
+      context: options.context,
+      limit: MESSAGE_SPLIT_BUDGET,
+    });
 
     if (text === "/status") {
-      await sendSystemResponse({
-        context: options.context,
-        limit: MESSAGE_SPLIT_BUDGET,
-        text: handleStatus(),
-      });
+      await reply.send(handleStatus(), { system: true });
       return;
     }
     if (text === "/cancel") {
       await handleCancel({
-        context: options.context,
+        reply,
         sessionName,
       });
       return;
     }
     const handledServiceCommand = await handleServiceCommand({
-      context: options.context,
+      reply,
       text,
     });
     if (handledServiceCommand) {
       return;
     }
     const handledSessionCommand = await handleSessionCommand({
-      context: options.context,
+      reply,
       text,
       sessionName,
     });
@@ -327,7 +309,7 @@ prompt file: ${config.prompt.file ?? "none"}`;
     }
 
     await handlePrompt({
-      context: options.context,
+      reply,
       name: sessionName,
       text,
       sessionId: state.getSessionId(sessionName),
@@ -387,27 +369,24 @@ function isNodeError(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error && "code" in error;
 }
 
-async function sendTextResponse(options: {
-  context: Context;
-  limit: number;
-  text: string;
-}): Promise<void> {
-  const parts = splitMessageText(options.text, options.limit);
-  for (const part of parts) {
-    await options.context.reply(part);
+function createReply(options: { context: Context; limit: number }): Reply {
+  async function send(text: string, sendOptions: { system?: boolean } = {}): Promise<void> {
+    const responseText = sendOptions.system ? `⚙️ ${text}` : text;
+    const parts = splitMessageText(responseText, options.limit);
+    for (const part of parts) {
+      await options.context.reply(part);
+    }
   }
-}
 
-async function sendSystemResponse(options: {
-  context: Context;
-  limit: number;
-  text: string;
-}): Promise<void> {
-  await sendTextResponse({
-    context: options.context,
-    limit: options.limit,
-    text: `⚙️ ${options.text}`,
-  });
+  return {
+    send,
+    stream() {
+      return createResponseWriter({
+        limit: options.limit,
+        send,
+      });
+    },
+  };
 }
 
 function splitMessageText(text: string, limit: number): string[] {
@@ -443,16 +422,15 @@ function findSplitIndex(text: string, budget: number): number {
   return budget;
 }
 
-function createResponseWriter(options: { context: Context; limit: number }) {
+function createResponseWriter(options: {
+  limit: number;
+  send: (text: string) => Promise<void>;
+}): ResponseWriter {
   let bufferedText = "";
   let sentResponse = false;
 
   async function send(text: string): Promise<void> {
-    await sendTextResponse({
-      context: options.context,
-      limit: options.limit,
-      text,
-    });
+    await options.send(text);
     sentResponse = true;
   }
 
@@ -485,7 +463,7 @@ function createResponseWriter(options: { context: Context; limit: number }) {
     async finish(): Promise<void> {
       await flush();
       if (!sentResponse) {
-        await options.context.reply("(no response)");
+        await send("(no response)");
       }
     },
   };
