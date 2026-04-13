@@ -3,40 +3,34 @@
 // Activated from cli.ts via --repl.
 
 import { createInterface } from "node:readline/promises";
-import { Bot } from "grammy";
-import type { Update, UserFromGetMe } from "grammy/types";
-
-const botInfo: UserFromGetMe = {
-  id: 1,
-  is_bot: true,
-  first_name: "TestBot",
-  username: "test_bot",
-  can_join_groups: true,
-  can_read_all_group_messages: false,
-  can_manage_bots: false,
-  supports_inline_queries: false,
-  can_connect_to_business: false,
-  has_main_web_app: false,
-  has_topics_enabled: false,
-  allows_users_to_create_topics: false,
-};
+import { Bot, type RawApi } from "grammy";
 
 export type TestBot = ReturnType<typeof createTestBot>;
 
 export function createTestBot(options: { chatId: number }) {
-  const replies: { chatId: number; text: string }[] = [];
+  const bot = new Bot("test-token", {
+    botInfo: {
+      id: 1,
+      is_bot: true,
+      first_name: "TestBot",
+      username: "test_bot",
+      can_join_groups: true,
+      can_read_all_group_messages: false,
+      can_manage_bots: false,
+      supports_inline_queries: false,
+      can_connect_to_business: false,
+      has_main_web_app: false,
+      has_topics_enabled: false,
+      allows_users_to_create_topics: false,
+    },
+  });
 
-  const bot = new Bot("test-token", { botInfo });
-
-  // intercept outgoing API calls — capture replies instead of hitting Telegram
+  // intercept outgoing API calls and print replies instead of hitting Telegram
   bot.api.config.use(async (prev, method, payload) => {
     if (method === "sendMessage") {
-      const p = payload as Record<string, unknown>;
-      replies.push({ chatId: p.chat_id as number, text: p.text as string });
-      return {
-        ok: true as const,
-        result: { message_id: 1, date: Date.now() / 1000, chat: { id: p.chat_id } },
-      } as never;
+      const args = payload as Parameters<RawApi["sendMessage"]>[0];
+      console.log(args.text);
+      return { ok: true } as any;
     }
     return prev(method, payload);
   });
@@ -45,18 +39,17 @@ export function createTestBot(options: { chatId: number }) {
 
   async function sendMessage(text: string) {
     const chatId = options.chatId;
-    const userId = 456;
-    const update: Update = {
+    const userId = 20202020;
+    await bot.handleUpdate({
       update_id: updateId++,
       message: {
         message_id: updateId,
         date: Math.floor(Date.now() / 1000),
-        chat: { id: chatId, type: "private" as const, first_name: "Test" },
+        chat: { id: chatId, type: "private", first_name: "Test" },
         from: { id: userId, is_bot: false, first_name: "Test" },
         text,
       },
-    };
-    await bot.handleUpdate(update);
+    });
   }
 
   async function startRepl() {
@@ -68,11 +61,7 @@ export function createTestBot(options: { chatId: number }) {
         if (!text || text === "/quit") {
           break;
         }
-        replies.length = 0;
         await sendMessage(text);
-        for (const r of replies) {
-          console.log(r.text);
-        }
       }
     } catch (e) {
       if (!(e instanceof Error && e.name === "AbortError")) {
