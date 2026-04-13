@@ -4,7 +4,6 @@ import path from "node:path";
 
 // TODO: review slop
 
-const REPO_ROOT = path.join(import.meta.dirname, "../..");
 const TMP_ROOT = path.join(import.meta.dirname, ".tmp");
 
 export function startService(
@@ -18,8 +17,8 @@ export function startService(
   if (options?.sourceDir) {
     fs.cpSync(options.sourceDir, home, { recursive: true });
   }
-  const child = spawn("node", ["src/cli.ts", "--repl"], {
-    cwd: REPO_ROOT,
+  const child = spawn("pnpm", ["-s", "cli", "--repl"], {
+    cwd: path.join(import.meta.dirname, "../.."),
     env: {
       ...process.env,
       ACPELLA_AGENT: "test",
