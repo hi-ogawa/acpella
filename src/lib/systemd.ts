@@ -37,7 +37,6 @@ export function buildSystemdUnit(options: {
     TMPDIR: options.env.TMPDIR?.trim() || options.tmpDir,
     PATH: buildServicePath({
       envPath: options.env.PATH,
-      home: options.home,
       nodeBin: options.nodeBin,
     }),
   };
@@ -64,13 +63,13 @@ WantedBy=default.target
 
 export function buildServicePath(options: {
   envPath: string | undefined;
-  home: string;
   nodeBin: string;
 }): string {
   const dirs = [
     dirname(options.nodeBin),
-    ...splitPath(options.envPath).filter((entry) => !isVolatilePathEntry(entry)),
-    ...stableUserBinDirs(options.home),
+    ...splitPath(options.envPath).filter(
+      (entry) => !(entry.includes("/run/user/") && entry.includes("/fnm_multishells/")),
+    ),
     "/usr/local/bin",
     "/usr/bin",
     "/bin",
@@ -87,24 +86,6 @@ function renderEnvironmentLines(env: Record<string, string>): string {
 
 function splitPath(pathValue: string | undefined): string[] {
   return (pathValue ?? "").split(":").map((entry) => entry.trim());
-}
-
-function stableUserBinDirs(home: string): string[] {
-  return [
-    `${home}/.local/bin`,
-    `${home}/.npm-global/bin`,
-    `${home}/bin`,
-    `${home}/.volta/bin`,
-    `${home}/.asdf/shims`,
-    `${home}/.bun/bin`,
-    `${home}/.nvm/current/bin`,
-    `${home}/.fnm/current/bin`,
-    `${home}/.local/share/pnpm`,
-  ];
-}
-
-function isVolatilePathEntry(entry: string): boolean {
-  return entry.includes("/run/user/") && entry.includes("/fnm_multishells/");
 }
 
 function uniqueNonEmpty(values: string[]): string[] {

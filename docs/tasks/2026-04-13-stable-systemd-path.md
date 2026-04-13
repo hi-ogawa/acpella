@@ -33,13 +33,13 @@ OpenClaw avoids volatile `/run/user/.../fnm_multishells/...` entries mostly by n
 
 - Add a small `buildServicePath` helper in `src/lib/systemd.ts`.
 - Put `dirname(process.execPath)` first in the rendered `PATH`.
-- Include stable user bin paths using `homedir()` and fallback system paths.
-- If acpella also uses selected entries from `process.env.PATH`, filter entries containing `/run/user/` and `/fnm_multishells/`; otherwise prefer the OpenClaw-style minimal path and avoid copying the host path.
+- Include fallback system paths.
+- Preserve selected entries from `process.env.PATH`, but filter entries containing `/run/user/` and `/fnm_multishells/`.
 - Render inline `Environment=HOME=...`, `Environment=TMPDIR=...`, and `Environment=PATH=...` lines.
 - Add `After=network-online.target` and `Wants=network-online.target`.
 - Add focused unit tests for:
   - Node bin directory is first.
   - transient fnm multishell entries are not included.
-  - fallback system paths are present.
+  - system fallback paths are present.
   - environment lines are escaped when needed.
 - Run `pnpm test` or at least the unit project for the changed tests, then `pnpm lint-check` if time permits.

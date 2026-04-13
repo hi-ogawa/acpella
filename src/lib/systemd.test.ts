@@ -5,7 +5,6 @@ describe(buildServicePath, () => {
   it("puts the current Node bin directory first", () => {
     const pathValue = buildServicePath({
       envPath: "/usr/bin:/bin",
-      home: "/home/alice",
       nodeBin: "/home/alice/.local/share/fnm/node-versions/v24.13.0/installation/bin/node",
     });
 
@@ -17,7 +16,6 @@ describe(buildServicePath, () => {
   it("filters volatile fnm multishell directories from the inherited PATH", () => {
     const pathValue = buildServicePath({
       envPath: "/run/user/1000/fnm_multishells/123_456/bin:/home/alice/.local/bin:/custom/bin",
-      home: "/home/alice",
       nodeBin: "/home/alice/.local/share/fnm/node-versions/v24.13.0/installation/bin/node",
     });
 
@@ -25,28 +23,13 @@ describe(buildServicePath, () => {
     expect(pathValue.split(":")).toContain("/custom/bin");
   });
 
-  it("includes stable user and system fallback paths", () => {
+  it("includes system fallback paths", () => {
     const parts = buildServicePath({
       envPath: undefined,
-      home: "/home/alice",
       nodeBin: "/opt/node/bin/node",
     }).split(":");
 
-    expect(parts).toEqual([
-      "/opt/node/bin",
-      "/home/alice/.local/bin",
-      "/home/alice/.npm-global/bin",
-      "/home/alice/bin",
-      "/home/alice/.volta/bin",
-      "/home/alice/.asdf/shims",
-      "/home/alice/.bun/bin",
-      "/home/alice/.nvm/current/bin",
-      "/home/alice/.fnm/current/bin",
-      "/home/alice/.local/share/pnpm",
-      "/usr/local/bin",
-      "/usr/bin",
-      "/bin",
-    ]);
+    expect(parts).toEqual(["/opt/node/bin", "/usr/local/bin", "/usr/bin", "/bin"]);
   });
 });
 
@@ -83,6 +66,6 @@ describe(buildSystemdUnit, () => {
     });
 
     expect(unit).toContain('Environment="HOME=/home/alice with space"\n');
-    expect(unit).toContain('Environment="PATH=/opt/node/bin:');
+    expect(unit).toContain("Environment=PATH=/opt/node/bin:/usr/local/bin:/usr/bin:/bin\n");
   });
 });
