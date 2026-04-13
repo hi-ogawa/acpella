@@ -1,38 +1,73 @@
 import { mkdirSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 
 export function handleSetupSystemd(): void {
-  const workingDirectory = process.cwd();
-  const description = "acpella service";
-  const envFile = resolve(workingDirectory, ".env");
-  const nodeBin = process.execPath;
-  const serviceName = "acpella";
-  const unitFile = resolve(homedir(), ".config/systemd/user/acpella.service");
+  const unitContent = buildSystemdUnit({
+    workingDirectory: process.cwd(),
+    env: process.env,
+    home: homedir(),
+    nodeBin: process.execPath,
+    tmpDir: tmpdir(),
+  });
 
-  const unit = `[Unit]
-Description=${escapeSystemdValue(description)}
+  const unitFile = resolve(homedir(), ".config/systemd/user/acpella.service");
+  mkdirSync(dirname(unitFile), { recursive: true });
+  writeFileSync(unitFile, unitContent);
+
+  console.log(`\
+Wrote ${unitFile}
+
+First install:
+  systemctl --user daemon-reload
+  systemctl --user enable --now acpella
+
+After updating this unit:
+  systemctl --user daemon-reload
+  systemctl --user restart acpella
+
+Logs:
+  journalctl --user -u acpella -f
+`);
+}
+
+export function buildSystemdUnit(options: {
+  workingDirectory: string;
+  env: NodeJS.ProcessEnv;
+  home: string;
+  nodeBin: string;
+  tmpDir: string;
+}): string {
+  const envFile = resolve(options.workingDirectory, ".env");
+  const pathDirs = [dirname(options.nodeBin), "/usr/local/bin", "/usr/bin", "/bin"];
+  const serviceEnv = {
+    HOME: options.home,
+    TMPDIR: options.env.TMPDIR?.trim() || options.tmpDir,
+    PATH: [...new Set(pathDirs)].join(":"),
+  };
+  const environmentLines = Object.entries(serviceEnv)
+    .map(([key, value]) => `Environment=${escapeSystemdValue(`${key}=${value}`)}`)
+    .join("\n");
+
+  return `\
+[Unit]
+Description=${escapeSystemdValue("acpella service")}
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple
-SyslogIdentifier=${escapeSystemdValue(serviceName)}
-WorkingDirectory=${escapeSystemdValue(workingDirectory)}
+SyslogIdentifier=${escapeSystemdValue("acpella")}
+WorkingDirectory=${escapeSystemdValue(options.workingDirectory)}
 EnvironmentFile=${escapeSystemdValue(envFile)}
-ExecStart=${escapeSystemdValue(nodeBin)} ${escapeSystemdValue(resolve(workingDirectory, "src/cli.ts"))}
+${environmentLines}
+ExecStart=${escapeSystemdValue(options.nodeBin)} ${escapeSystemdValue(resolve(options.workingDirectory, "src/cli.ts"))}
 Restart=on-failure
 RestartSec=10
 
 [Install]
 WantedBy=default.target
 `;
-
-  mkdirSync(dirname(unitFile), { recursive: true });
-  writeFileSync(unitFile, unit);
-
-  console.log(`Wrote ${unitFile}`);
-  console.log("Run these commands to enable it:");
-  console.log("  systemctl --user daemon-reload");
-  console.log("  systemctl --user enable --now acpella");
 }
 
 function escapeSystemdValue(value: string): string {
