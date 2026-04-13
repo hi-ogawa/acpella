@@ -11,13 +11,13 @@
     "lint-check": "vp check"
   },
   "dependencies": {
-    "@zed-industries/codex-acp": "^0.11.1",
     "grammy": "^1.42.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
     "@agentclientprotocol/sdk": "^0.18.2",
     "@types/node": "^24.12.2",
+    "@zed-industries/codex-acp": "^0.11.1",
     "acpx": "^0.5.3",
     "typescript": "^6.0.2",
     "vite-plus": "^0.1.16",
