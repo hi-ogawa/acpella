@@ -62,7 +62,7 @@ WorkingDirectory=${escapeSystemdValue(options.workingDirectory)}
 EnvironmentFile=${escapeSystemdValue(envFile)}
 ${environmentLines}
 ExecStart=${escapeSystemdValue(options.nodeBin)} ${escapeSystemdValue(resolve(options.workingDirectory, "src/cli.ts"))}
-Restart=on-failure
+Restart=always
 RestartSec=10
 
 [Install]

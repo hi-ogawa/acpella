@@ -28,7 +28,7 @@ describe(buildSystemdUnit, () => {
       Environment=TMPDIR=/var/tmp/acpella
       Environment=PATH=/home/alice/.local/share/fnm/node-versions/v24.13.0/installation/bin:/usr/local/bin:/usr/bin:/bin
       ExecStart=/home/alice/.local/share/fnm/node-versions/v24.13.0/installation/bin/node /home/alice/code/acpella/src/cli.ts
-      Restart=on-failure
+      Restart=always
       RestartSec=10
 
       [Install]
