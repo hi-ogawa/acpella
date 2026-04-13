@@ -1,30 +1,17 @@
 import { mkdirSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 
 export function handleSetupSystemd(): void {
   const workingDirectory = process.cwd();
-  const description = "acpella service";
-  const envFile = resolve(workingDirectory, ".env");
-  const nodeBin = process.execPath;
-  const serviceName = "acpella";
   const unitFile = resolve(homedir(), ".config/systemd/user/acpella.service");
-
-  const unit = `[Unit]
-Description=${escapeSystemdValue(description)}
-
-[Service]
-Type=simple
-SyslogIdentifier=${escapeSystemdValue(serviceName)}
-WorkingDirectory=${escapeSystemdValue(workingDirectory)}
-EnvironmentFile=${escapeSystemdValue(envFile)}
-ExecStart=${escapeSystemdValue(nodeBin)} ${escapeSystemdValue(resolve(workingDirectory, "src/cli.ts"))}
-Restart=on-failure
-RestartSec=10
-
-[Install]
-WantedBy=default.target
-`;
+  const unit = buildSystemdUnit({
+    workingDirectory,
+    env: process.env,
+    home: homedir(),
+    nodeBin: process.execPath,
+    tmpDir: tmpdir(),
+  });
 
   mkdirSync(dirname(unitFile), { recursive: true });
   writeFileSync(unitFile, unit);
@@ -33,6 +20,102 @@ WantedBy=default.target
   console.log("Run these commands to enable it:");
   console.log("  systemctl --user daemon-reload");
   console.log("  systemctl --user enable --now acpella");
+}
+
+export function buildSystemdUnit(options: {
+  workingDirectory: string;
+  env: NodeJS.ProcessEnv;
+  home: string;
+  nodeBin: string;
+  tmpDir: string;
+}): string {
+  const description = "acpella service";
+  const envFile = resolve(options.workingDirectory, ".env");
+  const serviceName = "acpella";
+  const serviceEnv = {
+    HOME: options.home,
+    TMPDIR: options.env.TMPDIR?.trim() || options.tmpDir,
+    PATH: buildServicePath({
+      envPath: options.env.PATH,
+      home: options.home,
+      nodeBin: options.nodeBin,
+    }),
+  };
+
+  return `[Unit]
+Description=${escapeSystemdValue(description)}
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+SyslogIdentifier=${escapeSystemdValue(serviceName)}
+WorkingDirectory=${escapeSystemdValue(options.workingDirectory)}
+EnvironmentFile=${escapeSystemdValue(envFile)}
+${renderEnvironmentLines(serviceEnv)}
+ExecStart=${escapeSystemdValue(options.nodeBin)} ${escapeSystemdValue(resolve(options.workingDirectory, "src/cli.ts"))}
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target
+`;
+}
+
+export function buildServicePath(options: {
+  envPath: string | undefined;
+  home: string;
+  nodeBin: string;
+}): string {
+  const dirs = [
+    dirname(options.nodeBin),
+    ...splitPath(options.envPath).filter((entry) => !isVolatilePathEntry(entry)),
+    ...stableUserBinDirs(options.home),
+    "/usr/local/bin",
+    "/usr/bin",
+    "/bin",
+  ];
+
+  return uniqueNonEmpty(dirs).join(":");
+}
+
+function renderEnvironmentLines(env: Record<string, string>): string {
+  return Object.entries(env)
+    .map(([key, value]) => `Environment=${escapeSystemdValue(`${key}=${value}`)}`)
+    .join("\n");
+}
+
+function splitPath(pathValue: string | undefined): string[] {
+  return (pathValue ?? "").split(":").map((entry) => entry.trim());
+}
+
+function stableUserBinDirs(home: string): string[] {
+  return [
+    `${home}/.local/bin`,
+    `${home}/.npm-global/bin`,
+    `${home}/bin`,
+    `${home}/.volta/bin`,
+    `${home}/.asdf/shims`,
+    `${home}/.bun/bin`,
+    `${home}/.nvm/current/bin`,
+    `${home}/.fnm/current/bin`,
+    `${home}/.local/share/pnpm`,
+  ];
+}
+
+function isVolatilePathEntry(entry: string): boolean {
+  return entry.includes("/run/user/") && entry.includes("/fnm_multishells/");
+}
+
+function uniqueNonEmpty(values: string[]): string[] {
+  const result: string[] = [];
+  for (const value of values) {
+    if (!value || result.includes(value)) {
+      continue;
+    }
+    result.push(value);
+  }
+  return result;
 }
 
 function escapeSystemdValue(value: string): string {
