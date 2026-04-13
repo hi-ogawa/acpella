@@ -63,10 +63,8 @@ export function startService(
 
   // TODO: composable assertion
   // TODO: race with donePromise
-  async function waitForLine(match: string | RegExp, timeoutMs = 10000): Promise<string> {
-    const found = lines.find((l) =>
-      typeof match === "string" ? l.includes(match) : match.test(l),
-    );
+  async function waitForLine(match: string, timeoutMs = 10000): Promise<string> {
+    const found = lines.find((l) => l.includes(match));
     if (found) {
       return found;
     }
@@ -77,9 +75,7 @@ export function startService(
       }, timeoutMs);
 
       const check = () => {
-        const idx = lines.findIndex((l) =>
-          typeof match === "string" ? l.includes(match) : match.test(l),
-        );
+        const idx = lines.findIndex((l) => l.includes(match));
         if (idx >= 0) {
           clearTimeout(timer);
           child.stdout.off("data", check);
