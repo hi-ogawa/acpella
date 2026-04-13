@@ -17,10 +17,6 @@ pnpm cli        # run service
 pnpm cli --repl # run local in-process REPL
 ```
 
-The default `ACPELLA_AGENT=test` uses the built-in echo agent. To use Codex ACP, install
-`@zed-industries/codex-acp` globally and set `ACPELLA_AGENT=codex-acp`. Known ACP agents are listed
-in the [ACP agent registry](https://agentclientprotocol.com/get-started/registry).
-
 ## Config
 
 | Variable                            | Required | Default         | Description                                |
@@ -30,6 +26,22 @@ in the [ACP agent registry](https://agentclientprotocol.com/get-started/registry
 | `ACPELLA_TELEGRAM_ALLOWED_CHAT_IDS` | no       | —               | Comma-separated chat IDs (group allowlist) |
 | `ACPELLA_AGENT`                     | no       | `test`          | acp agent command                          |
 | `ACPELLA_HOME`                      | no       | `process.cwd()` | Agent working directory                    |
+
+The default `ACPELLA_AGENT=test` uses the built-in echo agent. Set `ACPELLA_AGENT` to any ACP agent
+command to use a real agent. Known ACP agents are listed in the
+[ACP agent registry](https://agentclientprotocol.com/get-started/registry).
+
+For Codex ACP, either install `@zed-industries/codex-acp` globally and set:
+
+```env
+ACPELLA_AGENT=codex-acp
+```
+
+Or run it through `npx`:
+
+```env
+ACPELLA_AGENT="npx -y @zed-industries/codex-acp"
+```
 
 If `$ACPELLA_HOME/.acpella/AGENTS.md` exists, its contents are sent as custom instructions once when creating a new session.
 
