@@ -39,6 +39,9 @@ export function buildSystemdUnit(options: {
       nodeBin: options.nodeBin,
     }),
   };
+  const environmentLines = Object.entries(serviceEnv)
+    .map(([key, value]) => `Environment=${escapeSystemdValue(`${key}=${value}`)}`)
+    .join("\n");
 
   return `[Unit]
 Description=${escapeSystemdValue(description)}
@@ -50,7 +53,7 @@ Type=simple
 SyslogIdentifier=${escapeSystemdValue(serviceName)}
 WorkingDirectory=${escapeSystemdValue(options.workingDirectory)}
 EnvironmentFile=${escapeSystemdValue(envFile)}
-${renderEnvironmentLines(serviceEnv)}
+${environmentLines}
 ExecStart=${escapeSystemdValue(options.nodeBin)} ${escapeSystemdValue(resolve(options.workingDirectory, "src/cli.ts"))}
 Restart=on-failure
 RestartSec=10
@@ -64,12 +67,6 @@ export function buildServicePath(options: { nodeBin: string }): string {
   const dirs = [dirname(options.nodeBin), "/usr/local/bin", "/usr/bin", "/bin"];
 
   return [...new Set(dirs)].join(":");
-}
-
-function renderEnvironmentLines(env: Record<string, string>): string {
-  return Object.entries(env)
-    .map(([key, value]) => `Environment=${escapeSystemdValue(`${key}=${value}`)}`)
-    .join("\n");
 }
 
 function escapeSystemdValue(value: string): string {
