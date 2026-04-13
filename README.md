@@ -41,6 +41,15 @@ Or run it through `npx`:
 ACPELLA_AGENT="npx -y @zed-industries/codex-acp"
 ```
 
+Gotcha: Codex ACP reads Codex CLI configuration through its own `-c key=value` override flag.
+If you want Codex to run without sandboxing, pass that through the agent command:
+
+```env
+ACPELLA_AGENT="codex-acp -c sandbox_mode=danger-full-access"
+```
+
+Check `codex-acp --help` for the current configuration override syntax before changing flags.
+
 ### `$ACPELLA_HOME/.acpella/AGENTS.md`
 
 If this file exists, its contents are sent as custom instructions once when creating a new session.
