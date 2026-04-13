@@ -3,21 +3,16 @@ import path from "node:path";
 import { z } from "zod";
 import type { AppConfig } from "./config.ts";
 
-export interface SessionStateStore {
-  getSessionId: (sessionName: string) => string | undefined;
-  setSessionId: (sessionName: string, sessionId: string) => void;
-  deleteSession: (sessionName: string) => void;
-  listSessions: () => { name: string; sessionId: string }[];
-}
+// TODO: review slop
 
 const stateSchema = z
   .object({
     version: z.literal(1),
     scopes: z.record(
-      z.string().min(1),
+      z.string().min(1), // scopeKey: agent command
       z.object({
         sessions: z.record(
-          z.string().min(1),
+          z.string().min(1), // sessionName
           z.object({
             sessionId: z.string().min(1),
           }),
@@ -30,9 +25,10 @@ const stateSchema = z
 type State = z.infer<typeof stateSchema>;
 type Scope = State["scopes"][string];
 
-export function createSessionStateStore(
-  config: Pick<AppConfig, "agent" | "stateFile">,
-): SessionStateStore {
+export type SessionStore = ReturnType<typeof createSessionStateStore>;
+export type SessionList = Scope["sessions"][string];
+
+export function createSessionStateStore(config: Pick<AppConfig, "agent" | "stateFile">) {
   const scopeKey = config.agent.command;
 
   function readState(): State {
@@ -66,16 +62,16 @@ export function createSessionStateStore(
   }
 
   return {
-    getSessionId(sessionName) {
+    getSessionId(sessionName: string) {
       return readState().scopes[scopeKey]?.sessions[sessionName]?.sessionId;
     },
-    setSessionId(sessionName, sessionId) {
+    setSessionId(sessionName: string, sessionId: string) {
       const state = readState();
       const scope = ensureScope(state);
       scope.sessions[sessionName] = { sessionId };
       writeState(state);
     },
-    deleteSession(sessionName) {
+    deleteSession(sessionName: string) {
       const state = readState();
       const scope = state.scopes[scopeKey];
       if (!scope || !(sessionName in scope.sessions)) {
