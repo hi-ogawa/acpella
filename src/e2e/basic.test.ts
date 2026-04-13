@@ -2,36 +2,36 @@ import { describe, it } from "vitest";
 import { startService } from "./helper.ts";
 
 describe("e2e smoke", () => {
-  it("starts and responds to /status", async ({ onTestFinished }) => {
+  it("starts and responds to /status", async () => {
     const service = startService();
-    onTestFinished(async () => {
-      await service.stop();
-    });
-
-    await service.waitForLine("Starting service");
-    service.send("/status");
-    await service.waitForLine("configured agent: test");
+    await service.waitForOutput("Starting service");
+    service.write("/status");
+    await service.waitForOutput("configured agent: test");
   });
 
-  it("echo agent round-trip", async ({ onTestFinished }) => {
+  it("echo agent round-trip", async () => {
     const service = startService();
-    onTestFinished(async () => {
-      await service.stop();
-    });
-
-    await service.waitForLine("Starting service");
-    service.send("hello world");
-    await service.waitForLine("echo: hello world");
+    await service.waitForOutput("Starting service");
+    service.write("hello world");
+    await service.waitForOutput("echo: hello world");
   });
 
-  it("reports agent startup failure", async ({ onTestFinished }) => {
+  it("reports agent startup failure", async () => {
     const service = startService({ ACPELLA_AGENT: "no-such-command" });
-    onTestFinished(async () => {
-      await service.stop();
-    });
+    await service.waitForOutput("Starting service");
+    service.write("hello world");
+    await service.waitForOutput("Error: ACP agent failed to start: spawn no-such-command ENOENT");
+  });
 
-    await service.waitForLine("Starting service");
-    service.send("hello world");
-    await service.waitForLine("Error: ACP agent failed to start: spawn no-such-command ENOENT");
+  it("does not pass ACPELLA env to the agent", async () => {
+    const service = startService({
+      ACPELLA_TELEGRAM_BOT_TOKEN: "secret-token",
+      AGENT_VISIBLE_KEY: "agent-visible-key",
+    });
+    await service.waitForOutput("Starting service");
+    service.write("__env:ACPELLA_TELEGRAM_BOT_TOKEN");
+    await service.waitForOutput("env: ACPELLA_TELEGRAM_BOT_TOKEN=(unset)");
+    service.write("__env:AGENT_VISIBLE_KEY");
+    await service.waitForOutput("env: AGENT_VISIBLE_KEY=agent-visible-key");
   });
 });

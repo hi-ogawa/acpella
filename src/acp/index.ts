@@ -69,7 +69,11 @@ export type AgentSession = Awaited<ReturnType<typeof createSession>>;
 
 async function spawnAgent({ command, cwd }: { command: string; cwd: string }) {
   const [cmd, ...args] = command.trim().split(/\s+/);
-  const child = spawn(cmd, args, { stdio: ["pipe", "pipe", "pipe"], cwd });
+  const child = spawn(cmd, args, {
+    stdio: ["pipe", "pipe", "pipe"],
+    cwd,
+    env: createAgentEnv(process.env),
+  });
   const earlyExit = createEarlyExitPromise(child);
   if (child.stderr) {
     pipeAgentStderr(child.stderr);
@@ -119,34 +123,33 @@ async function spawnAgent({ command, cwd }: { command: string; cwd: string }) {
   return { child, connection, subscribe };
 }
 
+export function createAgentEnv(source: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {};
+
+  for (const [key, value] of Object.entries(source)) {
+    if (!key.startsWith("ACPELLA_")) {
+      env[key] = value;
+    }
+  }
+
+  return env;
+}
+
 function createEarlyExitPromise(child: ChildProcess): {
-  promise: Promise<never>;
+  promise: Promise<void>;
   cleanup: () => void;
 } {
-  let onError: (error: Error) => void;
-  let onExit: (code: number | null, signal: NodeJS.Signals | null) => void;
-
-  const promise = new Promise<never>((_, reject) => {
-    onError = (error) => {
-      reject(new Error(`ACP agent failed to start: ${error.message}`));
-    };
-
-    onExit = (code, signal) => {
-      reject(
-        new Error(
-          `ACP agent exited before initialize completed: code=${code ?? "none"} signal=${
-            signal ?? "none"
-          }`,
-        ),
-      );
-    };
-
-    child.once("error", onError);
-    child.once("exit", onExit);
-  });
-
+  const done = Promise.withResolvers<void>();
+  const onError = (error: Error) => {
+    done.reject(new Error(`ACP agent failed to start: ${error.message}`));
+  };
+  const onExit = (code: number | null) => {
+    done.reject(new Error(`ACP agent exited with code=${code ?? "<unknown>"}`));
+  };
+  child.once("error", onError);
+  child.once("exit", onExit);
   return {
-    promise,
+    promise: done.promise,
     cleanup() {
       child.off("error", onError);
       child.off("exit", onExit);

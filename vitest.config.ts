@@ -16,7 +16,6 @@ export default defineConfig({
         test: {
           name: "codex",
           include: ["**/codex/**/*.test.ts"],
-          testTimeout: 30000,
         },
       },
     ],
