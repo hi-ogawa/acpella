@@ -2,17 +2,13 @@
 
 Thin service that connects a messaging channel (Telegram) to AI agent via [ACP](https://github.com/agentclientprotocol/agent-client-protocol). Agent-agnostic — works with Codex, Claude Code, or any ACP-compatible agent.
 
-## Setup
+## Setup and Run
 
 ```bash
 pnpm install
 cp .env.example .env
 # edit .env using the Config section below
-```
 
-## Run
-
-```bash
 pnpm cli        # run service
 pnpm cli --repl # run local in-process REPL
 ```
