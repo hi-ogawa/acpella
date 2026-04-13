@@ -4,5 +4,5 @@ node_modules/
 refs/
 acpella.config.json
 .acpella/
-!src/e2e/codex/fixtures/**/.acpella/
+!src/e2e/codex/fixtures/**/.acpella/AGENTS.md
 src/e2e/.tmp/
