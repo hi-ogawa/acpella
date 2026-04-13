@@ -76,7 +76,14 @@ Options:
 
   // --- wire handler (shared between real and test) ---
 
-  const handler = await createHandler(config);
+  const handler = await createHandler(config, {
+    onServiceExit: () => {
+      setImmediate(() => {
+        console.log("Exiting by /service exit");
+        process.exit(0);
+      });
+    },
+  });
   if (!cli.repl) {
     bot.use(sequentialize(telegramSequentialKey));
   }

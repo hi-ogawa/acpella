@@ -13,7 +13,12 @@ interface StateSession {
   sessionId: string;
 }
 
-export async function createHandler(config: AppConfig): Promise<{
+export async function createHandler(
+  config: AppConfig,
+  options: {
+    onServiceExit: () => void;
+  },
+): Promise<{
   handle: (options: { session: string; context: Context }) => Promise<void>;
 }> {
   const manager = await startAcpManager({ command: config.agent.command, cwd: config.home });
@@ -251,6 +256,31 @@ Usage:
     return true;
   }
 
+  async function handleServiceCommand(commandOptions: {
+    context: Context;
+    text: string;
+  }): Promise<boolean> {
+    const [command, subcommand] = commandOptions.text.trim().split(/\s+/);
+    if (command !== "/service") {
+      return false;
+    }
+    if (subcommand === "exit") {
+      await sendSystemResponse({
+        context: commandOptions.context,
+        limit: MESSAGE_SPLIT_BUDGET,
+        text: "Exiting acpella.",
+      });
+      options.onServiceExit();
+      return true;
+    }
+    await sendSystemResponse({
+      context: commandOptions.context,
+      limit: MESSAGE_SPLIT_BUDGET,
+      text: "Usage: /service exit",
+    });
+    return true;
+  }
+
   function handleStatus(): string {
     return `\
 service state: running
@@ -278,6 +308,13 @@ prompt file: ${config.prompt.file ?? "none"}`;
         context: options.context,
         sessionName,
       });
+      return;
+    }
+    const handledServiceCommand = await handleServiceCommand({
+      context: options.context,
+      text,
+    });
+    if (handledServiceCommand) {
       return;
     }
     const handledSessionCommand = await handleSessionCommand({
