@@ -27,6 +27,8 @@ pnpm cli --repl # run local in-process REPL
 | `ACPELLA_AGENT`                     | no       | `test`          | acp agent command                          |
 | `ACPELLA_HOME`                      | no       | `process.cwd()` | Agent working directory                    |
 
+### ACPELLA_AGENT
+
 The default `ACPELLA_AGENT=test` uses the built-in echo agent. Set `ACPELLA_AGENT` to any ACP agent
 command to use a real agent. Known ACP agents are listed in the
 [ACP agent registry](https://agentclientprotocol.com/get-started/registry).
@@ -43,7 +45,9 @@ Or run it through `npx`:
 ACPELLA_AGENT="npx -y @zed-industries/codex-acp"
 ```
 
-If `$ACPELLA_HOME/.acpella/AGENTS.md` exists, its contents are sent as custom instructions once when creating a new session.
+### `$ACPELLA_HOME/.acpella/AGENTS.md`
+
+If this file exists, its contents are sent as custom instructions once when creating a new session.
 
 ## Docs
 
