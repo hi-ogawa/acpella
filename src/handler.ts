@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import type { ListSessionsResponse } from "@agentclientprotocol/sdk";
 import type { Context } from "grammy";
 import { startAcpManager } from "./acp/index.ts";
@@ -29,12 +30,15 @@ export async function createHandler(config: AppConfig): Promise<{
           sessionId: options.sessionId,
         })
       : await manager.newSession({ sessionCwd: config.home });
-    const promptText =
-      !options.sessionId && config.prompt.text
-        ? formatFirstPrompt({ customPrompt: config.prompt.text, userText: options.text })
-        : options.text;
 
     try {
+      const customPrompt = !options.sessionId
+        ? readOptionalPromptFile(config.prompt.file)
+        : undefined;
+      const promptText = customPrompt
+        ? formatFirstPrompt({ customPrompt, userText: options.text })
+        : options.text;
+
       const { queue } = session.prompt(promptText);
       const responseWriter = createResponseWriter({
         context: options.context,
@@ -270,6 +274,21 @@ ${options.customPrompt.trim()}
 
 ${options.userText}
 `;
+}
+
+function readOptionalPromptFile(file: string): string | undefined {
+  try {
+    return fs.readFileSync(file, "utf8");
+  } catch (error) {
+    if (isNodeError(error) && error.code === "ENOENT") {
+      return undefined;
+    }
+    throw error;
+  }
+}
+
+function isNodeError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && "code" in error;
 }
 
 async function sendTextResponse(options: {
