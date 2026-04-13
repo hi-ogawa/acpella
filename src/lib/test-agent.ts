@@ -81,10 +81,13 @@ class EchoAgent implements Agent {
         .filter((c) => c.type === "text")
         .map((c) => c.text)
         .join("") || "(empty)";
-    const envProbePrefix = "__env:";
-    const reportText = text.startsWith(envProbePrefix)
-      ? String(process.env[text.slice(envProbePrefix.length)] ?? "(unset)")
-      : `echo: ${text}`;
+
+    let reportText: string;
+    if (text.startsWith("__env:")) {
+      reportText = String(process.env[text.slice(6)] ?? "(unset)");
+    } else {
+      reportText = `echo: ${text}`;
+    }
 
     await this.connection.sessionUpdate({
       sessionId: params.sessionId,
