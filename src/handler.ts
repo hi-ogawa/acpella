@@ -42,6 +42,24 @@ export async function createHandler(config: AppConfig): Promise<{
           sessionId: options.sessionId,
         })
       : await manager.newSession({ sessionCwd: config.home });
+    const responseWriter = createResponseWriter({
+      context: options.context,
+      limit: MESSAGE_SPLIT_BUDGET,
+    });
+    let cancellationReported = false;
+
+    async function reportCancellation(): Promise<void> {
+      if (cancellationReported) {
+        return;
+      }
+      cancellationReported = true;
+      await responseWriter.flush();
+      await sendSystemResponse({
+        context: options.context,
+        limit: MESSAGE_SPLIT_BUDGET,
+        text: "Agent turn cancelled.",
+      });
+    }
 
     try {
       const customPrompt = !options.sessionId
@@ -53,10 +71,6 @@ export async function createHandler(config: AppConfig): Promise<{
 
       const { queue } = session.prompt(promptText);
       activeSessions.set(options.name, session);
-      const responseWriter = createResponseWriter({
-        context: options.context,
-        limit: MESSAGE_SPLIT_BUDGET,
-      });
 
       for await (const update of queue) {
         if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
@@ -71,6 +85,7 @@ export async function createHandler(config: AppConfig): Promise<{
         }
       }
       if (cancelledSessions.has(session)) {
+        await reportCancellation();
         return;
       }
       await responseWriter.finish();
@@ -79,6 +94,7 @@ export async function createHandler(config: AppConfig): Promise<{
       }
     } catch (e) {
       if (cancelledSessions.has(session)) {
+        await reportCancellation();
         return;
       }
       throw e;
