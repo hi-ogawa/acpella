@@ -26,7 +26,7 @@ const builtinAgents: Record<string, string> = {
 
 const envSchema = z
   .object({
-    ACPELLA_AGENT: z.string().optional(),
+    ACPELLA_AGENT: z.string().default("test"),
     ACPELLA_HOME: z.string().optional(),
     ACPELLA_TELEGRAM_BOT_TOKEN: z.string().optional(),
     ACPELLA_TELEGRAM_ALLOWED_USER_IDS: z.string().optional(),
@@ -39,7 +39,7 @@ export function loadConfig(): AppConfig {
   const env = envSchema.parse(process.env);
   const home = env.ACPELLA_HOME ? path.resolve(env.ACPELLA_HOME) : process.cwd();
 
-  const agentAlias = env.ACPELLA_AGENT ?? "test";
+  const agentAlias = env.ACPELLA_AGENT;
   const agentCommand = builtinAgents[agentAlias] || agentAlias;
 
   return {
