@@ -28,7 +28,7 @@ export async function createHandler(config: AppConfig): Promise<{
     sessionId?: string;
   }): Promise<void> {
     if (activeSessions.has(options.name)) {
-      await sendTextResponse({
+      await sendSystemResponse({
         context: options.context,
         limit: MESSAGE_SPLIT_BUDGET,
         text: "Agent turn already in progress. Send /cancel to stop it.",
@@ -93,7 +93,7 @@ export async function createHandler(config: AppConfig): Promise<{
   async function handleCancel(options: { context: Context; sessionName: string }): Promise<void> {
     const session = activeSessions.get(options.sessionName);
     if (!session) {
-      await sendTextResponse({
+      await sendSystemResponse({
         context: options.context,
         limit: MESSAGE_SPLIT_BUDGET,
         text: "No active agent turn.",
@@ -110,7 +110,7 @@ export async function createHandler(config: AppConfig): Promise<{
       session.close();
       response = "Cancelled current agent turn by killing the agent process.";
     }
-    await sendTextResponse({
+    await sendSystemResponse({
       context: options.context,
       limit: MESSAGE_SPLIT_BUDGET,
       text: response,
@@ -242,7 +242,7 @@ Usage:
 /session load <sessionId>
 /session close [sessionId]`;
     }
-    await sendTextResponse({
+    await sendSystemResponse({
       context: options.context,
       limit: MESSAGE_SPLIT_BUDGET,
       text: response,
@@ -265,7 +265,7 @@ prompt file: ${config.prompt.file ?? "none"}`;
     const sessionName = options.session;
 
     if (text === "/status") {
-      await sendTextResponse({
+      await sendSystemResponse({
         context: options.context,
         limit: MESSAGE_SPLIT_BUDGET,
         text: handleStatus(),
@@ -358,6 +358,18 @@ async function sendTextResponse(options: {
   for (const part of parts) {
     await options.context.reply(part);
   }
+}
+
+async function sendSystemResponse(options: {
+  context: Context;
+  limit: number;
+  text: string;
+}): Promise<void> {
+  await sendTextResponse({
+    context: options.context,
+    limit: options.limit,
+    text: `⚙️ ${options.text}`,
+  });
 }
 
 function splitMessageText(text: string, limit: number): string[] {
