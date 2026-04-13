@@ -58,7 +58,29 @@ export function startService(
     stderr += chunk.toString();
   });
 
-  function waitForOutput(pattern: string) {
+  async function waitForOutput(pattern: string) {
+    // TODO: not working with defineHelper?
+    const stackTraceError = new Error("__STACK_TRACE__");
+    function createError(message: string) {
+      const error = new Error(
+        message +
+          `
+pattern:
+${pattern}
+stdout:
+${stdout}
+stderr:
+${stderr}
+`,
+      );
+      return copyStackTrace(error, stackTraceError);
+    }
+
+    using _ = registerErrorOnTimeout({
+      context: TestRunner.getCurrentTest()!.context,
+      createError: () => createError(`Timed out waiting for output`),
+    });
+
     const matched = Promise.withResolvers<void>();
     if (stdout.includes(pattern)) {
       matched.resolve();
@@ -71,7 +93,11 @@ export function startService(
       };
       child.stdout.on("data", check);
     }
-    return matched.promise;
+
+    const raceResult = await promiseRaceWith(matched.promise, done.promise);
+    if (!raceResult.ok) {
+      throw createError(`Process exited waiting for output`);
+    }
   }
 
   return {
@@ -79,35 +105,7 @@ export function startService(
       stdout = "";
       child.stdin.write(text + "\n");
     },
-    waitForOutput: vi.defineHelper(async (pattern: string) => {
-      // TODO: not working with defineHelper?
-      const stackTraceError = new Error("__STACK_TRACE__");
-      function createError(message: string) {
-        const error = new Error(
-          message +
-            `
-pattern:
-${pattern}
-stdout:
-${stdout}
-stderr:
-${stderr}
-`,
-        );
-        return copyStackTrace(error, stackTraceError);
-      }
-
-      using _ = registerErrorOnTimeout({
-        context: TestRunner.getCurrentTest()!.context,
-        createError: () => createError(`Timed out waiting for output`),
-      });
-
-      const waitPromise = waitForOutput(pattern);
-      const raceResult = await promiseRaceWith(waitPromise, done.promise);
-      if (!raceResult.ok) {
-        throw createError(`Process exited waiting for output`);
-      }
-    }),
+    waitForOutput: vi.defineHelper(waitForOutput),
   };
 }
 
