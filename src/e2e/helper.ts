@@ -1,11 +1,7 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-
-// TODO: review slop
-
-const REPO_ROOT = path.join(import.meta.dirname, "../..");
-const TMP_ROOT = path.join(import.meta.dirname, ".tmp");
+import { onTestFinished, TestRunner, vi, type TestContext } from "vitest";
 
 export function startService(
   env?: Record<string, string>,
@@ -13,13 +9,18 @@ export function startService(
     sourceDir?: string;
   },
 ) {
-  fs.mkdirSync(TMP_ROOT, { recursive: true });
-  const home = fs.mkdtempSync(path.join(TMP_ROOT, "acpella-"));
+  const home = path.join(import.meta.dirname, `.tmp/acpella-test-${crypto.randomUUID()}`);
+  fs.mkdirSync(home, { recursive: true });
   if (options?.sourceDir) {
+    fs.rmSync(home, { recursive: true, force: true });
     fs.cpSync(options.sourceDir, home, { recursive: true });
   }
-  const child = spawn("node", ["src/cli.ts", "--repl"], {
-    cwd: REPO_ROOT,
+  onTestFinished(async () => {
+    fs.rmSync(home, { recursive: true, force: true });
+  });
+
+  const child = spawn("pnpm", ["-s", "cli", "--repl"], {
+    cwd: path.join(import.meta.dirname, "../.."),
     env: {
       ...process.env,
       ACPELLA_AGENT: "test",
@@ -29,55 +30,128 @@ export function startService(
     stdio: ["pipe", "pipe", "pipe"],
   });
 
-  const lines: string[] = [];
-  let buf = "";
-
-  child.stdout.on("data", (chunk: Buffer) => {
-    buf += chunk.toString();
-    const parts = buf.split("\n");
-    buf = parts.pop()!;
-    for (const line of parts) {
-      lines.push(line);
+  const done = Promise.withResolvers<Error | undefined>();
+  child.on("error", (err) => {
+    done.resolve(err);
+  });
+  child.on("exit", (code) => {
+    if (code === 0) {
+      done.resolve(undefined);
+    } else {
+      done.resolve(new Error(`Service exited with code ${code ?? "<none>"}`));
     }
   });
 
-  // TODO: composable assertion
-  async function waitForLine(match: string | RegExp, timeoutMs = 10000): Promise<string> {
-    const found = lines.find((l) =>
-      typeof match === "string" ? l.includes(match) : match.test(l),
-    );
-    if (found) {
-      return found;
+  onTestFinished(async () => {
+    child.kill();
+    await done.promise;
+  });
+
+  let stdout = "";
+  let stderr = "";
+
+  child.stdout.on("data", (chunk: Buffer) => {
+    stdout += chunk.toString();
+  });
+
+  child.stderr.on("data", (chunk: Buffer) => {
+    stderr += chunk.toString();
+  });
+
+  async function waitForOutput(pattern: string) {
+    // TODO: defineHelper as object method not working
+    // https://github.com/vitest-dev/vitest/issues/10135
+    const stackTraceError = new Error("__STACK_TRACE__");
+    function createError(message: string) {
+      const error = new Error(`\
+${message}
+pattern:
+${pattern}
+stdout:
+${stdout}
+stderr:
+${stderr}
+`);
+      return copyStackTrace(error, stackTraceError);
     }
 
-    return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        reject(new Error(`Timed out waiting for "${match}". Lines so far:\n${lines.join("\n")}`));
-      }, timeoutMs);
+    using _ = recordErrorOnTimeout({
+      context: TestRunner.getCurrentTest()!.context,
+      createError: () => createError(`Timed out waiting for output`),
+    });
 
+    const matched = Promise.withResolvers<void>();
+    if (stdout.includes(pattern)) {
+      matched.resolve();
+    } else {
       const check = () => {
-        const idx = lines.findIndex((l) =>
-          typeof match === "string" ? l.includes(match) : match.test(l),
-        );
-        if (idx >= 0) {
-          clearTimeout(timer);
+        if (stdout.includes(pattern)) {
           child.stdout.off("data", check);
-          resolve(lines[idx]);
+          matched.resolve();
         }
       };
       child.stdout.on("data", check);
-    });
+    }
+
+    const raceResult = await promiseRaceWith(matched.promise, done.promise);
+    if (!raceResult.ok) {
+      if (raceResult.value) {
+        throw copyStackTrace(raceResult.value, stackTraceError);
+      }
+      throw createError(`Process exited waiting for output`);
+    }
   }
 
-  function send(text: string) {
-    child.stdin.write(text + "\n");
-  }
+  return {
+    write(text: string) {
+      stdout = "";
+      child.stdin.write(text + "\n");
+    },
+    waitForOutput: vi.defineHelper(waitForOutput),
+  };
+}
 
-  async function stop() {
-    child.stdin.end();
-    await new Promise<void>((resolve) => child.on("close", resolve));
-    fs.rmSync(home, { recursive: true, force: true });
-  }
+// surface custom async assertion error on timeout
+function recordErrorOnTimeout({
+  context,
+  createError,
+}: {
+  context: TestContext;
+  createError: () => Error;
+}) {
+  const addError = () => {
+    const timeoutError = context.signal.reason as Error;
+    const error = createError();
+    timeoutError.message += "\n[Caused by] " + error.message;
+    copyStackTrace(timeoutError, error);
+  };
+  context.signal.addEventListener("abort", addError);
+  const deregister = () => {
+    context.signal.removeEventListener("abort", addError);
+  };
+  return {
+    deregister,
+    [Symbol.dispose]() {
+      deregister();
+    },
+  };
+}
 
-  return { child, lines, send, waitForLine, stop, home };
+/** Type-safe `Promise.race` — tells you which promise won. */
+function promiseRaceWith<A, B>(
+  promise: Promise<A>,
+  other?: Promise<B>,
+): Promise<{ ok: true; value: A } | { ok: false; value: B }> {
+  const left = promise.then((value) => ({ ok: true as const, value }));
+  if (!other) {
+    return left;
+  }
+  return Promise.race([left, other.then((value) => ({ ok: false as const, value }))]);
+}
+
+function copyStackTrace(target: Error, source: Error) {
+  if (source.stack !== undefined) {
+    target.stack = source.stack.replace(source.message, target.message);
+  }
+  return target;
 }

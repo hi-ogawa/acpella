@@ -15,7 +15,6 @@
   - Poll loop — check schedule every 60s, fire due prompts into sessions
   - Target session — cron jobs specify which session
   - Run log — log each execution result
-- [ ] test: rework startService helper
 - [ ] chore: publish as npm package
 
 ## Backlog

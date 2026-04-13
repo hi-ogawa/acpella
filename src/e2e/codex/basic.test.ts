@@ -6,32 +6,26 @@ vi.setConfig({
   testTimeout: 30000,
 });
 
-it("basic", async ({ onTestFinished }) => {
+it("basic", async () => {
   const service = startService(
     {
       ACPELLA_AGENT: "codex-acp",
     },
     { sourceDir: path.join(import.meta.dirname, "fixtures/basic") },
   );
-  onTestFinished(async () => {
-    await service.stop();
-  });
-  await service.waitForLine("Starting service");
-  service.send("hello");
-  await service.waitForLine("world");
+  await service.waitForOutput("Starting service");
+  service.write("hello");
+  await service.waitForOutput("world");
 });
 
-it("uses custom prompt file", async ({ onTestFinished }) => {
+it("uses custom prompt file", async () => {
   const service = startService(
     {
       ACPELLA_AGENT: "codex-acp",
     },
     { sourceDir: path.join(import.meta.dirname, "fixtures/custom-prompt") },
   );
-  onTestFinished(async () => {
-    await service.stop();
-  });
-  await service.waitForLine("Starting service");
-  service.send("ping-custom-prompt");
-  await service.waitForLine("pong-custom-prompt");
+  await service.waitForOutput("Starting service");
+  service.write("ping-custom-prompt");
+  await service.waitForOutput("pong-custom-prompt");
 });
