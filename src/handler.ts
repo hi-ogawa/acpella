@@ -42,24 +42,6 @@ export async function createHandler(config: AppConfig): Promise<{
           sessionId: options.sessionId,
         })
       : await manager.newSession({ sessionCwd: config.home });
-    const responseWriter = createResponseWriter({
-      context: options.context,
-      limit: MESSAGE_SPLIT_BUDGET,
-    });
-    let cancellationReported = false;
-
-    async function reportCancellation(): Promise<void> {
-      if (cancellationReported) {
-        return;
-      }
-      cancellationReported = true;
-      await responseWriter.flush();
-      await sendSystemResponse({
-        context: options.context,
-        limit: MESSAGE_SPLIT_BUDGET,
-        text: "Agent turn cancelled.",
-      });
-    }
 
     try {
       const customPrompt = !options.sessionId
@@ -70,6 +52,10 @@ export async function createHandler(config: AppConfig): Promise<{
         : options.text;
 
       const { queue } = session.prompt(promptText);
+      const responseWriter = createResponseWriter({
+        context: options.context,
+        limit: MESSAGE_SPLIT_BUDGET,
+      });
       activeSessions.set(options.name, session);
 
       for await (const update of queue) {
@@ -85,19 +71,18 @@ export async function createHandler(config: AppConfig): Promise<{
         }
       }
       if (cancelledSessions.has(session)) {
-        await reportCancellation();
+        await responseWriter.flush();
+        await sendSystemResponse({
+          context: options.context,
+          limit: MESSAGE_SPLIT_BUDGET,
+          text: "Agent turn cancelled.",
+        });
         return;
       }
       await responseWriter.finish();
       if (!options.sessionId) {
         state.setSessionId(options.name, session.sessionId);
       }
-    } catch (e) {
-      if (cancelledSessions.has(session)) {
-        await reportCancellation();
-        return;
-      }
-      throw e;
     } finally {
       if (activeSessions.get(options.name) === session) {
         activeSessions.delete(options.name);
