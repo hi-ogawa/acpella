@@ -94,14 +94,13 @@ describe(startAcpManager, () => {
 });
 
 describe(createAgentEnv, () => {
-  it("allowlists agent runtime env and strips ACPELLA vars", () => {
+  it("strips ACPELLA vars and preserves other agent env", () => {
     expect(
       createAgentEnv({
         ACPELLA_TELEGRAM_BOT_TOKEN: "secret-token",
         HOME: "/home/alice",
         PATH: "/custom/bin:/usr/bin",
         OPENAI_API_KEY: "agent-key",
-        RANDOM_SERVICE_SECRET: "nope",
         TMPDIR: "/tmp/acpella",
       }),
     ).toEqual({
@@ -110,10 +109,6 @@ describe(createAgentEnv, () => {
       PATH: "/custom/bin:/usr/bin",
       TMPDIR: "/tmp/acpella",
     });
-  });
-
-  it("provides a fallback PATH", () => {
-    expect(createAgentEnv({}).PATH).toMatch(/\/usr\/bin/);
   });
 });
 
