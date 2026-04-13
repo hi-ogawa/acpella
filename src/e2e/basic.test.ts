@@ -9,7 +9,7 @@ describe("e2e smoke", () => {
     });
 
     await service.waitForLine("Starting service");
-    service.send("/status");
+    service.write("/status");
     await service.waitForLine("configured agent: test");
   });
 
@@ -20,7 +20,7 @@ describe("e2e smoke", () => {
     });
 
     await service.waitForLine("Starting service");
-    service.send("hello world");
+    service.write("hello world");
     await service.waitForLine("echo: hello world");
   });
 
@@ -31,7 +31,7 @@ describe("e2e smoke", () => {
     });
 
     await service.waitForLine("Starting service");
-    service.send("hello world");
+    service.write("hello world");
     await service.waitForLine("Error: ACP agent failed to start: spawn no-such-command ENOENT");
   });
 });

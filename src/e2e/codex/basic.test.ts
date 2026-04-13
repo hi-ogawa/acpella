@@ -17,7 +17,7 @@ it("basic", async ({ onTestFinished }) => {
     await service.stop();
   });
   await service.waitForLine("Starting service");
-  service.send("hello");
+  service.write("hello");
   await service.waitForLine("world");
 });
 
@@ -32,6 +32,6 @@ it("uses custom prompt file", async ({ onTestFinished }) => {
     await service.stop();
   });
   await service.waitForLine("Starting service");
-  service.send("ping-custom-prompt");
+  service.write("ping-custom-prompt");
   await service.waitForLine("pong-custom-prompt");
 });

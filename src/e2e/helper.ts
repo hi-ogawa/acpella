@@ -49,17 +49,11 @@ export function startService(
     child.kill();
   });
 
-  const lines: string[] = [];
   let stdout = "";
   let stderr = "";
 
   child.stdout.on("data", (chunk: Buffer) => {
     stdout += chunk.toString();
-    const parts = stdout.split("\n");
-    stdout = parts.pop()!;
-    for (const line of parts) {
-      lines.push(line);
-    }
   });
 
   child.stderr.on("data", (chunk: Buffer) => {
@@ -70,30 +64,23 @@ export function startService(
   // TODO: race with donePromise
   // TODO: surface error on timeout
 
-  async function waitForLine(match: string, timeoutMs = 10000): Promise<string> {
-    const found = lines.find((l) => l.includes(match));
-    if (found) {
-      return found;
-    }
-
-    return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        reject(new Error(`Timed out waiting for "${match}". Lines so far:\n${lines.join("\n")}`));
-      }, timeoutMs);
-
+  async function waitForLine(pattern: string): Promise<void> {
+    const promise = Promise.withResolvers<void>();
+    if (stdout.includes(pattern)) {
+      promise.resolve();
+    } else {
       const check = () => {
-        const idx = lines.findIndex((l) => l.includes(match));
-        if (idx >= 0) {
-          clearTimeout(timer);
+        if (stdout.includes(pattern)) {
           child.stdout.off("data", check);
-          resolve(lines[idx]);
+          promise.resolve();
         }
       };
       child.stdout.on("data", check);
-    });
+    }
+    return promise.promise;
   }
 
-  function send(text: string) {
+  function write(text: string) {
     child.stdin.write(text + "\n");
   }
 
@@ -102,5 +89,5 @@ export function startService(
     await done.promise;
   }
 
-  return { child, lines, send, waitForLine, stop, home };
+  return { child, write, waitForLine, stop, home };
 }
