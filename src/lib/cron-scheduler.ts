@@ -191,7 +191,11 @@ export function createCronScheduler(options: CronSchedulerOptions): CronSchedule
 
       try {
         const job = new Cron(entry.schedule, { timezone: entry.timezone }, () => {
-          const scheduledFor = job.currentRun() ?? new Date();
+          const scheduledFor = job.currentRun();
+          if (!scheduledFor) {
+            console.error(`[cron] currentRun() returned null for ${entry.id} — skipping`);
+            return;
+          }
           fireEntry(entry, scheduledFor).catch((e) => {
             console.error(`[cron] unhandled error in fireEntry ${entry.id}:`, e);
           });

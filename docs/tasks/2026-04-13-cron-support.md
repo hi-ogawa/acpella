@@ -8,7 +8,7 @@ The implementation adds:
 
 1. **Cron definitions** persisted in `.acpella/cron.json`.
 2. **Cron state** (last run, duplicate prevention) in `.acpella/cron-state.json`.
-3. **Scheduler loop** polling every 60 s, firing due jobs.
+3. **Scheduler loop** — croner fires jobs at exactly the scheduled time. cron.json is re-read every 60 s to pick up configuration changes and sync active jobs.
 4. **Trigger metadata** injected as `<trigger_metadata>` into the agent prompt.
 5. **Telegram delivery** via `bot.api.sendMessage` (no `reply_to_message_id`).
 6. **`/cron` Telegram command** for agent management (list, run-now, next-runs).
@@ -16,7 +16,7 @@ The implementation adds:
 ## Reference Files
 
 - `src/lib/cron.ts` — CronEntry/CronState schemas, file I/O, next-run-time helpers (croner).
-- `src/lib/cron-scheduler.ts` — Scheduler, firing logic, overlapping-run protection, Telegram delivery.
+- `src/lib/cron-scheduler.ts` — Scheduler: croner fires each job at exactly the right time; a 60 s interval re-reads cron.json to pick up changes and sync active jobs; overlapping-run protection, Telegram delivery.
 - `src/lib/cron.test.ts` — Unit tests for schema, file I/O, and next-run-time computation.
 - `src/config.ts` — Added `cronFile` and `cronStateFile` paths.
 - `src/handler.ts` — Added `/cron list|run|next` command handler + `cronScheduler` option.
@@ -68,7 +68,7 @@ chat_type: dm
 - No overlapping runs per cron ID (in-memory `activeRuns` set).
 - Persistent duplicate prevention: run key `${cronId}:${scheduledFor.toISOString()}` is written to `cron-state.json` before the agent turn starts.
 - Cron entries are disabled by default unless `enabled: true`.
-- `cron.json` is re-read on every poll tick, so changes take effect within 60 s.
+- `cron.json` is re-read every 60 s so changes take effect within the next reload cycle.
 
 ## Telegram Commands
 
