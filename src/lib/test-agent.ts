@@ -82,10 +82,9 @@ class EchoAgent implements Agent {
         .map((c) => c.text)
         .join("") || "(empty)";
     const envProbePrefix = "__env:";
-    const reportText =
-      process.argv.includes("--report-env") && text.startsWith(envProbePrefix)
-        ? String(process.env[text.slice(envProbePrefix.length)] ?? "")
-        : `echo: ${text}`;
+    const reportText = text.startsWith(envProbePrefix)
+      ? String(process.env[text.slice(envProbePrefix.length)] ?? "(unset)")
+      : `echo: ${text}`;
 
     await this.connection.sessionUpdate({
       sessionId: params.sessionId,
