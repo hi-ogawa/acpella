@@ -30,21 +30,21 @@ export function startService(
     stdio: ["pipe", "pipe", "pipe"],
   });
 
-  const done = Promise.withResolvers<void>();
+  const done = Promise.withResolvers<Error | undefined>();
   child.on("error", (err) => {
-    done.reject(err);
+    done.resolve(err);
   });
   child.on("exit", (code) => {
     if (code === 0) {
-      done.resolve();
+      done.resolve(undefined);
     } else {
-      done.reject(new Error(`Service exited with code ${code ?? "<none>"}`));
+      done.resolve(new Error(`Service exited with code ${code ?? "<none>"}`));
     }
   });
 
   onTestFinished(async () => {
     child.kill();
-    await done.promise.catch(() => {});
+    await done.promise;
   });
 
   let stdout = "";
@@ -59,7 +59,8 @@ export function startService(
   });
 
   async function waitForOutput(pattern: string) {
-    // TODO: not working with defineHelper?
+    // TODO: defineHelper as object method not working
+    // https://github.com/vitest-dev/vitest/issues/10135
     const stackTraceError = new Error("__STACK_TRACE__");
     function createError(message: string) {
       const error = new Error(
@@ -96,6 +97,9 @@ ${stderr}
 
     const raceResult = await promiseRaceWith(matched.promise, done.promise);
     if (!raceResult.ok) {
+      if (raceResult.value) {
+        throw copyStackTrace(raceResult.value, stackTraceError);
+      }
       throw createError(`Process exited waiting for output`);
     }
   }
