@@ -120,33 +120,20 @@ async function spawnAgent({ command, cwd }: { command: string; cwd: string }) {
 }
 
 function createEarlyExitPromise(child: ChildProcess): {
-  promise: Promise<never>;
+  promise: Promise<void>;
   cleanup: () => void;
 } {
-  let onError: (error: Error) => void;
-  let onExit: (code: number | null, signal: NodeJS.Signals | null) => void;
-
-  const promise = new Promise<never>((_, reject) => {
-    onError = (error) => {
-      reject(new Error(`ACP agent failed to start: ${error.message}`));
-    };
-
-    onExit = (code, signal) => {
-      reject(
-        new Error(
-          `ACP agent exited before initialize completed: code=${code ?? "none"} signal=${
-            signal ?? "none"
-          }`,
-        ),
-      );
-    };
-
-    child.once("error", onError);
-    child.once("exit", onExit);
-  });
-
+  const done = Promise.withResolvers<void>();
+  const onError = (error: Error) => {
+    done.reject(new Error(`ACP agent failed to start: ${error.message}`));
+  };
+  const onExit = (code: number | null) => {
+    done.reject(new Error(`ACP agent exited with code=${code ?? "<unknown>"}`));
+  };
+  child.once("error", onError);
+  child.once("exit", onExit);
   return {
-    promise,
+    promise: done.promise,
     cleanup() {
       child.off("error", onError);
       child.off("exit", onExit);

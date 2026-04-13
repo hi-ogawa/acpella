@@ -32,6 +32,18 @@ export function startService(
     stdio: ["pipe", "pipe", "pipe"],
   });
 
+  const done = Promise.withResolvers<void>();
+  child.on("error", (err) => {
+    done.reject(err);
+  });
+  child.on("exit", (code) => {
+    if (code === 0) {
+      done.resolve();
+    } else {
+      done.reject(new Error(`Service exited with code ${code ?? "<none>"}`));
+    }
+  });
+
   const lines: string[] = [];
   let buf = "";
 
@@ -45,6 +57,7 @@ export function startService(
   });
 
   // TODO: composable assertion
+  // TODO: race with donePromise
   async function waitForLine(match: string | RegExp, timeoutMs = 10000): Promise<string> {
     const found = lines.find((l) =>
       typeof match === "string" ? l.includes(match) : match.test(l),
@@ -78,7 +91,7 @@ export function startService(
 
   async function stop() {
     child.stdin.end();
-    await new Promise<void>((resolve) => child.on("close", resolve));
+    await done.promise;
   }
 
   return { child, lines, send, waitForLine, stop, home };
