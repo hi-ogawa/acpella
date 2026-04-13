@@ -8,6 +8,10 @@ export interface AppConfig {
   };
   home: string;
   stateFile: string;
+  /** Scheduled cron job definitions. */
+  cronFile: string;
+  /** Volatile cron execution state (last run, duplicate prevention). */
+  cronStateFile: string;
   telegram: {
     token?: string;
     allowedUserIds: number[];
@@ -49,6 +53,8 @@ export function loadConfig(): AppConfig {
     agent: { alias: agentAlias, command: agentCommand },
     home,
     stateFile: path.join(home, ".acpella", "state.json"),
+    cronFile: path.join(home, ".acpella", "cron.json"),
+    cronStateFile: path.join(home, ".acpella", "cron-state.json"),
     telegram: {
       token: env.ACPELLA_TELEGRAM_BOT_TOKEN,
       allowedUserIds: parseIdList(env.ACPELLA_TELEGRAM_ALLOWED_USER_IDS) ?? [],

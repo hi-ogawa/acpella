@@ -4,6 +4,7 @@ import type { Context } from "grammy";
 import { startAcpManager } from "./acp/index.ts";
 import type { AgentSession } from "./acp/index.ts";
 import type { AppConfig } from "./config.ts";
+import type { CronScheduler } from "./lib/cron-scheduler.ts";
 import { createSessionStateStore } from "./state.ts";
 
 const MESSAGE_SPLIT_BUDGET = 3900;
@@ -17,6 +18,7 @@ export async function createHandler(
   config: AppConfig,
   options: {
     onServiceExit: () => void;
+    cronScheduler?: CronScheduler;
   },
 ): Promise<{
   handle: (options: { session: string; context: Context }) => Promise<void>;
@@ -256,6 +258,81 @@ Usage:
     return true;
   }
 
+  async function handleCronCommand(commandOptions: {
+    context: Context;
+    text: string;
+  }): Promise<boolean> {
+    const parts = commandOptions.text.trim().split(/\s+/);
+    const command = parts[0];
+    if (command !== "/cron") {
+      return false;
+    }
+    const subcommand = parts[1];
+    const scheduler = options.cronScheduler;
+    let response: string;
+    switch (subcommand) {
+      case undefined:
+      case "list": {
+        if (!scheduler) {
+          response = "Cron scheduler is not running.";
+          break;
+        }
+        const crons = scheduler.listCrons();
+        if (crons.length === 0) {
+          response = "No cron jobs configured.";
+          break;
+        }
+        response = crons
+          .map(({ entry, nextRunAt }) => {
+            const status = entry.enabled ? "enabled" : "disabled";
+            const next = nextRunAt ? nextRunAt.toISOString() : "n/a";
+            return `- ${entry.id} [${status}] schedule: ${entry.schedule} (${entry.timezone})\n  next: ${next}\n  name: ${entry.name}`;
+          })
+          .join("\n\n");
+        break;
+      }
+      case "run": {
+        const cronId = parts[2];
+        if (!cronId) {
+          response = "Usage: /cron run <id>";
+          break;
+        }
+        if (!scheduler) {
+          response = "Cron scheduler is not running.";
+          break;
+        }
+        response = await scheduler.runNow(cronId);
+        break;
+      }
+      case "next": {
+        const cronId = parts[2];
+        if (!cronId) {
+          response = "Usage: /cron next <id> [count]";
+          break;
+        }
+        if (!scheduler) {
+          response = "Cron scheduler is not running.";
+          break;
+        }
+        const count = parts[3] ? Math.min(Number(parts[3]) || 5, 20) : 5;
+        response = scheduler.showNextRuns(cronId, count);
+        break;
+      }
+      default:
+        response = `\
+Usage:
+/cron list
+/cron run <id>
+/cron next <id> [count]`;
+    }
+    await sendSystemResponse({
+      context: commandOptions.context,
+      limit: MESSAGE_SPLIT_BUDGET,
+      text: response,
+    });
+    return true;
+  }
+
   async function handleServiceCommand(commandOptions: {
     context: Context;
     text: string;
@@ -315,6 +392,13 @@ prompt file: ${config.prompt.file ?? "none"}`;
       text,
     });
     if (handledServiceCommand) {
+      return;
+    }
+    const handledCronCommand = await handleCronCommand({
+      context: options.context,
+      text,
+    });
+    if (handledCronCommand) {
       return;
     }
     const handledSessionCommand = await handleSessionCommand({

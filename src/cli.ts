@@ -1,8 +1,10 @@
 import { parseArgs } from "node:util";
 import { run, sequentialize } from "@grammyjs/runner";
 import { Bot } from "grammy";
+import { startAcpManager } from "./acp/index.ts";
 import { loadConfig } from "./config.ts";
 import { createHandler } from "./handler.ts";
+import { createCronScheduler } from "./lib/cron-scheduler.ts";
 import { handleSetupSystemd } from "./lib/systemd.ts";
 import { telegramSequentialKey, telegramSessionName } from "./lib/telegram.ts";
 import { createTestBot, type TestBot } from "./repl.ts";
@@ -74,6 +76,15 @@ Options:
     bot = new Bot(config.telegram.token);
   }
 
+  // --- create cron scheduler ---
+
+  const cronManager = await startAcpManager({ command: config.agent.command, cwd: config.home });
+  const cronScheduler = createCronScheduler({
+    config,
+    manager: cronManager,
+    telegramApi: cli.repl ? undefined : bot.api,
+  });
+
   // --- wire handler (shared between real and test) ---
 
   const handler = await createHandler(config, {
@@ -83,6 +94,7 @@ Options:
         process.exit(0);
       });
     },
+    cronScheduler,
   });
   if (!cli.repl) {
     bot.use(sequentialize(telegramSequentialKey));
@@ -129,6 +141,8 @@ Options:
   console.log(
     `Starting service (agent: ${config.agent.alias}, home: ${config.home}, repl: ${cli.repl})`,
   );
+
+  cronScheduler.start();
 
   if (testBot) {
     await testBot.startRepl();
