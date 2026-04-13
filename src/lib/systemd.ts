@@ -29,9 +29,7 @@ export function buildSystemdUnit(options: {
   nodeBin: string;
   tmpDir: string;
 }): string {
-  const description = "acpella service";
   const envFile = resolve(options.workingDirectory, ".env");
-  const serviceName = "acpella";
   const pathDirs = [dirname(options.nodeBin), "/usr/local/bin", "/usr/bin", "/bin"];
   const serviceEnv = {
     HOME: options.home,
@@ -43,13 +41,13 @@ export function buildSystemdUnit(options: {
     .join("\n");
 
   return `[Unit]
-Description=${escapeSystemdValue(description)}
+Description=${escapeSystemdValue("acpella service")}
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-SyslogIdentifier=${escapeSystemdValue(serviceName)}
+SyslogIdentifier=${escapeSystemdValue("acpella")}
 WorkingDirectory=${escapeSystemdValue(options.workingDirectory)}
 EnvironmentFile=${escapeSystemdValue(envFile)}
 ${environmentLines}
