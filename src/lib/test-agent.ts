@@ -81,12 +81,17 @@ class EchoAgent implements Agent {
         .filter((c) => c.type === "text")
         .map((c) => c.text)
         .join("") || "(empty)";
+    const envProbePrefix = "__env:";
+    const reportText =
+      process.argv.includes("--report-env") && text.startsWith(envProbePrefix)
+        ? String(process.env[text.slice(envProbePrefix.length)] ?? "")
+        : `echo: ${text}`;
 
     await this.connection.sessionUpdate({
       sessionId: params.sessionId,
       update: {
         sessionUpdate: "agent_message_chunk",
-        content: { type: "text", text: `echo: ${text}` },
+        content: { type: "text", text: reportText },
       },
     });
 

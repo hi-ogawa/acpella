@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
+import { dirname } from "node:path";
 import { Readable, Writable } from "node:stream";
 import {
   ClientSideConnection,
@@ -69,7 +70,11 @@ export type AgentSession = Awaited<ReturnType<typeof createSession>>;
 
 async function spawnAgent({ command, cwd }: { command: string; cwd: string }) {
   const [cmd, ...args] = command.trim().split(/\s+/);
-  const child = spawn(cmd, args, { stdio: ["pipe", "pipe", "pipe"], cwd });
+  const child = spawn(cmd, args, {
+    stdio: ["pipe", "pipe", "pipe"],
+    cwd,
+    env: createAgentEnv(process.env),
+  });
   const earlyExit = createEarlyExitPromise(child);
   if (child.stderr) {
     pipeAgentStderr(child.stderr);
@@ -117,6 +122,49 @@ async function spawnAgent({ command, cwd }: { command: string; cwd: string }) {
   }
 
   return { child, connection, subscribe };
+}
+
+const agentEnvAllowlist = [
+  "HOME",
+  "LOGNAME",
+  "PATH",
+  "SHELL",
+  "TEMP",
+  "TMP",
+  "TMPDIR",
+  "USER",
+  "XDG_CACHE_HOME",
+  "XDG_CONFIG_HOME",
+  "XDG_DATA_HOME",
+  "XDG_STATE_HOME",
+  "ANTHROPIC_API_KEY",
+  "ANTHROPIC_AUTH_TOKEN",
+  "ANTHROPIC_BASE_URL",
+  "CLAUDE_CODE_OAUTH_TOKEN",
+  "CLAUDE_CONFIG_DIR",
+  "CODEX_HOME",
+  "OPENAI_API_KEY",
+  "OPENAI_BASE_URL",
+  "OPENAI_ORGANIZATION",
+  "OPENAI_ORG_ID",
+  "OPENAI_PROJECT",
+] as const;
+
+export function createAgentEnv(source: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {};
+
+  for (const key of agentEnvAllowlist) {
+    const value = source[key];
+    if (value !== undefined) {
+      env[key] = value;
+    }
+  }
+
+  if (!env.PATH?.trim()) {
+    env.PATH = [dirname(process.execPath), "/usr/local/bin", "/usr/bin", "/bin"].join(":");
+  }
+
+  return env;
 }
 
 function createEarlyExitPromise(child: ChildProcess): {
