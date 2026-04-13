@@ -178,7 +178,6 @@ async function createSession(options: { agent: SpanwedAgent; sessionId: string }
   const { agent } = options;
   return {
     sessionId: options.sessionId,
-    // TODO: ensure single in-flight prompt per session
     prompt(text: string) {
       const queue = new AsyncQueue<SessionUpdate>();
       const unsubscribe = agent.subscribe((u) => queue.push(u));

@@ -27,6 +27,15 @@ export async function createHandler(config: AppConfig): Promise<{
     text: string;
     sessionId?: string;
   }): Promise<void> {
+    if (activeSessions.has(options.name)) {
+      await sendTextResponse({
+        context: options.context,
+        limit: MESSAGE_SPLIT_BUDGET,
+        text: "Agent turn already in progress. Send /cancel to stop it.",
+      });
+      return;
+    }
+
     const session = options.sessionId
       ? await manager.loadSession({
           sessionCwd: config.home,
