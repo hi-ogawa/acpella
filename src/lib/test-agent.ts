@@ -84,7 +84,9 @@ class EchoAgent implements Agent {
 
     let reportText: string;
     if (text.startsWith("__env:")) {
-      reportText = String(process.env[text.slice(6)] ?? "(unset)");
+      const key = text.slice(6);
+      const value = process.env[key] ?? "(unset)";
+      reportText = `env: ${key}=${value}`;
     } else {
       reportText = `echo: ${text}`;
     }

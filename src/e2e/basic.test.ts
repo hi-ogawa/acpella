@@ -30,8 +30,8 @@ describe("e2e smoke", () => {
     });
     await service.waitForOutput("Starting service");
     service.write("__env:ACPELLA_TELEGRAM_BOT_TOKEN");
-    await service.waitForOutput("(unset)");
+    await service.waitForOutput("env: ACPELLA_TELEGRAM_BOT_TOKEN=(unset)");
     service.write("__env:AGENT_VISIBLE_KEY");
-    await service.waitForOutput("agent-visible-key");
+    await service.waitForOutput("env: AGENT_VISIBLE_KEY=agent-visible-key");
   });
 });
