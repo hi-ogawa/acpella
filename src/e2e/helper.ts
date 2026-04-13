@@ -5,15 +5,13 @@ import { onTestFinished } from "vitest";
 
 // TODO: review slop
 
-const TMP_ROOT = path.join(import.meta.dirname, ".tmp");
-
 export function startService(
   env?: Record<string, string>,
   options?: {
     sourceDir?: string;
   },
 ) {
-  const home = path.join(TMP_ROOT, `acpella-test-${crypto.randomUUID()}`);
+  const home = path.join(import.meta.dirname, `.tmp/acpella-test-${crypto.randomUUID()}`);
   fs.mkdirSync(home, { recursive: true });
   if (options?.sourceDir) {
     fs.rmSync(home, { recursive: true, force: true });
