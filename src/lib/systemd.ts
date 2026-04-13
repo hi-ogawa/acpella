@@ -32,12 +32,11 @@ export function buildSystemdUnit(options: {
   const description = "acpella service";
   const envFile = resolve(options.workingDirectory, ".env");
   const serviceName = "acpella";
+  const pathDirs = [dirname(options.nodeBin), "/usr/local/bin", "/usr/bin", "/bin"];
   const serviceEnv = {
     HOME: options.home,
     TMPDIR: options.env.TMPDIR?.trim() || options.tmpDir,
-    PATH: buildServicePath({
-      nodeBin: options.nodeBin,
-    }),
+    PATH: [...new Set(pathDirs)].join(":"),
   };
   const environmentLines = Object.entries(serviceEnv)
     .map(([key, value]) => `Environment=${escapeSystemdValue(`${key}=${value}`)}`)
@@ -61,12 +60,6 @@ RestartSec=10
 [Install]
 WantedBy=default.target
 `;
-}
-
-export function buildServicePath(options: { nodeBin: string }): string {
-  const dirs = [dirname(options.nodeBin), "/usr/local/bin", "/usr/bin", "/bin"];
-
-  return [...new Set(dirs)].join(":");
 }
 
 function escapeSystemdValue(value: string): string {
