@@ -62,25 +62,23 @@ WantedBy=default.target
 
 export function buildServicePath(options: { nodeBin: string }): string {
   const dirs = [dirname(options.nodeBin), "/usr/local/bin", "/usr/bin", "/bin"];
+  const seen = new Set<string>();
 
-  return uniqueNonEmpty(dirs).join(":");
+  return dirs
+    .filter((dir) => {
+      if (!dir || seen.has(dir)) {
+        return false;
+      }
+      seen.add(dir);
+      return true;
+    })
+    .join(":");
 }
 
 function renderEnvironmentLines(env: Record<string, string>): string {
   return Object.entries(env)
     .map(([key, value]) => `Environment=${escapeSystemdValue(`${key}=${value}`)}`)
     .join("\n");
-}
-
-function uniqueNonEmpty(values: string[]): string[] {
-  const result: string[] = [];
-  for (const value of values) {
-    if (!value || result.includes(value)) {
-      continue;
-    }
-    result.push(value);
-  }
-  return result;
 }
 
 function escapeSystemdValue(value: string): string {
