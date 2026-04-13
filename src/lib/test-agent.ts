@@ -81,14 +81,15 @@ class EchoAgent implements Agent {
         .filter((c) => c.type === "text")
         .map((c) => c.text)
         .join("") || "(empty)";
+    const userText = extractUserTextFromMetadataPrompt(text);
 
     let reportText: string;
-    if (text.startsWith("__env:")) {
-      const key = text.slice(6);
+    if (userText.startsWith("__env:")) {
+      const key = userText.slice(6);
       const value = process.env[key] ?? "(unset)";
       reportText = `env: ${key}=${value}`;
     } else {
-      reportText = `echo: ${text}`;
+      reportText = `echo: ${userText}`;
     }
 
     await this.connection.sessionUpdate({
@@ -103,6 +104,15 @@ class EchoAgent implements Agent {
   }
 
   async cancel(_params: CancelNotification): Promise<void> {}
+}
+
+function extractUserTextFromMetadataPrompt(text: string): string {
+  const metadataCloseTag = "</message_metadata>";
+  const metadataCloseIndex = text.lastIndexOf(metadataCloseTag);
+  if (metadataCloseIndex === -1) {
+    return text;
+  }
+  return text.slice(metadataCloseIndex + metadataCloseTag.length).trimStart();
 }
 
 function main() {

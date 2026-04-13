@@ -89,6 +89,7 @@ Options:
   }
 
   bot.on("message:text", async (ctx) => {
+    const receivedAt = new Date();
     const chatId = ctx.chat.id;
     const threadId = ctx.message.message_thread_id;
     const name = telegramSessionName({ chatId, threadId });
@@ -113,7 +114,7 @@ Options:
     }
 
     try {
-      await handler.handle({ session: name, context: ctx });
+      await handler.handle({ session: name, context: ctx, receivedAt });
       if (!cli.repl) {
         console.log(`[${name}] -> response sent`);
       }

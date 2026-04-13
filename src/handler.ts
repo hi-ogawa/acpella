@@ -13,13 +13,23 @@ interface StateSession {
   sessionId: string;
 }
 
+export interface MessageRuntimeMetadata {
+  received_at: string;
+  timezone: string;
+  surface: "telegram";
+  chat_type: "dm" | "group";
+  chat_id: string;
+  message_id: string;
+  sender_id?: string;
+}
+
 export async function createHandler(
   config: AppConfig,
   options: {
     onServiceExit: () => void;
   },
 ): Promise<{
-  handle: (options: { session: string; context: Context }) => Promise<void>;
+  handle: (options: { session: string; context: Context; receivedAt?: Date }) => Promise<void>;
 }> {
   const manager = await startAcpManager({ command: config.agent.command, cwd: config.home });
   const state = createSessionStateStore(config);
@@ -30,6 +40,7 @@ export async function createHandler(
     context: Context;
     name: string;
     text: string;
+    receivedAt: Date;
     sessionId?: string;
   }): Promise<void> {
     if (activeSessions.has(options.name)) {
@@ -52,9 +63,14 @@ export async function createHandler(
       const customPrompt = !options.sessionId
         ? readOptionalPromptFile(config.prompt.file)
         : undefined;
-      const promptText = customPrompt
-        ? formatFirstPrompt({ customPrompt, userText: options.text })
-        : options.text;
+      const userText = formatPromptWithMessageMetadata({
+        metadata: buildMessageRuntimeMetadata({
+          context: options.context,
+          receivedAt: options.receivedAt,
+        }),
+        userText: options.text,
+      });
+      const promptText = customPrompt ? formatFirstPrompt({ customPrompt, userText }) : userText;
 
       const { queue } = session.prompt(promptText);
       const responseWriter = createResponseWriter({
@@ -145,11 +161,13 @@ export async function createHandler(
     context: Context;
     name: string;
     text: string;
+    receivedAt: Date;
   }): Promise<void> {
     return handlePrompt({
       context: options.context,
       name: options.name,
       text: options.text,
+      receivedAt: options.receivedAt,
     });
   }
 
@@ -206,6 +224,7 @@ ${formatAgentSessions({ sessions: untrackedAgentSessions }).join("\n")}`;
     context: Context;
     text: string;
     sessionName: string;
+    receivedAt: Date;
   }): Promise<boolean> {
     const [command, subcommand, ...args] = options.text.trim().split(/\s+/);
     if (command !== "/session") {
@@ -224,6 +243,7 @@ ${formatAgentSessions({ sessions: untrackedAgentSessions }).join("\n")}`;
           context: options.context,
           name: options.sessionName,
           text: args.join(" "),
+          receivedAt: options.receivedAt,
         });
         return true;
       case "load":
@@ -291,9 +311,14 @@ state file: ${config.stateFile}
 prompt file: ${config.prompt.file ?? "none"}`;
   }
 
-  const handle = async (options: { session: string; context: Context }): Promise<void> => {
+  const handle = async (options: {
+    session: string;
+    context: Context;
+    receivedAt?: Date;
+  }): Promise<void> => {
     const text = options.context.message!.text!;
     const sessionName = options.session;
+    const receivedAt = options.receivedAt ?? new Date();
 
     if (text === "/status") {
       await sendSystemResponse({
@@ -321,6 +346,7 @@ prompt file: ${config.prompt.file ?? "none"}`;
       context: options.context,
       text,
       sessionName,
+      receivedAt,
     });
     if (handledSessionCommand) {
       return;
@@ -330,11 +356,63 @@ prompt file: ${config.prompt.file ?? "none"}`;
       context: options.context,
       name: sessionName,
       text,
+      receivedAt,
       sessionId: state.getSessionId(sessionName),
     });
   };
 
   return { handle };
+}
+
+export function buildMessageRuntimeMetadata(options: {
+  context: Context;
+  receivedAt: Date;
+}): MessageRuntimeMetadata {
+  const chatType = options.context.chat?.type === "private" ? "dm" : "group";
+  const senderId = options.context.from?.id;
+  return {
+    received_at: formatLocalIsoWithOffset(options.receivedAt),
+    timezone: resolveRuntimeTimezone(),
+    surface: "telegram",
+    chat_type: chatType,
+    chat_id: String(options.context.chat?.id ?? "unknown"),
+    message_id: String(options.context.message?.message_id ?? "unknown"),
+    ...(senderId !== undefined ? { sender_id: String(senderId) } : {}),
+  };
+}
+
+export function formatPromptWithMessageMetadata(options: {
+  metadata: MessageRuntimeMetadata;
+  userText: string;
+}): string {
+  const metadataLines = Object.entries(options.metadata).map(([key, value]) => `${key}: ${value}`);
+  return `\
+<message_metadata>
+${metadataLines.join("\n")}
+</message_metadata>
+
+${options.userText}`;
+}
+
+function formatLocalIsoWithOffset(date: Date): string {
+  const offsetMinutes = -date.getTimezoneOffset();
+  const sign = offsetMinutes >= 0 ? "+" : "-";
+  const absOffset = Math.abs(offsetMinutes);
+  const offsetHours = Math.floor(absOffset / 60);
+  const offsetRemainderMinutes = absOffset % 60;
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}T${pad2(
+    date.getHours(),
+  )}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}${sign}${pad2(
+    offsetHours,
+  )}:${pad2(offsetRemainderMinutes)}`;
+}
+
+function resolveRuntimeTimezone(): string {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+}
+
+function pad2(value: number): string {
+  return String(value).padStart(2, "0");
 }
 
 function formatStateSessions(sessions: StateSession[]): string[] {
