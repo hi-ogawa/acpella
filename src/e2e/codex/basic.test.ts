@@ -9,7 +9,7 @@ vi.setConfig({
 it("basic", async ({ onTestFinished }) => {
   const service = startService(
     {
-      ACPELLA_AGENT: "codex",
+      ACPELLA_AGENT: "codex-acp",
     },
     { sourceDir: path.join(import.meta.dirname, "fixtures/basic") },
   );
@@ -24,7 +24,7 @@ it("basic", async ({ onTestFinished }) => {
 it("uses custom prompt file", async ({ onTestFinished }) => {
   const service = startService(
     {
-      ACPELLA_AGENT: "codex",
+      ACPELLA_AGENT: "codex-acp",
     },
     { sourceDir: path.join(import.meta.dirname, "fixtures/custom-prompt") },
   );

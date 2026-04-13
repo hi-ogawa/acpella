@@ -2,32 +2,48 @@
 
 Thin service that connects a messaging channel (Telegram) to AI agent via [ACP](https://github.com/agentclientprotocol/agent-client-protocol). Agent-agnostic — works with Codex, Claude Code, or any ACP-compatible agent.
 
-## Setup
+## Setup and Run
 
 ```bash
 pnpm install
 cp .env.example .env
-# fill in ACPELLA_TELEGRAM_BOT_TOKEN and ACPELLA_TELEGRAM_ALLOWED_USER_IDS
-```
+# edit .env using the Config section below
 
-## Run
-
-```bash
 pnpm cli        # run service
 pnpm cli --repl # run local in-process REPL
 ```
 
 ## Config
 
-| Variable                            | Required | Default                         | Description                                |
-| ----------------------------------- | -------- | ------------------------------- | ------------------------------------------ |
-| `ACPELLA_TELEGRAM_BOT_TOKEN`        | yes      | —                               | Bot token from @BotFather                  |
-| `ACPELLA_TELEGRAM_ALLOWED_USER_IDS` | yes      | —                               | Comma-separated numeric Telegram user IDs  |
-| `ACPELLA_TELEGRAM_ALLOWED_CHAT_IDS` | no       | —                               | Comma-separated chat IDs (group allowlist) |
-| `ACPELLA_AGENT`                     | no       | `npx @zed-industries/codex-acp` | acp agent command                          |
-| `ACPELLA_HOME`                      | no       | `process.cwd()`                 | Agent working directory                    |
+| Variable                            | Required | Default         | Description                                |
+| ----------------------------------- | -------- | --------------- | ------------------------------------------ |
+| `ACPELLA_TELEGRAM_BOT_TOKEN`        | yes      | —               | Bot token from @BotFather                  |
+| `ACPELLA_TELEGRAM_ALLOWED_USER_IDS` | yes      | —               | Comma-separated numeric Telegram user IDs  |
+| `ACPELLA_TELEGRAM_ALLOWED_CHAT_IDS` | no       | —               | Comma-separated chat IDs (group allowlist) |
+| `ACPELLA_AGENT`                     | no       | `test`          | acp agent command                          |
+| `ACPELLA_HOME`                      | no       | `process.cwd()` | Agent working directory                    |
 
-If `$ACPELLA_HOME/.acpella/AGENTS.md` exists, its contents are sent as custom instructions once when creating a new session.
+### ACPELLA_AGENT
+
+The default `ACPELLA_AGENT=test` uses the built-in echo agent. Set `ACPELLA_AGENT` to any ACP agent
+command to use a real agent. Known ACP agents are listed in the
+[ACP agent registry](https://agentclientprotocol.com/get-started/registry).
+
+For Codex ACP, either install `@zed-industries/codex-acp` globally and set:
+
+```env
+ACPELLA_AGENT=codex-acp
+```
+
+Or run it through `npx`:
+
+```env
+ACPELLA_AGENT="npx -y @zed-industries/codex-acp"
+```
+
+### `$ACPELLA_HOME/.acpella/AGENTS.md`
+
+If this file exists, its contents are sent as custom instructions once when creating a new session.
 
 ## Docs
 

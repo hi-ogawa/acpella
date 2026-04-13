@@ -21,22 +21,20 @@ export interface AppConfig {
 }
 
 const builtinAgents: Record<string, string> = {
-  codex: path.join(
-    import.meta.dirname,
-    "..",
-    "node_modules/@zed-industries/codex-acp/bin/codex-acp.js",
-  ),
   test: `node ${path.join(import.meta.dirname, "lib/test-agent.ts")}`,
 };
 
 const envSchema = z
   .object({
-    ACPELLA_AGENT: z.string().optional(),
+    ACPELLA_AGENT: z.string().default("test"),
     ACPELLA_HOME: z.string().optional(),
     ACPELLA_TELEGRAM_BOT_TOKEN: z.string().optional(),
     ACPELLA_TELEGRAM_ALLOWED_USER_IDS: z.string().optional(),
     ACPELLA_TELEGRAM_ALLOWED_CHAT_IDS: z.string().optional(),
-    ACPELLA_TEST_CHAT_ID: z.string().optional(),
+    ACPELLA_TEST_CHAT_ID: z
+      .string()
+      .optional()
+      .transform((value) => (value?.trim() ? value : "10101010")),
   })
   .loose();
 
@@ -44,7 +42,7 @@ export function loadConfig(): AppConfig {
   const env = envSchema.parse(process.env);
   const home = env.ACPELLA_HOME ? path.resolve(env.ACPELLA_HOME) : process.cwd();
 
-  const agentAlias = env.ACPELLA_AGENT ?? "codex";
+  const agentAlias = env.ACPELLA_AGENT;
   const agentCommand = builtinAgents[agentAlias] || agentAlias;
 
   return {
@@ -60,7 +58,7 @@ export function loadConfig(): AppConfig {
       file: path.join(home, ".acpella", "AGENTS.md"),
     },
     // TODO: make use of this for test
-    testChatId: parseOptionalId(env.ACPELLA_TEST_CHAT_ID) ?? 10101010,
+    testChatId: parseId(env.ACPELLA_TEST_CHAT_ID),
   };
 }
 
@@ -80,10 +78,7 @@ function parseIdList(value: string | undefined): number[] | undefined {
   });
 }
 
-function parseOptionalId(value: string | undefined): number | undefined {
-  if (value === undefined || value.trim() === "") {
-    return undefined;
-  }
+function parseId(value: string): number {
   const id = Number(value);
   if (!Number.isInteger(id)) {
     throw new Error(`Invalid numeric id: ${value}`);
