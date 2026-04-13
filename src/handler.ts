@@ -2,6 +2,7 @@ import fs from "node:fs";
 import type { ListSessionsResponse } from "@agentclientprotocol/sdk";
 import type { Context } from "grammy";
 import { startAcpManager } from "./acp/index.ts";
+import type { AgentSession } from "./acp/index.ts";
 import type { AppConfig } from "./config.ts";
 import { createSessionStateStore } from "./state.ts";
 
@@ -17,6 +18,8 @@ export async function createHandler(config: AppConfig): Promise<{
 }> {
   const manager = await startAcpManager({ command: config.agent.command, cwd: config.home });
   const state = createSessionStateStore(config);
+  const activeSessions = new Map<string, AgentSession>();
+  const cancelledSessions = new WeakSet<AgentSession>();
 
   async function handlePrompt(options: {
     context: Context;
@@ -40,6 +43,7 @@ export async function createHandler(config: AppConfig): Promise<{
         : options.text;
 
       const { queue } = session.prompt(promptText);
+      activeSessions.set(options.name, session);
       const responseWriter = createResponseWriter({
         context: options.context,
         limit: MESSAGE_SPLIT_BUDGET,
@@ -57,13 +61,51 @@ export async function createHandler(config: AppConfig): Promise<{
           console.log(`[acp:update] ${update.sessionUpdate}`);
         }
       }
+      if (cancelledSessions.has(session)) {
+        return;
+      }
       await responseWriter.finish();
       if (!options.sessionId) {
         state.setSessionId(options.name, session.sessionId);
       }
+    } catch (e) {
+      if (cancelledSessions.has(session)) {
+        return;
+      }
+      throw e;
     } finally {
+      if (activeSessions.get(options.name) === session) {
+        activeSessions.delete(options.name);
+      }
       session.close();
     }
+  }
+
+  async function handleCancel(options: { context: Context; sessionName: string }): Promise<void> {
+    const session = activeSessions.get(options.sessionName);
+    if (!session) {
+      await sendTextResponse({
+        context: options.context,
+        limit: MESSAGE_SPLIT_BUDGET,
+        text: "No active agent turn.",
+      });
+      return;
+    }
+
+    cancelledSessions.add(session);
+    let response = "Cancelled current agent turn.";
+    try {
+      await session.cancel();
+    } catch (e) {
+      console.error("[acp] cancel failed, killing agent process:", e);
+      session.close();
+      response = "Cancelled current agent turn by killing the agent process.";
+    }
+    await sendTextResponse({
+      context: options.context,
+      limit: MESSAGE_SPLIT_BUDGET,
+      text: response,
+    });
   }
 
   async function handleCloseSession(options: {
@@ -218,6 +260,13 @@ prompt file: ${config.prompt.file ?? "none"}`;
         context: options.context,
         limit: MESSAGE_SPLIT_BUDGET,
         text: handleStatus(),
+      });
+      return;
+    }
+    if (text === "/cancel") {
+      await handleCancel({
+        context: options.context,
+        sessionName,
       });
       return;
     }
