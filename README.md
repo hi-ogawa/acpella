@@ -7,7 +7,7 @@ Thin service that connects a messaging channel (Telegram) to AI agent via [ACP](
 ```bash
 pnpm install
 cp .env.example .env
-# fill in ACPELLA_TELEGRAM_BOT_TOKEN and ACPELLA_TELEGRAM_ALLOWED_USER_IDS
+# edit .env using the Config section below
 ```
 
 ## Run
