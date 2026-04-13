@@ -75,7 +75,7 @@ ${stderr}
       return copyStackTrace(error, stackTraceError);
     }
 
-    using _ = registerErrorOnTimeout({
+    using _ = recordErrorOnTimeout({
       context: TestRunner.getCurrentTest()!.context,
       createError: () => createError(`Timed out waiting for output`),
     });
@@ -111,8 +111,8 @@ ${stderr}
   };
 }
 
-// surface specific error on timeout
-function registerErrorOnTimeout({
+// surface custom async assertion error on timeout
+function recordErrorOnTimeout({
   context,
   createError,
 }: {
@@ -120,13 +120,10 @@ function registerErrorOnTimeout({
   createError: () => Error;
 }) {
   const addError = () => {
+    const timeoutError = context.signal.reason as Error;
     const error = createError();
-    context.task.result!.errors ??= [];
-    context.task.result!.errors!.push({
-      name: error.name,
-      message: error.message,
-      stack: error.stack,
-    });
+    timeoutError.message += "\n[Caused by] " + error.message;
+    copyStackTrace(timeoutError, error);
   };
   context.signal.addEventListener("abort", addError);
   const deregister = () => {
