@@ -15,8 +15,8 @@ interface StateSession {
 
 export async function createHandler(
   config: AppConfig,
-  options?: {
-    onServiceExit?: () => void;
+  options: {
+    onServiceExit: () => void;
   },
 ): Promise<{
   handle: (options: { session: string; context: Context }) => Promise<void>;
@@ -270,7 +270,7 @@ Usage:
         limit: MESSAGE_SPLIT_BUDGET,
         text: "Exiting acpella.",
       });
-      options?.onServiceExit?.();
+      options.onServiceExit();
       return true;
     }
     await sendSystemResponse({
