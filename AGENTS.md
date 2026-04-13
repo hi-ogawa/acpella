@@ -30,6 +30,7 @@ Task docs should enable **handoff to a fresh agent** - include enough context to
 
 ## Conventions
 
+- Commit messages: use Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:`, `chore:`); add `!` for breaking changes
 - File names: kebab-case
 - Run `.ts` scripts with `node` (not `tsx`/`ts-node`)
 - Prefer `undefined` over `null`

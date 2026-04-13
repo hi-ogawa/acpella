@@ -1,4 +1,3 @@
-import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
 
@@ -14,9 +13,9 @@ export interface AppConfig {
     allowedUserIds: number[];
     allowedChatIds: number[];
   };
+  /** Conventional custom-instructions file, read lazily when creating a new session. */
   prompt: {
-    file?: string;
-    text?: string;
+    file: string;
   };
   testChatId: number;
 }
@@ -48,10 +47,6 @@ export function loadConfig(): AppConfig {
   const agentAlias = env.ACPELLA_AGENT ?? "codex";
   const agentCommand = builtinAgents[agentAlias] || agentAlias;
 
-  const agentsFilePath = path.join(home, ".acpella", "AGENTS.md");
-  const promptFile = fs.existsSync(agentsFilePath) ? agentsFilePath : undefined;
-  const promptText = promptFile ? fs.readFileSync(promptFile, "utf8") : undefined;
-
   return {
     agent: { alias: agentAlias, command: agentCommand },
     home,
@@ -62,8 +57,7 @@ export function loadConfig(): AppConfig {
       allowedChatIds: parseIdList(env.ACPELLA_TELEGRAM_ALLOWED_CHAT_IDS) ?? [],
     },
     prompt: {
-      file: promptFile,
-      text: promptText,
+      file: path.join(home, ".acpella", "AGENTS.md"),
     },
     // TODO: make use of this for test
     testChatId: parseOptionalId(env.ACPELLA_TEST_CHAT_ID) ?? 10101010,
