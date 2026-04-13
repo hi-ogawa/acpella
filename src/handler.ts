@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import type { ListSessionsResponse } from "@agentclientprotocol/sdk";
 import type { Context } from "grammy";
@@ -284,6 +285,7 @@ Usage:
   function handleStatus(): string {
     return `\
 service state: running
+checkout: ${getCheckoutStatus()}
 configured agent: ${config.agent.alias}
 agent command: ${config.agent.command}
 home: ${config.home}
@@ -335,6 +337,25 @@ prompt file: ${config.prompt.file ?? "none"}`;
   };
 
   return { handle };
+}
+
+function getCheckoutStatus(): string {
+  try {
+    const branch = execGit(["branch", "--show-current"]) || "detached";
+    const commit = execGit(["rev-parse", "--short", "HEAD"]);
+    const dirty = execGit(["status", "--porcelain"]) ? " dirty" : "";
+    return `${branch} ${commit}${dirty}`;
+  } catch {
+    return "unknown";
+  }
+}
+
+function execGit(args: string[]): string {
+  return execFileSync("git", args, {
+    cwd: process.cwd(),
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "ignore"],
+  }).trim();
 }
 
 function formatStateSessions(sessions: StateSession[]): string[] {
