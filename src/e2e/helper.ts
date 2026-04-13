@@ -63,17 +63,15 @@ export function startService(
     // https://github.com/vitest-dev/vitest/issues/10135
     const stackTraceError = new Error("__STACK_TRACE__");
     function createError(message: string) {
-      const error = new Error(
-        message +
-          `
+      const error = new Error(`\
+${message}
 pattern:
 ${pattern}
 stdout:
 ${stdout}
 stderr:
 ${stderr}
-`,
-      );
+`);
       return copyStackTrace(error, stackTraceError);
     }
 
