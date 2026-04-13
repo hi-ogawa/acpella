@@ -8,7 +8,7 @@ Port the OpenClaw-style Telegram execution model:
 
 1. Use `@grammyjs/runner` for concurrent polling dispatch instead of `bot.start()`.
 2. Add per-Telegram-session sequentialization for normal messages.
-3. Route `/cancel` onto a separate control lane so it can bypass the normal prompt lane for the same chat/thread.
+3. Route exact `/cancel` onto a separate control lane so it can bypass the normal prompt lane for the same chat/thread.
 4. Keep `handler.ts` as the owner of active session state and overlapping prompt rejection.
 
 ## OpenClaw References
@@ -24,10 +24,11 @@ Local reference repo: `refs/openclaw`
 - `extensions/telegram/src/sequential-key.ts`
   - Normal chat/topic messages use a chat or topic key.
   - Abort text uses a separate `telegram:<chatId>:control` key.
+  - Status and most other commands do not get the control lane.
 - `src/auto-reply/reply/abort.ts`
   - Abort command handling cancels active runs and clears queues.
 
-Key OpenClaw behavior to preserve in acpella: cancellation must not share the same sequential key as the active prompt it is trying to stop.
+Key OpenClaw behavior to preserve in acpella: cancellation must not share the same sequential key as the active prompt it is trying to stop. For the first acpella implementation, hard-code only exact `/cancel` as the control-lane command. `/status`, `/session ...`, and normal prompts should continue to use the regular chat/topic lane.
 
 ## acpella Reference Files
 
@@ -49,7 +50,8 @@ Key OpenClaw behavior to preserve in acpella: cancellation must not share the sa
 3. Add a small Telegram sequential key helper:
    - Direct chat: `tg:<chatId>`.
    - Forum topic: `tg:<chatId>:topic:<threadId>`.
-   - `/cancel`: append/use `:control`, e.g. `tg:<chatId>:control` or `tg:<chatId>:topic:<threadId>:control`.
+   - Exact `/cancel`: append/use `:control`, e.g. `tg:<chatId>:control` or `tg:<chatId>:topic:<threadId>:control`.
+   - Do not special-case `/status`, `/session`, or other local commands in this first pass.
 4. Register `bot.use(sequentialize(getSequentialKey))` before `bot.on("message:text", ...)`.
 5. Keep normal `handler.handle(...)` awaited inside the middleware. The runner and sequential keys should provide the needed concurrency, so avoid fire-and-forget prompt handling in `cli.ts`.
 6. Ensure `/cancel` still gets handled by acpella before prompt routing and is not forwarded to the agent.
@@ -58,6 +60,7 @@ Key OpenClaw behavior to preserve in acpella: cancellation must not share the sa
    - Same chat normal messages share a key.
    - Same forum topic normal messages share a key.
    - `/cancel` uses a distinct control key for the same chat/topic.
+   - `/status` and `/session` use the regular chat/topic key.
 9. Add an integration-style test if practical by mocking/stubbing runner/sequentialize, or cover the CLI wiring enough to prevent regression.
 10. Run `pnpm test` and `pnpm lint`.
 
@@ -66,4 +69,5 @@ Key OpenClaw behavior to preserve in acpella: cancellation must not share the sa
 - This task is about real Telegram polling concurrency, not ACP cancellation internals.
 - Do not replace the REPL loop unless needed for tests; REPL Ctrl-C cancellation already has a separate local path.
 - Do not introduce Telegram update dedupe/redelivery handling here.
+- Do not generalize "local commands" into the control lane yet. Start with exact `/cancel` only, matching the minimum behavior needed to unblock cancellation.
 - Keep runner concurrency conservative at first, e.g. a small fixed value or one config value later. The per-session sequential key is what protects same-chat prompt ordering.
