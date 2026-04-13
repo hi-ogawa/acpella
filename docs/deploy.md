@@ -1,7 +1,5 @@
 # Deploy
 
-Run acpella alongside existing openclaw on the same machine.
-
 ## Setup
 
 ```bash
