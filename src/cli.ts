@@ -126,12 +126,13 @@ Options:
   if (testBot) {
     await testBot.startRepl();
   } else {
-    await run(bot, {
+    const runner = run(bot, {
       sink: {
         // @grammyjs/runner defaults to 500; keep acpella conservative because prompts spawn child agents.
         concurrency: 4,
       },
-    }).task();
+    });
+    await runner.task();
   }
 }
 
