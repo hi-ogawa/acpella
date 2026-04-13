@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { onTestFinished } from "vitest";
 
 // TODO: review slop
 
@@ -12,11 +13,16 @@ export function startService(
     sourceDir?: string;
   },
 ) {
-  fs.mkdirSync(TMP_ROOT, { recursive: true });
-  const home = fs.mkdtempSync(path.join(TMP_ROOT, "acpella-"));
+  const home = path.join(TMP_ROOT, `acpella-test-${crypto.randomUUID()}`);
+  fs.mkdirSync(home, { recursive: true });
   if (options?.sourceDir) {
+    fs.rmSync(home, { recursive: true, force: true });
     fs.cpSync(options.sourceDir, home, { recursive: true });
   }
+  onTestFinished(async () => {
+    fs.rmSync(home, { recursive: true, force: true });
+  });
+
   const child = spawn("pnpm", ["-s", "cli", "--repl"], {
     cwd: path.join(import.meta.dirname, "../.."),
     env: {
@@ -75,7 +81,6 @@ export function startService(
   async function stop() {
     child.stdin.end();
     await new Promise<void>((resolve) => child.on("close", resolve));
-    fs.rmSync(home, { recursive: true, force: true });
   }
 
   return { child, lines, send, waitForLine, stop, home };
