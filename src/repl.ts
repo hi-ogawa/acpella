@@ -54,6 +54,9 @@ export function createTestBot(options: { chatId: number }) {
 
   async function startRepl() {
     const rl = createInterface({ input: process.stdin, output: process.stdout });
+    rl.on("SIGINT", () => {
+      void sendMessage("/cancel");
+    });
 
     try {
       while (true) {
