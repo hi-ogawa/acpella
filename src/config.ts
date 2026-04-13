@@ -21,11 +21,6 @@ export interface AppConfig {
 }
 
 const builtinAgents: Record<string, string> = {
-  codex: path.join(
-    import.meta.dirname,
-    "..",
-    "node_modules/@zed-industries/codex-acp/bin/codex-acp.js",
-  ),
   test: `node ${path.join(import.meta.dirname, "lib/test-agent.ts")}`,
 };
 
@@ -44,7 +39,7 @@ export function loadConfig(): AppConfig {
   const env = envSchema.parse(process.env);
   const home = env.ACPELLA_HOME ? path.resolve(env.ACPELLA_HOME) : process.cwd();
 
-  const agentAlias = env.ACPELLA_AGENT ?? "codex";
+  const agentAlias = env.ACPELLA_AGENT ?? "test";
   const agentCommand = builtinAgents[agentAlias] || agentAlias;
 
   return {
