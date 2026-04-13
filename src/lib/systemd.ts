@@ -62,17 +62,8 @@ WantedBy=default.target
 
 export function buildServicePath(options: { nodeBin: string }): string {
   const dirs = [dirname(options.nodeBin), "/usr/local/bin", "/usr/bin", "/bin"];
-  const seen = new Set<string>();
 
-  return dirs
-    .filter((dir) => {
-      if (!dir || seen.has(dir)) {
-        return false;
-      }
-      seen.add(dir);
-      return true;
-    })
-    .join(":");
+  return [...new Set(dirs)].join(":");
 }
 
 function renderEnvironmentLines(env: Record<string, string>): string {
