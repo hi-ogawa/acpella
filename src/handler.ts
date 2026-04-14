@@ -1,19 +1,14 @@
 import fs from "node:fs";
+import type { Context } from "grammy";
 import { startAcpManager } from "./acp/index.ts";
 import type { AgentSession } from "./acp/index.ts";
 import type { AppConfig } from "./config.ts";
 import { createReply, MESSAGE_SPLIT_BUDGET } from "./lib/reply.ts";
-import type { Reply, ReplyContext } from "./lib/reply.ts";
+import type { Reply } from "./lib/reply.ts";
 import { createSessionStateStore } from "./state.ts";
 
-interface HandlerContext extends ReplyContext {
-  message: {
-    text: string;
-  };
-}
-
 interface Handler {
-  handle: (options: { session: string; context: HandlerContext }) => Promise<void>;
+  handle: (options: { session: string; context: Context }) => Promise<void>;
 }
 
 export async function createHandler(
@@ -259,7 +254,7 @@ prompt file: ${config.prompt.file ?? "none"}`;
   }
 
   const handle: Handler["handle"] = async (options) => {
-    const text = options.context.message.text;
+    const text = options.context.message!.text!;
     const sessionName = options.session;
     const reply = createReply({
       context: options.context,
