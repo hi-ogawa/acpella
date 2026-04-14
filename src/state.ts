@@ -7,6 +7,7 @@ import type { AppConfig } from "./config.ts";
 
 const stateSchema = z
   .object({
+    // TODO: makes use of version for auto state migrations
     version: z.literal(1),
     scopes: z.record(
       z.string().min(1), // scopeKey: agent command
