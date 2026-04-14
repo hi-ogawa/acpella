@@ -6,7 +6,7 @@ describe("basic", () => {
     const service = startService();
     await service.waitForOutput("Starting service");
     service.write("/status");
-    await service.waitForOutput("configured agent: test");
+    await service.waitForOutput("status: running");
   });
 
   it("echo agent round-trip", async () => {

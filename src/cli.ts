@@ -1,3 +1,4 @@
+import path from "node:path";
 import { parseArgs } from "node:util";
 import { run, sequentialize } from "@grammyjs/runner";
 import { Bot } from "grammy";
@@ -5,6 +6,7 @@ import { loadConfig } from "./config.ts";
 import { createHandler } from "./handler.ts";
 import { handleSetupSystemd } from "./lib/systemd.ts";
 import { telegramSequentialKey, telegramSessionName } from "./lib/telegram.ts";
+import { getVersion } from "./lib/version.ts";
 import { createTestBot, type TestBot } from "./repl.ts";
 
 async function main() {
@@ -46,6 +48,7 @@ Options:
   }
 
   const config = loadConfig();
+  const version = await getVersion({ cwd: path.join(import.meta.dirname, "..") });
 
   // --- create bot (real or test) ---
 
@@ -77,6 +80,7 @@ Options:
   // --- wire handler (shared between real and test) ---
 
   const handler = await createHandler(config, {
+    version,
     onServiceExit: () => {
       setImmediate(() => {
         console.log("Exiting by /service exit");
