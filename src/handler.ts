@@ -127,18 +127,6 @@ export async function createHandler(
     }
   }
 
-  async function handleNewSession(options: {
-    reply: Reply;
-    sessionName: string;
-    text: string;
-  }): Promise<void> {
-    return handlePrompt({
-      reply: options.reply,
-      sessionName: options.sessionName,
-      text: options.text,
-    });
-  }
-
   async function handleLoadSession(options: {
     sessionName: string;
     sessionId?: string;
@@ -208,7 +196,7 @@ session id: ${state.getSession(options.sessionName)?.sessionId ?? "none"}`;
         break;
       }
       case "new": {
-        await handleNewSession({
+        await handlePrompt({
           reply: options.reply,
           sessionName: options.sessionName,
           text: args.join(" "),
