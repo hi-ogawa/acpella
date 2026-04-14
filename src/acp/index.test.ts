@@ -44,6 +44,10 @@ describe(startAcpManager, () => {
             "cwd": "/",
             "sessionId": "__testLoadSession",
           },
+          {
+            "cwd": "/",
+            "sessionId": "other-session",
+          },
         ],
       }
     `);
