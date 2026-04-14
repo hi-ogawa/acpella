@@ -5,7 +5,7 @@ import type { AppConfig } from "./config.ts";
 import { createReply, MESSAGE_SPLIT_BUDGET } from "./lib/reply.ts";
 import type { Reply, ReplyContext } from "./lib/reply.ts";
 import { createSessionStateStore, makeStateSessionKey } from "./state.ts";
-import type { StateSession } from "./state.ts";
+import type { StateAgentSession } from "./state.ts";
 
 interface Handler {
   handle: (options: { sessionName: string; context: HandlerContext }) => Promise<void>;
@@ -42,7 +42,7 @@ export async function createHandler(
     text: string;
     agentKey?: string;
     fresh?: boolean;
-    stateSession?: StateSession;
+    stateSession?: StateAgentSession;
   }): Promise<void> {
     const { reply, stateSession } = options;
     if (activeSessions.has(options.sessionName)) {
@@ -51,7 +51,7 @@ export async function createHandler(
     }
 
     const state = stateStore.get();
-    const verbose = state.conversations[options.sessionName]?.verbose ?? true;
+    const verbose = state.sessions[options.sessionName]?.verbose ?? true;
     const currentSession = options.fresh ? undefined : stateSession;
     const agentKey = options.agentKey ?? currentSession?.agentKey ?? state.defaultAgent;
     const manager = await getAgentManager(agentKey);
@@ -202,21 +202,21 @@ session id: ${currentSession?.agentSessionId ?? "none"}`;
         console.error(`[acp] listSessions failed for agent ${agentKey}:`, e);
       }
     }
-    const conversationSessions = new Map<string, string>();
-    for (const [conversationKey, conversation] of Object.entries(state.conversations)) {
-      if (conversation.agentKey && conversation.agentSessionId) {
-        conversationSessions.set(
+    const stateSessions = new Map<string, string>();
+    for (const [sessionName, stateSession] of Object.entries(state.sessions)) {
+      if (stateSession.agentKey && stateSession.agentSessionId) {
+        stateSessions.set(
           makeStateSessionKey({
-            agentKey: conversation.agentKey,
-            agentSessionId: conversation.agentSessionId,
+            agentKey: stateSession.agentKey,
+            agentSessionId: stateSession.agentSessionId,
           }),
-          conversationKey,
+          sessionName,
         );
       }
     }
     let output = "";
-    for (const [sessionKey, conversationKey] of conversationSessions) {
-      output += `- ${conversationKey} -> ${sessionKey}`;
+    for (const [sessionKey, sessionName] of stateSessions) {
+      output += `- ${sessionName} -> ${sessionKey}`;
       if (activeAgentSessions.has(sessionKey)) {
         output += " (active)";
       } else {
@@ -225,14 +225,14 @@ session id: ${currentSession?.agentSessionId ?? "none"}`;
       output += "\n";
     }
     for (const sessionKey of activeAgentSessions) {
-      if (!conversationSessions.has(sessionKey)) {
+      if (!stateSessions.has(sessionKey)) {
         output += `- (unknown) -> ${sessionKey} (active)\n`;
       }
     }
     return output || "No sessions.";
   }
 
-  function resolveSession(options: { value: string; sessionName: string }): StateSession {
+  function resolveSession(options: { value: string; sessionName: string }): StateAgentSession {
     const state = stateStore.get();
     const parsedSession = stateStore.parseSessionArg({
       value: options.value,
@@ -365,13 +365,13 @@ Usage:
           response = `Cannot remove default agent: ${name}`;
           break;
         }
-        const referencedSessions = Object.values(state.conversations).filter(
-          (conversation) => conversation.agentKey === name,
+        const referencedSessions = Object.values(state.sessions).filter(
+          (session) => session.agentKey === name,
         );
         if (referencedSessions.length > 0) {
           response = `\
 Cannot remove agent: ${name}
-${referencedSessions.length} conversation(s) still reference it.`;
+${referencedSessions.length} session(s) still reference it.`;
           break;
         }
         stateStore.set((state) => {
@@ -419,7 +419,7 @@ Usage:
       return false;
     }
 
-    const verbose = stateStore.get().conversations[options.sessionName]?.verbose ?? true;
+    const verbose = stateStore.get().sessions[options.sessionName]?.verbose ?? true;
     const verboseStatus = `Tool call output: ${verbose ? "on" : "off"}`;
     const verboseHelp = `\
 ${verboseStatus}
@@ -433,14 +433,14 @@ Usage: /verbose [on|off]
         break;
       }
       case "on": {
-        stateStore.setConversation(options.sessionName, {
+        stateStore.setSession(options.sessionName, {
           verbose: true,
         });
         response = `Tool call output: ${subcommand}`;
         break;
       }
       case "off": {
-        stateStore.setConversation(options.sessionName, {
+        stateStore.setSession(options.sessionName, {
           verbose: false,
         });
         response = `Tool call output: ${subcommand}`;

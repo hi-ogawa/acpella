@@ -9,7 +9,7 @@ const agentSchema = z.object({
   command: z.string().min(1),
 });
 
-const conversationSchema = z.object({
+const sessionSchema = z.object({
   agentKey: z.string().min(1).optional(),
   agentSessionId: z.string().min(1).optional(),
   verbose: z.boolean().optional(),
@@ -20,7 +20,7 @@ const stateSchema = z
     version: z.literal(2),
     defaultAgent: z.string().min(1),
     agents: z.record(z.string().min(1), agentSchema),
-    conversations: z.record(z.string().min(1), conversationSchema),
+    sessions: z.record(z.string().min(1), sessionSchema),
   })
   .superRefine((state, ctx) => {
     if (!state.agents[state.defaultAgent]) {
@@ -30,19 +30,19 @@ const stateSchema = z
         path: ["agents"],
       });
     }
-    for (const [conversationKey, conversation] of Object.entries(state.conversations)) {
-      if (Boolean(conversation.agentKey) !== Boolean(conversation.agentSessionId)) {
+    for (const [sessionName, session] of Object.entries(state.sessions)) {
+      if (Boolean(session.agentKey) !== Boolean(session.agentSessionId)) {
         ctx.addIssue({
           code: "custom",
-          message: "conversation must include both agentKey and agentSessionId",
-          path: ["conversations", conversationKey],
+          message: "session must include both agentKey and agentSessionId",
+          path: ["sessions", sessionName],
         });
       }
-      if (conversation.agentKey && !state.agents[conversation.agentKey]) {
+      if (session.agentKey && !state.agents[session.agentKey]) {
         ctx.addIssue({
           code: "custom",
-          message: `conversation references missing agent: ${conversation.agentKey}`,
-          path: ["conversations", conversationKey, "agentKey"],
+          message: `session references missing agent: ${session.agentKey}`,
+          path: ["sessions", sessionName, "agentKey"],
         });
       }
     }
@@ -50,8 +50,8 @@ const stateSchema = z
 
 export type State = z.infer<typeof stateSchema>;
 export type StateAgent = State["agents"][string];
-export type StateConversation = State["conversations"][string];
-export type StateSession = Required<Pick<StateConversation, "agentKey" | "agentSessionId">>;
+export type StateSession = State["sessions"][string];
+export type StateAgentSession = Required<Pick<StateSession, "agentKey" | "agentSessionId">>;
 export type SessionStateStore = ReturnType<typeof createSessionStateStore>;
 
 export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
@@ -103,31 +103,31 @@ export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
     set: (updater: (state: State) => void) => {
       updateState(updater);
     },
-    setConversation(conversationKey: string, patch: StateConversation) {
+    setSession(sessionName: string, patch: StateSession) {
       updateState((state) => {
-        state.conversations[conversationKey] = {
-          ...state.conversations[conversationKey],
+        state.sessions[sessionName] = {
+          ...state.sessions[sessionName],
           ...patch,
         };
       });
     },
-    getCurrentSession(conversationKey: string): StateSession | undefined {
-      const conversation = state.conversations[conversationKey];
-      if (!conversation?.agentKey || !conversation.agentSessionId) {
+    getCurrentSession(sessionName: string): StateAgentSession | undefined {
+      const session = state.sessions[sessionName];
+      if (!session?.agentKey || !session.agentSessionId) {
         return undefined;
       }
       return {
-        agentKey: conversation.agentKey,
-        agentSessionId: conversation.agentSessionId,
+        agentKey: session.agentKey,
+        agentSessionId: session.agentSessionId,
       };
     },
     setCurrentSession(
-      conversationKey: string,
+      sessionName: string,
       session: { agentKey: string; agentSessionId: string },
-    ): StateSession {
+    ): StateAgentSession {
       updateState((state) => {
-        state.conversations[conversationKey] = {
-          ...state.conversations[conversationKey],
+        state.sessions[sessionName] = {
+          ...state.sessions[sessionName],
           agentKey: session.agentKey,
           agentSessionId: session.agentSessionId,
         };
@@ -136,22 +136,22 @@ export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
     },
     deleteSession(session: { agentKey: string; agentSessionId: string }) {
       updateState((state) => {
-        for (const conversation of Object.values(state.conversations)) {
+        for (const stateSession of Object.values(state.sessions)) {
           if (
-            conversation.agentKey === session.agentKey &&
-            conversation.agentSessionId === session.agentSessionId
+            stateSession.agentKey === session.agentKey &&
+            stateSession.agentSessionId === session.agentSessionId
           ) {
-            delete conversation.agentKey;
-            delete conversation.agentSessionId;
+            delete stateSession.agentKey;
+            delete stateSession.agentSessionId;
           }
         }
       });
     },
-    clearCurrentSession(conversationKey: string) {
+    clearCurrentSession(sessionName: string) {
       updateState((state) => {
-        if (state.conversations[conversationKey]) {
-          delete state.conversations[conversationKey].agentKey;
-          delete state.conversations[conversationKey].agentSessionId;
+        if (state.sessions[sessionName]) {
+          delete state.sessions[sessionName].agentKey;
+          delete state.sessions[sessionName].agentSessionId;
         }
       });
     },
@@ -169,7 +169,7 @@ function getInitialState(): State {
     version: 2,
     defaultAgent: Object.keys(BUILTIN_AGENTS)[0],
     agents: { ...BUILTIN_AGENTS },
-    conversations: {},
+    sessions: {},
   };
 }
 
