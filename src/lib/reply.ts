@@ -5,7 +5,8 @@ export interface ReplyContext {
 }
 
 export interface Reply {
-  send: (text: string, options?: { system?: boolean }) => Promise<void>;
+  send: (text: string) => Promise<void>;
+  system: (text: string) => Promise<void>;
   stream: () => ResponseWriter;
 }
 
@@ -16,9 +17,8 @@ interface ResponseWriter {
 }
 
 export function createReply(options: { context: ReplyContext; limit: number }): Reply {
-  async function send(text: string, sendOptions: { system?: boolean } = {}): Promise<void> {
-    const responseText = sendOptions.system ? `⚙️ ${text}` : text;
-    const parts = splitMessageText(responseText, options.limit);
+  async function send(text: string): Promise<void> {
+    const parts = splitMessageText(text, options.limit);
     for (const part of parts) {
       await options.context.reply(part);
     }
@@ -26,6 +26,9 @@ export function createReply(options: { context: ReplyContext; limit: number }): 
 
   return {
     send,
+    system(text: string) {
+      return send(`[⚙️ System]\n${text}`);
+    },
     stream() {
       return createResponseWriter({
         limit: options.limit,
@@ -52,20 +55,20 @@ function splitMessageText(text: string, limit: number): string[] {
   return parts;
 }
 
-function findSplitIndex(text: string, budget: number): number {
-  const paragraphIndex = text.lastIndexOf("\n\n", budget);
-  if (paragraphIndex > budget / 2) {
+function findSplitIndex(text: string, limit: number): number {
+  const paragraphIndex = text.lastIndexOf("\n\n", limit);
+  if (paragraphIndex > limit / 2) {
     return paragraphIndex + 2;
   }
-  const lineIndex = text.lastIndexOf("\n", budget);
-  if (lineIndex > budget / 2) {
+  const lineIndex = text.lastIndexOf("\n", limit);
+  if (lineIndex > limit / 2) {
     return lineIndex + 1;
   }
-  const spaceIndex = text.lastIndexOf(" ", budget);
-  if (spaceIndex > budget / 2) {
+  const spaceIndex = text.lastIndexOf(" ", limit);
+  if (spaceIndex > limit / 2) {
     return spaceIndex + 1;
   }
-  return budget;
+  return limit;
 }
 
 function createResponseWriter(options: {

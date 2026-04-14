@@ -34,9 +34,7 @@ export async function createHandler(
     sessionId?: string;
   }): Promise<void> {
     if (activeSessions.has(options.name)) {
-      await options.reply.send("Agent turn already in progress. Send /cancel to stop it.", {
-        system: true,
-      });
+      await options.reply.system("Agent turn already in progress. Send /cancel to stop it.");
       return;
     }
 
@@ -56,27 +54,27 @@ export async function createHandler(
         : options.text;
 
       const { queue } = session.prompt(promptText);
-      const responseWriter = options.reply.stream();
+      const replyStream = options.reply.stream();
       activeSessions.set(options.name, session);
 
       for await (const update of queue) {
         if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
-          await responseWriter.write(update.content.text);
+          await replyStream.write(update.content.text);
         } else if (update.sessionUpdate === "tool_call") {
           console.log(`[acp:update] tool_call: ${update.title}`);
-          await responseWriter.flush();
-          await responseWriter.write(`Tool: ${update.title}`);
-          await responseWriter.flush();
+          await replyStream.flush();
+          await replyStream.write(`Tool: ${update.title}`);
+          await replyStream.flush();
         } else {
           console.log(`[acp:update] ${update.sessionUpdate}`);
         }
       }
       if (cancelledSessions.has(session)) {
-        await responseWriter.flush();
-        await options.reply.send("Agent turn cancelled.", { system: true });
+        await replyStream.flush();
+        await options.reply.system("Agent turn cancelled.");
         return;
       }
-      await responseWriter.finish();
+      await replyStream.finish();
       if (!options.sessionId) {
         state.setSessionId(options.name, session.sessionId);
       }
@@ -91,7 +89,7 @@ export async function createHandler(
   async function handleCancel(options: { reply: Reply; sessionName: string }): Promise<void> {
     const session = activeSessions.get(options.sessionName);
     if (!session) {
-      await options.reply.send("No active agent turn.", { system: true });
+      await options.reply.system("No active agent turn.");
       return;
     }
 
@@ -104,7 +102,7 @@ export async function createHandler(
       session.close();
       response = "Cancelled current agent turn by killing the agent process.";
     }
-    await options.reply.send(response, { system: true });
+    await options.reply.system(response);
   }
 
   async function handleCloseSession(options: {
@@ -229,7 +227,7 @@ Usage:
 /session load <sessionId>
 /session close [sessionId]`;
     }
-    await options.reply.send(response, { system: true });
+    await options.reply.system(response);
     return true;
   }
 
@@ -242,11 +240,11 @@ Usage:
       return false;
     }
     if (subcommand === "exit") {
-      await commandOptions.reply.send("Exiting acpella.", { system: true });
+      await commandOptions.reply.system("Exiting acpella.");
       options.onServiceExit();
       return true;
     }
-    await commandOptions.reply.send("Usage: /service exit", { system: true });
+    await commandOptions.reply.system("Usage: /service exit");
     return true;
   }
 
@@ -269,7 +267,7 @@ prompt file: ${config.prompt.file ?? "none"}`;
     });
 
     if (text === "/status") {
-      await reply.send(handleStatus(), { system: true });
+      await reply.system(handleStatus());
       return;
     }
     if (text === "/cancel") {
