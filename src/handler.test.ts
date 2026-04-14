@@ -91,6 +91,10 @@ describe(createHandler, () => {
     expect(await session.request("__tool:Search docs")).toMatchInlineSnapshot(
       `"echo: __tool:Search docs"`,
     );
+    expect(await session.request("__chunk_tool:Search docs")).toMatchInlineSnapshot(`
+      "before
+      after"
+    `);
     expect(await session.request("/verbose")).toMatchInlineSnapshot(`
       "[⚙️ System]
       Tool call output: off

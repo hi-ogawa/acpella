@@ -1,7 +1,7 @@
-import fs from "node:fs";
 import { startAcpManager } from "./acp/index.ts";
 import type { AgentSession } from "./acp/index.ts";
 import type { AppConfig } from "./config.ts";
+import { readOptionalPromptFile } from "./lib/prompt.ts";
 import { createReply, MESSAGE_SPLIT_BUDGET } from "./lib/reply.ts";
 import type { Reply, ReplyContext } from "./lib/reply.ts";
 import { createSessionStateStore, makeStateSessionKey } from "./state.ts";
@@ -77,8 +77,8 @@ export async function createHandler(
           await reply.write(update.content.text);
         } else if (update.sessionUpdate === "tool_call") {
           console.log(`[acp:update] tool_call: ${update.title}`);
+          await reply.flush();
           if (verbose) {
-            await reply.flush();
             await reply.write(`Tool: ${update.title}`);
             await reply.flush();
           }
@@ -539,19 +539,4 @@ ${options.customPrompt.trim()}
 
 ${options.userText}
 `;
-}
-
-function readOptionalPromptFile(file: string): string | undefined {
-  try {
-    return fs.readFileSync(file, "utf8");
-  } catch (error) {
-    if (isNodeError(error) && error.code === "ENOENT") {
-      return undefined;
-    }
-    throw error;
-  }
-}
-
-function isNodeError(error: unknown): error is NodeJS.ErrnoException {
-  return error instanceof Error && "code" in error;
 }
