@@ -19,6 +19,7 @@ export interface HandlerContext extends ReplyContext {
 export async function createHandler(
   config: AppConfig,
   options: {
+    version?: string;
     onServiceExit: () => void;
   },
 ): Promise<Handler> {
@@ -251,6 +252,7 @@ Usage:
   function handleStatus(): string {
     return `\
 service state: running
+version: ${options.version ?? "unknown"}
 configured agent: ${config.agent.alias}
 agent command: ${config.agent.command}
 home: ${config.home}
