@@ -25,8 +25,8 @@ const stateSchema = z
 type State = z.infer<typeof stateSchema>;
 type Scope = State["scopes"][string];
 
-export type SessionStore = ReturnType<typeof createSessionStateStore>;
-export type SessionList = Scope["sessions"][string];
+export type SessionStateStore = ReturnType<typeof createSessionStateStore>;
+export type SessionEntries = Scope;
 
 export function createSessionStateStore(config: Pick<AppConfig, "agent" | "stateFile">) {
   const scopeKey = config.agent.command;
@@ -50,15 +50,7 @@ export function createSessionStateStore(config: Pick<AppConfig, "agent" | "state
   }
 
   function ensureScope(state: State): Scope {
-    const existing = state.scopes[scopeKey];
-    if (existing) {
-      return existing;
-    }
-    const scope: Scope = {
-      sessions: {},
-    };
-    state.scopes[scopeKey] = scope;
-    return scope;
+    return (state.scopes[scopeKey] ??= { sessions: {} });
   }
 
   return {
