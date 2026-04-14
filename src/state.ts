@@ -103,6 +103,7 @@ export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
       });
     },
     getSession(sessionName: string): StateSession | undefined {
+      // TODO: why not { verbose: false, ..session }?
       const session = state.sessions[sessionName];
       if (!session?.agentKey || !session.agentSessionId) {
         return undefined;
