@@ -95,17 +95,17 @@ Options:
   bot.on("message:text", async (ctx) => {
     const chatId = ctx.chat.id;
     const threadId = ctx.message.message_thread_id;
-    const name = telegramSessionName({ chatId, threadId });
+    const sessionName = telegramSessionName({ chatId, threadId });
 
     if (!cli.repl) {
       const userId = ctx.from?.id;
 
       if (allowedChats?.size && !allowedChats.has(chatId)) {
-        console.error(`[${name}] rejected: chat ${chatId} is not allowed`);
+        console.error(`[${sessionName}] rejected: chat ${chatId} is not allowed`);
         return;
       }
       if (!userId || (allowedUsers?.size && !allowedUsers.has(userId))) {
-        console.error(`[${name}] rejected: user ${userId ?? "unknown"} is not allowed`);
+        console.error(`[${sessionName}] rejected: user ${userId ?? "unknown"} is not allowed`);
         return;
       }
     }
@@ -113,17 +113,17 @@ Options:
     const text = ctx.message.text;
 
     if (!cli.repl) {
-      console.log(`[${name}] <- ${text}`);
+      console.log(`[${sessionName}] <- ${text}`);
     }
 
     try {
-      await handler.handle({ session: name, context: ctx });
+      await handler.handle({ sessionName, context: ctx });
       if (!cli.repl) {
-        console.log(`[${name}] -> response sent`);
+        console.log(`[${sessionName}] -> response sent`);
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      console.error(`[${name}] error: ${msg}`);
+      console.error(`[${sessionName}] error: ${msg}`);
       await ctx.reply(`Error: ${msg.slice(0, 200)}`);
     }
   });

@@ -19,7 +19,7 @@ async function createHandlerTester() {
     onServiceExit: () => {},
   });
 
-  async function request({ session, text }: { session: string; text: string }) {
+  async function request({ sessionName, text }: { sessionName: string; text: string }) {
     const replies: string[] = [];
     const context: HandlerContext = {
       message: {
@@ -29,13 +29,13 @@ async function createHandlerTester() {
         replies.push(text);
       },
     };
-    await handler.handle({ session, context });
+    await handler.handle({ sessionName, context });
     return replies.join("\n");
   }
 
-  function createSession(session: string) {
+  function createSession(sessionName: string) {
     return {
-      request: (text: string) => request({ session, text }),
+      request: (text: string) => request({ sessionName, text }),
     };
   }
 
@@ -49,7 +49,7 @@ async function createHandlerTester() {
 describe(createHandler, () => {
   test("basic", async () => {
     const tester = await createHandlerTester();
-    const result = await tester.request({ session: "test", text: "hello" });
+    const result = await tester.request({ sessionName: "test", text: "hello" });
     expect(result).toMatchInlineSnapshot(`"echo: hello"`);
     expect(fs.existsSync(tester.config.stateFile)).toBe(true);
   });
