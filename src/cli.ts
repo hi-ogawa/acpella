@@ -1,13 +1,40 @@
 import path from "node:path";
 import { parseArgs } from "node:util";
 import { run, sequentialize } from "@grammyjs/runner";
-import { Bot } from "grammy";
+import { Bot, GrammyError, HttpError } from "grammy";
 import { loadConfig } from "./config.ts";
 import { createHandler } from "./handler.ts";
 import { handleSetupSystemd } from "./lib/systemd.ts";
 import { telegramSequentialKey, telegramSessionName } from "./lib/telegram.ts";
 import { getVersion } from "./lib/version.ts";
 import { createTestBot, type TestBot } from "./repl.ts";
+
+async function replyWithRetry(
+  ctx: { reply: (text: string) => Promise<unknown> },
+  text: string,
+  sessionName: string,
+): Promise<void> {
+  try {
+    await ctx.reply(text);
+  } catch (replyErr) {
+    if (replyErr instanceof GrammyError && replyErr.error_code === 429) {
+      const retryAfterSec = replyErr.parameters?.retry_after;
+      const retryAfterMs =
+        ((retryAfterSec != null && retryAfterSec > 0 ? retryAfterSec : 0) + 1) * 1000;
+      console.error(`[${sessionName}] error reply hit 429, retrying after ${retryAfterMs}ms`);
+      await new Promise((resolve) => setTimeout(resolve, retryAfterMs));
+      try {
+        await ctx.reply(text);
+      } catch (finalErr) {
+        const finalMsg = finalErr instanceof Error ? finalErr.message : String(finalErr);
+        console.error(`[${sessionName}] error reply failed (gave up): ${finalMsg}`);
+      }
+    } else {
+      const replyMsg = replyErr instanceof Error ? replyErr.message : String(replyErr);
+      console.error(`[${sessionName}] error reply failed: ${replyMsg}`);
+    }
+  }
+}
 
 async function main() {
   const argv = process.argv.slice(2);
@@ -124,7 +151,7 @@ Options:
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`[${sessionName}] error: ${msg}`);
-      await ctx.reply(`Error: ${msg.slice(0, 200)}`);
+      await replyWithRetry(ctx, `Error: ${msg.slice(0, 200)}`, sessionName);
     }
   });
 
@@ -133,6 +160,21 @@ Options:
   console.log(
     `Starting service (agent: ${config.agent.alias}, home: ${config.home}, repl: ${cli.repl})`,
   );
+
+  if (!cli.repl) {
+    bot.catch((err) => {
+      const { error } = err;
+      if (error instanceof GrammyError) {
+        console.error(`[bot] Telegram API error: ${error.error_code} ${error.description}`);
+      } else if (error instanceof HttpError) {
+        console.error(`[bot] HTTP error: ${error.message}`);
+      } else {
+        console.error(
+          `[bot] unexpected error: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    });
+  }
 
   if (testBot) {
     await testBot.startRepl();

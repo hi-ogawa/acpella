@@ -41,7 +41,7 @@ export async function createHandler(
       return;
     }
 
-    const verbose = stateSession?.verbose ?? true;
+    const verbose = stateSession?.verbose ?? false;
     const sessionId = stateSession?.sessionId;
     const session = sessionId
       ? await manager.loadSession({
@@ -260,7 +260,7 @@ Usage:
       return false;
     }
 
-    const verbose = options.stateSession?.verbose ?? true;
+    const verbose = options.stateSession?.verbose ?? false;
     const verboseStatus = `Tool call output: ${verbose ? "on" : "off"}`;
     const verboseHelp = `\
 ${verboseStatus}
