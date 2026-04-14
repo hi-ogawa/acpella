@@ -266,12 +266,11 @@ session id: ${session?.agentSessionId ?? "none"}`;
         break;
       }
       case "new": {
-        const agentKey = args[0] && stateStore.get().agents[args[0]] ? args.shift() : undefined;
         await handlePrompt({
           reply: options.reply,
           sessionName: options.sessionName,
-          text: args.join(" "),
-          agentKey,
+          text: "",
+          agentKey: args[0],
           fresh: true,
         });
         return true;
