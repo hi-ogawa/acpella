@@ -97,6 +97,8 @@ export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
   }
 
   function updateState(updater: (state: State) => void): void {
+    // Mutate a draft so validation failures do not leave the in-memory cache
+    // ahead of the persisted state.
     const nextState = structuredClone(state);
     updater(nextState);
     state = stateSchema.parse(nextState);

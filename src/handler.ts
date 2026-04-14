@@ -28,7 +28,7 @@ export async function createHandler(
   const activeSessions = new Map<string, AgentSession>();
   const cancelledSessions = new WeakSet<AgentSession>();
 
-  async function getManager(agentKey: string) {
+  async function getAgentManager(agentKey: string) {
     const agent = stateStore.getState().agents[agentKey];
     if (!agent) {
       throw new Error(`Unknown agent: ${agentKey}`);
@@ -54,7 +54,7 @@ export async function createHandler(
     const verbose = state.conversations[options.sessionName]?.verbose ?? true;
     const currentSession = options.fresh ? undefined : stateSession;
     const agentKey = options.agentKey ?? currentSession?.agentKey ?? state.defaultAgent;
-    const manager = await getManager(agentKey);
+    const manager = await getAgentManager(agentKey);
     const agentSessionId = currentSession?.agentSessionId;
     const session = agentSessionId
       ? await manager.loadSession({
@@ -135,7 +135,7 @@ export async function createHandler(
       : currentSession;
     if (session) {
       try {
-        const manager = await getManager(session.agentKey);
+        const manager = await getAgentManager(session.agentKey);
         await manager.closeSession({ sessionId: session.agentSessionId });
       } catch (e) {
         console.error("[acp] closeSession failed:", e);
@@ -161,7 +161,7 @@ export async function createHandler(
       defaultAgentKey:
         stateStore.getCurrentSession(options.sessionName)?.agentKey ?? state.defaultAgent,
     });
-    const manager = await getManager(parsedSession.agentKey);
+    const manager = await getAgentManager(parsedSession.agentKey);
     const session = await manager.loadSession({
       sessionCwd: config.home,
       sessionId: parsedSession.agentSessionId,
@@ -192,7 +192,7 @@ session id: ${currentSession?.agentSessionId ?? "none"}`;
     const activeAgentSessions = new Set<string>();
     for (const [agentKey] of Object.entries(state.agents)) {
       try {
-        const manager = await getManager(agentKey);
+        const manager = await getAgentManager(agentKey);
         const agentSessions = await manager.listSessions();
         for (const session of agentSessions.sessions) {
           activeAgentSessions.add(
