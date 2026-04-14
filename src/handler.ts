@@ -5,7 +5,7 @@ import type { AppConfig } from "./config.ts";
 import { createReply, MESSAGE_SPLIT_BUDGET } from "./lib/reply.ts";
 import type { Reply, ReplyContext } from "./lib/reply.ts";
 import { createSessionStateStore, makeStateSessionKey } from "./state.ts";
-import type { StateAgentSession } from "./state.ts";
+import type { StateSession } from "./state.ts";
 
 interface Handler {
   handle: (options: { sessionName: string; context: HandlerContext }) => Promise<void>;
@@ -42,7 +42,7 @@ export async function createHandler(
     text: string;
     agentKey?: string;
     fresh?: boolean;
-    stateSession?: StateAgentSession;
+    stateSession?: StateSession;
   }): Promise<void> {
     const { reply, stateSession } = options;
     if (activeSessions.has(options.sessionName)) {
@@ -52,11 +52,11 @@ export async function createHandler(
 
     const state = stateStore.get();
     const verbose = state.sessions[options.sessionName]?.verbose ?? true;
-    const currentSession = options.fresh ? undefined : stateSession;
-    const agentKey = options.agentKey ?? currentSession?.agentKey ?? state.defaultAgent;
+    const savedSession = options.fresh ? undefined : stateSession;
+    const agentKey = options.agentKey ?? savedSession?.agentKey ?? state.defaultAgent;
     const manager = await getAgentManager(agentKey);
-    const agentSessionId = currentSession?.agentSessionId;
-    const session = agentSessionId
+    const agentSessionId = savedSession?.agentSessionId;
+    const agentSession = agentSessionId
       ? await manager.loadSession({
           sessionCwd: config.home,
           sessionId: agentSessionId,
@@ -69,8 +69,8 @@ export async function createHandler(
         ? formatFirstPrompt({ customPrompt, userText: options.text })
         : options.text;
 
-      const { queue } = session.prompt(promptText);
-      activeSessions.set(options.sessionName, session);
+      const { queue } = agentSession.prompt(promptText);
+      activeSessions.set(options.sessionName, agentSession);
 
       for await (const update of queue) {
         if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
@@ -86,23 +86,23 @@ export async function createHandler(
           console.log(`[acp:update] ${update.sessionUpdate}`);
         }
       }
-      if (cancelledSessions.has(session)) {
+      if (cancelledSessions.has(agentSession)) {
         await reply.flush();
         await reply.system("Agent turn cancelled.");
         return;
       }
       await reply.finish();
       if (!agentSessionId) {
-        stateStore.setCurrentSession(options.sessionName, {
+        stateStore.setSession(options.sessionName, {
           agentKey,
-          agentSessionId: session.sessionId,
+          agentSessionId: agentSession.sessionId,
         });
       }
     } finally {
-      if (activeSessions.get(options.sessionName) === session) {
+      if (activeSessions.get(options.sessionName) === agentSession) {
         activeSessions.delete(options.sessionName);
       }
-      session.close();
+      agentSession.close();
     }
   }
 
@@ -129,11 +129,11 @@ export async function createHandler(
     sessionName: string;
     sessionIdArg?: string;
   }): Promise<void> {
-    const currentSession = stateStore.getCurrentSession(options.sessionName);
+    const savedSession = stateStore.getSession(options.sessionName);
     const session = options.sessionIdArg
       ? resolveSession({ value: options.sessionIdArg, sessionName: options.sessionName })
-      : currentSession;
-    if (session) {
+      : savedSession;
+    if (session?.agentKey && session.agentSessionId) {
       try {
         const manager = await getAgentManager(session.agentKey);
         await manager.closeSession({ sessionId: session.agentSessionId });
@@ -141,10 +141,13 @@ export async function createHandler(
         console.error("[acp] closeSession failed:", e);
       }
     }
-    if (session) {
-      stateStore.deleteSession(session);
+    if (session?.agentKey && session.agentSessionId) {
+      stateStore.deleteSession({
+        agentKey: session.agentKey,
+        agentSessionId: session.agentSessionId,
+      });
     } else if (!options.sessionIdArg) {
-      stateStore.clearCurrentSession(options.sessionName);
+      stateStore.clearSession(options.sessionName);
     }
   }
 
@@ -158,8 +161,7 @@ export async function createHandler(
     const state = stateStore.get();
     const parsedSession = stateStore.parseSessionArg({
       value: options.sessionIdArg,
-      defaultAgentKey:
-        stateStore.getCurrentSession(options.sessionName)?.agentKey ?? state.defaultAgent,
+      defaultAgentKey: stateStore.getSession(options.sessionName)?.agentKey ?? state.defaultAgent,
     });
     const manager = await getAgentManager(parsedSession.agentKey);
     const session = await manager.loadSession({
@@ -167,23 +169,26 @@ export async function createHandler(
       sessionId: parsedSession.agentSessionId,
     });
     try {
-      const stateSession = stateStore.setCurrentSession(options.sessionName, {
+      stateStore.setSession(options.sessionName, {
         agentKey: parsedSession.agentKey,
         agentSessionId: session.sessionId,
       });
-      return `Loaded session: ${makeStateSessionKey(stateSession)}`;
+      return `Loaded session: ${makeStateSessionKey({
+        agentKey: parsedSession.agentKey,
+        agentSessionId: session.sessionId,
+      })}`;
     } finally {
       session.close();
     }
   }
 
-  function handleCurrentSession(options: { sessionName: string }): string {
+  function handleSession(options: { sessionName: string }): string {
     const state = stateStore.get();
-    const currentSession = stateStore.getCurrentSession(options.sessionName);
+    const session = stateStore.getSession(options.sessionName);
     return `\
 session: ${options.sessionName}
-agent: ${currentSession?.agentKey ?? state.defaultAgent}
-session id: ${currentSession?.agentSessionId ?? "none"}`;
+agent: ${session?.agentKey ?? state.defaultAgent}
+session id: ${session?.agentSessionId ?? "none"}`;
   }
 
   async function handleListSessions(): Promise<string> {
@@ -232,12 +237,11 @@ session id: ${currentSession?.agentSessionId ?? "none"}`;
     return output || "No sessions.";
   }
 
-  function resolveSession(options: { value: string; sessionName: string }): StateAgentSession {
+  function resolveSession(options: { value: string; sessionName: string }): StateSession {
     const state = stateStore.get();
     const parsedSession = stateStore.parseSessionArg({
       value: options.value,
-      defaultAgentKey:
-        stateStore.getCurrentSession(options.sessionName)?.agentKey ?? state.defaultAgent,
+      defaultAgentKey: stateStore.getSession(options.sessionName)?.agentKey ?? state.defaultAgent,
     });
     return parsedSession;
   }
@@ -254,7 +258,7 @@ session id: ${currentSession?.agentSessionId ?? "none"}`;
     let response: string;
     switch (subcommand) {
       case undefined: {
-        response = handleCurrentSession({ sessionName: options.sessionName });
+        response = handleSession({ sessionName: options.sessionName });
         break;
       }
       case "list": {
@@ -466,7 +470,7 @@ home: ${config.home}
   const handle: Handler["handle"] = async (options) => {
     const text = options.context.message!.text!;
     const sessionName = options.sessionName;
-    const stateSession = stateStore.getCurrentSession(sessionName);
+    const stateSession = stateStore.getSession(sessionName);
     const reply = createReply({
       context: options.context,
       limit: MESSAGE_SPLIT_BUDGET,

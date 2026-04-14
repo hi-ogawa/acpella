@@ -51,7 +51,6 @@ const stateSchema = z
 export type State = z.infer<typeof stateSchema>;
 export type StateAgent = State["agents"][string];
 export type StateSession = State["sessions"][string];
-export type StateAgentSession = Required<Pick<StateSession, "agentKey" | "agentSessionId">>;
 export type SessionStateStore = ReturnType<typeof createSessionStateStore>;
 
 export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
@@ -111,7 +110,7 @@ export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
         };
       });
     },
-    getCurrentSession(sessionName: string): StateAgentSession | undefined {
+    getSession(sessionName: string): StateSession | undefined {
       const session = state.sessions[sessionName];
       if (!session?.agentKey || !session.agentSessionId) {
         return undefined;
@@ -120,19 +119,6 @@ export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
         agentKey: session.agentKey,
         agentSessionId: session.agentSessionId,
       };
-    },
-    setCurrentSession(
-      sessionName: string,
-      session: { agentKey: string; agentSessionId: string },
-    ): StateAgentSession {
-      updateState((state) => {
-        state.sessions[sessionName] = {
-          ...state.sessions[sessionName],
-          agentKey: session.agentKey,
-          agentSessionId: session.agentSessionId,
-        };
-      });
-      return session;
     },
     deleteSession(session: { agentKey: string; agentSessionId: string }) {
       updateState((state) => {
@@ -147,7 +133,7 @@ export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
         }
       });
     },
-    clearCurrentSession(sessionName: string) {
+    clearSession(sessionName: string) {
       updateState((state) => {
         if (state.sessions[sessionName]) {
           delete state.sessions[sessionName].agentKey;
