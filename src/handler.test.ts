@@ -34,6 +34,7 @@ async function createHandlerTester() {
   }
 
   return {
+    config,
     request,
   };
 }
@@ -43,5 +44,6 @@ describe(createHandler, () => {
     const tester = await createHandlerTester();
     const result = await tester.request({ session: "test-session", text: "hello" });
     expect(result).toMatchInlineSnapshot(`"echo: hello"`);
+    expect(fs.existsSync(tester.config.stateFile)).toBe(true);
   });
 });
