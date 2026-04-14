@@ -22,11 +22,15 @@ function readPromptFileWithIncludes(file: string, seen: Set<string>): string {
   seen.add(file);
   try {
     const text = fs.readFileSync(file, "utf8");
-    return text.replace(INCLUDE_LINE_RE, (_line, includePath: string) => {
+    return text.replace(INCLUDE_LINE_RE, (line, includePath: string) => {
       const target = path.isAbsolute(includePath)
         ? includePath
         : path.resolve(path.dirname(file), includePath);
-      return readPromptFileWithIncludes(target, seen).trimEnd();
+      try {
+        return readPromptFileWithIncludes(target, seen).trimEnd();
+      } catch {
+        return line;
+      }
     });
   } finally {
     seen.delete(file);

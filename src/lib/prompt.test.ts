@@ -10,6 +10,10 @@ describe(readOptionalPromptFile, () => {
       "before
       identity
       tools
+      @./missing.md
+      cycle a
+      cycle b
+      @./cycle-a.md
       inline @./partials/identity.md stays literal
       after
       "
