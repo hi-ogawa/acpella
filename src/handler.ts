@@ -251,13 +251,11 @@ Usage:
 
   function handleStatus(): string {
     return `\
-service state: running
-version: ${options.version ?? "unknown"}
-configured agent: ${config.agent.alias}
-agent command: ${config.agent.command}
+status: running
+version: ${options.version ?? "(unknown)"}
+agent: ${config.agent.command}
 home: ${config.home}
-state file: ${config.stateFile}
-prompt file: ${config.prompt.file ?? "none"}`;
+`;
   }
 
   const handle: Handler["handle"] = async (options) => {
