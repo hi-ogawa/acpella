@@ -79,9 +79,10 @@ export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
     if (result.success) {
       return result.data;
     }
-    const legacyResult = stateSchemaV1.safeParse(value);
-    if (legacyResult.success) {
-      return migrateStateV1(legacyResult.data);
+    const resultV1 = stateSchemaV1.safeParse(value);
+    if (resultV1.success) {
+      console.error("[state] version 1 state is ignored. creating new fresh state.");
+      return getInitialState();
     }
     return stateSchema.parse(value);
   }
@@ -239,51 +240,3 @@ const stateSchemaV1 = z.object({
     }),
   ),
 });
-
-function migrateStateV1(legacyState: z.infer<typeof stateSchemaV1>): State {
-  function getBuiltinAgentKeyForCommand(agentCommand: string): string | undefined {
-    for (const [agentKey, agent] of Object.entries(BUILTIN_AGENTS)) {
-      if (agent.command === agentCommand) {
-        return agentKey;
-      }
-    }
-    return undefined;
-  }
-
-  function deriveAgentKey(options: { agentCommand: string; usedAgentKeys: Set<string> }): string {
-    const builtinAgentKey = getBuiltinAgentKeyForCommand(options.agentCommand);
-    if (builtinAgentKey) {
-      return builtinAgentKey;
-    }
-    const baseAgentKey = options.agentCommand.includes(" ") ? "agent" : options.agentCommand;
-    let agentKey = baseAgentKey;
-    let suffix = 2;
-    while (options.usedAgentKeys.has(agentKey)) {
-      agentKey = `${baseAgentKey}-${suffix}`;
-      suffix += 1;
-    }
-    return agentKey;
-  }
-
-  const state = getInitialState();
-  const usedAgentKeys = new Set(Object.keys(state.agents));
-  for (const [agentCommand, scope] of Object.entries(legacyState.scopes)) {
-    const agentKey = deriveAgentKey({ agentCommand, usedAgentKeys });
-    state.agents[agentKey] = { command: agentCommand };
-    usedAgentKeys.add(agentKey);
-    for (const [conversationKey, entry] of Object.entries(scope.sessions)) {
-      const sessionKey = makeSessionKey({
-        agentKey,
-        agentSessionId: entry.sessionId,
-      });
-      state.sessions[sessionKey] = {
-        agentKey,
-        agentSessionId: entry.sessionId,
-      };
-      const conversation = (state.conversations[conversationKey] ??= {});
-      conversation.verbose ??= entry.verbose;
-      conversation.sessionKey ??= sessionKey;
-    }
-  }
-  return stateSchema.parse(state);
-}
