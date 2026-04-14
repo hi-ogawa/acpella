@@ -252,6 +252,54 @@ Usage:
     return true;
   }
 
+  async function handleVerboseCommand(options: {
+    reply: Reply;
+    text: string;
+    sessionName: string;
+    stateSession?: StateSession;
+  }): Promise<boolean> {
+    const [command, subcommand] = options.text.trim().split(/\s+/);
+    if (command !== "/verbose") {
+      return false;
+    }
+
+    const verbose = options.stateSession?.verbose ?? true;
+    const verboseStatus = `Tool call output: ${verbose ? "on" : "off"}`;
+    const verboseHelp = `\
+${verboseStatus}
+Usage: /verbose [on|off]
+`;
+
+    let response: string;
+    switch (subcommand) {
+      case undefined: {
+        response = verboseHelp;
+        break;
+      }
+      case "on":
+      case "off": {
+        if (!options.stateSession) {
+          response = `\
+No session. Send a prompt first, then use /verbose ${subcommand}.
+
+${verboseHelp}`;
+          break;
+        }
+        state.setSession(options.sessionName, {
+          ...options.stateSession,
+          verbose: subcommand === "on",
+        });
+        response = `Tool call output: ${subcommand}`;
+        break;
+      }
+      default: {
+        response = verboseHelp;
+      }
+    }
+    await options.reply.system(response);
+    return true;
+  }
+
   function handleStatus(): string {
     return `\
 status: running
@@ -264,6 +312,7 @@ home: ${config.home}
   const handle: Handler["handle"] = async (options) => {
     const text = options.context.message!.text!;
     const sessionName = options.session;
+    const stateSession = state.getSession(sessionName);
     const reply = createReply({
       context: options.context,
       limit: MESSAGE_SPLIT_BUDGET,
@@ -287,6 +336,15 @@ home: ${config.home}
     if (handledServiceCommand) {
       return;
     }
+    const handledVerboseCommand = await handleVerboseCommand({
+      reply,
+      text,
+      sessionName,
+      stateSession,
+    });
+    if (handledVerboseCommand) {
+      return;
+    }
     const handledSessionCommand = await handleSessionCommand({
       reply,
       text,
@@ -300,7 +358,7 @@ home: ${config.home}
       reply,
       name: sessionName,
       text,
-      stateSession: state.getSession(sessionName),
+      stateSession,
     });
   };
 
