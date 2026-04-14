@@ -69,8 +69,9 @@ export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
   }
 
   function parseState(value: unknown): State {
-    const resultV1 = stateSchemaV1.safeParse(value);
-    if (resultV1.success) {
+    const version =
+      value && typeof value === "object" && "version" in value ? value.version : undefined;
+    if (version === 1) {
       throw new Error("version 1 state is ignored. creating new fresh state.");
     }
     return stateSchema.parse(value);
@@ -170,19 +171,3 @@ function parseSessionArg(options: { value: string; defaultAgentKey: string }): {
     agentSessionId: options.value.slice(separatorIndex + 1),
   };
 }
-
-const stateSchemaV1 = z.object({
-  version: z.literal(1),
-  scopes: z.record(
-    z.string().min(1),
-    z.object({
-      sessions: z.record(
-        z.string().min(1),
-        z.object({
-          sessionId: z.string().min(1),
-          verbose: z.boolean().optional(),
-        }),
-      ),
-    }),
-  ),
-});
