@@ -33,17 +33,40 @@ async function createHandlerTester() {
     return replies.join("\n");
   }
 
+  function createSession(session: string) {
+    return {
+      request: (text: string) => request({ session, text }),
+    };
+  }
+
   return {
     config,
     request,
+    createSession,
   };
 }
 
 describe(createHandler, () => {
   test("basic", async () => {
     const tester = await createHandlerTester();
-    const result = await tester.request({ session: "test-session", text: "hello" });
+    const result = await tester.request({ session: "test", text: "hello" });
     expect(result).toMatchInlineSnapshot(`"echo: hello"`);
     expect(fs.existsSync(tester.config.stateFile)).toBe(true);
+  });
+
+  test("session commands", async () => {
+    const tester = await createHandlerTester();
+    const session = tester.createSession("test");
+    expect(await session.request("/session list")).toMatchInlineSnapshot(`
+      "[⚙️ System]
+      - (unknown) -> __testLoadSession (active)
+      - (unknown) -> other-session (active)"
+    `);
+    expect(await session.request("hello")).toMatchInlineSnapshot(`"echo: hello"`);
+    expect(await session.request("/session list")).toMatchInlineSnapshot(`
+      "[⚙️ System]
+      - test -> __testLoadSession (active)
+      - (unknown) -> other-session (active)"
+    `);
   });
 });

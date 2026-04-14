@@ -23,7 +23,6 @@
   - Run log — log each execution result
 - [ ] chore: publish as npm package
 - [ ] refactor: review slop
-- [ ] test: favor handler.test.ts over e2e/basic.test.ts for future test
 - [ ] feat: change agent per session
 - [ ] feat: toggle tool call in response
 
