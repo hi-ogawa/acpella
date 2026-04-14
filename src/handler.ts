@@ -377,7 +377,9 @@ ${referencedSessions.length} saved session(s) still reference it.`;
           response = `Unknown agent: ${name}`;
           break;
         }
-        stateStore.setDefaultAgent(name);
+        stateStore.set((s) => {
+          s.defaultAgent = name;
+        });
         response = `Default agent: ${name}`;
         break;
       }

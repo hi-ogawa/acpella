@@ -120,11 +120,6 @@ export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
         delete state.agents[agentKey];
       });
     },
-    setDefaultAgent(agentKey: string) {
-      updateState((state) => {
-        state.defaultAgent = agentKey;
-      });
-    },
     setConversation(conversationKey: string, patch: StateConversation) {
       updateState((state) => {
         state.conversations[conversationKey] = {
@@ -132,9 +127,6 @@ export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
           ...patch,
         };
       });
-    },
-    getSessions() {
-      return state.sessions;
     },
     getSession(sessionKey: string): StateSession | undefined {
       const session = state.sessions[sessionKey];
@@ -179,6 +171,7 @@ export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
         }
       });
     },
+    // TODO: export directly
     makeSessionKey,
     parseSessionArg,
   };
