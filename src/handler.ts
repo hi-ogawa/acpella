@@ -331,15 +331,12 @@ Usage:
     switch (subcommand) {
       case "list": {
         const state = stateStore.get();
-        const defaultAgent = state.defaultAgent;
-        const agents = state.agents;
-        response =
-          Object.entries(agents)
-            .map(([agentKey, agent]) => {
-              const marker = agentKey === defaultAgent ? " (default)" : "";
-              return `- ${agentKey} -> ${agent.command}${marker}`;
-            })
-            .join("\n") || "No agents.";
+        response = "";
+        for (const [agentKey, agent] of Object.entries(state.agents)) {
+          const marker = agentKey === state.defaultAgent ? " (default)" : "";
+          response += `- ${agentKey} -> ${agent.command}${marker}\n`;
+        }
+        response ||= "No agents.";
         break;
       }
       case "new": {
