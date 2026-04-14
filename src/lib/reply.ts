@@ -1,0 +1,124 @@
+export const MESSAGE_SPLIT_BUDGET = 3900;
+
+export interface ReplyContext {
+  reply: (text: string) => Promise<unknown>;
+}
+
+export interface Reply {
+  send: (text: string, options?: { system?: boolean }) => Promise<void>;
+  stream: () => ResponseWriter;
+}
+
+interface ResponseWriter {
+  write: (text: string) => Promise<void>;
+  flush: () => Promise<void>;
+  finish: () => Promise<void>;
+}
+
+export function createReply(options: { context: ReplyContext; limit: number }): Reply {
+  async function send(text: string, sendOptions: { system?: boolean } = {}): Promise<void> {
+    const responseText = sendOptions.system ? `⚙️ ${text}` : text;
+    const parts = splitMessageText(responseText, options.limit);
+    for (const part of parts) {
+      await options.context.reply(part);
+    }
+  }
+
+  return {
+    send,
+    stream() {
+      return createResponseWriter({
+        limit: options.limit,
+        send,
+      });
+    },
+  };
+}
+
+function splitMessageText(text: string, limit: number): string[] {
+  const parts: string[] = [];
+  let remaining = text.trim();
+  while (remaining.length > limit) {
+    const result = splitHead(remaining, limit);
+    const part = result.head.trim();
+    if (part) {
+      parts.push(part);
+    }
+    remaining = result.tail.trim();
+  }
+  if (remaining) {
+    parts.push(remaining);
+  }
+  return parts;
+}
+
+function findSplitIndex(text: string, budget: number): number {
+  const paragraphIndex = text.lastIndexOf("\n\n", budget);
+  if (paragraphIndex > budget / 2) {
+    return paragraphIndex + 2;
+  }
+  const lineIndex = text.lastIndexOf("\n", budget);
+  if (lineIndex > budget / 2) {
+    return lineIndex + 1;
+  }
+  const spaceIndex = text.lastIndexOf(" ", budget);
+  if (spaceIndex > budget / 2) {
+    return spaceIndex + 1;
+  }
+  return budget;
+}
+
+function createResponseWriter(options: {
+  limit: number;
+  send: (text: string) => Promise<void>;
+}): ResponseWriter {
+  let bufferedText = "";
+  let sentResponse = false;
+
+  async function send(text: string): Promise<void> {
+    await options.send(text);
+    sentResponse = true;
+  }
+
+  async function flush(): Promise<void> {
+    if (!bufferedText.trim()) {
+      bufferedText = "";
+      return;
+    }
+    await send(bufferedText);
+    bufferedText = "";
+  }
+
+  async function flushOversizedText(): Promise<void> {
+    while (bufferedText.length > options.limit) {
+      const result = splitHead(bufferedText, options.limit);
+      bufferedText = result.tail;
+      const part = result.head.trim();
+      if (part) {
+        await send(part);
+      }
+    }
+  }
+
+  return {
+    async write(text: string): Promise<void> {
+      bufferedText += text;
+      await flushOversizedText();
+    },
+    flush,
+    async finish(): Promise<void> {
+      await flush();
+      if (!sentResponse) {
+        await send("(no response)");
+      }
+    },
+  };
+}
+
+function splitHead(text: string, limit: number): { head: string; tail: string } {
+  const splitIndex = findSplitIndex(text, limit);
+  return {
+    head: text.slice(0, splitIndex),
+    tail: text.slice(splitIndex),
+  };
+}

@@ -1,21 +1,19 @@
 import fs from "node:fs";
-import type { Context } from "grammy";
 import { startAcpManager } from "./acp/index.ts";
 import type { AgentSession } from "./acp/index.ts";
 import type { AppConfig } from "./config.ts";
+import { createReply, MESSAGE_SPLIT_BUDGET } from "./lib/reply.ts";
+import type { Reply, ReplyContext } from "./lib/reply.ts";
 import { createSessionStateStore } from "./state.ts";
 
-const MESSAGE_SPLIT_BUDGET = 3900;
-
-interface Reply {
-  send: (text: string, options?: { system?: boolean }) => Promise<void>;
-  stream: () => ResponseWriter;
+interface HandlerContext extends ReplyContext {
+  message: {
+    text: string;
+  };
 }
 
-interface ResponseWriter {
-  write: (text: string) => Promise<void>;
-  flush: () => Promise<void>;
-  finish: () => Promise<void>;
+interface Handler {
+  handle: (options: { session: string; context: HandlerContext }) => Promise<void>;
 }
 
 export async function createHandler(
@@ -23,9 +21,7 @@ export async function createHandler(
   options: {
     onServiceExit: () => void;
   },
-): Promise<{
-  handle: (options: { session: string; context: Context }) => Promise<void>;
-}> {
+): Promise<Handler> {
   const manager = await startAcpManager({ command: config.agent.command, cwd: config.home });
   const state = createSessionStateStore(config);
   const activeSessions = new Map<string, AgentSession>();
@@ -264,8 +260,8 @@ state file: ${config.stateFile}
 prompt file: ${config.prompt.file ?? "none"}`;
   }
 
-  const handle = async (options: { session: string; context: Context }): Promise<void> => {
-    const text = options.context.message!.text!;
+  const handle: Handler["handle"] = async (options) => {
+    const text = options.context.message.text;
     const sessionName = options.session;
     const reply = createReply({
       context: options.context,
@@ -335,112 +331,4 @@ function readOptionalPromptFile(file: string): string | undefined {
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error && "code" in error;
-}
-
-function createReply(options: { context: Context; limit: number }): Reply {
-  async function send(text: string, sendOptions: { system?: boolean } = {}): Promise<void> {
-    const responseText = sendOptions.system ? `⚙️ ${text}` : text;
-    const parts = splitMessageText(responseText, options.limit);
-    for (const part of parts) {
-      await options.context.reply(part);
-    }
-  }
-
-  return {
-    send,
-    stream() {
-      return createResponseWriter({
-        limit: options.limit,
-        send,
-      });
-    },
-  };
-}
-
-function splitMessageText(text: string, limit: number): string[] {
-  const parts: string[] = [];
-  let remaining = text.trim();
-  while (remaining.length > limit) {
-    const result = splitHead(remaining, limit);
-    const part = result.head.trim();
-    if (part) {
-      parts.push(part);
-    }
-    remaining = result.tail.trim();
-  }
-  if (remaining) {
-    parts.push(remaining);
-  }
-  return parts;
-}
-
-function findSplitIndex(text: string, budget: number): number {
-  const paragraphIndex = text.lastIndexOf("\n\n", budget);
-  if (paragraphIndex > budget / 2) {
-    return paragraphIndex + 2;
-  }
-  const lineIndex = text.lastIndexOf("\n", budget);
-  if (lineIndex > budget / 2) {
-    return lineIndex + 1;
-  }
-  const spaceIndex = text.lastIndexOf(" ", budget);
-  if (spaceIndex > budget / 2) {
-    return spaceIndex + 1;
-  }
-  return budget;
-}
-
-function createResponseWriter(options: {
-  limit: number;
-  send: (text: string) => Promise<void>;
-}): ResponseWriter {
-  let bufferedText = "";
-  let sentResponse = false;
-
-  async function send(text: string): Promise<void> {
-    await options.send(text);
-    sentResponse = true;
-  }
-
-  async function flush(): Promise<void> {
-    if (!bufferedText.trim()) {
-      bufferedText = "";
-      return;
-    }
-    await send(bufferedText);
-    bufferedText = "";
-  }
-
-  async function flushOversizedText(): Promise<void> {
-    while (bufferedText.length > options.limit) {
-      const result = splitHead(bufferedText, options.limit);
-      bufferedText = result.tail;
-      const part = result.head.trim();
-      if (part) {
-        await send(part);
-      }
-    }
-  }
-
-  return {
-    async write(text: string): Promise<void> {
-      bufferedText += text;
-      await flushOversizedText();
-    },
-    flush,
-    async finish(): Promise<void> {
-      await flush();
-      if (!sentResponse) {
-        await send("(no response)");
-      }
-    },
-  };
-}
-
-function splitHead(text: string, limit: number): { head: string; tail: string } {
-  const splitIndex = findSplitIndex(text, limit);
-  return {
-    head: text.slice(0, splitIndex),
-    tail: text.slice(splitIndex),
-  };
 }
