@@ -4,8 +4,6 @@
   - Keep sending Telegram chat action during long gaps where no text/tool updates are flushed
 - [ ] feat: reply stream idle flush
   - Flush buffered stream text after a short idle timeout when no follow-up write or finish arrives
-- [ ] refactor: reply split boundary heuristics
-  - Use boundary-specific thresholds: paragraph breaks can produce smaller chunks, line breaks should be moderately full, and spaces should be close to the limit before splitting
 - [ ] feat: telegram Markdown formatting (Telegram MarkdownV2)
 - [ ] feat: session lifecycle
   - [ ] Daily refresh — close and recreate session at configurable hour

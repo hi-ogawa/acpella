@@ -49,22 +49,20 @@ function splitMessageText(text: string, limit: number): string[] {
 function findSplitIndex(text: string, limit: number): number {
   // Split at the best available natural boundary before the limit:
   // paragraph break first, then line break, then word space. If none are
-  // found, hard-split at the limit. The boundary must be in the latter half
-  // of the chunk so we do not send tiny leading fragments just to preserve a
-  // very early separator.
-  // TODO: should divions heuristics adjusted based on splitter?
-  // e.g. paragraph split can be more chunkier.
-  const paragraphIndex = text.lastIndexOf("\n\n", limit);
-  if (paragraphIndex > limit / 2) {
-    return paragraphIndex + 2;
-  }
-  const lineIndex = text.lastIndexOf("\n", limit);
-  if (lineIndex > limit / 2) {
-    return lineIndex + 1;
-  }
-  const spaceIndex = text.lastIndexOf(" ", limit);
-  if (spaceIndex > limit / 2) {
-    return spaceIndex + 1;
+  // found, hard-split at the limit. Paragraphs can produce slightly smaller
+  // chunks because they are stronger boundaries; weaker boundaries must be in
+  // the latter half so we do not send tiny leading fragments just to preserve
+  // a very early separator.
+  const splitters = [
+    { value: "\n\n", minRatio: 0.3 },
+    { value: "\n", minRatio: 0.5 },
+    { value: " ", minRatio: 0.5 },
+  ];
+  for (const splitter of splitters) {
+    const index = text.lastIndexOf(splitter.value, limit);
+    if (index > limit * splitter.minRatio) {
+      return index + splitter.value.length;
+    }
   }
   return limit;
 }
