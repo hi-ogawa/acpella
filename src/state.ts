@@ -106,8 +106,9 @@ export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
   }
 
   return {
-    getState() {
-      return state;
+    get: () => state,
+    set: (updater: (state: State) => void) => {
+      updateState(updater);
     },
     setAgent(agentKey: string, agent: State["agents"][string]) {
       updateState((state) => {

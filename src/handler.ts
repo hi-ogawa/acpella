@@ -29,7 +29,7 @@ export async function createHandler(
   const cancelledSessions = new WeakSet<AgentSession>();
 
   async function getAgentManager(agentKey: string) {
-    const agent = stateStore.getState().agents[agentKey];
+    const agent = stateStore.get().agents[agentKey];
     if (!agent) {
       throw new Error(`Unknown agent: ${agentKey}`);
     }
@@ -50,7 +50,7 @@ export async function createHandler(
       return;
     }
 
-    const state = stateStore.getState();
+    const state = stateStore.get();
     const verbose = state.conversations[options.sessionName]?.verbose ?? true;
     const currentSession = options.fresh ? undefined : stateSession;
     const agentKey = options.agentKey ?? currentSession?.agentKey ?? state.defaultAgent;
@@ -155,7 +155,7 @@ export async function createHandler(
     if (!options.sessionIdArg) {
       return "Usage: /session load <sessionId|agent:sessionId>";
     }
-    const state = stateStore.getState();
+    const state = stateStore.get();
     const parsedSession = stateStore.parseSessionArg({
       value: options.sessionIdArg,
       defaultAgentKey:
@@ -178,7 +178,7 @@ export async function createHandler(
   }
 
   function handleCurrentSession(options: { sessionName: string }): string {
-    const state = stateStore.getState();
+    const state = stateStore.get();
     const currentSession = stateStore.getCurrentSession(options.sessionName);
     return `\
 session: ${options.sessionName}
@@ -187,7 +187,7 @@ session id: ${currentSession?.agentSessionId ?? "none"}`;
   }
 
   async function handleListSessions(): Promise<string> {
-    const state = stateStore.getState();
+    const state = stateStore.get();
     const stateSessions = state.sessions;
     const activeAgentSessions = new Set<string>();
     for (const [agentKey] of Object.entries(state.agents)) {
@@ -223,7 +223,7 @@ session id: ${currentSession?.agentSessionId ?? "none"}`;
   }
 
   function resolveSession(options: { value: string; sessionName: string }): StateSession {
-    const state = stateStore.getState();
+    const state = stateStore.get();
     const parsedSession = stateStore.parseSessionArg({
       value: options.value,
       defaultAgentKey:
@@ -253,8 +253,7 @@ session id: ${currentSession?.agentSessionId ?? "none"}`;
         break;
       }
       case "new": {
-        const agentKey =
-          args[0] && stateStore.getState().agents[args[0]] ? args.shift() : undefined;
+        const agentKey = args[0] && stateStore.get().agents[args[0]] ? args.shift() : undefined;
         await handlePrompt({
           reply: options.reply,
           sessionName: options.sessionName,
@@ -319,7 +318,7 @@ Usage:
     let response: string;
     switch (subcommand) {
       case "list": {
-        const state = stateStore.getState();
+        const state = stateStore.get();
         const defaultAgent = state.defaultAgent;
         const agents = state.agents;
         response =
@@ -342,7 +341,7 @@ Usage:
         break;
       }
       case "remove": {
-        const state = stateStore.getState();
+        const state = stateStore.get();
         if (!name) {
           response = "Usage: /agent remove <name>";
           break;
@@ -369,7 +368,7 @@ ${referencedSessions.length} saved session(s) still reference it.`;
         break;
       }
       case "default": {
-        const state = stateStore.getState();
+        const state = stateStore.get();
         if (!name) {
           response = `Default agent: ${state.defaultAgent}`;
           break;
@@ -405,7 +404,7 @@ Usage:
       return false;
     }
 
-    const verbose = stateStore.getState().conversations[options.sessionName]?.verbose ?? true;
+    const verbose = stateStore.get().conversations[options.sessionName]?.verbose ?? true;
     const verboseStatus = `Tool call output: ${verbose ? "on" : "off"}`;
     const verboseHelp = `\
 ${verboseStatus}
@@ -444,7 +443,7 @@ Usage: /verbose [on|off]
     return `\
 status: running
 version: ${options.version ?? "(unknown)"}
-default agent: ${stateStore.getState().defaultAgent}
+default agent: ${stateStore.get().defaultAgent}
 home: ${config.home}
 `;
   }
