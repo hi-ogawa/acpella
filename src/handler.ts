@@ -264,6 +264,7 @@ agent session id: ${stateSession?.agentSessionId ?? "none"}
         break;
       }
       case "new": {
+        // TODO: deslop
         await handlePrompt({
           reply: options.reply,
           sessionName: options.sessionName,
