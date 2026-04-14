@@ -1,3 +1,4 @@
+// TODO: link to reference
 export const MESSAGE_SPLIT_BUDGET = 3900;
 
 export interface ReplyContext {
