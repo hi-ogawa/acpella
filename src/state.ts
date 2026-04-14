@@ -27,7 +27,6 @@ type State = z.infer<typeof stateSchema>;
 type Scope = State["scopes"][string];
 
 export type SessionStateStore = ReturnType<typeof createSessionStateStore>;
-export type SessionEntries = Scope;
 
 export function createSessionStateStore(config: Pick<AppConfig, "agent" | "stateFile">) {
   const scopeKey = config.agent.command;
@@ -54,9 +53,14 @@ export function createSessionStateStore(config: Pick<AppConfig, "agent" | "state
     return (state.scopes[scopeKey] ??= { sessions: {} });
   }
 
+  function getSessions() {
+    return ensureScope(readState()).sessions;
+  }
+
   return {
+    getSessions,
     getSessionId(sessionName: string) {
-      return readState().scopes[scopeKey]?.sessions[sessionName]?.sessionId;
+      return getSessions()[sessionName]?.sessionId;
     },
     setSessionId(sessionName: string, sessionId: string) {
       const state = readState();
@@ -72,12 +76,6 @@ export function createSessionStateStore(config: Pick<AppConfig, "agent" | "state
       }
       delete scope.sessions[sessionName];
       writeState(state);
-    },
-    listSessions() {
-      const sessions = readState().scopes[scopeKey]?.sessions ?? {};
-      return Object.entries(sessions)
-        .map(([name, session]) => ({ name, sessionId: session.sessionId }))
-        .sort((a, b) => a.name.localeCompare(b.name));
     },
   };
 }
