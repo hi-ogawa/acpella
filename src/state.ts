@@ -110,16 +110,6 @@ export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
     set: (updater: (state: State) => void) => {
       updateState(updater);
     },
-    setAgent(agentKey: string, agent: State["agents"][string]) {
-      updateState((state) => {
-        state.agents[agentKey] = agent;
-      });
-    },
-    deleteAgent(agentKey: string) {
-      updateState((state) => {
-        delete state.agents[agentKey];
-      });
-    },
     setConversation(conversationKey: string, patch: StateConversation) {
       updateState((state) => {
         state.conversations[conversationKey] = {

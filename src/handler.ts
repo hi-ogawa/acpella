@@ -336,7 +336,9 @@ Usage:
           response = "Usage: /agent new <name> <command>";
           break;
         }
-        stateStore.setAgent(name, { command: agentCommand });
+        stateStore.set((state) => {
+          state.agents[name] = { command: agentCommand };
+        });
         response = `Saved agent: ${name}`;
         break;
       }
@@ -363,7 +365,9 @@ Cannot remove agent: ${name}
 ${referencedSessions.length} saved session(s) still reference it.`;
           break;
         }
-        stateStore.deleteAgent(name);
+        stateStore.set((state) => {
+          delete state.agents[name];
+        });
         response = `Removed agent: ${name}`;
         break;
       }
