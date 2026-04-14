@@ -38,8 +38,8 @@ const envSchema = z
   })
   .loose();
 
-export function loadConfig(): AppConfig {
-  const env = envSchema.parse(process.env);
+export function loadConfig(envOverride?: Record<string, string>): AppConfig {
+  const env = envSchema.parse({ ...process.env, ...envOverride });
   const home = env.ACPELLA_HOME ? path.resolve(env.ACPELLA_HOME) : process.cwd();
 
   const agentAlias = env.ACPELLA_AGENT;
