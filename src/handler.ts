@@ -127,11 +127,11 @@ export async function createHandler(
 
   async function handleCloseSession(options: {
     sessionName: string;
-    sessionKeyArg?: string;
+    sessionIdArg?: string;
   }): Promise<void> {
     const currentSession = stateStore.getCurrentSession(options.sessionName);
-    const session = options.sessionKeyArg
-      ? resolveSession({ value: options.sessionKeyArg, sessionName: options.sessionName })
+    const session = options.sessionIdArg
+      ? resolveSession({ value: options.sessionIdArg, sessionName: options.sessionName })
       : currentSession;
     if (session) {
       try {
@@ -142,8 +142,8 @@ export async function createHandler(
       }
     }
     if (session) {
-      stateStore.deleteSession(session.sessionKey);
-    } else if (!options.sessionKeyArg) {
+      stateStore.deleteSession(session);
+    } else if (!options.sessionIdArg) {
       stateStore.clearCurrentSession(options.sessionName);
     }
   }
@@ -171,7 +171,7 @@ export async function createHandler(
         agentKey: parsedSession.agentKey,
         agentSessionId: session.sessionId,
       });
-      return `Loaded session: ${stateSession.sessionKey}`;
+      return `Loaded session: ${makeStateSessionKey(stateSession)}`;
     } finally {
       session.close();
     }
@@ -188,7 +188,6 @@ session id: ${currentSession?.agentSessionId ?? "none"}`;
 
   async function handleListSessions(): Promise<string> {
     const state = stateStore.get();
-    const stateSessions = state.sessions;
     const activeAgentSessions = new Set<string>();
     for (const [agentKey] of Object.entries(state.agents)) {
       try {
@@ -203,10 +202,21 @@ session id: ${currentSession?.agentSessionId ?? "none"}`;
         console.error(`[acp] listSessions failed for agent ${agentKey}:`, e);
       }
     }
-    const stateSessionKeys = new Set(Object.keys(stateSessions));
+    const conversationSessions = new Map<string, string>();
+    for (const [conversationKey, conversation] of Object.entries(state.conversations)) {
+      if (conversation.agentKey && conversation.agentSessionId) {
+        conversationSessions.set(
+          makeStateSessionKey({
+            agentKey: conversation.agentKey,
+            agentSessionId: conversation.agentSessionId,
+          }),
+          conversationKey,
+        );
+      }
+    }
     let output = "";
-    for (const [sessionKey, entry] of Object.entries(stateSessions)) {
-      output += `- ${sessionKey} -> ${entry.agentSessionId}`;
+    for (const [sessionKey, conversationKey] of conversationSessions) {
+      output += `- ${conversationKey} -> ${sessionKey}`;
       if (activeAgentSessions.has(sessionKey)) {
         output += " (active)";
       } else {
@@ -215,7 +225,7 @@ session id: ${currentSession?.agentSessionId ?? "none"}`;
       output += "\n";
     }
     for (const sessionKey of activeAgentSessions) {
-      if (!stateSessionKeys.has(sessionKey)) {
+      if (!conversationSessions.has(sessionKey)) {
         output += `- (unknown) -> ${sessionKey} (active)\n`;
       }
     }
@@ -229,8 +239,7 @@ session id: ${currentSession?.agentSessionId ?? "none"}`;
       defaultAgentKey:
         stateStore.getCurrentSession(options.sessionName)?.agentKey ?? state.defaultAgent,
     });
-    const sessionKey = makeStateSessionKey(parsedSession);
-    return stateStore.getSession(sessionKey) ?? { ...parsedSession, sessionKey };
+    return parsedSession;
   }
 
   async function handleSessionCommand(options: {
@@ -273,7 +282,7 @@ session id: ${currentSession?.agentSessionId ?? "none"}`;
       case "close": {
         await handleCloseSession({
           sessionName: options.sessionName,
-          sessionKeyArg: args[0],
+          sessionIdArg: args[0],
         });
         response = "Session closed. Next message will start a fresh session.";
         break;
@@ -285,7 +294,7 @@ Usage:
 /session list
 /session new [agent]
 /session load <sessionId|agent:sessionId>
-/session close [sessionKey]`;
+/session close [sessionId|agent:sessionId]`;
       }
     }
     await options.reply.system(response);
@@ -356,13 +365,13 @@ Usage:
           response = `Cannot remove default agent: ${name}`;
           break;
         }
-        const referencedSessions = Object.values(state.sessions).filter(
-          (session) => session.agentKey === name,
+        const referencedSessions = Object.values(state.conversations).filter(
+          (conversation) => conversation.agentKey === name,
         );
         if (referencedSessions.length > 0) {
           response = `\
 Cannot remove agent: ${name}
-${referencedSessions.length} saved session(s) still reference it.`;
+${referencedSessions.length} conversation(s) still reference it.`;
           break;
         }
         stateStore.set((state) => {
