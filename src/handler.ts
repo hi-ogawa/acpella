@@ -250,8 +250,7 @@ export async function createHandler(
     const stateSession = state.sessions[options.sessionName];
     let response: string;
     switch (subcommand) {
-      case undefined: {
-        // TODO: move this to /status? or /session list?
+      case "current": {
         response = `\
 session: ${options.sessionName}
 agent: ${stateSession?.agentKey ?? state.defaultAgent}
@@ -292,7 +291,7 @@ agent session id: ${stateSession?.agentSessionId ?? "none"}
       default: {
         response = `\
 Usage:
-/session
+/session current
 /session list
 /session new [agent]
 /session load <sessionId|agent:sessionId>
