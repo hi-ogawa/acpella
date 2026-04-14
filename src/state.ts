@@ -5,6 +5,12 @@ import type { AppConfig } from "./config.ts";
 
 // TODO: review slop
 
+// TODO: for multi agent support, the format should be:
+// { [sessionName: string]: { agent, sessionId } }
+//
+// then /session load can support this to switch session
+// /session load <agent:sessionId>
+
 const stateSchema = z
   .object({
     // TODO: makes use of version for auto state migrations
@@ -54,7 +60,15 @@ export function createSessionStateStore(config: Pick<AppConfig, "agent" | "state
   }
 
   function getSessions() {
-    return ensureScope(readState()).sessions;
+    const state = readState();
+    return ensureScope(state).sessions;
+  }
+
+  function writeSessions(sessions: Scope["sessions"]) {
+    const state = readState();
+    const scope = ensureScope(state);
+    scope.sessions = sessions;
+    writeState(state);
   }
 
   return {
@@ -63,19 +77,16 @@ export function createSessionStateStore(config: Pick<AppConfig, "agent" | "state
       return getSessions()[sessionName]?.sessionId;
     },
     setSessionId(sessionName: string, sessionId: string) {
-      const state = readState();
-      const scope = ensureScope(state);
-      scope.sessions[sessionName] = { sessionId };
-      writeState(state);
+      const sessions = getSessions();
+      sessions[sessionName] = { sessionId };
+      writeSessions(sessions);
     },
     deleteSession(sessionName: string) {
-      const state = readState();
-      const scope = state.scopes[scopeKey];
-      if (!scope || !(sessionName in scope.sessions)) {
-        return;
+      const sessions = getSessions();
+      if (sessions[sessionName]) {
+        delete sessions[sessionName];
+        writeSessions(sessions);
       }
-      delete scope.sessions[sessionName];
-      writeState(state);
     },
   };
 }
