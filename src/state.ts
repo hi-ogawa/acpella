@@ -49,14 +49,12 @@ const stateSchema = z
   });
 
 export type State = z.infer<typeof stateSchema>;
-export type StateAgent = State["agents"][string];
 export type StateSession = State["sessions"][string];
 export type SessionStateStore = ReturnType<typeof createSessionStateStore>;
 
 export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
-  let state = readState();
-
   // TODO: add a custom command to reload state from disk if manual edits become a supported workflow.
+  let state = readState();
 
   function readState(): State {
     if (fs.existsSync(config.stateFile)) {
