@@ -24,15 +24,24 @@ export async function createHandler(
     onServiceExit: () => void;
   },
 ): Promise<Handler> {
-  const manager = await startAcpManager({ command: config.agent.command, cwd: config.home });
   const state = createSessionStateStore(config);
   const activeSessions = new Map<string, AgentSession>();
   const cancelledSessions = new WeakSet<AgentSession>();
+
+  async function getManager(agentKey: string) {
+    const agent = state.getAgent(agentKey);
+    if (!agent) {
+      throw new Error(`Unknown agent: ${agentKey}`);
+    }
+    return startAcpManager({ command: agent.command, cwd: config.home });
+  }
 
   async function handlePrompt(options: {
     reply: Reply;
     sessionName: string;
     text: string;
+    agentKey?: string;
+    fresh?: boolean;
     stateSession?: StateSession;
   }): Promise<void> {
     const { reply, stateSession } = options;
@@ -41,17 +50,20 @@ export async function createHandler(
       return;
     }
 
-    const verbose = stateSession?.verbose ?? true;
-    const sessionId = stateSession?.sessionId;
-    const session = sessionId
+    const verbose = state.getConversation(options.sessionName)?.verbose ?? true;
+    const currentSession = options.fresh ? undefined : stateSession;
+    const agentKey = options.agentKey ?? currentSession?.agentKey ?? state.getDefaultAgent();
+    const manager = await getManager(agentKey);
+    const agentSessionId = currentSession?.agentSessionId;
+    const session = agentSessionId
       ? await manager.loadSession({
           sessionCwd: config.home,
-          sessionId,
+          sessionId: agentSessionId,
         })
       : await manager.newSession({ sessionCwd: config.home });
 
     try {
-      const customPrompt = !sessionId ? readOptionalPromptFile(config.prompt.file) : undefined;
+      const customPrompt = !agentSessionId ? readOptionalPromptFile(config.prompt.file) : undefined;
       const promptText = customPrompt
         ? formatFirstPrompt({ customPrompt, userText: options.text })
         : options.text;
@@ -79,8 +91,11 @@ export async function createHandler(
         return;
       }
       await reply.finish();
-      if (!sessionId) {
-        state.setSession(options.sessionName, { sessionId: session.sessionId });
+      if (!agentSessionId) {
+        state.setCurrentSession(options.sessionName, {
+          agentKey,
+          agentSessionId: session.sessionId,
+        });
       }
     } finally {
       if (activeSessions.get(options.sessionName) === session) {
@@ -111,69 +126,106 @@ export async function createHandler(
 
   async function handleCloseSession(options: {
     sessionName: string;
-    sessionIdArg?: string;
+    sessionKeyArg?: string;
   }): Promise<void> {
-    const currentSessionId = state.getSession(options.sessionName)?.sessionId;
-    const sessionId = options.sessionIdArg ?? currentSessionId;
-    if (sessionId) {
+    const currentSession = state.getCurrentSession(options.sessionName);
+    const session = options.sessionKeyArg
+      ? resolveSession({ value: options.sessionKeyArg, sessionName: options.sessionName })
+      : currentSession;
+    if (session) {
       try {
-        await manager.closeSession({ sessionId });
+        const manager = await getManager(session.agentKey);
+        await manager.closeSession({ sessionId: session.agentSessionId });
       } catch (e) {
         console.error("[acp] closeSession failed:", e);
       }
     }
-    if (!options.sessionIdArg || options.sessionIdArg === currentSessionId) {
-      state.deleteSession(options.sessionName);
+    if (session) {
+      state.deleteSession(session.sessionKey);
+    } else if (!options.sessionKeyArg) {
+      state.clearCurrentSession(options.sessionName);
     }
   }
 
   async function handleLoadSession(options: {
     sessionName: string;
-    sessionId?: string;
+    sessionIdArg?: string;
   }): Promise<string> {
-    if (!options.sessionId) {
-      return "Usage: /session load <sessionId>";
+    if (!options.sessionIdArg) {
+      return "Usage: /session load <sessionId|agent:sessionId>";
     }
+    const parsedSession = state.parseSessionArg({
+      value: options.sessionIdArg,
+      defaultAgentKey:
+        state.getCurrentSession(options.sessionName)?.agentKey ?? state.getDefaultAgent(),
+    });
+    const manager = await getManager(parsedSession.agentKey);
     const session = await manager.loadSession({
       sessionCwd: config.home,
-      sessionId: options.sessionId,
+      sessionId: parsedSession.agentSessionId,
     });
     try {
-      state.setSession(options.sessionName, { sessionId: session.sessionId });
-      return `Loaded session: ${session.sessionId}`;
+      const stateSession = state.setCurrentSession(options.sessionName, {
+        agentKey: parsedSession.agentKey,
+        agentSessionId: session.sessionId,
+      });
+      return `Loaded session: ${stateSession.sessionKey}`;
     } finally {
       session.close();
     }
   }
 
   function handleCurrentSession(options: { sessionName: string }): string {
+    const currentSession = state.getCurrentSession(options.sessionName);
     return `\
 session: ${options.sessionName}
-agent: ${config.agent.alias}
-session id: ${state.getSession(options.sessionName)?.sessionId ?? "none"}`;
+agent: ${currentSession?.agentKey ?? state.getDefaultAgent()}
+session id: ${currentSession?.agentSessionId ?? "none"}`;
   }
 
   async function handleListSessions(): Promise<string> {
     const stateSessions = state.getSessions();
-    const agentSessions = await manager.listSessions();
-    const agentSessionIds = new Set(agentSessions.sessions.map((session) => session.sessionId));
-    const stateSessionIds = new Set(Object.values(stateSessions).map((entry) => entry.sessionId));
+    const activeAgentSessions = new Set<string>();
+    for (const [agentKey] of Object.entries(state.getAgents())) {
+      try {
+        const manager = await getManager(agentKey);
+        const agentSessions = await manager.listSessions();
+        for (const session of agentSessions.sessions) {
+          activeAgentSessions.add(
+            state.makeSessionKey({ agentKey, agentSessionId: session.sessionId }),
+          );
+        }
+      } catch (e) {
+        console.error(`[acp] listSessions failed for agent ${agentKey}:`, e);
+      }
+    }
+    const stateSessionKeys = new Set(Object.keys(stateSessions));
     let output = "";
-    for (const [sessionName, entry] of Object.entries(stateSessions)) {
-      output += `- ${sessionName} -> ${entry.sessionId}`;
-      if (agentSessionIds.has(entry.sessionId)) {
+    for (const [sessionKey, entry] of Object.entries(stateSessions)) {
+      output += `- ${sessionKey} -> ${entry.agentSessionId}`;
+      if (activeAgentSessions.has(sessionKey)) {
         output += " (active)";
       } else {
         output += " (not active)";
       }
       output += "\n";
     }
-    for (const session of agentSessions.sessions) {
-      if (!stateSessionIds.has(session.sessionId)) {
-        output += `- (unknown) -> ${session.sessionId} (active)\n`;
+    for (const sessionKey of activeAgentSessions) {
+      if (!stateSessionKeys.has(sessionKey)) {
+        output += `- (unknown) -> ${sessionKey} (active)\n`;
       }
     }
     return output || "No sessions.";
+  }
+
+  function resolveSession(options: { value: string; sessionName: string }): StateSession {
+    const parsedSession = state.parseSessionArg({
+      value: options.value,
+      defaultAgentKey:
+        state.getCurrentSession(options.sessionName)?.agentKey ?? state.getDefaultAgent(),
+    });
+    const sessionKey = state.makeSessionKey(parsedSession);
+    return state.getSession(sessionKey) ?? { ...parsedSession, sessionKey };
   }
 
   async function handleSessionCommand(options: {
@@ -196,24 +248,27 @@ session id: ${state.getSession(options.sessionName)?.sessionId ?? "none"}`;
         break;
       }
       case "new": {
+        const agentKey = args[0] && state.getAgent(args[0]) ? args.shift() : undefined;
         await handlePrompt({
           reply: options.reply,
           sessionName: options.sessionName,
           text: args.join(" "),
+          agentKey,
+          fresh: true,
         });
         return true;
       }
       case "load": {
         response = await handleLoadSession({
           sessionName: options.sessionName,
-          sessionId: args[0],
+          sessionIdArg: args[0],
         });
         break;
       }
       case "close": {
         await handleCloseSession({
           sessionName: options.sessionName,
-          sessionIdArg: args[0],
+          sessionKeyArg: args[0],
         });
         response = "Session closed. Next message will start a fresh session.";
         break;
@@ -223,9 +278,9 @@ session id: ${state.getSession(options.sessionName)?.sessionId ?? "none"}`;
 Usage:
 /session
 /session list
-/session new
-/session load <sessionId>
-/session close [sessionId]`;
+/session new [agent]
+/session load <sessionId|agent:sessionId>
+/session close [sessionKey]`;
       }
     }
     await options.reply.system(response);
@@ -249,18 +304,99 @@ Usage:
     return true;
   }
 
+  async function handleAgentCommand(options: { reply: Reply; text: string }): Promise<boolean> {
+    const [command, subcommand, name, ...args] = options.text.trim().split(/\s+/);
+    if (command !== "/agent") {
+      return false;
+    }
+
+    let response: string;
+    switch (subcommand) {
+      case "list": {
+        const defaultAgent = state.getDefaultAgent();
+        const agents = state.getAgents();
+        response =
+          Object.entries(agents)
+            .map(([agentKey, agent]) => {
+              const marker = agentKey === defaultAgent ? " (default)" : "";
+              return `- ${agentKey} -> ${agent.command}${marker}`;
+            })
+            .join("\n") || "No agents.";
+        break;
+      }
+      case "new": {
+        const agentCommand = args.join(" ");
+        if (!name || !agentCommand) {
+          response = "Usage: /agent new <name> <command>";
+          break;
+        }
+        state.setAgent(name, { command: agentCommand });
+        response = `Saved agent: ${name}`;
+        break;
+      }
+      case "remove": {
+        if (!name) {
+          response = "Usage: /agent remove <name>";
+          break;
+        }
+        if (!state.getAgent(name)) {
+          response = `Unknown agent: ${name}`;
+          break;
+        }
+        if (state.getDefaultAgent() === name) {
+          response = `Cannot remove default agent: ${name}`;
+          break;
+        }
+        const referencedSessions = Object.values(state.getSessions()).filter(
+          (session) => session.agentKey === name,
+        );
+        if (referencedSessions.length > 0) {
+          response = `\
+Cannot remove agent: ${name}
+${referencedSessions.length} saved session(s) still reference it.`;
+          break;
+        }
+        state.deleteAgent(name);
+        response = `Removed agent: ${name}`;
+        break;
+      }
+      case "default": {
+        if (!name) {
+          response = `Default agent: ${state.getDefaultAgent()}`;
+          break;
+        }
+        if (!state.getAgent(name)) {
+          response = `Unknown agent: ${name}`;
+          break;
+        }
+        state.setDefaultAgent(name);
+        response = `Default agent: ${name}`;
+        break;
+      }
+      default: {
+        response = `\
+Usage:
+/agent list
+/agent new <name> <command>
+/agent remove <name>
+/agent default [name]`;
+      }
+    }
+    await options.reply.system(response);
+    return true;
+  }
+
   async function handleVerboseCommand(options: {
     reply: Reply;
     text: string;
     sessionName: string;
-    stateSession?: StateSession;
   }): Promise<boolean> {
     const [command, subcommand] = options.text.trim().split(/\s+/);
     if (command !== "/verbose") {
       return false;
     }
 
-    const verbose = options.stateSession?.verbose ?? true;
+    const verbose = state.getConversation(options.sessionName)?.verbose ?? true;
     const verboseStatus = `Tool call output: ${verbose ? "on" : "off"}`;
     const verboseHelp = `\
 ${verboseStatus}
@@ -274,30 +410,14 @@ Usage: /verbose [on|off]
         break;
       }
       case "on": {
-        if (!options.stateSession) {
-          response = `\
-No session. Send a prompt first, then use /verbose ${subcommand}.
-
-${verboseHelp}`;
-          break;
-        }
-        state.setSession(options.sessionName, {
-          ...options.stateSession,
+        state.setConversation(options.sessionName, {
           verbose: true,
         });
         response = `Tool call output: ${subcommand}`;
         break;
       }
       case "off": {
-        if (!options.stateSession) {
-          response = `\
-No session. Send a prompt first, then use /verbose ${subcommand}.
-
-${verboseHelp}`;
-          break;
-        }
-        state.setSession(options.sessionName, {
-          ...options.stateSession,
+        state.setConversation(options.sessionName, {
           verbose: false,
         });
         response = `Tool call output: ${subcommand}`;
@@ -315,7 +435,7 @@ ${verboseHelp}`;
     return `\
 status: running
 version: ${options.version ?? "(unknown)"}
-agent: ${config.agent.command}
+default agent: ${state.getDefaultAgent()}
 home: ${config.home}
 `;
   }
@@ -323,7 +443,7 @@ home: ${config.home}
   const handle: Handler["handle"] = async (options) => {
     const text = options.context.message!.text!;
     const sessionName = options.sessionName;
-    const stateSession = state.getSession(sessionName);
+    const stateSession = state.getCurrentSession(sessionName);
     const reply = createReply({
       context: options.context,
       limit: MESSAGE_SPLIT_BUDGET,
@@ -347,11 +467,17 @@ home: ${config.home}
     if (handledServiceCommand) {
       return;
     }
+    const handledAgentCommand = await handleAgentCommand({
+      reply,
+      text,
+    });
+    if (handledAgentCommand) {
+      return;
+    }
     const handledVerboseCommand = await handleVerboseCommand({
       reply,
       text,
       sessionName,
-      stateSession,
     });
     if (handledVerboseCommand) {
       return;

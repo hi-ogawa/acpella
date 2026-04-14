@@ -130,9 +130,7 @@ Options:
 
   // --- start ---
 
-  console.log(
-    `Starting service (agent: ${config.agent.alias}, home: ${config.home}, repl: ${cli.repl})`,
-  );
+  console.log(`Starting service (home: ${config.home}, repl: ${cli.repl})`);
 
   if (testBot) {
     await testBot.startRepl();

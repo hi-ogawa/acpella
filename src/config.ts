@@ -2,10 +2,6 @@ import path from "node:path";
 import { z } from "zod";
 
 export interface AppConfig {
-  agent: {
-    alias: string;
-    command: string;
-  };
   home: string;
   stateFile: string;
   telegram: {
@@ -20,13 +16,8 @@ export interface AppConfig {
   testChatId: number;
 }
 
-const builtinAgents: Record<string, string> = {
-  test: `node ${path.join(import.meta.dirname, "lib/test-agent.ts")}`,
-};
-
 const envSchema = z
   .object({
-    ACPELLA_AGENT: z.string().default("test"),
     ACPELLA_HOME: z.string().optional(),
     ACPELLA_TELEGRAM_BOT_TOKEN: z.string().optional(),
     ACPELLA_TELEGRAM_ALLOWED_USER_IDS: z.string().optional(),
@@ -42,11 +33,7 @@ export function loadConfig(envOverride?: Record<string, string>): AppConfig {
   const env = envSchema.parse({ ...process.env, ...envOverride });
   const home = env.ACPELLA_HOME ? path.resolve(env.ACPELLA_HOME) : process.cwd();
 
-  const agentAlias = env.ACPELLA_AGENT;
-  const agentCommand = builtinAgents[agentAlias] || agentAlias;
-
   return {
-    agent: { alias: agentAlias, command: agentCommand },
     home,
     stateFile: path.join(home, ".acpella", "state.json"),
     telegram: {
