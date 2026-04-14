@@ -62,6 +62,10 @@ export type StateSession = State["sessions"][string] & { sessionKey: string };
 export type SessionStateStore = ReturnType<typeof createSessionStateStore>;
 
 export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
+  let state = readState();
+
+  // TODO: add a custom command to reload state from disk if manual edits become a supported workflow.
+
   function readState(): State {
     if (fs.existsSync(config.stateFile)) {
       try {
@@ -87,19 +91,22 @@ export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
     return stateSchema.parse(value);
   }
 
-  function writeState(state: State): void {
+  function writeState(nextState: State): void {
     fs.mkdirSync(path.dirname(config.stateFile), { recursive: true });
-    fs.writeFileSync(config.stateFile, JSON.stringify(state, null, 2));
+    fs.writeFileSync(config.stateFile, JSON.stringify(nextState, null, 2));
   }
 
   function updateState(updater: (state: State) => void): void {
-    const state = readState();
-    updater(state);
-    writeState(stateSchema.parse(state));
+    const nextState = structuredClone(state);
+    updater(nextState);
+    state = stateSchema.parse(nextState);
+    writeState(state);
   }
 
   return {
-    getState: readState,
+    getState() {
+      return state;
+    },
     setAgent(agentKey: string, agent: State["agents"][string]) {
       updateState((state) => {
         state.agents[agentKey] = agent;
@@ -124,14 +131,13 @@ export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
       });
     },
     getSessions() {
-      return readState().sessions;
+      return state.sessions;
     },
     getSession(sessionKey: string): StateSession | undefined {
-      const session = readState().sessions[sessionKey];
+      const session = state.sessions[sessionKey];
       return session ? { ...session, sessionKey } : undefined;
     },
     getCurrentSession(conversationKey: string): StateSession | undefined {
-      const state = readState();
       const sessionKey = state.conversations[conversationKey]?.sessionKey;
       if (!sessionKey) {
         return undefined;
