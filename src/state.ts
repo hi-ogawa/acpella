@@ -38,16 +38,15 @@ export function createSessionStateStore(config: Pick<AppConfig, "agent" | "state
   const scopeKey = config.agent.command;
 
   function readState(): State {
-    if (!fs.existsSync(config.stateFile)) {
-      return emptyState();
+    if (fs.existsSync(config.stateFile)) {
+      try {
+        const data = fs.readFileSync(config.stateFile, "utf8");
+        return stateSchema.parse(JSON.parse(data));
+      } catch (e) {
+        console.error("[state] readState failed:", e);
+      }
     }
-    try {
-      const raw = JSON.parse(fs.readFileSync(config.stateFile, "utf8")) as unknown;
-      return stateSchema.parse(raw);
-    } catch (e) {
-      console.error("[state] readState failed:", e);
-      return emptyState();
-    }
+    return { version: 1, scopes: {} };
   }
 
   function writeState(state: State): void {
@@ -89,8 +88,4 @@ export function createSessionStateStore(config: Pick<AppConfig, "agent" | "state
       }
     },
   };
-}
-
-function emptyState(): State {
-  return { version: 1, scopes: {} };
 }
