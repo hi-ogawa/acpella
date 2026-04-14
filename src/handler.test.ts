@@ -59,14 +59,14 @@ describe(createHandler, () => {
     const session = tester.createSession("test");
     expect(await session.request("/session list")).toMatchInlineSnapshot(`
       "[⚙️ System]
-      - (unknown) -> __testLoadSession (active)
-      - (unknown) -> other-session (active)"
+      - (unknown) -> test:__testLoadSession (active)
+      - (unknown) -> test:other-session (active)"
     `);
     expect(await session.request("hello")).toMatchInlineSnapshot(`"echo: hello"`);
     expect(await session.request("/session list")).toMatchInlineSnapshot(`
       "[⚙️ System]
-      - test -> __testLoadSession (active)
-      - (unknown) -> other-session (active)"
+      - test -> test:__testLoadSession (active)
+      - (unknown) -> test:other-session (active)"
     `);
   });
 

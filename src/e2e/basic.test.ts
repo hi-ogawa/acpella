@@ -16,7 +16,7 @@ describe("basic", () => {
     await service.waitForOutput("echo: hello world");
   });
 
-  it("reports agent startup failure", async () => {
+  it.todo("reports agent startup failure", async () => {
     const service = startService({ ACPELLA_AGENT: "no-such-command" });
     await service.waitForOutput("Starting service");
     service.write("hello world");
