@@ -18,9 +18,9 @@ export async function getVersion(options: { cwd: string }): Promise<string> {
       git(["rev-parse", "--short", "HEAD"]),
       git(["status", "--porcelain=v1"]),
     ]);
-    const checkout = branch || `detached at ${head}`;
-    const cleanliness = status ? "dirty" : "clean";
-    return `git ${checkout} ${cleanliness}`;
+    const checkout = branch || "detached";
+    const dirty = status ? " (dirty)" : "";
+    return `git ${head} ${checkout}${dirty}`;
   } catch {
     return "git failed";
   }
