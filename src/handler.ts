@@ -8,7 +8,7 @@ import { createSessionStateStore } from "./state.ts";
 import type { StateSession } from "./state.ts";
 
 interface Handler {
-  handle: (options: { session: string; context: HandlerContext }) => Promise<void>;
+  handle: (options: { sessionName: string; context: HandlerContext }) => Promise<void>;
 }
 
 export interface HandlerContext extends ReplyContext {
@@ -31,12 +31,12 @@ export async function createHandler(
 
   async function handlePrompt(options: {
     reply: Reply;
-    name: string;
+    sessionName: string;
     text: string;
     stateSession?: StateSession;
   }): Promise<void> {
     const { reply, stateSession } = options;
-    if (activeSessions.has(options.name)) {
+    if (activeSessions.has(options.sessionName)) {
       await reply.system("Agent turn already in progress. Send /cancel to stop it.");
       return;
     }
@@ -57,7 +57,7 @@ export async function createHandler(
         : options.text;
 
       const { queue } = session.prompt(promptText);
-      activeSessions.set(options.name, session);
+      activeSessions.set(options.sessionName, session);
 
       for await (const update of queue) {
         if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
@@ -80,11 +80,11 @@ export async function createHandler(
       }
       await reply.finish();
       if (!sessionId) {
-        state.setSession(options.name, { sessionId: session.sessionId });
+        state.setSession(options.sessionName, { sessionId: session.sessionId });
       }
     } finally {
-      if (activeSessions.get(options.name) === session) {
-        activeSessions.delete(options.name);
+      if (activeSessions.get(options.sessionName) === session) {
+        activeSessions.delete(options.sessionName);
       }
       session.close();
     }
@@ -110,10 +110,10 @@ export async function createHandler(
   }
 
   async function handleCloseSession(options: {
-    name: string;
+    sessionName: string;
     sessionIdArg?: string;
   }): Promise<void> {
-    const currentSessionId = state.getSession(options.name)?.sessionId;
+    const currentSessionId = state.getSession(options.sessionName)?.sessionId;
     const sessionId = options.sessionIdArg ?? currentSessionId;
     if (sessionId) {
       try {
@@ -123,23 +123,14 @@ export async function createHandler(
       }
     }
     if (!options.sessionIdArg || options.sessionIdArg === currentSessionId) {
-      state.deleteSession(options.name);
+      state.deleteSession(options.sessionName);
     }
   }
 
-  async function handleNewSession(options: {
-    reply: Reply;
-    name: string;
-    text: string;
-  }): Promise<void> {
-    return handlePrompt({
-      reply: options.reply,
-      name: options.name,
-      text: options.text,
-    });
-  }
-
-  async function handleLoadSession(options: { name: string; sessionId?: string }): Promise<string> {
+  async function handleLoadSession(options: {
+    sessionName: string;
+    sessionId?: string;
+  }): Promise<string> {
     if (!options.sessionId) {
       return "Usage: /session load <sessionId>";
     }
@@ -148,18 +139,18 @@ export async function createHandler(
       sessionId: options.sessionId,
     });
     try {
-      state.setSession(options.name, { sessionId: session.sessionId });
+      state.setSession(options.sessionName, { sessionId: session.sessionId });
       return `Loaded session: ${session.sessionId}`;
     } finally {
       session.close();
     }
   }
 
-  function handleCurrentSession(options: { name: string }): string {
+  function handleCurrentSession(options: { sessionName: string }): string {
     return `\
-session: ${options.name}
+session: ${options.sessionName}
 agent: ${config.agent.alias}
-session id: ${state.getSession(options.name)?.sessionId ?? "none"}`;
+session id: ${state.getSession(options.sessionName)?.sessionId ?? "none"}`;
   }
 
   async function handleListSessions(): Promise<string> {
@@ -168,8 +159,8 @@ session id: ${state.getSession(options.name)?.sessionId ?? "none"}`;
     const agentSessionIds = new Set(agentSessions.sessions.map((session) => session.sessionId));
     const stateSessionIds = new Set(Object.values(stateSessions).map((entry) => entry.sessionId));
     let output = "";
-    for (const [name, entry] of Object.entries(stateSessions)) {
-      output += `- ${name} -> ${entry.sessionId}`;
+    for (const [sessionName, entry] of Object.entries(stateSessions)) {
+      output += `- ${sessionName} -> ${entry.sessionId}`;
       if (agentSessionIds.has(entry.sessionId)) {
         output += " (active)";
       } else {
@@ -196,33 +187,38 @@ session id: ${state.getSession(options.name)?.sessionId ?? "none"}`;
     }
     let response: string;
     switch (subcommand) {
-      case undefined:
-        response = handleCurrentSession({ name: options.sessionName });
+      case undefined: {
+        response = handleCurrentSession({ sessionName: options.sessionName });
         break;
-      case "list":
+      }
+      case "list": {
         response = await handleListSessions();
         break;
-      case "new":
-        await handleNewSession({
+      }
+      case "new": {
+        await handlePrompt({
           reply: options.reply,
-          name: options.sessionName,
+          sessionName: options.sessionName,
           text: args.join(" "),
         });
         return true;
-      case "load":
+      }
+      case "load": {
         response = await handleLoadSession({
-          name: options.sessionName,
+          sessionName: options.sessionName,
           sessionId: args[0],
         });
         break;
-      case "close":
+      }
+      case "close": {
         await handleCloseSession({
-          name: options.sessionName,
+          sessionName: options.sessionName,
           sessionIdArg: args[0],
         });
         response = "Session closed. Next message will start a fresh session.";
         break;
-      default:
+      }
+      default: {
         response = `\
 Usage:
 /session
@@ -230,6 +226,7 @@ Usage:
 /session new
 /session load <sessionId>
 /session close [sessionId]`;
+      }
     }
     await options.reply.system(response);
     return true;
@@ -276,7 +273,21 @@ Usage: /verbose [on|off]
         response = verboseHelp;
         break;
       }
-      case "on":
+      case "on": {
+        if (!options.stateSession) {
+          response = `\
+No session. Send a prompt first, then use /verbose ${subcommand}.
+
+${verboseHelp}`;
+          break;
+        }
+        state.setSession(options.sessionName, {
+          ...options.stateSession,
+          verbose: true,
+        });
+        response = `Tool call output: ${subcommand}`;
+        break;
+      }
       case "off": {
         if (!options.stateSession) {
           response = `\
@@ -287,7 +298,7 @@ ${verboseHelp}`;
         }
         state.setSession(options.sessionName, {
           ...options.stateSession,
-          verbose: subcommand === "on",
+          verbose: false,
         });
         response = `Tool call output: ${subcommand}`;
         break;
@@ -311,7 +322,7 @@ home: ${config.home}
 
   const handle: Handler["handle"] = async (options) => {
     const text = options.context.message!.text!;
-    const sessionName = options.session;
+    const sessionName = options.sessionName;
     const stateSession = state.getSession(sessionName);
     const reply = createReply({
       context: options.context,
@@ -356,7 +367,7 @@ home: ${config.home}
 
     await handlePrompt({
       reply,
-      name: sessionName,
+      sessionName,
       text,
       stateSession,
     });
