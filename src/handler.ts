@@ -64,8 +64,8 @@ export async function createHandler(
           await reply.write(update.content.text);
         } else if (update.sessionUpdate === "tool_call") {
           console.log(`[acp:update] tool_call: ${update.title}`);
+          await reply.flush();
           if (verbose) {
-            await reply.flush();
             await reply.write(`Tool: ${update.title}`);
             await reply.flush();
           }
