@@ -90,6 +90,24 @@ class EchoAgent implements Agent {
       const key = text.slice(6);
       const value = process.env[key] ?? "(unset)";
       reportText = `env: ${key}=${value}`;
+    } else if (text.startsWith("__chunk_tool:")) {
+      const title = text.slice(13);
+      await this.connection.sessionUpdate({
+        sessionId: params.sessionId,
+        update: {
+          sessionUpdate: "agent_message_chunk",
+          content: { type: "text", text: "before" },
+        },
+      });
+      await this.connection.sessionUpdate({
+        sessionId: params.sessionId,
+        update: {
+          sessionUpdate: "tool_call",
+          toolCallId: "__testToolCall",
+          title,
+        },
+      });
+      reportText = "after";
     } else if (text.startsWith("__tool:")) {
       const title = text.slice(7);
       await this.connection.sessionUpdate({
