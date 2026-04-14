@@ -3,35 +3,34 @@ import type { Context } from "grammy";
 import { startAcpManager } from "./acp/index.ts";
 import type { AgentSession } from "./acp/index.ts";
 import type { AppConfig } from "./config.ts";
+import { createReply, MESSAGE_SPLIT_BUDGET } from "./lib/reply.ts";
+import type { Reply } from "./lib/reply.ts";
 import { createSessionStateStore } from "./state.ts";
 
-const MESSAGE_SPLIT_BUDGET = 3900;
+interface Handler {
+  handle: (options: { session: string; context: Context }) => Promise<void>;
+}
 
 export async function createHandler(
   config: AppConfig,
   options: {
     onServiceExit: () => void;
   },
-): Promise<{
-  handle: (options: { session: string; context: Context }) => Promise<void>;
-}> {
+): Promise<Handler> {
   const manager = await startAcpManager({ command: config.agent.command, cwd: config.home });
   const state = createSessionStateStore(config);
   const activeSessions = new Map<string, AgentSession>();
   const cancelledSessions = new WeakSet<AgentSession>();
 
   async function handlePrompt(options: {
-    context: Context;
+    reply: Reply;
     name: string;
     text: string;
     sessionId?: string;
   }): Promise<void> {
+    const { reply } = options;
     if (activeSessions.has(options.name)) {
-      await sendSystemResponse({
-        context: options.context,
-        limit: MESSAGE_SPLIT_BUDGET,
-        text: "Agent turn already in progress. Send /cancel to stop it.",
-      });
+      await reply.system("Agent turn already in progress. Send /cancel to stop it.");
       return;
     }
 
@@ -51,34 +50,26 @@ export async function createHandler(
         : options.text;
 
       const { queue } = session.prompt(promptText);
-      const responseWriter = createResponseWriter({
-        context: options.context,
-        limit: MESSAGE_SPLIT_BUDGET,
-      });
       activeSessions.set(options.name, session);
 
       for await (const update of queue) {
         if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
-          await responseWriter.write(update.content.text);
+          await reply.write(update.content.text);
         } else if (update.sessionUpdate === "tool_call") {
           console.log(`[acp:update] tool_call: ${update.title}`);
-          await responseWriter.flush();
-          await responseWriter.write(`Tool: ${update.title}`);
-          await responseWriter.flush();
+          await reply.flush();
+          await reply.write(`Tool: ${update.title}`);
+          await reply.flush();
         } else {
           console.log(`[acp:update] ${update.sessionUpdate}`);
         }
       }
       if (cancelledSessions.has(session)) {
-        await responseWriter.flush();
-        await sendSystemResponse({
-          context: options.context,
-          limit: MESSAGE_SPLIT_BUDGET,
-          text: "Agent turn cancelled.",
-        });
+        await reply.flush();
+        await reply.system("Agent turn cancelled.");
         return;
       }
-      await responseWriter.finish();
+      await reply.finish();
       if (!options.sessionId) {
         state.setSessionId(options.name, session.sessionId);
       }
@@ -90,14 +81,10 @@ export async function createHandler(
     }
   }
 
-  async function handleCancel(options: { context: Context; sessionName: string }): Promise<void> {
+  async function handleCancel(options: { reply: Reply; sessionName: string }): Promise<void> {
     const session = activeSessions.get(options.sessionName);
     if (!session) {
-      await sendSystemResponse({
-        context: options.context,
-        limit: MESSAGE_SPLIT_BUDGET,
-        text: "No active agent turn.",
-      });
+      await options.reply.system("No active agent turn.");
       return;
     }
 
@@ -110,11 +97,7 @@ export async function createHandler(
       session.close();
       response = "Cancelled current agent turn by killing the agent process.";
     }
-    await sendSystemResponse({
-      context: options.context,
-      limit: MESSAGE_SPLIT_BUDGET,
-      text: response,
-    });
+    await options.reply.system(response);
   }
 
   async function handleCloseSession(options: {
@@ -136,12 +119,12 @@ export async function createHandler(
   }
 
   async function handleNewSession(options: {
-    context: Context;
+    reply: Reply;
     name: string;
     text: string;
   }): Promise<void> {
     return handlePrompt({
-      context: options.context,
+      reply: options.reply,
       name: options.name,
       text: options.text,
     });
@@ -194,7 +177,7 @@ session id: ${state.getSessionId(options.name) ?? "none"}`;
   }
 
   async function handleSessionCommand(options: {
-    context: Context;
+    reply: Reply;
     text: string;
     sessionName: string;
   }): Promise<boolean> {
@@ -212,7 +195,7 @@ session id: ${state.getSessionId(options.name) ?? "none"}`;
         break;
       case "new":
         await handleNewSession({
-          context: options.context,
+          reply: options.reply,
           name: options.sessionName,
           text: args.join(" "),
         });
@@ -239,16 +222,12 @@ Usage:
 /session load <sessionId>
 /session close [sessionId]`;
     }
-    await sendSystemResponse({
-      context: options.context,
-      limit: MESSAGE_SPLIT_BUDGET,
-      text: response,
-    });
+    await options.reply.system(response);
     return true;
   }
 
   async function handleServiceCommand(commandOptions: {
-    context: Context;
+    reply: Reply;
     text: string;
   }): Promise<boolean> {
     const [command, subcommand] = commandOptions.text.trim().split(/\s+/);
@@ -256,19 +235,11 @@ Usage:
       return false;
     }
     if (subcommand === "exit") {
-      await sendSystemResponse({
-        context: commandOptions.context,
-        limit: MESSAGE_SPLIT_BUDGET,
-        text: "Exiting acpella.",
-      });
+      await commandOptions.reply.system("Exiting acpella.");
       options.onServiceExit();
       return true;
     }
-    await sendSystemResponse({
-      context: commandOptions.context,
-      limit: MESSAGE_SPLIT_BUDGET,
-      text: "Usage: /service exit",
-    });
+    await commandOptions.reply.system("Usage: /service exit");
     return true;
   }
 
@@ -282,34 +253,34 @@ state file: ${config.stateFile}
 prompt file: ${config.prompt.file ?? "none"}`;
   }
 
-  const handle = async (options: { session: string; context: Context }): Promise<void> => {
+  const handle: Handler["handle"] = async (options) => {
     const text = options.context.message!.text!;
     const sessionName = options.session;
+    const reply = createReply({
+      context: options.context,
+      limit: MESSAGE_SPLIT_BUDGET,
+    });
 
     if (text === "/status") {
-      await sendSystemResponse({
-        context: options.context,
-        limit: MESSAGE_SPLIT_BUDGET,
-        text: handleStatus(),
-      });
+      await reply.system(handleStatus());
       return;
     }
     if (text === "/cancel") {
       await handleCancel({
-        context: options.context,
+        reply,
         sessionName,
       });
       return;
     }
     const handledServiceCommand = await handleServiceCommand({
-      context: options.context,
+      reply,
       text,
     });
     if (handledServiceCommand) {
       return;
     }
     const handledSessionCommand = await handleSessionCommand({
-      context: options.context,
+      reply,
       text,
       sessionName,
     });
@@ -318,7 +289,7 @@ prompt file: ${config.prompt.file ?? "none"}`;
     }
 
     await handlePrompt({
-      context: options.context,
+      reply,
       name: sessionName,
       text,
       sessionId: state.getSessionId(sessionName),
@@ -353,116 +324,4 @@ function readOptionalPromptFile(file: string): string | undefined {
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error && "code" in error;
-}
-
-async function sendTextResponse(options: {
-  context: Context;
-  limit: number;
-  text: string;
-}): Promise<void> {
-  const parts = splitMessageText(options.text, options.limit);
-  for (const part of parts) {
-    await options.context.reply(part);
-  }
-}
-
-async function sendSystemResponse(options: {
-  context: Context;
-  limit: number;
-  text: string;
-}): Promise<void> {
-  await sendTextResponse({
-    context: options.context,
-    limit: options.limit,
-    text: `[⚙️ System]\n${options.text}`,
-  });
-}
-
-function splitMessageText(text: string, limit: number): string[] {
-  const parts: string[] = [];
-  let remaining = text.trim();
-  while (remaining.length > limit) {
-    const result = splitHead(remaining, limit);
-    const part = result.head.trim();
-    if (part) {
-      parts.push(part);
-    }
-    remaining = result.tail.trim();
-  }
-  if (remaining) {
-    parts.push(remaining);
-  }
-  return parts;
-}
-
-function findSplitIndex(text: string, budget: number): number {
-  const paragraphIndex = text.lastIndexOf("\n\n", budget);
-  if (paragraphIndex > budget / 2) {
-    return paragraphIndex + 2;
-  }
-  const lineIndex = text.lastIndexOf("\n", budget);
-  if (lineIndex > budget / 2) {
-    return lineIndex + 1;
-  }
-  const spaceIndex = text.lastIndexOf(" ", budget);
-  if (spaceIndex > budget / 2) {
-    return spaceIndex + 1;
-  }
-  return budget;
-}
-
-function createResponseWriter(options: { context: Context; limit: number }) {
-  let bufferedText = "";
-  let sentResponse = false;
-
-  async function send(text: string): Promise<void> {
-    await sendTextResponse({
-      context: options.context,
-      limit: options.limit,
-      text,
-    });
-    sentResponse = true;
-  }
-
-  async function flush(): Promise<void> {
-    if (!bufferedText.trim()) {
-      bufferedText = "";
-      return;
-    }
-    await send(bufferedText);
-    bufferedText = "";
-  }
-
-  async function flushOversizedText(): Promise<void> {
-    while (bufferedText.length > options.limit) {
-      const result = splitHead(bufferedText, options.limit);
-      bufferedText = result.tail;
-      const part = result.head.trim();
-      if (part) {
-        await send(part);
-      }
-    }
-  }
-
-  return {
-    async write(text: string): Promise<void> {
-      bufferedText += text;
-      await flushOversizedText();
-    },
-    flush,
-    async finish(): Promise<void> {
-      await flush();
-      if (!sentResponse) {
-        await options.context.reply("(no response)");
-      }
-    },
-  };
-}
-
-function splitHead(text: string, limit: number): { head: string; tail: string } {
-  const splitIndex = findSplitIndex(text, limit);
-  return {
-    head: text.slice(0, splitIndex),
-    tail: text.slice(splitIndex),
-  };
 }
