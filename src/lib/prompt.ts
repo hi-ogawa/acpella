@@ -4,15 +4,10 @@ import path from "node:path";
 const INCLUDE_LINE_RE = /^[^\S\r\n]*@(\S+)[^\S\r\n]*$/gm;
 
 export function readOptionalPromptFile(file: string): string | undefined {
-  const resolved = path.resolve(file);
   try {
-    return readPromptFileWithIncludes(resolved, new Set());
+    return readPromptFileWithIncludes(file, new Set());
   } catch (error) {
-    if (
-      isNodeError(error) &&
-      error.code === "ENOENT" &&
-      path.resolve(String(error.path)) === resolved
-    ) {
+    if (isNodeError(error) && error.code === "ENOENT" && error.path === file) {
       return undefined;
     }
     throw error;
@@ -20,22 +15,21 @@ export function readOptionalPromptFile(file: string): string | undefined {
 }
 
 function readPromptFileWithIncludes(file: string, seen: Set<string>): string {
-  const resolved = path.resolve(file);
-  if (seen.has(resolved)) {
-    throw new Error(`Circular prompt include: ${resolved}`);
+  if (seen.has(file)) {
+    throw new Error(`Circular prompt include: ${file}`);
   }
 
-  seen.add(resolved);
+  seen.add(file);
   try {
-    const text = fs.readFileSync(resolved, "utf8");
+    const text = fs.readFileSync(file, "utf8");
     return text.replace(INCLUDE_LINE_RE, (_line, includePath: string) => {
       const target = path.isAbsolute(includePath)
         ? includePath
-        : path.resolve(path.dirname(resolved), includePath);
+        : path.resolve(path.dirname(file), includePath);
       return readPromptFileWithIncludes(target, seen).trimEnd();
     });
   } finally {
-    seen.delete(resolved);
+    seen.delete(file);
   }
 }
 
