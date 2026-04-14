@@ -71,14 +71,9 @@ export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
   }
 
   function parseState(value: unknown): State {
-    const result = stateSchema.safeParse(value);
-    if (result.success) {
-      return result.data;
-    }
     const resultV1 = stateSchemaV1.safeParse(value);
     if (resultV1.success) {
-      console.error("[state] version 1 state is ignored. creating new fresh state.");
-      return getInitialState();
+      throw new Error("version 1 state is ignored. creating new fresh state.");
     }
     return stateSchema.parse(value);
   }
@@ -99,9 +94,7 @@ export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
 
   return {
     get: () => state,
-    set: (updater: (state: State) => void) => {
-      updateState(updater);
-    },
+    set: updateState,
     setSession(sessionName: string, patch: StateSession) {
       updateState((state) => {
         state.sessions[sessionName] = {
