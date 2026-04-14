@@ -30,7 +30,7 @@ const stateSchema = z
   .superRefine((state, ctx) => {
     if (!state.agents[state.defaultAgent]) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: "custom",
         message: `defaultAgent does not exist: ${state.defaultAgent}`,
         path: ["defaultAgent"],
       });
@@ -38,7 +38,7 @@ const stateSchema = z
     for (const [conversationKey, conversation] of Object.entries(state.conversations)) {
       if (conversation.sessionKey && !state.sessions[conversation.sessionKey]) {
         ctx.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: "custom",
           message: `conversation references missing session: ${conversation.sessionKey}`,
           path: ["conversations", conversationKey, "sessionKey"],
         });
@@ -47,7 +47,7 @@ const stateSchema = z
     for (const [sessionKey, session] of Object.entries(state.sessions)) {
       if (!state.agents[session.agentKey]) {
         ctx.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: "custom",
           message: `session references missing agent: ${session.agentKey}`,
           path: ["sessions", sessionKey, "agentKey"],
         });
