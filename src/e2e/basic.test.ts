@@ -1,7 +1,7 @@
 import { describe, it } from "vitest";
 import { startService } from "./helper.ts";
 
-describe("e2e smoke", () => {
+describe("basic", () => {
   it("starts and responds to /status", async () => {
     const service = startService();
     await service.waitForOutput("Starting service");
@@ -34,4 +34,21 @@ describe("e2e smoke", () => {
     service.write("__env:AGENT_VISIBLE_KEY");
     await service.waitForOutput("env: AGENT_VISIBLE_KEY=agent-visible-key");
   });
+});
+
+it("session", async () => {
+  const service = startService();
+  await service.waitForOutput("Starting service");
+  service.write("/session list");
+  await service.waitForOutput(`\
+- (unknown) -> __testLoadSession (active)
+- (unknown) -> other-session (active)
+`);
+  service.write("hello");
+  await service.waitForOutput("echo: hello");
+  service.write("/session list");
+  await service.waitForOutput(`\
+- tg-10101010 -> __testLoadSession (active)
+- (unknown) -> other-session (active)
+`);
 });

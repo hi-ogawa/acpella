@@ -56,6 +56,6 @@ If this file exists, its contents are sent as custom instructions once when crea
 
 ## Docs
 
-- [`docs/architecture.md`](docs/architecture.md) — design decisions, data flow
 - [`docs/deploy.md`](docs/deploy.md) — systemd unit, install steps
-- [`docs/prd.md`](docs/prd.md) — MVP features, backlog
+- [`docs/architecture.md`](docs/architecture.md) — design decisions, data flow
+- [`docs/todo.md`](docs/todo.md) — issues, features, backlog

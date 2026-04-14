@@ -55,7 +55,10 @@ class EchoAgent implements Agent {
 
   async listSessions(_params: ListSessionsRequest): Promise<ListSessionsResponse> {
     return {
-      sessions: [{ sessionId: "__testLoadSession", cwd: "/" }],
+      sessions: [
+        { sessionId: "__testLoadSession", cwd: "/" },
+        { sessionId: "other-session", cwd: "/" },
+      ],
     };
   }
 

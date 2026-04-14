@@ -1,5 +1,4 @@
 import fs from "node:fs";
-import type { ListSessionsResponse } from "@agentclientprotocol/sdk";
 import type { Context } from "grammy";
 import { startAcpManager } from "./acp/index.ts";
 import type { AgentSession } from "./acp/index.ts";
@@ -7,11 +6,6 @@ import type { AppConfig } from "./config.ts";
 import { createSessionStateStore } from "./state.ts";
 
 const MESSAGE_SPLIT_BUDGET = 3900;
-
-interface StateSession {
-  name: string;
-  sessionId: string;
-}
 
 interface Reply {
   send: (text: string, options?: { system?: boolean }) => Promise<void>;
@@ -171,29 +165,26 @@ session id: ${state.getSessionId(options.name) ?? "none"}`;
   }
 
   async function handleListSessions(): Promise<string> {
-    const stateSessions = state.listSessions();
+    const stateSessions = state.getSessions();
     const agentSessions = await manager.listSessions();
     const agentSessionIds = new Set(agentSessions.sessions.map((session) => session.sessionId));
-    const stateSessionIds = new Set(stateSessions.map((session) => session.sessionId));
-    const missingInAgent = stateSessions.filter(
-      (session) => !agentSessionIds.has(session.sessionId),
-    );
-    const untrackedAgentSessions = agentSessions.sessions.filter(
-      (session) => !stateSessionIds.has(session.sessionId),
-    );
-
-    return `\
-state sessions (${stateSessions.length}):
-${formatStateSessions(stateSessions).join("\n")}
-
-agent sessions (${agentSessions.sessions.length}):
-${formatAgentSessions(agentSessions).join("\n")}
-
-state missing in agent (${missingInAgent.length}):
-${formatStateSessions(missingInAgent).join("\n")}
-
-agent not tracked by state (${untrackedAgentSessions.length}):
-${formatAgentSessions({ sessions: untrackedAgentSessions }).join("\n")}`;
+    const stateSessionIds = new Set(Object.values(stateSessions).map((entry) => entry.sessionId));
+    let output = "";
+    for (const [name, entry] of Object.entries(stateSessions)) {
+      output += `- ${name} -> ${entry.sessionId}`;
+      if (agentSessionIds.has(entry.sessionId)) {
+        output += " (active)";
+      } else {
+        output += " (not active)";
+      }
+      output += "\n";
+    }
+    for (const session of agentSessions.sessions) {
+      if (!stateSessionIds.has(session.sessionId)) {
+        output += `- (unknown) -> ${session.sessionId} (active)\n`;
+      }
+    }
+    return output || "No sessions.";
   }
 
   async function handleSessionCommand(options: {
@@ -317,29 +308,6 @@ prompt file: ${config.prompt.file ?? "none"}`;
   };
 
   return { handle };
-}
-
-function formatStateSessions(sessions: StateSession[]): string[] {
-  if (sessions.length === 0) {
-    return ["- none"];
-  }
-  return sessions.map((session) => `- ${session.name} -> ${session.sessionId}`);
-}
-
-function formatAgentSessions(response: Pick<ListSessionsResponse, "sessions">): string[] {
-  if (response.sessions.length === 0) {
-    return ["- none"];
-  }
-  return response.sessions.map((session) =>
-    [
-      `- ${session.sessionId}`,
-      `cwd=${session.cwd}`,
-      session.title ? `title=${session.title}` : undefined,
-      session.updatedAt ? `updatedAt=${session.updatedAt}` : undefined,
-    ]
-      .filter(Boolean)
-      .join(" "),
-  );
 }
 
 function formatFirstPrompt(options: { customPrompt: string; userText: string }): string {

@@ -3,21 +3,23 @@ import path from "node:path";
 import { z } from "zod";
 import type { AppConfig } from "./config.ts";
 
-export interface SessionStateStore {
-  getSessionId: (sessionName: string) => string | undefined;
-  setSessionId: (sessionName: string, sessionId: string) => void;
-  deleteSession: (sessionName: string) => void;
-  listSessions: () => { name: string; sessionId: string }[];
-}
+// TODO: review slop
+
+// TODO: for multi agent support, the format should be:
+// { [sessionName: string]: { agent, sessionId } }
+//
+// then /session load can support this to switch session
+// /session load <agent:sessionId>
 
 const stateSchema = z
   .object({
+    // TODO: makes use of version for auto state migrations
     version: z.literal(1),
     scopes: z.record(
-      z.string().min(1),
+      z.string().min(1), // scopeKey: agent command
       z.object({
         sessions: z.record(
-          z.string().min(1),
+          z.string().min(1), // sessionName
           z.object({
             sessionId: z.string().min(1),
           }),
@@ -30,22 +32,21 @@ const stateSchema = z
 type State = z.infer<typeof stateSchema>;
 type Scope = State["scopes"][string];
 
-export function createSessionStateStore(
-  config: Pick<AppConfig, "agent" | "stateFile">,
-): SessionStateStore {
+export type SessionStateStore = ReturnType<typeof createSessionStateStore>;
+
+export function createSessionStateStore(config: Pick<AppConfig, "agent" | "stateFile">) {
   const scopeKey = config.agent.command;
 
   function readState(): State {
-    if (!fs.existsSync(config.stateFile)) {
-      return emptyState();
+    if (fs.existsSync(config.stateFile)) {
+      try {
+        const data = fs.readFileSync(config.stateFile, "utf8");
+        return stateSchema.parse(JSON.parse(data));
+      } catch (e) {
+        console.error("[state] readState failed:", e);
+      }
     }
-    try {
-      const raw = JSON.parse(fs.readFileSync(config.stateFile, "utf8")) as unknown;
-      return stateSchema.parse(raw);
-    } catch (e) {
-      console.error("[state] readState failed:", e);
-      return emptyState();
-    }
+    return { version: 1, scopes: {} };
   }
 
   function writeState(state: State): void {
@@ -54,45 +55,37 @@ export function createSessionStateStore(
   }
 
   function ensureScope(state: State): Scope {
-    const existing = state.scopes[scopeKey];
-    if (existing) {
-      return existing;
-    }
-    const scope: Scope = {
-      sessions: {},
-    };
-    state.scopes[scopeKey] = scope;
-    return scope;
+    return (state.scopes[scopeKey] ??= { sessions: {} });
+  }
+
+  function getSessions() {
+    const state = readState();
+    return ensureScope(state).sessions;
+  }
+
+  function writeSessions(sessions: Scope["sessions"]) {
+    const state = readState();
+    const scope = ensureScope(state);
+    scope.sessions = sessions;
+    writeState(state);
   }
 
   return {
-    getSessionId(sessionName) {
-      return readState().scopes[scopeKey]?.sessions[sessionName]?.sessionId;
+    getSessions,
+    getSessionId(sessionName: string) {
+      return getSessions()[sessionName]?.sessionId;
     },
-    setSessionId(sessionName, sessionId) {
-      const state = readState();
-      const scope = ensureScope(state);
-      scope.sessions[sessionName] = { sessionId };
-      writeState(state);
+    setSessionId(sessionName: string, sessionId: string) {
+      const sessions = getSessions();
+      sessions[sessionName] = { sessionId };
+      writeSessions(sessions);
     },
-    deleteSession(sessionName) {
-      const state = readState();
-      const scope = state.scopes[scopeKey];
-      if (!scope || !(sessionName in scope.sessions)) {
-        return;
+    deleteSession(sessionName: string) {
+      const sessions = getSessions();
+      if (sessions[sessionName]) {
+        delete sessions[sessionName];
+        writeSessions(sessions);
       }
-      delete scope.sessions[sessionName];
-      writeState(state);
-    },
-    listSessions() {
-      const sessions = readState().scopes[scopeKey]?.sessions ?? {};
-      return Object.entries(sessions)
-        .map(([name, session]) => ({ name, sessionId: session.sessionId }))
-        .sort((a, b) => a.name.localeCompare(b.name));
     },
   };
-}
-
-function emptyState(): State {
-  return { version: 1, scopes: {} };
 }
