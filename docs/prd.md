@@ -17,6 +17,7 @@
   - Run log — log each execution result
 - [ ] chore: publish as npm package
 - [ ] refactor: review slop
+- [ ] test: reduce e2e/basic.test.ts in favor of handler.ts unit test
 
 ## Backlog
 
