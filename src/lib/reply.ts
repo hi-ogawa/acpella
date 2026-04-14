@@ -4,19 +4,9 @@ export interface ReplyContext {
   reply: (text: string) => Promise<unknown>;
 }
 
-export interface Reply {
-  send: (text: string) => Promise<void>;
-  system: (text: string) => Promise<void>;
-  stream: () => ResponseWriter;
-}
+export type Reply = ReturnType<typeof createReply>;
 
-interface ResponseWriter {
-  write: (text: string) => Promise<void>;
-  flush: () => Promise<void>;
-  finish: () => Promise<void>;
-}
-
-export function createReply(options: { context: ReplyContext; limit: number }): Reply {
+export function createReply(options: { context: ReplyContext; limit: number }) {
   async function send(text: string): Promise<void> {
     const parts = splitMessageText(text, options.limit);
     for (const part of parts) {
@@ -71,10 +61,7 @@ function findSplitIndex(text: string, limit: number): number {
   return limit;
 }
 
-function createResponseWriter(options: {
-  limit: number;
-  send: (text: string) => Promise<void>;
-}): ResponseWriter {
+function createResponseWriter(options: { limit: number; send: (text: string) => Promise<void> }) {
   let bufferedText = "";
   let sentResponse = false;
 
