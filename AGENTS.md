@@ -38,6 +38,7 @@ Task docs should enable **handoff to a fresh agent** - include enough context to
 - Make props/params required when all call sites always pass them
 - Prefer a single options object over multiple primitive arguments (e.g. `fn({ a, b })` not `fn(a, b)`)
 - Import with `.ts` extensions (NodeNext resolution)
+- Use braces for every `switch` case body (`case "x": { ... }`, `default: { ... }`)
 
 ## Rule
 
