@@ -182,15 +182,6 @@ export async function createHandler(
     }
   }
 
-  function handleSession(options: { sessionName: string }): string {
-    const state = stateStore.get();
-    const session = stateStore.getSession(options.sessionName);
-    return `\
-session: ${options.sessionName}
-agent: ${session?.agentKey ?? state.defaultAgent}
-session id: ${session?.agentSessionId ?? "none"}`;
-  }
-
   async function handleListSessions(): Promise<string> {
     const state = stateStore.get();
     const activeAgentSessions = new Set<string>();
@@ -255,10 +246,17 @@ session id: ${session?.agentSessionId ?? "none"}`;
     if (command !== "/session") {
       return false;
     }
+    const state = stateStore.get();
+    const stateSession = state.sessions[options.sessionName];
     let response: string;
     switch (subcommand) {
       case undefined: {
-        response = handleSession({ sessionName: options.sessionName });
+        // TODO: move this to /status? or /session list?
+        response = `\
+session: ${options.sessionName}
+agent: ${stateSession?.agentKey ?? state.defaultAgent}
+agent session id: ${stateSession?.agentSessionId ?? "none"}
+`;
         break;
       }
       case "list": {
