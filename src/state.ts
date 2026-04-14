@@ -134,7 +134,7 @@ export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
       conversationKey: string,
       session: { agentKey: string; agentSessionId: string },
     ): StateSession {
-      const sessionKey = makeSessionKey(session);
+      const sessionKey = makeStateSessionKey(session);
       updateState((state) => {
         state.sessions[sessionKey] = session;
         state.conversations[conversationKey] = {
@@ -162,7 +162,6 @@ export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
       });
     },
     // TODO: export directly
-    makeSessionKey,
     parseSessionArg,
   };
 }
@@ -181,7 +180,7 @@ function getInitialState(): State {
   };
 }
 
-function makeSessionKey(options: { agentKey: string; agentSessionId: string }): string {
+export function makeStateSessionKey(options: { agentKey: string; agentSessionId: string }): string {
   return `${options.agentKey}:${options.agentSessionId}`;
 }
 

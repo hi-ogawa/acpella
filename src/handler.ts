@@ -4,7 +4,7 @@ import type { AgentSession } from "./acp/index.ts";
 import type { AppConfig } from "./config.ts";
 import { createReply, MESSAGE_SPLIT_BUDGET } from "./lib/reply.ts";
 import type { Reply, ReplyContext } from "./lib/reply.ts";
-import { createSessionStateStore } from "./state.ts";
+import { createSessionStateStore, makeStateSessionKey } from "./state.ts";
 import type { StateSession } from "./state.ts";
 
 interface Handler {
@@ -196,7 +196,7 @@ session id: ${currentSession?.agentSessionId ?? "none"}`;
         const agentSessions = await manager.listSessions();
         for (const session of agentSessions.sessions) {
           activeAgentSessions.add(
-            stateStore.makeSessionKey({ agentKey, agentSessionId: session.sessionId }),
+            makeStateSessionKey({ agentKey, agentSessionId: session.sessionId }),
           );
         }
       } catch (e) {
@@ -229,7 +229,7 @@ session id: ${currentSession?.agentSessionId ?? "none"}`;
       defaultAgentKey:
         stateStore.getCurrentSession(options.sessionName)?.agentKey ?? state.defaultAgent,
     });
-    const sessionKey = stateStore.makeSessionKey(parsedSession);
+    const sessionKey = makeStateSessionKey(parsedSession);
     return stateStore.getSession(sessionKey) ?? { ...parsedSession, sessionKey };
   }
 
