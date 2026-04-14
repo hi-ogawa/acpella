@@ -24,12 +24,12 @@ export async function createHandler(
     onServiceExit: () => void;
   },
 ): Promise<Handler> {
-  const state = createSessionStateStore(config);
+  const stateStore = createSessionStateStore(config);
   const activeSessions = new Map<string, AgentSession>();
   const cancelledSessions = new WeakSet<AgentSession>();
 
   async function getManager(agentKey: string) {
-    const agent = state.getAgent(agentKey);
+    const agent = stateStore.getState().agents[agentKey];
     if (!agent) {
       throw new Error(`Unknown agent: ${agentKey}`);
     }
@@ -50,9 +50,10 @@ export async function createHandler(
       return;
     }
 
-    const verbose = state.getConversation(options.sessionName)?.verbose ?? true;
+    const state = stateStore.getState();
+    const verbose = state.conversations[options.sessionName]?.verbose ?? true;
     const currentSession = options.fresh ? undefined : stateSession;
-    const agentKey = options.agentKey ?? currentSession?.agentKey ?? state.getDefaultAgent();
+    const agentKey = options.agentKey ?? currentSession?.agentKey ?? state.defaultAgent;
     const manager = await getManager(agentKey);
     const agentSessionId = currentSession?.agentSessionId;
     const session = agentSessionId
@@ -92,7 +93,7 @@ export async function createHandler(
       }
       await reply.finish();
       if (!agentSessionId) {
-        state.setCurrentSession(options.sessionName, {
+        stateStore.setCurrentSession(options.sessionName, {
           agentKey,
           agentSessionId: session.sessionId,
         });
@@ -128,7 +129,7 @@ export async function createHandler(
     sessionName: string;
     sessionKeyArg?: string;
   }): Promise<void> {
-    const currentSession = state.getCurrentSession(options.sessionName);
+    const currentSession = stateStore.getCurrentSession(options.sessionName);
     const session = options.sessionKeyArg
       ? resolveSession({ value: options.sessionKeyArg, sessionName: options.sessionName })
       : currentSession;
@@ -141,9 +142,9 @@ export async function createHandler(
       }
     }
     if (session) {
-      state.deleteSession(session.sessionKey);
+      stateStore.deleteSession(session.sessionKey);
     } else if (!options.sessionKeyArg) {
-      state.clearCurrentSession(options.sessionName);
+      stateStore.clearCurrentSession(options.sessionName);
     }
   }
 
@@ -154,10 +155,11 @@ export async function createHandler(
     if (!options.sessionIdArg) {
       return "Usage: /session load <sessionId|agent:sessionId>";
     }
-    const parsedSession = state.parseSessionArg({
+    const state = stateStore.getState();
+    const parsedSession = stateStore.parseSessionArg({
       value: options.sessionIdArg,
       defaultAgentKey:
-        state.getCurrentSession(options.sessionName)?.agentKey ?? state.getDefaultAgent(),
+        stateStore.getCurrentSession(options.sessionName)?.agentKey ?? state.defaultAgent,
     });
     const manager = await getManager(parsedSession.agentKey);
     const session = await manager.loadSession({
@@ -165,7 +167,7 @@ export async function createHandler(
       sessionId: parsedSession.agentSessionId,
     });
     try {
-      const stateSession = state.setCurrentSession(options.sessionName, {
+      const stateSession = stateStore.setCurrentSession(options.sessionName, {
         agentKey: parsedSession.agentKey,
         agentSessionId: session.sessionId,
       });
@@ -176,23 +178,25 @@ export async function createHandler(
   }
 
   function handleCurrentSession(options: { sessionName: string }): string {
-    const currentSession = state.getCurrentSession(options.sessionName);
+    const state = stateStore.getState();
+    const currentSession = stateStore.getCurrentSession(options.sessionName);
     return `\
 session: ${options.sessionName}
-agent: ${currentSession?.agentKey ?? state.getDefaultAgent()}
+agent: ${currentSession?.agentKey ?? state.defaultAgent}
 session id: ${currentSession?.agentSessionId ?? "none"}`;
   }
 
   async function handleListSessions(): Promise<string> {
-    const stateSessions = state.getSessions();
+    const state = stateStore.getState();
+    const stateSessions = state.sessions;
     const activeAgentSessions = new Set<string>();
-    for (const [agentKey] of Object.entries(state.getAgents())) {
+    for (const [agentKey] of Object.entries(state.agents)) {
       try {
         const manager = await getManager(agentKey);
         const agentSessions = await manager.listSessions();
         for (const session of agentSessions.sessions) {
           activeAgentSessions.add(
-            state.makeSessionKey({ agentKey, agentSessionId: session.sessionId }),
+            stateStore.makeSessionKey({ agentKey, agentSessionId: session.sessionId }),
           );
         }
       } catch (e) {
@@ -219,13 +223,14 @@ session id: ${currentSession?.agentSessionId ?? "none"}`;
   }
 
   function resolveSession(options: { value: string; sessionName: string }): StateSession {
-    const parsedSession = state.parseSessionArg({
+    const state = stateStore.getState();
+    const parsedSession = stateStore.parseSessionArg({
       value: options.value,
       defaultAgentKey:
-        state.getCurrentSession(options.sessionName)?.agentKey ?? state.getDefaultAgent(),
+        stateStore.getCurrentSession(options.sessionName)?.agentKey ?? state.defaultAgent,
     });
-    const sessionKey = state.makeSessionKey(parsedSession);
-    return state.getSession(sessionKey) ?? { ...parsedSession, sessionKey };
+    const sessionKey = stateStore.makeSessionKey(parsedSession);
+    return stateStore.getSession(sessionKey) ?? { ...parsedSession, sessionKey };
   }
 
   async function handleSessionCommand(options: {
@@ -248,7 +253,8 @@ session id: ${currentSession?.agentSessionId ?? "none"}`;
         break;
       }
       case "new": {
-        const agentKey = args[0] && state.getAgent(args[0]) ? args.shift() : undefined;
+        const agentKey =
+          args[0] && stateStore.getState().agents[args[0]] ? args.shift() : undefined;
         await handlePrompt({
           reply: options.reply,
           sessionName: options.sessionName,
@@ -313,8 +319,9 @@ Usage:
     let response: string;
     switch (subcommand) {
       case "list": {
-        const defaultAgent = state.getDefaultAgent();
-        const agents = state.getAgents();
+        const state = stateStore.getState();
+        const defaultAgent = state.defaultAgent;
+        const agents = state.agents;
         response =
           Object.entries(agents)
             .map(([agentKey, agent]) => {
@@ -330,24 +337,25 @@ Usage:
           response = "Usage: /agent new <name> <command>";
           break;
         }
-        state.setAgent(name, { command: agentCommand });
+        stateStore.setAgent(name, { command: agentCommand });
         response = `Saved agent: ${name}`;
         break;
       }
       case "remove": {
+        const state = stateStore.getState();
         if (!name) {
           response = "Usage: /agent remove <name>";
           break;
         }
-        if (!state.getAgent(name)) {
+        if (!state.agents[name]) {
           response = `Unknown agent: ${name}`;
           break;
         }
-        if (state.getDefaultAgent() === name) {
+        if (state.defaultAgent === name) {
           response = `Cannot remove default agent: ${name}`;
           break;
         }
-        const referencedSessions = Object.values(state.getSessions()).filter(
+        const referencedSessions = Object.values(state.sessions).filter(
           (session) => session.agentKey === name,
         );
         if (referencedSessions.length > 0) {
@@ -356,20 +364,21 @@ Cannot remove agent: ${name}
 ${referencedSessions.length} saved session(s) still reference it.`;
           break;
         }
-        state.deleteAgent(name);
+        stateStore.deleteAgent(name);
         response = `Removed agent: ${name}`;
         break;
       }
       case "default": {
+        const state = stateStore.getState();
         if (!name) {
-          response = `Default agent: ${state.getDefaultAgent()}`;
+          response = `Default agent: ${state.defaultAgent}`;
           break;
         }
-        if (!state.getAgent(name)) {
+        if (!state.agents[name]) {
           response = `Unknown agent: ${name}`;
           break;
         }
-        state.setDefaultAgent(name);
+        stateStore.setDefaultAgent(name);
         response = `Default agent: ${name}`;
         break;
       }
@@ -396,7 +405,7 @@ Usage:
       return false;
     }
 
-    const verbose = state.getConversation(options.sessionName)?.verbose ?? true;
+    const verbose = stateStore.getState().conversations[options.sessionName]?.verbose ?? true;
     const verboseStatus = `Tool call output: ${verbose ? "on" : "off"}`;
     const verboseHelp = `\
 ${verboseStatus}
@@ -410,14 +419,14 @@ Usage: /verbose [on|off]
         break;
       }
       case "on": {
-        state.setConversation(options.sessionName, {
+        stateStore.setConversation(options.sessionName, {
           verbose: true,
         });
         response = `Tool call output: ${subcommand}`;
         break;
       }
       case "off": {
-        state.setConversation(options.sessionName, {
+        stateStore.setConversation(options.sessionName, {
           verbose: false,
         });
         response = `Tool call output: ${subcommand}`;
@@ -435,7 +444,7 @@ Usage: /verbose [on|off]
     return `\
 status: running
 version: ${options.version ?? "(unknown)"}
-default agent: ${state.getDefaultAgent()}
+default agent: ${stateStore.getState().defaultAgent}
 home: ${config.home}
 `;
   }
@@ -443,7 +452,7 @@ home: ${config.home}
   const handle: Handler["handle"] = async (options) => {
     const text = options.context.message!.text!;
     const sessionName = options.sessionName;
-    const stateSession = state.getCurrentSession(sessionName);
+    const stateSession = stateStore.getCurrentSession(sessionName);
     const reply = createReply({
       context: options.context,
       limit: MESSAGE_SPLIT_BUDGET,

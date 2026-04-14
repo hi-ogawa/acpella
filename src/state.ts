@@ -100,12 +100,6 @@ export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
 
   return {
     getState: readState,
-    getAgents() {
-      return readState().agents;
-    },
-    getAgent(agentKey: string) {
-      return readState().agents[agentKey];
-    },
     setAgent(agentKey: string, agent: State["agents"][string]) {
       updateState((state) => {
         state.agents[agentKey] = agent;
@@ -116,19 +110,10 @@ export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
         delete state.agents[agentKey];
       });
     },
-    getDefaultAgent() {
-      return readState().defaultAgent;
-    },
     setDefaultAgent(agentKey: string) {
       updateState((state) => {
         state.defaultAgent = agentKey;
       });
-    },
-    getConversations() {
-      return readState().conversations;
-    },
-    getConversation(conversationKey: string) {
-      return readState().conversations[conversationKey];
     },
     setConversation(conversationKey: string, patch: StateConversation) {
       updateState((state) => {
