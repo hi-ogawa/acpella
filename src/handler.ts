@@ -28,8 +28,9 @@ export async function createHandler(
     text: string;
     sessionId?: string;
   }): Promise<void> {
+    const { reply } = options;
     if (activeSessions.has(options.name)) {
-      await options.reply.system("Agent turn already in progress. Send /cancel to stop it.");
+      await reply.system("Agent turn already in progress. Send /cancel to stop it.");
       return;
     }
 
@@ -49,27 +50,26 @@ export async function createHandler(
         : options.text;
 
       const { queue } = session.prompt(promptText);
-      const replyStream = options.reply.stream();
       activeSessions.set(options.name, session);
 
       for await (const update of queue) {
         if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
-          await replyStream.write(update.content.text);
+          await reply.write(update.content.text);
         } else if (update.sessionUpdate === "tool_call") {
           console.log(`[acp:update] tool_call: ${update.title}`);
-          await replyStream.flush();
-          await replyStream.write(`Tool: ${update.title}`);
-          await replyStream.flush();
+          await reply.flush();
+          await reply.write(`Tool: ${update.title}`);
+          await reply.flush();
         } else {
           console.log(`[acp:update] ${update.sessionUpdate}`);
         }
       }
       if (cancelledSessions.has(session)) {
-        await replyStream.flush();
-        await options.reply.system("Agent turn cancelled.");
+        await reply.flush();
+        await reply.system("Agent turn cancelled.");
         return;
       }
-      await replyStream.finish();
+      await reply.finish();
       if (!options.sessionId) {
         state.setSessionId(options.name, session.sessionId);
       }

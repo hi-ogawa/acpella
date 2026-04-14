@@ -42,3 +42,4 @@ Task docs should enable **handoff to a fresh agent** - include enough context to
 ## Rule
 
 - Never remove `TODO: review slop` comment
+- Do not update existing `docs/tasks/*` notes just to reflect code refactors unless explicitly asked.

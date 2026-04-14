@@ -47,14 +47,13 @@ describe(createReply, () => {
     `);
   });
 
-  it("buffers stream chunks until finish", async () => {
+  it("buffers chunks until finish", async () => {
     const { reply, messages } = createReplyTest({ limit: 100 });
-    const stream = reply.stream();
-    await stream.write("hel");
+    await reply.write("hel");
     expect(messages).toMatchInlineSnapshot(`[]`);
-    await stream.write("lo");
+    await reply.write("lo");
     expect(messages).toMatchInlineSnapshot(`[]`);
-    await stream.finish();
+    await reply.finish();
     expect(messages).toMatchInlineSnapshot(`
       [
         "hello",
@@ -62,24 +61,23 @@ describe(createReply, () => {
     `);
   });
 
-  it("flushes buffered stream text early", async () => {
+  it("flushes buffered text early", async () => {
     const { reply, messages } = createReplyTest({ limit: 100 });
-    const stream = reply.stream();
-    await stream.write("Tool: abc");
+    await reply.write("Tool: abc");
     expect(messages).toMatchInlineSnapshot(`[]`);
-    await stream.flush();
+    await reply.flush();
     expect(messages).toMatchInlineSnapshot(`
       [
         "Tool: abc",
       ]
     `);
-    await stream.write("done");
+    await reply.write("done");
     expect(messages).toMatchInlineSnapshot(`
       [
         "Tool: abc",
       ]
     `);
-    await stream.finish();
+    await reply.finish();
     expect(messages).toMatchInlineSnapshot(`
       [
         "Tool: abc",
@@ -88,16 +86,15 @@ describe(createReply, () => {
     `);
   });
 
-  it("flushes oversized stream text during write", async () => {
+  it("flushes oversized text during write", async () => {
     const { reply, messages } = createReplyTest({ limit: 20 });
-    const stream = reply.stream();
-    await stream.write("alpha beta gamma delta");
+    await reply.write("alpha beta gamma delta");
     expect(messages).toMatchInlineSnapshot(`
       [
         "alpha beta gamma",
       ]
     `);
-    await stream.finish();
+    await reply.finish();
     expect(messages).toMatchInlineSnapshot(`
       [
         "alpha beta gamma",
@@ -106,35 +103,17 @@ describe(createReply, () => {
     `);
   });
 
-  it("does not send fallback after flushed stream text", async () => {
+  it("does not send fallback after flushed text", async () => {
     const { reply, messages } = createReplyTest({ limit: 100 });
-    const stream = reply.stream();
-    await stream.write("hello");
+    await reply.write("hello");
     expect(messages).toMatchInlineSnapshot(`[]`);
-    await stream.flush();
+    await reply.flush();
     expect(messages).toMatchInlineSnapshot(`
       [
         "hello",
       ]
     `);
-    await stream.finish();
-    expect(messages).toMatchInlineSnapshot(`
-      [
-        "hello",
-      ]
-    `);
-  });
-
-  it("clears blank stream text on flush", async () => {
-    const { reply, messages } = createReplyTest({ limit: 100 });
-    const stream = reply.stream();
-    await stream.write("   ");
-    expect(messages).toMatchInlineSnapshot(`[]`);
-    await stream.flush();
-    expect(messages).toMatchInlineSnapshot(`[]`);
-    await stream.write("hello");
-    expect(messages).toMatchInlineSnapshot(`[]`);
-    await stream.finish();
+    await reply.finish();
     expect(messages).toMatchInlineSnapshot(`
       [
         "hello",
@@ -142,10 +121,25 @@ describe(createReply, () => {
     `);
   });
 
-  it("sends no response fallback when stream finishes empty", async () => {
+  it("clears blank text on flush", async () => {
     const { reply, messages } = createReplyTest({ limit: 100 });
-    const stream = reply.stream();
-    await stream.finish();
+    await reply.write("   ");
+    expect(messages).toMatchInlineSnapshot(`[]`);
+    await reply.flush();
+    expect(messages).toMatchInlineSnapshot(`[]`);
+    await reply.write("hello");
+    expect(messages).toMatchInlineSnapshot(`[]`);
+    await reply.finish();
+    expect(messages).toMatchInlineSnapshot(`
+      [
+        "hello",
+      ]
+    `);
+  });
+
+  it("sends no response fallback when reply finishes empty", async () => {
+    const { reply, messages } = createReplyTest({ limit: 100 });
+    await reply.finish();
     expect(messages).toMatchInlineSnapshot(`
       [
         "(no response)",

@@ -19,15 +19,6 @@ export function createReply(options: { context: ReplyContext; limit: number }) {
     sent = true;
   }
 
-  async function flush(): Promise<void> {
-    if (!buffer.trim()) {
-      buffer = "";
-      return;
-    }
-    await send(buffer);
-    buffer = "";
-  }
-
   async function write(text: string): Promise<void> {
     buffer += text;
     while (buffer.length > options.limit) {
@@ -40,23 +31,27 @@ export function createReply(options: { context: ReplyContext; limit: number }) {
     }
   }
 
-  async function finish() {
-    await flush();
-    if (!sent) {
-      await send("(no response)");
+  async function flush(): Promise<void> {
+    if (!buffer.trim()) {
+      buffer = "";
+      return;
     }
+    await send(buffer);
+    buffer = "";
   }
 
   return {
     send,
-    system(text: string) {
-      return send(`[⚙️ System]\n${text}`);
-    },
     write,
     flush,
-    finish,
-    stream() {
-      return this;
+    system: (text: string) => {
+      return send(`[⚙️ System]\n${text}`);
+    },
+    finish: async () => {
+      await flush();
+      if (!sent) {
+        await send("(no response)");
+      }
     },
   };
 }
