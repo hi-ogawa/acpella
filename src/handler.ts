@@ -5,6 +5,7 @@ import type { AppConfig } from "./config.ts";
 import { createReply, MESSAGE_SPLIT_BUDGET } from "./lib/reply.ts";
 import type { Reply, ReplyContext } from "./lib/reply.ts";
 import { createSessionStateStore } from "./state.ts";
+import type { StateSession } from "./state.ts";
 
 interface Handler {
   handle: (options: { session: string; context: HandlerContext }) => Promise<void>;
@@ -32,25 +33,25 @@ export async function createHandler(
     reply: Reply;
     name: string;
     text: string;
-    sessionId?: string;
+    stateSession?: StateSession;
   }): Promise<void> {
-    const { reply } = options;
+    const { reply, stateSession } = options;
     if (activeSessions.has(options.name)) {
       await reply.system("Agent turn already in progress. Send /cancel to stop it.");
       return;
     }
 
-    const session = options.sessionId
+    const verbose = stateSession?.verbose ?? true;
+    const sessionId = stateSession?.sessionId;
+    const session = sessionId
       ? await manager.loadSession({
           sessionCwd: config.home,
-          sessionId: options.sessionId,
+          sessionId,
         })
       : await manager.newSession({ sessionCwd: config.home });
 
     try {
-      const customPrompt = !options.sessionId
-        ? readOptionalPromptFile(config.prompt.file)
-        : undefined;
+      const customPrompt = !sessionId ? readOptionalPromptFile(config.prompt.file) : undefined;
       const promptText = customPrompt
         ? formatFirstPrompt({ customPrompt, userText: options.text })
         : options.text;
@@ -63,9 +64,11 @@ export async function createHandler(
           await reply.write(update.content.text);
         } else if (update.sessionUpdate === "tool_call") {
           console.log(`[acp:update] tool_call: ${update.title}`);
-          await reply.flush();
-          await reply.write(`Tool: ${update.title}`);
-          await reply.flush();
+          if (verbose) {
+            await reply.flush();
+            await reply.write(`Tool: ${update.title}`);
+            await reply.flush();
+          }
         } else {
           console.log(`[acp:update] ${update.sessionUpdate}`);
         }
@@ -76,8 +79,8 @@ export async function createHandler(
         return;
       }
       await reply.finish();
-      if (!options.sessionId) {
-        state.setSessionId(options.name, session.sessionId);
+      if (!sessionId) {
+        state.setSession(options.name, { sessionId: session.sessionId });
       }
     } finally {
       if (activeSessions.get(options.name) === session) {
@@ -110,7 +113,7 @@ export async function createHandler(
     name: string;
     sessionIdArg?: string;
   }): Promise<void> {
-    const currentSessionId = state.getSessionId(options.name);
+    const currentSessionId = state.getSession(options.name)?.sessionId;
     const sessionId = options.sessionIdArg ?? currentSessionId;
     if (sessionId) {
       try {
@@ -145,7 +148,7 @@ export async function createHandler(
       sessionId: options.sessionId,
     });
     try {
-      state.setSessionId(options.name, session.sessionId);
+      state.setSession(options.name, { sessionId: session.sessionId });
       return `Loaded session: ${session.sessionId}`;
     } finally {
       session.close();
@@ -156,7 +159,7 @@ export async function createHandler(
     return `\
 session: ${options.name}
 agent: ${config.agent.alias}
-session id: ${state.getSessionId(options.name) ?? "none"}`;
+session id: ${state.getSession(options.name)?.sessionId ?? "none"}`;
   }
 
   async function handleListSessions(): Promise<string> {
@@ -297,7 +300,7 @@ home: ${config.home}
       reply,
       name: sessionName,
       text,
-      sessionId: state.getSessionId(sessionName),
+      stateSession: state.getSession(sessionName),
     });
   };
 
