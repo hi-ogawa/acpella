@@ -8,10 +8,42 @@ export interface ReplyContext {
 export type Reply = ReturnType<typeof createReply>;
 
 export function createReply(options: { context: ReplyContext; limit: number }) {
+  let buffer = "";
+  let sent = false;
+
   async function send(text: string): Promise<void> {
     const parts = splitMessageText(text, options.limit);
     for (const part of parts) {
       await options.context.reply(part);
+    }
+    sent = true;
+  }
+
+  async function flush(): Promise<void> {
+    if (!buffer.trim()) {
+      buffer = "";
+      return;
+    }
+    await send(buffer);
+    buffer = "";
+  }
+
+  async function write(text: string): Promise<void> {
+    buffer += text;
+    while (buffer.length > options.limit) {
+      const result = splitHead(buffer, options.limit);
+      buffer = result.tail;
+      const part = result.head.trim();
+      if (part) {
+        await send(part);
+      }
+    }
+  }
+
+  async function finish() {
+    await flush();
+    if (!sent) {
+      await send("(no response)");
     }
   }
 
@@ -20,11 +52,11 @@ export function createReply(options: { context: ReplyContext; limit: number }) {
     system(text: string) {
       return send(`[⚙️ System]\n${text}`);
     },
+    write,
+    flush,
+    finish,
     stream() {
-      return createResponseWriter({
-        limit: options.limit,
-        send,
-      });
+      return this;
     },
   };
 }
@@ -65,50 +97,6 @@ function findSplitIndex(text: string, limit: number): number {
     }
   }
   return limit;
-}
-
-function createResponseWriter(options: { limit: number; send: (text: string) => Promise<void> }) {
-  let bufferedText = "";
-  let sentResponse = false;
-
-  async function send(text: string): Promise<void> {
-    await options.send(text);
-    sentResponse = true;
-  }
-
-  async function flush(): Promise<void> {
-    if (!bufferedText.trim()) {
-      bufferedText = "";
-      return;
-    }
-    await send(bufferedText);
-    bufferedText = "";
-  }
-
-  async function flushOversizedText(): Promise<void> {
-    while (bufferedText.length > options.limit) {
-      const result = splitHead(bufferedText, options.limit);
-      bufferedText = result.tail;
-      const part = result.head.trim();
-      if (part) {
-        await send(part);
-      }
-    }
-  }
-
-  return {
-    async write(text: string): Promise<void> {
-      bufferedText += text;
-      await flushOversizedText();
-    },
-    flush,
-    async finish(): Promise<void> {
-      await flush();
-      if (!sentResponse) {
-        await send("(no response)");
-      }
-    },
-  };
 }
 
 function splitHead(text: string, limit: number): { head: string; tail: string } {
