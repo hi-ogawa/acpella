@@ -342,13 +342,13 @@ Usage:
       case "new": {
         const agentCommand = args.join(" ");
         if (!name || !agentCommand) {
-          response = "Usage: /agent new <name> <command>";
+          response = "Usage: /agent new <name> <command...>";
           break;
         }
         stateStore.set((state) => {
           state.agents[name] = { command: agentCommand };
         });
-        response = `Saved agent: ${name}`;
+        response = `Saved new agent: ${name}`;
         break;
       }
       case "remove": {
@@ -393,14 +393,14 @@ ${referencedSessions.length} session(s) still reference it.`;
         stateStore.set((s) => {
           s.defaultAgent = name;
         });
-        response = `Default agent: ${name}`;
+        response = `Set default agent: ${name}`;
         break;
       }
       default: {
         response = `\
 Usage:
 /agent list
-/agent new <name> <command>
+/agent new <name> <command...>
 /agent remove <name>
 /agent default [name]`;
       }
