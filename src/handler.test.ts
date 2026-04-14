@@ -69,4 +69,40 @@ describe(createHandler, () => {
       - (unknown) -> other-session (active)"
     `);
   });
+
+  test("verbose command toggles tool call output", async () => {
+    const tester = await createHandlerTester();
+    const session = tester.createSession("test");
+
+    expect(await session.request("hello")).toMatchInlineSnapshot(`"echo: hello"`);
+    expect(await session.request("/verbose")).toMatchInlineSnapshot(`
+      "[⚙️ System]
+      Tool call output: on
+      Usage: /verbose [on|off]"
+    `);
+    expect(await session.request("__tool:Read files")).toMatchInlineSnapshot(`
+      "Tool: Read files
+      echo: __tool:Read files"
+    `);
+    expect(await session.request("/verbose off")).toMatchInlineSnapshot(`
+      "[⚙️ System]
+      Tool call output: off"
+    `);
+    expect(await session.request("__tool:Search docs")).toMatchInlineSnapshot(
+      `"echo: __tool:Search docs"`,
+    );
+    expect(await session.request("/verbose")).toMatchInlineSnapshot(`
+      "[⚙️ System]
+      Tool call output: off
+      Usage: /verbose [on|off]"
+    `);
+    expect(await session.request("/verbose on")).toMatchInlineSnapshot(`
+      "[⚙️ System]
+      Tool call output: on"
+    `);
+    expect(await session.request("__tool:Edit file")).toMatchInlineSnapshot(`
+      "Tool: Edit file
+      echo: __tool:Edit file"
+    `);
+  });
 });

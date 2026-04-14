@@ -22,6 +22,7 @@ const stateSchema = z
           z.string().min(1), // sessionName
           z.object({
             sessionId: z.string().min(1),
+            verbose: z.boolean().optional(),
           }),
         ),
       }),
@@ -31,7 +32,7 @@ const stateSchema = z
 
 type State = z.infer<typeof stateSchema>;
 type Scope = State["scopes"][string];
-
+export type StateSession = Scope["sessions"][string];
 export type SessionStateStore = ReturnType<typeof createSessionStateStore>;
 
 export function createSessionStateStore(config: Pick<AppConfig, "agent" | "stateFile">) {
@@ -72,12 +73,12 @@ export function createSessionStateStore(config: Pick<AppConfig, "agent" | "state
 
   return {
     getSessions,
-    getSessionId(sessionName: string) {
-      return getSessions()[sessionName]?.sessionId;
+    getSession(sessionName: string) {
+      return getSessions()[sessionName];
     },
-    setSessionId(sessionName: string, sessionId: string) {
+    setSession(sessionName: string, patch: StateSession) {
       const sessions = getSessions();
-      sessions[sessionName] = { sessionId };
+      sessions[sessionName] = { ...sessions[sessionName], ...patch };
       writeSessions(sessions);
     },
     deleteSession(sessionName: string) {

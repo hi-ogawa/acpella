@@ -5,6 +5,7 @@ import type { AppConfig } from "./config.ts";
 import { createReply, MESSAGE_SPLIT_BUDGET } from "./lib/reply.ts";
 import type { Reply, ReplyContext } from "./lib/reply.ts";
 import { createSessionStateStore } from "./state.ts";
+import type { StateSession } from "./state.ts";
 
 interface Handler {
   handle: (options: { session: string; context: HandlerContext }) => Promise<void>;
@@ -32,25 +33,25 @@ export async function createHandler(
     reply: Reply;
     name: string;
     text: string;
-    sessionId?: string;
+    stateSession?: StateSession;
   }): Promise<void> {
-    const { reply } = options;
+    const { reply, stateSession } = options;
     if (activeSessions.has(options.name)) {
       await reply.system("Agent turn already in progress. Send /cancel to stop it.");
       return;
     }
 
-    const session = options.sessionId
+    const verbose = stateSession?.verbose ?? true;
+    const sessionId = stateSession?.sessionId;
+    const session = sessionId
       ? await manager.loadSession({
           sessionCwd: config.home,
-          sessionId: options.sessionId,
+          sessionId,
         })
       : await manager.newSession({ sessionCwd: config.home });
 
     try {
-      const customPrompt = !options.sessionId
-        ? readOptionalPromptFile(config.prompt.file)
-        : undefined;
+      const customPrompt = !sessionId ? readOptionalPromptFile(config.prompt.file) : undefined;
       const promptText = customPrompt
         ? formatFirstPrompt({ customPrompt, userText: options.text })
         : options.text;
@@ -63,9 +64,11 @@ export async function createHandler(
           await reply.write(update.content.text);
         } else if (update.sessionUpdate === "tool_call") {
           console.log(`[acp:update] tool_call: ${update.title}`);
-          await reply.flush();
-          await reply.write(`Tool: ${update.title}`);
-          await reply.flush();
+          if (verbose) {
+            await reply.flush();
+            await reply.write(`Tool: ${update.title}`);
+            await reply.flush();
+          }
         } else {
           console.log(`[acp:update] ${update.sessionUpdate}`);
         }
@@ -76,8 +79,8 @@ export async function createHandler(
         return;
       }
       await reply.finish();
-      if (!options.sessionId) {
-        state.setSessionId(options.name, session.sessionId);
+      if (!sessionId) {
+        state.setSession(options.name, { sessionId: session.sessionId });
       }
     } finally {
       if (activeSessions.get(options.name) === session) {
@@ -110,7 +113,7 @@ export async function createHandler(
     name: string;
     sessionIdArg?: string;
   }): Promise<void> {
-    const currentSessionId = state.getSessionId(options.name);
+    const currentSessionId = state.getSession(options.name)?.sessionId;
     const sessionId = options.sessionIdArg ?? currentSessionId;
     if (sessionId) {
       try {
@@ -145,7 +148,7 @@ export async function createHandler(
       sessionId: options.sessionId,
     });
     try {
-      state.setSessionId(options.name, session.sessionId);
+      state.setSession(options.name, { sessionId: session.sessionId });
       return `Loaded session: ${session.sessionId}`;
     } finally {
       session.close();
@@ -156,7 +159,7 @@ export async function createHandler(
     return `\
 session: ${options.name}
 agent: ${config.agent.alias}
-session id: ${state.getSessionId(options.name) ?? "none"}`;
+session id: ${state.getSession(options.name)?.sessionId ?? "none"}`;
   }
 
   async function handleListSessions(): Promise<string> {
@@ -249,6 +252,54 @@ Usage:
     return true;
   }
 
+  async function handleVerboseCommand(options: {
+    reply: Reply;
+    text: string;
+    sessionName: string;
+    stateSession?: StateSession;
+  }): Promise<boolean> {
+    const [command, subcommand] = options.text.trim().split(/\s+/);
+    if (command !== "/verbose") {
+      return false;
+    }
+
+    const verbose = options.stateSession?.verbose ?? true;
+    const verboseStatus = `Tool call output: ${verbose ? "on" : "off"}`;
+    const verboseHelp = `\
+${verboseStatus}
+Usage: /verbose [on|off]
+`;
+
+    let response: string;
+    switch (subcommand) {
+      case undefined: {
+        response = verboseHelp;
+        break;
+      }
+      case "on":
+      case "off": {
+        if (!options.stateSession) {
+          response = `\
+No session. Send a prompt first, then use /verbose ${subcommand}.
+
+${verboseHelp}`;
+          break;
+        }
+        state.setSession(options.sessionName, {
+          ...options.stateSession,
+          verbose: subcommand === "on",
+        });
+        response = `Tool call output: ${subcommand}`;
+        break;
+      }
+      default: {
+        response = verboseHelp;
+      }
+    }
+    await options.reply.system(response);
+    return true;
+  }
+
   function handleStatus(): string {
     return `\
 status: running
@@ -261,6 +312,7 @@ home: ${config.home}
   const handle: Handler["handle"] = async (options) => {
     const text = options.context.message!.text!;
     const sessionName = options.session;
+    const stateSession = state.getSession(sessionName);
     const reply = createReply({
       context: options.context,
       limit: MESSAGE_SPLIT_BUDGET,
@@ -284,6 +336,15 @@ home: ${config.home}
     if (handledServiceCommand) {
       return;
     }
+    const handledVerboseCommand = await handleVerboseCommand({
+      reply,
+      text,
+      sessionName,
+      stateSession,
+    });
+    if (handledVerboseCommand) {
+      return;
+    }
     const handledSessionCommand = await handleSessionCommand({
       reply,
       text,
@@ -297,7 +358,7 @@ home: ${config.home}
       reply,
       name: sessionName,
       text,
-      sessionId: state.getSessionId(sessionName),
+      stateSession,
     });
   };
 
