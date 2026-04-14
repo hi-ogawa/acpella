@@ -188,6 +188,29 @@ session id: ${state.getSessionId(options.name) ?? "none"}`;
       (session) => !stateSessionIds.has(session.sessionId),
     );
 
+    function formatStateSessions(sessions: StateSession[]): string[] {
+      if (sessions.length === 0) {
+        return ["- none"];
+      }
+      return sessions.map((session) => `- ${session.name} -> ${session.sessionId}`);
+    }
+
+    function formatAgentSessions(response: Pick<ListSessionsResponse, "sessions">): string[] {
+      if (response.sessions.length === 0) {
+        return ["- none"];
+      }
+      return response.sessions.map((session) =>
+        [
+          `- ${session.sessionId}`,
+          `cwd=${session.cwd}`,
+          session.title ? `title=${session.title}` : undefined,
+          session.updatedAt ? `updatedAt=${session.updatedAt}` : undefined,
+        ]
+          .filter(Boolean)
+          .join(" "),
+      );
+    }
+
     return `\
 state sessions (${stateSessions.length}):
 ${formatStateSessions(stateSessions).join("\n")}
@@ -335,29 +358,6 @@ prompt file: ${config.prompt.file ?? "none"}`;
   };
 
   return { handle };
-}
-
-function formatStateSessions(sessions: StateSession[]): string[] {
-  if (sessions.length === 0) {
-    return ["- none"];
-  }
-  return sessions.map((session) => `- ${session.name} -> ${session.sessionId}`);
-}
-
-function formatAgentSessions(response: Pick<ListSessionsResponse, "sessions">): string[] {
-  if (response.sessions.length === 0) {
-    return ["- none"];
-  }
-  return response.sessions.map((session) =>
-    [
-      `- ${session.sessionId}`,
-      `cwd=${session.cwd}`,
-      session.title ? `title=${session.title}` : undefined,
-      session.updatedAt ? `updatedAt=${session.updatedAt}` : undefined,
-    ]
-      .filter(Boolean)
-      .join(" "),
-  );
 }
 
 function formatFirstPrompt(options: { customPrompt: string; userText: string }): string {
