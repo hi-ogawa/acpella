@@ -134,8 +134,6 @@ export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
         }
       });
     },
-    // TODO: export directly
-    parseSessionArg,
   };
 }
 
@@ -156,7 +154,7 @@ export function toAgentSessionKey(options: { agentKey: string; agentSessionId: s
   return `${options.agentKey}:${options.agentSessionId}`;
 }
 
-function parseSessionArg(options: { value: string; defaultAgentKey: string }): {
+export function parseAgentSessionKey(options: { value: string; defaultAgentKey: string }): {
   agentKey: string;
   agentSessionId: string;
 } {

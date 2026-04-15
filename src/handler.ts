@@ -4,7 +4,7 @@ import type { AppConfig } from "./config.ts";
 import { readOptionalPromptFile } from "./lib/prompt.ts";
 import { createReply, MESSAGE_SPLIT_BUDGET } from "./lib/reply.ts";
 import type { Reply, ReplyContext } from "./lib/reply.ts";
-import { createSessionStateStore, toAgentSessionKey } from "./state.ts";
+import { createSessionStateStore, parseAgentSessionKey, toAgentSessionKey } from "./state.ts";
 import type { StateSession } from "./state.ts";
 
 interface Handler {
@@ -159,7 +159,7 @@ export async function createHandler(
       return "Usage: /session load <sessionId|agent:sessionId>";
     }
     const state = stateStore.get();
-    const parsedSession = stateStore.parseSessionArg({
+    const parsedSession = parseAgentSessionKey({
       value: options.sessionIdArg,
       defaultAgentKey: stateStore.getSession(options.sessionName)?.agentKey ?? state.defaultAgent,
     });
@@ -231,7 +231,7 @@ export async function createHandler(
 
   function resolveSession(options: { value: string; sessionName: string }): StateSession {
     const state = stateStore.get();
-    const parsedSession = stateStore.parseSessionArg({
+    const parsedSession = parseAgentSessionKey({
       value: options.value,
       defaultAgentKey: stateStore.getSession(options.sessionName)?.agentKey ?? state.defaultAgent,
     });
