@@ -6,7 +6,7 @@ import { onTestFinished, TestRunner, vi, type TestContext } from "vitest";
 export type TestService = ReturnType<typeof startService>;
 
 export function startService(options?: { env?: Record<string, string>; sourceDir?: string }) {
-  const home = path.join(import.meta.dirname, `.tmp/acpella-test-${crypto.randomUUID()}`);
+  const home = path.join(import.meta.dirname, `../../.tmp/acpella-test-${crypto.randomUUID()}`);
   fs.mkdirSync(home, { recursive: true });
   if (options?.sourceDir) {
     fs.rmSync(home, { recursive: true, force: true });

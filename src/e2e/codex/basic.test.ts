@@ -1,4 +1,3 @@
-import path from "node:path";
 import { it, vi } from "vitest";
 import { startService, type TestService } from "../helper.ts";
 
@@ -15,7 +14,7 @@ async function setupService(service: TestService) {
 }
 
 it("basic", async () => {
-  const service = startService({ sourceDir: path.join(import.meta.dirname, "fixtures/basic") });
+  const service = startService({ sourceDir: "./fixtures/basic" });
   await setupService(service);
   service.write("hello");
   await service.waitForOutput("world");
@@ -23,7 +22,7 @@ it("basic", async () => {
 
 it("uses custom prompt file", async () => {
   const service = startService({
-    sourceDir: path.join(import.meta.dirname, "fixtures/custom-prompt"),
+    sourceDir: "./fixtures/custom-prompt",
   });
   await setupService(service);
   service.write("ping-custom-prompt");
