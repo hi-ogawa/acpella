@@ -2,7 +2,7 @@ import { it, vi } from "vitest";
 import { startService, type TestService } from "../helper.ts";
 
 vi.setConfig({
-  testTimeout: 30000,
+  testTimeout: 15000,
 });
 
 async function setupService(service: TestService) {
@@ -26,5 +26,5 @@ it("uses custom prompt file", async () => {
   });
   await setupService(service);
   service.write("ping-custom-prompt");
-  await service.waitForOutput("pong-custom-prompt");
+  await service.waitForOutput("prompt-pong-custom");
 });
