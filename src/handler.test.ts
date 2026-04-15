@@ -163,4 +163,8 @@ test("agent command", async () => {
   await expect(() => session.request("/session new test-error")).rejects.toMatchInlineSnapshot(
     `[Error: ACP agent failed to start: spawn no-such-command ENOENT]`,
   );
+  expect(await session.request("/agent default test-error")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Set default agent: test-error"
+  `);
 });

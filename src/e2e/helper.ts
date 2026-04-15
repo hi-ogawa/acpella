@@ -4,6 +4,7 @@ import path from "node:path";
 import { onTestFinished, TestRunner, vi, type TestContext } from "vitest";
 
 export function startService(
+  // TODO: move env to options.env
   env?: Record<string, string>,
   options?: {
     sourceDir?: string;
@@ -23,7 +24,6 @@ export function startService(
     cwd: path.join(import.meta.dirname, "../.."),
     env: {
       ...process.env,
-      ACPELLA_AGENT: "test",
       ACPELLA_HOME: home,
       ...env,
     },
