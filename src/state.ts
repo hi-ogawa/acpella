@@ -52,6 +52,17 @@ export type State = z.infer<typeof stateSchema>;
 export type StateSession = State["sessions"][string];
 export type SessionStateStore = ReturnType<typeof createSessionStateStore>;
 
+export interface NormalizedStateSession {
+  agentKey: string;
+  agentSessionId?: string;
+  verbose: boolean;
+}
+
+export interface StateAgentSession {
+  agentKey: string;
+  agentSessionId: string;
+}
+
 export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
   // TODO: add a custom command to reload state from disk if manual edits become a supported workflow.
   let state = readState();
@@ -91,7 +102,7 @@ export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
     writeState(state);
   }
 
-  return {
+  const store = {
     get: () => state,
     set: updateState,
     setSession(sessionName: string, patch: StateSession) {
@@ -102,8 +113,8 @@ export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
         };
       });
     },
+    // TODO: deslop
     getSession(sessionName: string): StateSession | undefined {
-      // TODO: why not { verbose: false, ..session }?
       const session = state.sessions[sessionName];
       if (!session?.agentKey || !session.agentSessionId) {
         return undefined;
@@ -111,6 +122,14 @@ export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
       return {
         agentKey: session.agentKey,
         agentSessionId: session.agentSessionId,
+      };
+    },
+    getSession2(sessionName: string): NormalizedStateSession {
+      const session = state.sessions[sessionName];
+      return {
+        agentKey: session?.agentKey ?? state.defaultAgent,
+        agentSessionId: session?.agentSessionId,
+        verbose: session?.verbose ?? false,
       };
     },
     deleteSession(session: { agentKey: string; agentSessionId: string }) {
@@ -135,6 +154,8 @@ export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
       });
     },
   };
+
+  return store;
 }
 
 const BUILTIN_AGENTS: State["agents"] = {
@@ -150,23 +171,22 @@ function getInitialState(): State {
   };
 }
 
-export function toAgentSessionKey(options: { agentKey: string; agentSessionId: string }): string {
+export function toAgentSessionKey(options: StateAgentSession): string {
   return `${options.agentKey}:${options.agentSessionId}`;
 }
 
-export function parseAgentSessionKey(options: { value: string; defaultAgentKey: string }): {
-  agentKey: string;
+export function parseAgentSessionKey(fullKey: string): {
+  agentKey?: string;
   agentSessionId: string;
 } {
-  const separatorIndex = options.value.indexOf(":");
-  if (separatorIndex === -1) {
+  const sep = fullKey.indexOf(":");
+  if (sep === -1) {
     return {
-      agentKey: options.defaultAgentKey,
-      agentSessionId: options.value,
+      agentSessionId: fullKey,
     };
   }
   return {
-    agentKey: options.value.slice(0, separatorIndex),
-    agentSessionId: options.value.slice(separatorIndex + 1),
+    agentKey: fullKey.slice(0, sep),
+    agentSessionId: fullKey.slice(sep + 1),
   };
 }
