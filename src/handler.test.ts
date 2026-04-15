@@ -1,6 +1,19 @@
 /*
 Coverage checklist:
 
+- [ ] /status output, including default agent
+- [ ] /service usage output
+- [ ] /service exit calls onServiceExit
+- [ ] /cancel with no active turn
+- [ ] /cancel active turn success
+- [ ] /cancel active turn fallback kill path
+- [ ] /verbose default status
+- [ ] /verbose on
+- [ ] /verbose off
+- [ ] /verbose invalid subcommand
+- [ ] /verbose suppresses tool call output
+- [ ] /verbose includes tool call output when enabled
+- [ ] /verbose is isolated per acpella session
 - [ ] /session current
 - [ ] /session bare usage output
 - [ ] /session new with default agent
@@ -37,24 +50,11 @@ Coverage checklist:
 - [ ] /agent default unknown agent
 - [ ] /agent default success
 - [ ] /agent default affects later session creation
-- [ ] /status output, including default agent
-- [ ] /service usage output
-- [ ] /service exit calls onServiceExit
-- [ ] /cancel with no active turn
-- [ ] /cancel active turn success
-- [ ] /cancel active turn fallback kill path
-- [ ] /verbose default status
-- [ ] /verbose on
-- [ ] /verbose off
-- [ ] /verbose invalid subcommand
-- [ ] /verbose suppresses tool call output
-- [ ] /verbose includes tool call output when enabled
-- [ ] /verbose is isolated per acpella session
 */
 
 import fs from "node:fs";
 import path from "node:path";
-import { describe, expect, onTestFinished, test } from "vitest";
+import { expect, onTestFinished, test, vi } from "vitest";
 import { loadConfig, type AppConfig } from "./config";
 import { createHandler, type HandlerContext } from "./handler";
 
@@ -69,8 +69,10 @@ async function createHandlerTester() {
     ACPELLA_HOME: home,
   });
 
+  const onServiceExit = vi.fn();
   const handler = await createHandler(config, {
-    onServiceExit: () => {},
+    version: "v1.0.0-test",
+    onServiceExit,
   });
 
   async function request({ sessionName, text }: { sessionName: string; text: string }) {
@@ -97,6 +99,7 @@ async function createHandlerTester() {
     config,
     request,
     createSession,
+    onServiceExit,
   };
 }
 
@@ -104,13 +107,19 @@ function sanitizeOutput(output: string, config: AppConfig) {
   return output.replaceAll(config.home, () => "<home>").replaceAll(process.cwd(), () => "<cwd>");
 }
 
-describe(createHandler, () => {
-  test("basic", async () => {
-    const tester = await createHandlerTester();
-    const result = await tester.request({ sessionName: "test", text: "hello" });
-    expect(result).toMatchInlineSnapshot(`"echo: hello"`);
-    const state = fs.readFileSync(tester.config.stateFile, "utf8");
-    expect(sanitizeOutput(state, tester.config)).toMatchInlineSnapshot(`
+test("basic", async () => {
+  const tester = await createHandlerTester();
+  const session = tester.createSession("test");
+  expect(await session.request("/status")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    status: running
+    version: v1.0.0-test
+    default agent: test
+    home: <home>"
+  `);
+  expect(await session.request("hello")).toMatchInlineSnapshot(`"echo: hello"`);
+  const state = fs.readFileSync(tester.config.stateFile, "utf8");
+  expect(sanitizeOutput(state, tester.config)).toMatchInlineSnapshot(`
       "{
         "version": 2,
         "defaultAgent": "test",
@@ -128,66 +137,107 @@ describe(createHandler, () => {
         }
       }"
     `);
-  });
+});
 
-  test("session commands", async () => {
-    const tester = await createHandlerTester();
-    const session = tester.createSession("test");
-    expect(await session.request("/session list")).toMatchInlineSnapshot(`
+test("service commands", async () => {
+  const tester = await createHandlerTester();
+  const session = tester.createSession("test");
+  expect(await session.request("/service")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Usage: /service exit"
+  `);
+  await session.request("/service exit");
+  expect(tester.onServiceExit.mock.calls).toMatchInlineSnapshot(`
+    [
+      [],
+    ]
+  `);
+});
+
+test("session commands", async () => {
+  const tester = await createHandlerTester();
+  const session = tester.createSession("test");
+  expect(await session.request("/session")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Usage:
+    /session current
+    /session list
+    /session new [agent]
+    /session load <sessionId|agent:sessionId>
+    /session close [sessionId|agent:sessionId]"
+  `);
+  expect(await session.request("/session current")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    session: test
+    agent: test
+    agent session id: none"
+  `);
+  expect(await session.request("/session list")).toMatchInlineSnapshot(`
       "[⚙️ System]
       - (unknown) -> test:__testLoadSession (active)
       - (unknown) -> test:other-session (active)"
     `);
-    expect(await session.request("hello")).toMatchInlineSnapshot(`"echo: hello"`);
-    expect(await session.request("/session list")).toMatchInlineSnapshot(`
+  expect(await session.request("hello")).toMatchInlineSnapshot(`"echo: hello"`);
+  expect(await session.request("/session current")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    session: test
+    agent: test
+    agent session id: __testLoadSession"
+  `);
+  expect(await session.request("/session list")).toMatchInlineSnapshot(`
       "[⚙️ System]
       - test -> test:__testLoadSession (active)
       - (unknown) -> test:other-session (active)"
     `);
-  });
+  expect(await session.request("/session new no-such-agent")).toMatchInlineSnapshot(
+    `
+    "[⚙️ System]
+    Unknown agent: no-such-agent"
+  `,
+  );
+});
 
-  test("verbose command toggles tool call output", async () => {
-    const tester = await createHandlerTester();
-    const session = tester.createSession("test");
+test("verbose command toggles tool call output", async () => {
+  const tester = await createHandlerTester();
+  const session = tester.createSession("test");
 
-    expect(await session.request("/verbose")).toMatchInlineSnapshot(`
+  expect(await session.request("/verbose")).toMatchInlineSnapshot(`
       "[⚙️ System]
       Tool call output: off
       Usage: /verbose [on|off]"
     `);
-    expect(await session.request("/verbose on")).toMatchInlineSnapshot(`
+  expect(await session.request("/verbose on")).toMatchInlineSnapshot(`
       "[⚙️ System]
       Tool call output: on"
     `);
-    expect(await session.request("__tool:Read files")).toMatchInlineSnapshot(`
+  expect(await session.request("__tool:Read files")).toMatchInlineSnapshot(`
       "Tool: Read files
       echo: __tool:Read files"
     `);
-    expect(await session.request("/verbose off")).toMatchInlineSnapshot(`
+  expect(await session.request("/verbose off")).toMatchInlineSnapshot(`
       "[⚙️ System]
       Tool call output: off"
     `);
-    expect(await session.request("__tool:Search docs")).toMatchInlineSnapshot(
-      `"echo: __tool:Search docs"`,
-    );
-    expect(await session.request("__chunk_tool:Search docs")).toMatchInlineSnapshot(`
+  expect(await session.request("__tool:Search docs")).toMatchInlineSnapshot(
+    `"echo: __tool:Search docs"`,
+  );
+  expect(await session.request("__chunk_tool:Search docs")).toMatchInlineSnapshot(`
       "before
       after"
     `);
-    expect(await session.request("/verbose")).toMatchInlineSnapshot(`
+  expect(await session.request("/verbose")).toMatchInlineSnapshot(`
       "[⚙️ System]
       Tool call output: off
       Usage: /verbose [on|off]"
     `);
-    expect(await session.request("/verbose on")).toMatchInlineSnapshot(`
+  expect(await session.request("/verbose on")).toMatchInlineSnapshot(`
       "[⚙️ System]
       Tool call output: on"
     `);
-    expect(await session.request("__tool:Edit file")).toMatchInlineSnapshot(`
+  expect(await session.request("__tool:Edit file")).toMatchInlineSnapshot(`
       "Tool: Edit file
       echo: __tool:Edit file"
     `);
-  });
 });
 
 test("agent command", async () => {
@@ -245,10 +295,4 @@ test("agent command", async () => {
     "[⚙️ System]
     Set default agent: test-error"
   `);
-  expect(await session.request("/session new no-such-agent")).toMatchInlineSnapshot(
-    `
-    "[⚙️ System]
-    Unknown agent: no-such-agent"
-  `,
-  );
 });
