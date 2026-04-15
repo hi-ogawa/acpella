@@ -29,11 +29,11 @@ const stateSchema = z
       });
     }
     for (const [sessionName, session] of Object.entries(state.sessions)) {
-      if (Boolean(session.agentKey) !== Boolean(session.agentSessionId)) {
+      if (!session.agentKey) {
         ctx.addIssue({
           code: "custom",
-          message: "session must include both agentKey and agentSessionId",
-          path: ["sessions", sessionName],
+          message: "session must include agentKey",
+          path: ["sessions", sessionName, "agentKey"],
         });
       }
       if (session.agentKey && !state.agents[session.agentKey]) {
