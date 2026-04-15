@@ -6,7 +6,7 @@ vi.setConfig({
 });
 
 async function setupService(service: TestService) {
-  await service.waitForOutput("Starting service");
+  await service.waitForOutput("Starting repl");
   service.write("/agent new codex codex-acp");
   await service.waitForOutput("Saved new agent: codex");
   service.write("/agent default codex");

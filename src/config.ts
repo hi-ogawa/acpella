@@ -13,7 +13,6 @@ export interface AppConfig {
   prompt: {
     file: string;
   };
-  testChatId: number;
 }
 
 const envSchema = z
@@ -22,10 +21,6 @@ const envSchema = z
     ACPELLA_TELEGRAM_BOT_TOKEN: z.string().optional(),
     ACPELLA_TELEGRAM_ALLOWED_USER_IDS: z.string().optional(),
     ACPELLA_TELEGRAM_ALLOWED_CHAT_IDS: z.string().optional(),
-    ACPELLA_TEST_CHAT_ID: z
-      .string()
-      .optional()
-      .transform((value) => (value?.trim() ? value : "10101010")),
   })
   .loose();
 
@@ -44,8 +39,6 @@ export function loadConfig(envOverride?: Record<string, string>): AppConfig {
     prompt: {
       file: path.join(home, ".acpella", "AGENTS.md"),
     },
-    // TODO: make use of this for test
-    testChatId: parseId(env.ACPELLA_TEST_CHAT_ID),
   };
 }
 
@@ -63,12 +56,4 @@ function parseIdList(value: string | undefined): number[] | undefined {
     }
     return id;
   });
-}
-
-function parseId(value: string): number {
-  const id = Number(value);
-  if (!Number.isInteger(id)) {
-    throw new Error(`Invalid numeric id: ${value}`);
-  }
-  return id;
 }

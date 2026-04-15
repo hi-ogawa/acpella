@@ -7,7 +7,7 @@ import type { Reply, ReplyContext } from "./lib/reply.ts";
 import { createSessionStateStore, parseAgentSessionKey, toAgentSessionKey } from "./state.ts";
 import type { StateAgentSession } from "./state.ts";
 
-interface Handler {
+export interface Handler {
   handle: (options: { sessionName: string; context: HandlerContext }) => Promise<void>;
 }
 
