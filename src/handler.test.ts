@@ -155,12 +155,36 @@ test("agent command", async () => {
     "[⚙️ System]
     Saved new agent: test-error"
   `);
+  await expect(session.request("/agent new bad:key no-such-command")).rejects
+    .toMatchInlineSnapshot(`
+    [ZodError: [
+      {
+        "code": "invalid_key",
+        "origin": "record",
+        "issues": [
+          {
+            "origin": "string",
+            "code": "invalid_format",
+            "format": "regex",
+            "pattern": "/^[a-zA-Z0-9_-]+$/",
+            "path": [],
+            "message": "Invalid string: must match pattern /^[a-zA-Z0-9_-]+$/"
+          }
+        ],
+        "path": [
+          "agents",
+          "bad:key"
+        ],
+        "message": "Invalid key in record"
+      }
+    ]]
+  `);
   expect(await session.request("/agent list")).toMatchInlineSnapshot(`
     "[⚙️ System]
     - test -> node <cwd>/src/lib/test-agent.ts (default)
     - test-error -> no-such-command"
   `);
-  await expect(() => session.request("/session new test-error")).rejects.toMatchInlineSnapshot(
+  await expect(session.request("/session new test-error")).rejects.toMatchInlineSnapshot(
     `[Error: ACP agent failed to start: spawn no-such-command ENOENT]`,
   );
   expect(await session.request("/agent default test-error")).toMatchInlineSnapshot(`

@@ -7,8 +7,13 @@ const agentSchema = z.object({
   command: z.string().min(1),
 });
 
+const agentKeySchema = z
+  .string()
+  .min(1)
+  .regex(/^[a-zA-Z0-9_-]+$/);
+
 const stateSessionSchema = z.object({
-  agentKey: z.string().min(1),
+  agentKey: agentKeySchema,
   agentSessionId: z.string().min(1).optional(),
   verbose: z.boolean().optional(),
 });
@@ -16,8 +21,8 @@ const stateSessionSchema = z.object({
 const stateSchema = z
   .object({
     version: z.literal(2),
-    defaultAgent: z.string().min(1),
-    agents: z.record(z.string().min(1), agentSchema),
+    defaultAgent: agentKeySchema,
+    agents: z.record(agentKeySchema, agentSchema),
     sessions: z.record(z.string().min(1), stateSessionSchema),
   })
   .superRefine((state, ctx) => {
