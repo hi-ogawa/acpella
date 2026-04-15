@@ -1,3 +1,57 @@
+/*
+Coverage checklist:
+
+- [ ] /session current
+- [ ] /session bare usage output
+- [ ] /session new with default agent
+- [ ] /session new with named agent
+- [ ] /session new resets agentSessionId before creating a fresh ACP session
+- [ ] /session new sends an empty prompt
+- [ ] /session new unknown agent
+- [ ] /session new agent startup failure
+- [ ] /session load missing-arg usage
+- [ ] /session load with plain session id
+- [ ] /session load with agent:sessionId
+- [ ] /session load unknown agent
+- [ ] /session load unknown session
+- [ ] /session close with no associated session
+- [ ] /session close current session
+- [ ] /session close explicit agent:sessionId
+- [ ] /session close deletes matching state session
+- [ ] /session close reports closeSession failure
+- [ ] /session list with multiple agents
+- [ ] /session list marks stored inactive sessions as not active
+- [ ] /session list tolerates listSessions failure for one agent
+- [ ] /agent list
+- [ ] /agent bare usage output
+- [ ] /agent new usage when name is missing
+- [ ] /agent new usage when command is missing
+- [ ] /agent new preserves multi-word commands
+- [ ] /agent new rejects invalid agent key
+- [ ] /agent remove usage when name is missing
+- [ ] /agent remove unknown agent
+- [ ] /agent remove rejects default agent
+- [ ] /agent remove rejects agents referenced by sessions
+- [ ] /agent remove success
+- [ ] /agent default query form
+- [ ] /agent default unknown agent
+- [ ] /agent default success
+- [ ] /agent default affects later session creation
+- [ ] /status output, including default agent
+- [ ] /service usage output
+- [ ] /service exit calls onServiceExit
+- [ ] /cancel with no active turn
+- [ ] /cancel active turn success
+- [ ] /cancel active turn fallback kill path
+- [ ] /verbose default status
+- [ ] /verbose on
+- [ ] /verbose off
+- [ ] /verbose invalid subcommand
+- [ ] /verbose suppresses tool call output
+- [ ] /verbose includes tool call output when enabled
+- [ ] /verbose is isolated per acpella session
+*/
+
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, onTestFinished, test } from "vitest";
