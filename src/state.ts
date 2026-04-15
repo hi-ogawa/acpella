@@ -105,14 +105,6 @@ export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
   const store = {
     get: () => state,
     set: updateState,
-    setSession(sessionName: string, patch: StateSession) {
-      updateState((state) => {
-        state.sessions[sessionName] = {
-          ...state.sessions[sessionName],
-          ...patch,
-        };
-      });
-    },
     getSession(sessionName: string): NormalizedStateSession {
       const session = state.sessions[sessionName];
       return {
@@ -120,6 +112,14 @@ export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
         agentKey: session?.agentKey ?? state.defaultAgent,
         verbose: session?.verbose ?? false,
       };
+    },
+    setSession(sessionName: string, patch: StateSession) {
+      updateState((state) => {
+        state.sessions[sessionName] = {
+          ...state.sessions[sessionName],
+          ...patch,
+        };
+      });
     },
     deleteSession(target: StateAgentSession) {
       updateState((state) => {
