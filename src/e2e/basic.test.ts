@@ -18,8 +18,10 @@ describe("basic", () => {
 
   it("does not pass ACPELLA env to the agent", async () => {
     const service = startService({
-      ACPELLA_TELEGRAM_BOT_TOKEN: "secret-token",
-      AGENT_VISIBLE_KEY: "agent-visible-key",
+      env: {
+        ACPELLA_TELEGRAM_BOT_TOKEN: "secret-token",
+        AGENT_VISIBLE_KEY: "agent-visible-key",
+      },
     });
     await service.waitForOutput("Starting service");
     service.write("__env:ACPELLA_TELEGRAM_BOT_TOKEN");

@@ -3,13 +3,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { onTestFinished, TestRunner, vi, type TestContext } from "vitest";
 
-export function startService(
-  // TODO: move env to options.env
-  env?: Record<string, string>,
-  options?: {
-    sourceDir?: string;
-  },
-) {
+export type TestService = ReturnType<typeof startService>;
+
+export function startService(options?: { env?: Record<string, string>; sourceDir?: string }) {
   const home = path.join(import.meta.dirname, `.tmp/acpella-test-${crypto.randomUUID()}`);
   fs.mkdirSync(home, { recursive: true });
   if (options?.sourceDir) {
@@ -25,7 +21,7 @@ export function startService(
     env: {
       ...process.env,
       ACPELLA_HOME: home,
-      ...env,
+      ...options?.env,
     },
     stdio: ["pipe", "pipe", "pipe"],
   });
