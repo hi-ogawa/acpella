@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, onTestFinished, test } from "vitest";
-import { loadConfig } from "./config";
+import { loadConfig, type AppConfig } from "./config";
 import { createHandler, type HandlerContext } from "./handler";
 
 async function createHandlerTester() {
@@ -30,7 +30,7 @@ async function createHandlerTester() {
       },
     };
     await handler.handle({ sessionName, context });
-    return replies.join("\n");
+    return sanitizeOutput(replies.join("\n"), config);
   }
 
   function createSession(sessionName: string) {
@@ -46,12 +46,33 @@ async function createHandlerTester() {
   };
 }
 
+function sanitizeOutput(output: string, config: AppConfig) {
+  return output.replaceAll(config.home, () => "<home>").replaceAll(process.cwd(), () => "<cwd>");
+}
+
 describe(createHandler, () => {
   test("basic", async () => {
     const tester = await createHandlerTester();
     const result = await tester.request({ sessionName: "test", text: "hello" });
     expect(result).toMatchInlineSnapshot(`"echo: hello"`);
-    expect(fs.existsSync(tester.config.stateFile)).toBe(true);
+    const state = fs.readFileSync(tester.config.stateFile, "utf8");
+    expect(sanitizeOutput(state, tester.config)).toMatchInlineSnapshot(`
+      "{
+        "version": 2,
+        "defaultAgent": "test",
+        "agents": {
+          "test": {
+            "command": "node <cwd>/src/lib/test-agent.ts"
+          }
+        },
+        "sessions": {
+          "test": {
+            "agentKey": "test",
+            "agentSessionId": "__testLoadSession"
+          }
+        }
+      }"
+    `);
   });
 
   test("session commands", async () => {
@@ -113,4 +134,21 @@ describe(createHandler, () => {
       echo: __tool:Edit file"
     `);
   });
+});
+
+test("agent command", async () => {
+  const tester = await createHandlerTester();
+  const session = tester.createSession("test");
+  expect(await session.request("/agent")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Usage:
+    /agent list
+    /agent new <name> <command...>
+    /agent remove <name>
+    /agent default [name]"
+  `);
+  expect(await session.request("/agent list")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    - test -> node <cwd>/src/lib/test-agent.ts (default)"
+  `);
 });
