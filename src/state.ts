@@ -132,24 +132,15 @@ export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
         verbose: session?.verbose ?? false,
       };
     },
-    deleteSession(session: { agentKey: string; agentSessionId: string }) {
+    deleteSession(target: StateAgentSession) {
       updateState((state) => {
-        for (const stateSession of Object.values(state.sessions)) {
+        for (const [name, session] of Object.entries(state.sessions)) {
           if (
-            stateSession.agentKey === session.agentKey &&
-            stateSession.agentSessionId === session.agentSessionId
+            session.agentKey === target.agentKey &&
+            session.agentSessionId === target.agentSessionId
           ) {
-            delete stateSession.agentKey;
-            delete stateSession.agentSessionId;
+            delete state.sessions[name];
           }
-        }
-      });
-    },
-    clearSession(sessionName: string) {
-      updateState((state) => {
-        if (state.sessions[sessionName]) {
-          delete state.sessions[sessionName].agentKey;
-          delete state.sessions[sessionName].agentSessionId;
         }
       });
     },
