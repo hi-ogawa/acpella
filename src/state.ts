@@ -25,7 +25,7 @@ const stateSchema = z
       ctx.addIssue({
         code: "custom",
         message: `defaultAgent does not exist: ${state.defaultAgent}`,
-        path: ["agents"],
+        path: ["defaultAgent"],
       });
     }
     for (const [sessionName, session] of Object.entries(state.sessions)) {
