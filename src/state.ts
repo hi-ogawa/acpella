@@ -152,7 +152,7 @@ function getInitialState(): State {
   };
 }
 
-export function makeStateSessionKey(options: { agentKey: string; agentSessionId: string }): string {
+export function toAgentSessionKey(options: { agentKey: string; agentSessionId: string }): string {
   return `${options.agentKey}:${options.agentSessionId}`;
 }
 

@@ -4,7 +4,7 @@ import type { AppConfig } from "./config.ts";
 import { readOptionalPromptFile } from "./lib/prompt.ts";
 import { createReply, MESSAGE_SPLIT_BUDGET } from "./lib/reply.ts";
 import type { Reply, ReplyContext } from "./lib/reply.ts";
-import { createSessionStateStore, makeStateSessionKey } from "./state.ts";
+import { createSessionStateStore, toAgentSessionKey } from "./state.ts";
 import type { StateSession } from "./state.ts";
 
 interface Handler {
@@ -173,7 +173,7 @@ export async function createHandler(
         agentKey: parsedSession.agentKey,
         agentSessionId: session.sessionId,
       });
-      return `Loaded session: ${makeStateSessionKey({
+      return `Loaded session: ${toAgentSessionKey({
         agentKey: parsedSession.agentKey,
         agentSessionId: session.sessionId,
       })}`;
@@ -191,18 +191,19 @@ export async function createHandler(
         const agentSessions = await manager.listSessions();
         for (const session of agentSessions.sessions) {
           activeAgentSessions.add(
-            makeStateSessionKey({ agentKey, agentSessionId: session.sessionId }),
+            toAgentSessionKey({ agentKey, agentSessionId: session.sessionId }),
           );
         }
       } catch (e) {
+        // TODO: include errored agent in message response
         console.error(`[acp] listSessions failed for agent ${agentKey}:`, e);
       }
     }
-    const stateSessions = new Map<string, string>();
+    const stateAgentSessions = new Map<string, string>();
     for (const [sessionName, stateSession] of Object.entries(state.sessions)) {
       if (stateSession.agentKey && stateSession.agentSessionId) {
-        stateSessions.set(
-          makeStateSessionKey({
+        stateAgentSessions.set(
+          toAgentSessionKey({
             agentKey: stateSession.agentKey,
             agentSessionId: stateSession.agentSessionId,
           }),
@@ -211,18 +212,18 @@ export async function createHandler(
       }
     }
     let output = "";
-    for (const [sessionKey, sessionName] of stateSessions) {
-      output += `- ${sessionName} -> ${sessionKey}`;
-      if (activeAgentSessions.has(sessionKey)) {
+    for (const [agentSessionKey, sessionName] of stateAgentSessions) {
+      output += `- ${sessionName} -> ${agentSessionKey}`;
+      if (activeAgentSessions.has(agentSessionKey)) {
         output += " (active)";
       } else {
         output += " (not active)";
       }
       output += "\n";
     }
-    for (const sessionKey of activeAgentSessions) {
-      if (!stateSessions.has(sessionKey)) {
-        output += `- (unknown) -> ${sessionKey} (active)\n`;
+    for (const agentSessionKey of activeAgentSessions) {
+      if (!stateAgentSessions.has(agentSessionKey)) {
+        output += `- (unknown) -> ${agentSessionKey} (active)\n`;
       }
     }
     return output || "No sessions.";
