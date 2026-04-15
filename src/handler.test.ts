@@ -167,4 +167,10 @@ test("agent command", async () => {
     "[⚙️ System]
     Set default agent: test-error"
   `);
+  expect(await session.request("/session new no-such-agent")).toMatchInlineSnapshot(
+    `
+    "[⚙️ System]
+    Unknown agent: no-such-agent"
+  `,
+  );
 });

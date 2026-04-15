@@ -245,6 +245,10 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
       case "new": {
         const agentKey = args[0];
         if (agentKey) {
+          if (!stateStore.get().agents[agentKey]) {
+            response = `Unknown agent: ${agentKey}`;
+            break;
+          }
           stateStore.setSession(options.sessionName, { agentKey, agentSessionId: undefined });
         }
         await handlePrompt({
