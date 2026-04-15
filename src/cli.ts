@@ -3,8 +3,8 @@ import { createInterface } from "node:readline/promises";
 import { parseArgs } from "node:util";
 import { run, sequentialize } from "@grammyjs/runner";
 import { Bot } from "grammy";
-import { loadConfig } from "./config.ts";
-import { createHandler } from "./handler.ts";
+import { loadConfig, type AppConfig } from "./config.ts";
+import { createHandler, type Handler } from "./handler.ts";
 import { handleSetupSystemd } from "./lib/systemd.ts";
 import { telegramSequentialKey, telegramSessionName } from "./lib/telegram.ts";
 import { getVersion } from "./lib/version.ts";
@@ -61,56 +61,7 @@ Options:
   });
 
   if (cli.repl) {
-    const sessionName = "repl";
-
-    async function sendMessage(text: string) {
-      try {
-        await handler.handle({
-          sessionName,
-          context: {
-            message: { text },
-            async reply(text) {
-              console.log(text);
-            },
-          },
-        });
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.error(`[${sessionName}] error: ${msg}`);
-        console.log(`Error: ${msg.slice(0, 200)}`);
-      }
-    }
-
-    console.log(`Starting service (home: ${config.home}, repl: true)`);
-
-    const rl = createInterface({ input: process.stdin, output: process.stdout });
-    let cancelRequested = false;
-    rl.on("SIGINT", () => {
-      if (cancelRequested) {
-        rl.close();
-        return;
-      }
-      cancelRequested = true;
-      void sendMessage("/cancel").finally(() => {
-        cancelRequested = false;
-      });
-    });
-
-    try {
-      while (true) {
-        const text = await rl.question("> ");
-        if (!text || text === "/quit") {
-          break;
-        }
-        await sendMessage(text);
-      }
-    } catch (e) {
-      if (!(e instanceof Error && e.name === "AbortError")) {
-        throw e;
-      }
-    } finally {
-      rl.close();
-    }
+    await startRepl(config, handler, version);
     return;
   }
 
@@ -153,16 +104,14 @@ Options:
     try {
       await handler.handle({ sessionName, context: ctx });
       console.log(`[${sessionName}] -> response sent`);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
       console.error(`[${sessionName}] error: ${msg}`);
       await ctx.reply(`Error: ${msg.slice(0, 200)}`);
     }
   });
 
-  // --- start ---
-
-  console.log(`Starting service (home: ${config.home}, repl: ${cli.repl})`);
+  console.log(`Starting service (version: ${version}, home: ${config.home})`);
 
   const runner = run(bot, {
     sink: {
@@ -171,6 +120,57 @@ Options:
     },
   });
   await runner.task();
+}
+
+async function startRepl(config: AppConfig, handler: Handler, version: string) {
+  const sessionName = "repl";
+
+  async function sendMessage(text: string) {
+    try {
+      await handler.handle({
+        sessionName,
+        context: {
+          message: { text },
+          async reply(text) {
+            console.log(text);
+          },
+        },
+      });
+    } catch (error) {
+      console.error(`[${sessionName}] error`, error);
+    }
+  }
+
+  console.log(`Starting repl (version: ${version}, home: ${config.home})`);
+
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  let cancelRequested = false;
+  rl.on("SIGINT", () => {
+    if (cancelRequested) {
+      rl.close();
+      return;
+    }
+    cancelRequested = true;
+    void sendMessage("/cancel").finally(() => {
+      cancelRequested = false;
+    });
+  });
+
+  try {
+    while (true) {
+      const text = await rl.question("> ");
+      if (!text || text === "/quit") {
+        break;
+      }
+      await sendMessage(text);
+    }
+  } catch (e) {
+    if (!(e instanceof Error && e.name === "AbortError")) {
+      throw e;
+    }
+  } finally {
+    rl.close();
+  }
 }
 
 main().catch((err) => {
