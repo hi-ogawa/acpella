@@ -10,7 +10,7 @@ const agentSchema = z.object({
 });
 
 const sessionSchema = z.object({
-  agentKey: z.string().min(1).optional(),
+  agentKey: z.string().min(1).optional(), // TODO: doesn't make sense actually
   agentSessionId: z.string().min(1).optional(),
   verbose: z.boolean().optional(),
 });

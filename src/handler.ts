@@ -19,7 +19,7 @@ export interface HandlerContext extends ReplyContext {
 
 export async function createHandler(
   config: AppConfig,
-  options: {
+  handlerOptions: {
     version?: string;
     onServiceExit: () => void;
   },
@@ -287,20 +287,17 @@ Usage:
     return true;
   }
 
-  async function handleServiceCommand(commandOptions: {
-    reply: Reply;
-    text: string;
-  }): Promise<boolean> {
-    const [command, subcommand] = commandOptions.text.trim().split(/\s+/);
+  async function handleServiceCommand(options: { reply: Reply; text: string }): Promise<boolean> {
+    const [command, subcommand] = options.text.trim().split(/\s+/);
     if (command !== "/service") {
       return false;
     }
     if (subcommand === "exit") {
-      await commandOptions.reply.system("Exiting acpella.");
-      options.onServiceExit();
+      await options.reply.system("Exiting acpella.");
+      handlerOptions.onServiceExit();
       return true;
     }
-    await commandOptions.reply.system("Usage: /service exit");
+    await options.reply.system("Usage: /service exit");
     return true;
   }
 
@@ -440,7 +437,7 @@ Usage: /verbose [on|off]
   function handleStatus(): string {
     return `\
 status: running
-version: ${options.version ?? "(unknown)"}
+version: ${handlerOptions.version ?? "(unknown)"}
 default agent: ${stateStore.get().defaultAgent}
 home: ${config.home}
 `;
