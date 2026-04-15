@@ -113,22 +113,11 @@ export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
         };
       });
     },
-    // TODO: deslop
-    getSession(sessionName: string): StateSession | undefined {
-      const session = state.sessions[sessionName];
-      if (!session?.agentKey || !session.agentSessionId) {
-        return undefined;
-      }
-      return {
-        agentKey: session.agentKey,
-        agentSessionId: session.agentSessionId,
-      };
-    },
-    getSession2(sessionName: string): NormalizedStateSession {
+    getSession(sessionName: string): NormalizedStateSession {
       const session = state.sessions[sessionName];
       return {
+        ...session,
         agentKey: session?.agentKey ?? state.defaultAgent,
-        agentSessionId: session?.agentSessionId,
         verbose: session?.verbose ?? false,
       };
     },

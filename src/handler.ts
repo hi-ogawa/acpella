@@ -47,7 +47,7 @@ export async function createHandler(
       return;
     }
 
-    const stateSession = stateStore.getSession2(options.sessionName);
+    const stateSession = stateStore.getSession(options.sessionName);
     const manager = await getAgentManager(stateSession.agentKey);
 
     let agentSession: AgentSession;
@@ -124,7 +124,7 @@ export async function createHandler(
     sessionName: string;
     sessionIdArg?: string;
   }): Promise<string> {
-    const stateSession = stateStore.getSession2(options.sessionName);
+    const stateSession = stateStore.getSession(options.sessionName);
     const parsed = options.sessionIdArg ? parseAgentSessionKey(options.sessionIdArg) : undefined;
     const agentKey = parsed?.agentKey ?? stateSession.agentKey;
     const agentSessionId = parsed?.agentSessionId ?? stateSession.agentSessionId;
@@ -151,7 +151,7 @@ export async function createHandler(
     if (!options.sessionIdArg) {
       return "Usage: /session load <sessionId|agent:sessionId>";
     }
-    const stateSession = stateStore.getSession2(options.sessionName);
+    const stateSession = stateStore.getSession(options.sessionName);
     const parsed = parseAgentSessionKey(options.sessionIdArg);
     const agentKey = parsed.agentKey ?? stateSession.agentKey;
     const manager = await getAgentManager(agentKey);
@@ -227,7 +227,7 @@ export async function createHandler(
     if (command !== "/session") {
       return false;
     }
-    const stateSession = stateStore.getSession2(options.sessionName);
+    const stateSession = stateStore.getSession(options.sessionName);
     let response: string;
     switch (subcommand) {
       case "current": {
