@@ -3,14 +3,12 @@ import path from "node:path";
 import { z } from "zod";
 import type { AppConfig } from "./config.ts";
 
-// TODO: review slop
-
 const agentSchema = z.object({
   command: z.string().min(1),
 });
 
-const sessionSchema = z.object({
-  agentKey: z.string().min(1).optional(), // TODO: doesn't make sense actually
+const stateSessionSchema = z.object({
+  agentKey: z.string().min(1),
   agentSessionId: z.string().min(1).optional(),
   verbose: z.boolean().optional(),
 });
@@ -20,7 +18,7 @@ const stateSchema = z
     version: z.literal(2),
     defaultAgent: z.string().min(1),
     agents: z.record(z.string().min(1), agentSchema),
-    sessions: z.record(z.string().min(1), sessionSchema),
+    sessions: z.record(z.string().min(1), stateSessionSchema),
   })
   .superRefine((state, ctx) => {
     if (!state.agents[state.defaultAgent]) {
@@ -51,12 +49,6 @@ const stateSchema = z
 export type State = z.infer<typeof stateSchema>;
 export type StateSession = State["sessions"][string];
 export type SessionStateStore = ReturnType<typeof createSessionStateStore>;
-
-export interface NormalizedStateSession {
-  agentKey: string;
-  agentSessionId?: string;
-  verbose: boolean;
-}
 
 export interface StateAgentSession {
   agentKey: string;
@@ -105,7 +97,7 @@ export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
   const store = {
     get: () => state,
     set: updateState,
-    getSession(sessionName: string): NormalizedStateSession {
+    getSession(sessionName: string): StateSession {
       const session = state.sessions[sessionName];
       return {
         ...session,
@@ -113,7 +105,7 @@ export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
         verbose: session?.verbose ?? false,
       };
     },
-    setSession(sessionName: string, patch: StateSession) {
+    setSession(sessionName: string, patch: Partial<StateSession>) {
       updateState((state) => {
         state.sessions[sessionName] = {
           ...state.sessions[sessionName],
