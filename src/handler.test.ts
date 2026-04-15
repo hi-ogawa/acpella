@@ -37,24 +37,26 @@ Coverage checklist:
   - [ ] close explicit agent:sessionId
   - [ ] close deletes matching state session
   - [ ] close reports closeSession failure
+  - [x] list
   - [ ] list with multiple agents
   - [ ] list marks stored inactive sessions as not active
   - [ ] list tolerates listSessions failure for one agent
 - /agent
   - [x] list
   - [x] bare usage output
+  - [x] new
   - [ ] new usage when name is missing
   - [ ] new usage when command is missing
   - [ ] new preserves multi-word commands
   - [x] new rejects invalid agent key
+  - [x] remove
   - [ ] remove usage when name is missing
   - [ ] remove unknown agent
   - [ ] remove rejects default agent
   - [ ] remove rejects agents referenced by sessions
-  - [ ] remove success
+  - [x] default success
   - [ ] default query form
   - [ ] default unknown agent
-  - [x] default success
   - [ ] default affects later session creation
 */
 
@@ -63,6 +65,7 @@ import path from "node:path";
 import { expect, onTestFinished, test, vi } from "vitest";
 import { loadConfig, type AppConfig } from "./config";
 import { createHandler, type HandlerContext } from "./handler";
+import { BUILTIN_AGENTS } from "./state";
 
 async function createHandlerTester() {
   const home = path.join(import.meta.dirname, `../.tmp/test-handler-${crypto.randomUUID()}`);
@@ -265,6 +268,9 @@ test("agent command", async () => {
     "[⚙️ System]
     Saved new agent: test-error"
   `);
+  await expect(session.request("/session new test-error")).rejects.toMatchInlineSnapshot(
+    `[Error: ACP agent failed to start: spawn no-such-command ENOENT]`,
+  );
   await expect(session.request("/agent new bad:key no-such-command")).rejects
     .toMatchInlineSnapshot(`
     [ZodError: [
@@ -294,11 +300,50 @@ test("agent command", async () => {
     - test -> node <cwd>/src/lib/test-agent.ts (default)
     - test-error -> no-such-command"
   `);
-  await expect(session.request("/session new test-error")).rejects.toMatchInlineSnapshot(
-    `[Error: ACP agent failed to start: spawn no-such-command ENOENT]`,
-  );
-  expect(await session.request("/agent default test-error")).toMatchInlineSnapshot(`
+  expect(await session.request(`/agent new test2 ${BUILTIN_AGENTS.test.command}`))
+    .toMatchInlineSnapshot(`
     "[⚙️ System]
-    Set default agent: test-error"
+    Saved new agent: test2"
+  `);
+  expect(await session.request("/agent default")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Default agent: test"
+  `);
+  expect(await session.request("/agent default test2")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Set default agent: test2"
+  `);
+  expect(await session.request("/agent default")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Default agent: test2"
+  `);
+  expect(await session.request("/session current")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    session: test
+    agent: test-error
+    agent session id: none"
+  `);
+  expect(await session.request("/agent remove test-error")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Cannot remove agent: test-error
+    1 session(s) still reference it."
+  `);
+  expect(await session.request("/session new test2")).toMatchInlineSnapshot(`"echo: (empty)"`);
+  expect(await session.request("/session current")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    session: test
+    agent: test2
+    agent session id: __testLoadSession"
+  `);
+  expect(await session.request("/session list")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    - test -> test2:__testLoadSession (active)
+    - (unknown) -> test:__testLoadSession (active)
+    - (unknown) -> test:other-session (active)
+    - (unknown) -> test2:other-session (active)"
+  `);
+  expect(await session.request("/agent remove test-error")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Removed agent: test-error"
   `);
 });
