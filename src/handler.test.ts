@@ -1,55 +1,61 @@
 /*
 Coverage checklist:
 
-- [ ] /status output, including default agent
-- [ ] /service usage output
-- [ ] /service exit calls onServiceExit
-- [ ] /cancel with no active turn
-- [ ] /cancel active turn success
-- [ ] /cancel active turn fallback kill path
-- [ ] /verbose default status
-- [ ] /verbose on
-- [ ] /verbose off
-- [ ] /verbose invalid subcommand
-- [ ] /verbose suppresses tool call output
-- [ ] /verbose includes tool call output when enabled
-- [ ] /verbose is isolated per acpella session
-- [ ] /session current
-- [ ] /session bare usage output
-- [ ] /session new with default agent
-- [ ] /session new with named agent
-- [ ] /session new resets agentSessionId before creating a fresh ACP session
-- [ ] /session new sends an empty prompt
-- [ ] /session new unknown agent
-- [ ] /session new agent startup failure
-- [ ] /session load missing-arg usage
-- [ ] /session load with plain session id
-- [ ] /session load with agent:sessionId
-- [ ] /session load unknown agent
-- [ ] /session load unknown session
-- [ ] /session close with no associated session
-- [ ] /session close current session
-- [ ] /session close explicit agent:sessionId
-- [ ] /session close deletes matching state session
-- [ ] /session close reports closeSession failure
-- [ ] /session list with multiple agents
-- [ ] /session list marks stored inactive sessions as not active
-- [ ] /session list tolerates listSessions failure for one agent
-- [ ] /agent list
-- [ ] /agent bare usage output
-- [ ] /agent new usage when name is missing
-- [ ] /agent new usage when command is missing
-- [ ] /agent new preserves multi-word commands
-- [ ] /agent new rejects invalid agent key
-- [ ] /agent remove usage when name is missing
-- [ ] /agent remove unknown agent
-- [ ] /agent remove rejects default agent
-- [ ] /agent remove rejects agents referenced by sessions
-- [ ] /agent remove success
-- [ ] /agent default query form
-- [ ] /agent default unknown agent
-- [ ] /agent default success
-- [ ] /agent default affects later session creation
+- /status
+  - [x] output, including default agent
+- /service
+  - [x] usage output
+  - [x] exit calls onServiceExit
+- /cancel
+  - [ ] with no active turn
+  - [ ] active turn success
+  - [ ] active turn fallback kill path
+- /verbose
+  - [x] default status
+  - [x] on
+  - [x] off
+  - [ ] invalid subcommand
+  - [x] suppresses tool call output
+  - [x] includes tool call output when enabled
+  - [ ] is isolated per acpella session
+- /session
+  - [x] current
+  - [x] bare usage output
+  - [ ] new with default agent
+  - [ ] new with named agent
+  - [ ] new resets agentSessionId before creating a fresh ACP session
+  - [ ] new sends an empty prompt
+  - [x] new unknown agent
+  - [x] new agent startup failure
+  - [ ] load missing-arg usage
+  - [ ] load with plain session id
+  - [ ] load with agent:sessionId
+  - [ ] load unknown agent
+  - [ ] load unknown session
+  - [ ] close with no associated session
+  - [ ] close current session
+  - [ ] close explicit agent:sessionId
+  - [ ] close deletes matching state session
+  - [ ] close reports closeSession failure
+  - [ ] list with multiple agents
+  - [ ] list marks stored inactive sessions as not active
+  - [ ] list tolerates listSessions failure for one agent
+- /agent
+  - [x] list
+  - [x] bare usage output
+  - [ ] new usage when name is missing
+  - [ ] new usage when command is missing
+  - [ ] new preserves multi-word commands
+  - [x] new rejects invalid agent key
+  - [ ] remove usage when name is missing
+  - [ ] remove unknown agent
+  - [ ] remove rejects default agent
+  - [ ] remove rejects agents referenced by sessions
+  - [ ] remove success
+  - [ ] default query form
+  - [ ] default unknown agent
+  - [x] default success
+  - [ ] default affects later session creation
 */
 
 import fs from "node:fs";
