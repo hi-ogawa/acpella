@@ -123,12 +123,14 @@ Options:
 }
 
 async function startRepl(config: AppConfig, handler: Handler, version: string) {
-  const sessionName = "repl";
+  console.log(`Starting repl (version: ${version}, home: ${config.home})`);
 
+  let isHandling = false;
   async function sendMessage(text: string) {
+    isHandling = true;
     try {
       await handler.handle({
-        sessionName,
+        sessionName: "repl",
         context: {
           message: { text },
           async reply(text) {
@@ -137,16 +139,17 @@ async function startRepl(config: AppConfig, handler: Handler, version: string) {
         },
       });
     } catch (error) {
-      console.error(`[${sessionName}] error`, error);
+      console.error(error);
+    } finally {
+      isHandling = false;
     }
   }
 
-  console.log(`Starting repl (version: ${version}, home: ${config.home})`);
-
   const rl = createInterface({ input: process.stdin, output: process.stdout });
+
   let cancelRequested = false;
   rl.on("SIGINT", () => {
-    if (cancelRequested) {
+    if (!isHandling || cancelRequested) {
       rl.close();
       return;
     }
@@ -159,7 +162,10 @@ async function startRepl(config: AppConfig, handler: Handler, version: string) {
   try {
     while (true) {
       const text = await rl.question("> ");
-      if (!text || text === "/quit") {
+      if (!text) {
+        continue;
+      }
+      if (text === "/quit") {
         break;
       }
       await sendMessage(text);
