@@ -108,7 +108,7 @@ export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
     setSession(sessionName: string, patch: Partial<StateSession>) {
       updateState((state) => {
         state.sessions[sessionName] = {
-          ...state.sessions[sessionName],
+          ...store.getSession(sessionName),
           ...patch,
         };
       });

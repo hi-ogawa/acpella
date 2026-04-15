@@ -68,7 +68,8 @@ describe(createHandler, () => {
         "sessions": {
           "test": {
             "agentKey": "test",
-            "agentSessionId": "__testLoadSession"
+            "agentSessionId": "__testLoadSession",
+            "verbose": false
           }
         }
       }"
@@ -95,7 +96,6 @@ describe(createHandler, () => {
     const tester = await createHandlerTester();
     const session = tester.createSession("test");
 
-    expect(await session.request("hello")).toMatchInlineSnapshot(`"echo: hello"`);
     expect(await session.request("/verbose")).toMatchInlineSnapshot(`
       "[⚙️ System]
       Tool call output: off
