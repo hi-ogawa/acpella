@@ -77,8 +77,12 @@ describe(createHandler, () => {
     expect(await session.request("hello")).toMatchInlineSnapshot(`"echo: hello"`);
     expect(await session.request("/verbose")).toMatchInlineSnapshot(`
       "[⚙️ System]
-      Tool call output: on
+      Tool call output: off
       Usage: /verbose [on|off]"
+    `);
+    expect(await session.request("/verbose on")).toMatchInlineSnapshot(`
+      "[⚙️ System]
+      Tool call output: on"
     `);
     expect(await session.request("__tool:Read files")).toMatchInlineSnapshot(`
       "Tool: Read files

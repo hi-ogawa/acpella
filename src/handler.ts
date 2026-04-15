@@ -394,7 +394,7 @@ Usage:
       return false;
     }
 
-    const verbose = stateStore.get().sessions[options.sessionName]?.verbose ?? true;
+    const { verbose } = stateStore.getSession(options.sessionName);
     const verboseStatus = `Tool call output: ${verbose ? "on" : "off"}`;
     const verboseHelp = `\
 ${verboseStatus}
