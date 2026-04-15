@@ -5,7 +5,7 @@ import { readOptionalPromptFile } from "./lib/prompt.ts";
 import { createReply, MESSAGE_SPLIT_BUDGET } from "./lib/reply.ts";
 import type { Reply, ReplyContext } from "./lib/reply.ts";
 import { createSessionStateStore, parseAgentSessionKey, toAgentSessionKey } from "./state.ts";
-import type { StateAgentSession, StateSession } from "./state.ts";
+import type { StateAgentSession } from "./state.ts";
 
 interface Handler {
   handle: (options: { sessionName: string; context: HandlerContext }) => Promise<void>;
@@ -40,35 +40,36 @@ export async function createHandler(
     reply: Reply;
     sessionName: string;
     text: string;
-    agentKey?: string;
-    fresh?: boolean;
-    stateSession?: StateSession;
   }): Promise<void> {
-    const { reply, stateSession } = options;
+    const { reply } = options;
     if (activeSessions.has(options.sessionName)) {
       await reply.system("Agent turn already in progress. Send /cancel to stop it.");
       return;
     }
 
-    const state = stateStore.get();
-    const verbose = state.sessions[options.sessionName]?.verbose ?? true;
-    const savedSession = options.fresh ? undefined : stateSession;
-    const agentKey = options.agentKey ?? savedSession?.agentKey ?? state.defaultAgent;
-    const manager = await getAgentManager(agentKey);
-    const agentSessionId = savedSession?.agentSessionId;
-    const agentSession = agentSessionId
-      ? await manager.loadSession({
-          sessionCwd: config.home,
-          sessionId: agentSessionId,
-        })
-      : await manager.newSession({ sessionCwd: config.home });
+    const stateSession = stateStore.getSession2(options.sessionName);
+    const manager = await getAgentManager(stateSession.agentKey);
+
+    let agentSession: AgentSession;
+    let promptText = options.text;
+    if (stateSession.agentSessionId) {
+      agentSession = await manager.loadSession({
+        sessionCwd: config.home,
+        sessionId: stateSession.agentSessionId,
+      });
+    } else {
+      agentSession = await manager.newSession({ sessionCwd: config.home });
+      stateStore.setSession(options.sessionName, {
+        agentKey: stateSession.agentKey,
+        agentSessionId: agentSession.sessionId,
+      });
+      const customPrompt = readOptionalPromptFile(config.prompt.file);
+      if (customPrompt) {
+        promptText = formatFirstPrompt({ customPrompt, userText: promptText });
+      }
+    }
 
     try {
-      const customPrompt = !agentSessionId ? readOptionalPromptFile(config.prompt.file) : undefined;
-      const promptText = customPrompt
-        ? formatFirstPrompt({ customPrompt, userText: options.text })
-        : options.text;
-
       const { queue } = agentSession.prompt(promptText);
       activeSessions.set(options.sessionName, agentSession);
 
@@ -78,7 +79,7 @@ export async function createHandler(
         } else if (update.sessionUpdate === "tool_call") {
           console.log(`[acp:update] tool_call: ${update.title}`);
           await reply.flush();
-          if (verbose) {
+          if (stateSession.verbose) {
             await reply.write(`Tool: ${update.title}`);
             await reply.flush();
           }
@@ -92,12 +93,6 @@ export async function createHandler(
         return;
       }
       await reply.finish();
-      if (!agentSessionId) {
-        stateStore.setSession(options.sessionName, {
-          agentKey,
-          agentSessionId: agentSession.sessionId,
-        });
-      }
     } finally {
       if (activeSessions.get(options.sessionName) === agentSession) {
         activeSessions.delete(options.sessionName);
@@ -232,15 +227,14 @@ export async function createHandler(
     if (command !== "/session") {
       return false;
     }
-    const state = stateStore.get();
-    const stateSession = state.sessions[options.sessionName];
+    const stateSession = stateStore.getSession2(options.sessionName);
     let response: string;
     switch (subcommand) {
       case "current": {
         response = `\
 session: ${options.sessionName}
-agent: ${stateSession?.agentKey ?? state.defaultAgent}
-agent session id: ${stateSession?.agentSessionId ?? "none"}
+agent: ${stateSession.agentKey}
+agent session id: ${stateSession.agentSessionId ?? "none"}
 `;
         break;
       }
@@ -249,13 +243,14 @@ agent session id: ${stateSession?.agentSessionId ?? "none"}
         break;
       }
       case "new": {
-        // TODO: deslop
+        const agentKey = args[0];
+        if (agentKey) {
+          stateStore.setSession(options.sessionName, { agentKey, agentSessionId: undefined });
+        }
         await handlePrompt({
           reply: options.reply,
           sessionName: options.sessionName,
           text: "",
-          agentKey: args[0],
-          fresh: true,
         });
         return true;
       }
@@ -446,7 +441,6 @@ home: ${config.home}
   const handle: Handler["handle"] = async (options) => {
     const text = options.context.message!.text!;
     const sessionName = options.sessionName;
-    const stateSession = stateStore.getSession(sessionName);
     const reply = createReply({
       context: options.context,
       limit: MESSAGE_SPLIT_BUDGET,
@@ -498,7 +492,6 @@ home: ${config.home}
       reply,
       sessionName,
       text,
-      stateSession,
     });
   };
 
