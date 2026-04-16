@@ -27,14 +27,14 @@ Coverage checklist:
   - [ ] new sends an empty prompt
   - [x] new unknown agent
   - [x] new agent startup failure
+  - [x] load with agent:sessionId
   - [ ] load missing-arg usage
   - [ ] load with plain session id
-  - [ ] load with agent:sessionId
   - [ ] load unknown agent
   - [ ] load unknown session
+  - [x] close explicit agent:sessionId
   - [ ] close with no associated session
   - [ ] close current session
-  - [ ] close explicit agent:sessionId
   - [ ] close deletes matching state session
   - [ ] close reports closeSession failure
   - [x] list
@@ -116,9 +116,49 @@ function sanitizeOutput(output: string, config: AppConfig) {
   return output.replaceAll(config.home, () => "<home>").replaceAll(process.cwd(), () => "<cwd>");
 }
 
+function readStateFile(config: AppConfig) {
+  const stateFile = config.stateFile;
+  if (!fs.existsSync(stateFile)) {
+    return null;
+  }
+  return sanitizeOutput(fs.readFileSync(stateFile, "utf8"), config);
+}
+
 test("basic", async () => {
   const tester = await createHandlerTester();
   const session = tester.createSession("test");
+  expect(await session.request("/help")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Commands:
+    /help - Show command help.
+
+    /status
+      /status - Show service status.
+
+    /service
+      /service exit - Exit acpella.
+
+    /cancel
+      /cancel - Cancel the active agent turn.
+
+    /session
+      /session current - Show the current session.
+      /session list - List known agent sessions.
+      /session new [agent] - Start a new agent session.
+      /session load <sessionId|agent:sessionId> - Load an existing agent session.
+      /session close [sessionId|agent:sessionId] - Close an agent session.
+
+    /agent
+      /agent list - List configured agents.
+      /agent new <name> <command...> - Save a new agent.
+      /agent remove <name> - Remove an agent.
+      /agent default [name] - Show or set the default agent.
+
+    /verbose
+      /verbose current - Show tool-call output setting.
+      /verbose on - Show tool-call updates.
+      /verbose off - Hide tool-call updates."
+  `);
   expect(await session.request("/status")).toMatchInlineSnapshot(`
     "[⚙️ System]
     status: running
@@ -127,8 +167,7 @@ test("basic", async () => {
     home: <home>"
   `);
   expect(await session.request("hello")).toMatchInlineSnapshot(`"echo: hello"`);
-  const state = fs.readFileSync(tester.config.stateFile, "utf8");
-  expect(sanitizeOutput(state, tester.config)).toMatchInlineSnapshot(`
+  expect(readStateFile(tester.config)).toMatchInlineSnapshot(`
       "{
         "version": 2,
         "defaultAgent": "test",
@@ -210,11 +249,10 @@ test("verbose command toggles tool call output", async () => {
   const tester = await createHandlerTester();
   const session = tester.createSession("test");
 
-  expect(await session.request("/verbose")).toMatchInlineSnapshot(`
-      "[⚙️ System]
-      Tool call output: off
-      Usage: /verbose [on|off]"
-    `);
+  expect(await session.request("/verbose current")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Tool call output: off"
+  `);
   expect(await session.request("/verbose on")).toMatchInlineSnapshot(`
       "[⚙️ System]
       Tool call output: on"
@@ -234,11 +272,10 @@ test("verbose command toggles tool call output", async () => {
       "before
       after"
     `);
-  expect(await session.request("/verbose")).toMatchInlineSnapshot(`
-      "[⚙️ System]
-      Tool call output: off
-      Usage: /verbose [on|off]"
-    `);
+  expect(await session.request("/verbose current")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Tool call output: off"
+  `);
   expect(await session.request("/verbose on")).toMatchInlineSnapshot(`
       "[⚙️ System]
       Tool call output: on"
@@ -345,5 +382,61 @@ test("agent command", async () => {
   expect(await session.request("/agent remove test-error")).toMatchInlineSnapshot(`
     "[⚙️ System]
     Removed agent: test-error"
+  `);
+  expect(readStateFile(tester.config)).toMatchInlineSnapshot(`
+    "{
+      "version": 2,
+      "defaultAgent": "test2",
+      "agents": {
+        "test": {
+          "command": "node <cwd>/src/lib/test-agent.ts"
+        },
+        "test2": {
+          "command": "node <cwd>/src/lib/test-agent.ts"
+        }
+      },
+      "sessions": {
+        "test": {
+          "agentKey": "test2",
+          "agentSessionId": "__testLoadSession",
+          "verbose": false
+        }
+      }
+    }"
+  `);
+  expect(await session.request("/session load test:__testLoadSession")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Loaded session: test:__testLoadSession"
+  `);
+  expect(await session.request("/session current")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    session: test
+    agent: test
+    agent session id: __testLoadSession"
+  `);
+  expect(await session.request("/session close test2:__testLoadSession")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Session closed: test2:__testLoadSession."
+  `);
+  expect(readStateFile(tester.config)).toMatchInlineSnapshot(`
+    "{
+      "version": 2,
+      "defaultAgent": "test2",
+      "agents": {
+        "test": {
+          "command": "node <cwd>/src/lib/test-agent.ts"
+        },
+        "test2": {
+          "command": "node <cwd>/src/lib/test-agent.ts"
+        }
+      },
+      "sessions": {
+        "test": {
+          "agentKey": "test",
+          "agentSessionId": "__testLoadSession",
+          "verbose": false
+        }
+      }
+    }"
   `);
 });
