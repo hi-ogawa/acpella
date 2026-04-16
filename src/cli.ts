@@ -80,6 +80,15 @@ Options:
   }
 
   const bot = new Bot(config.telegram.token);
+  try {
+    const commands = Object.entries(handler.commands).map(([command, description]) => ({
+      command,
+      description,
+    }));
+    await bot.api.setMyCommands(commands);
+  } catch (error) {
+    console.warn("[telegram] failed to register bot commands:", error);
+  }
   bot.use(sequentialize(telegramSequentialKey));
 
   bot.on("message:text", async (ctx) => {
