@@ -1,16 +1,14 @@
 import type { List, ListItem, PhrasingContent, RootContent, Table } from "mdast";
 import type { Options as FromMarkdownOptions } from "mdast-util-from-markdown";
 import { fromMarkdown } from "mdast-util-from-markdown";
-import { frontmatterFromMarkdown } from "mdast-util-frontmatter";
 import { gfmFromMarkdown } from "mdast-util-gfm";
-import { frontmatter } from "micromark-extension-frontmatter";
 import { gfm } from "micromark-extension-gfm";
 
 // TODO: review slop
 
 const MARKDOWN_PARSE_OPTIONS = {
-  extensions: [gfm(), frontmatter(["yaml"])],
-  mdastExtensions: [gfmFromMarkdown(), frontmatterFromMarkdown(["yaml"])],
+  extensions: [gfm()],
+  mdastExtensions: [gfmFromMarkdown()],
 } satisfies FromMarkdownOptions;
 
 const SAFE_LINK_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tg:"]);
