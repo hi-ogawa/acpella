@@ -116,7 +116,7 @@ Options:
         sessionName,
         context: {
           message: ctx.message,
-          metadata: {
+          messageMetadata: {
             receivedAt: formatZonedDateTime(new Date(), config.timezone),
             timezone: config.timezone,
             sessionName,
@@ -154,7 +154,7 @@ async function startRepl(config: AppConfig, handler: Handler, version: string) {
         sessionName: "repl",
         context: {
           message: { text },
-          metadata: {
+          messageMetadata: {
             receivedAt: formatZonedDateTime(new Date(), config.timezone),
             timezone: config.timezone,
             sessionName: "repl",

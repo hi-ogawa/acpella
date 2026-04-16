@@ -3,6 +3,12 @@ import path from "node:path";
 
 const INCLUDE_LINE_RE = /^[^\S\r\n]*@(\S+)[^\S\r\n]*$/gm;
 
+export interface MessageMetadata {
+  receivedAt: string;
+  timezone: string;
+  sessionName: string;
+}
+
 export function buildFirstPrompt(options: { promptFile: string; text: string }): string {
   let output = "";
   const customPrompt = readOptionalPromptFile(options.promptFile);
@@ -18,6 +24,23 @@ ${customPrompt.trim()}
   }
   output += options.text;
   return output;
+}
+
+export function buildMessagePrompt(options: {
+  text: string;
+  messageMetadata: MessageMetadata | undefined;
+}): string {
+  if (!options.messageMetadata) {
+    return options.text;
+  }
+  return `\
+<message_metadata>
+received_at: ${options.messageMetadata.receivedAt}
+timezone: ${options.messageMetadata.timezone}
+session_name: ${options.messageMetadata.sessionName}
+</message_metadata>
+
+${options.text}`;
 }
 
 export function readOptionalPromptFile(file: string): string | undefined {

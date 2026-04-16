@@ -3,7 +3,7 @@ import type { AgentSession } from "./acp/index.ts";
 import type { AppConfig } from "./config.ts";
 import { createCommandHandler } from "./lib/command.ts";
 import type { CommandTree } from "./lib/command.ts";
-import { buildFirstPrompt } from "./lib/prompt.ts";
+import { buildFirstPrompt, buildMessagePrompt, type MessageMetadata } from "./lib/prompt.ts";
 import { createReply, MESSAGE_SPLIT_BUDGET } from "./lib/reply.ts";
 import type { Reply, ReplyContext } from "./lib/reply.ts";
 import { createSessionStateStore, parseAgentSessionKey, toAgentSessionKey } from "./state.ts";
@@ -14,22 +14,17 @@ export interface Handler {
   commands: Record<string, string>;
 }
 
-export interface MessageMetadata {
-  receivedAt: string;
-  timezone: string;
-  sessionName: string;
-}
-
 export interface HandlerContext extends ReplyContext {
   message?: {
     text?: string;
   };
-  metadata?: MessageMetadata;
+  messageMetadata?: MessageMetadata;
 }
 
 export type SystemCommandContext = {
   reply: Reply;
   sessionName: string;
+  messageMetadata?: MessageMetadata;
 };
 
 export async function createHandler(
@@ -55,10 +50,12 @@ export async function createHandler(
     reply,
     sessionName,
     text,
+    messageMetadata,
   }: {
     reply: Reply;
     sessionName: string;
     text: string;
+    messageMetadata?: MessageMetadata;
   }): Promise<void> {
     if (activeSessions.has(sessionName)) {
       await reply.system("Agent turn already in progress. Send /cancel to stop it.");
@@ -69,7 +66,8 @@ export async function createHandler(
     const manager = await getAgentManager(stateSession.agentKey);
 
     let agentSession: AgentSession;
-    let promptText = text;
+    const messagePrompt = buildMessagePrompt({ text, messageMetadata });
+    let promptText = messagePrompt;
     if (stateSession.agentSessionId) {
       agentSession = await manager.loadSession({
         sessionCwd: config.home,
@@ -81,7 +79,7 @@ export async function createHandler(
         agentKey: stateSession.agentKey,
         agentSessionId: agentSession.sessionId,
       });
-      promptText = buildFirstPrompt({ promptFile: config.prompt.file, text });
+      promptText = buildFirstPrompt({ promptFile: config.prompt.file, text: messagePrompt });
     }
 
     try {
@@ -183,7 +181,7 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
       tokens: ["new"],
       help: "/session new [agent] - Start a new agent session.",
       withArgs: true,
-      run: async ({ args, reply, sessionName }) => {
+      run: async ({ args, messageMetadata, reply, sessionName }) => {
         const agentKey = args[0];
         if (agentKey) {
           if (!stateStore.get().agents[agentKey]) {
@@ -197,6 +195,7 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
           reply,
           sessionName,
           text: "",
+          messageMetadata,
         });
       },
     },
@@ -457,7 +456,7 @@ home: ${config.home}
 
     const handledSystem = await systemCommandHandler.handle({
       text,
-      context: { reply, sessionName },
+      context: { reply, sessionName, messageMetadata: options.context.messageMetadata },
     });
     if (handledSystem) {
       return;
@@ -466,23 +465,10 @@ home: ${config.home}
     await handlePrompt({
       reply,
       sessionName,
-      text: formatPromptWithMetadata(text, options.context.metadata),
+      text,
+      messageMetadata: options.context.messageMetadata,
     });
   };
 
   return { handle, commands: systemCommandsMetadata };
-}
-
-function formatPromptWithMetadata(text: string, metadata: MessageMetadata | undefined): string {
-  if (!metadata) {
-    return text;
-  }
-  return `\
-<message_metadata>
-received_at: ${metadata.receivedAt}
-timezone: ${metadata.timezone}
-session_name: ${metadata.sessionName}
-</message_metadata>
-
-${text}`;
 }
