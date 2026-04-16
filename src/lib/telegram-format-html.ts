@@ -161,12 +161,11 @@ class TelegramHtmlRenderer {
   }
 
   private renderList(list: List): string {
-    const start = list.ordered && typeof list.start === "number" ? list.start : 1;
     return list.children
       .map((item, index) =>
         this.withContent(
           {
-            listMarker: list.ordered ? `${start + index}.` : "-",
+            listMarker: list.start != null ? `${list.start + index}.` : "-",
           },
           () => this.renderBlock(item),
         ),
