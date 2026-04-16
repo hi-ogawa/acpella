@@ -178,8 +178,8 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
       tokens: ["new"],
       help: "/session new [agent] - Start a new agent session.",
       withArgs: true,
-      run: async ({ invocation, reply, sessionName }) => {
-        const agentKey = invocation.args[0];
+      run: async ({ args, reply, sessionName }) => {
+        const agentKey = args[0];
         if (agentKey) {
           if (!stateStore.get().agents[agentKey]) {
             await reply.system(`Unknown agent: ${agentKey}`);
@@ -198,8 +198,8 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
       tokens: ["load"],
       help: "/session load <sessionId|agent:sessionId> - Load an existing agent session.",
       withArgs: true,
-      run: async ({ invocation, reply, sessionName }) => {
-        const sessionIdArg = invocation.args[0];
+      run: async ({ args, reply, sessionName }) => {
+        const sessionIdArg = args[0];
         if (!sessionIdArg) {
           await reply.system("Usage: /session load <sessionId|agent:sessionId>");
           return;
@@ -228,9 +228,9 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
       tokens: ["close"],
       help: "/session close [sessionId|agent:sessionId] - Close an agent session.",
       withArgs: true,
-      run: async ({ invocation, reply, sessionName }) => {
+      run: async ({ args, reply, sessionName }) => {
         const stateSession = stateStore.getSession(sessionName);
-        const sessionIdArg = invocation.args[0];
+        const sessionIdArg = args[0];
         const parsed = sessionIdArg ? parseAgentSessionKey(sessionIdArg) : undefined;
         const agentKey = parsed?.agentKey ?? stateSession.agentKey;
         const agentSessionId = parsed?.agentSessionId ?? stateSession.agentSessionId;
@@ -271,9 +271,9 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
       tokens: ["new"],
       help: "/agent new <name> <command...> - Save a new agent.",
       withArgs: true,
-      run: async ({ invocation, reply }) => {
-        const [name, ...args] = invocation.args;
-        const agentCommand = args.join(" ");
+      run: async ({ args, reply }) => {
+        const [name, ...commandParts] = args;
+        const agentCommand = commandParts.join(" ");
         if (!name || !agentCommand) {
           await reply.system("Usage: /agent new <name> <command...>");
           return;
@@ -288,8 +288,8 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
       tokens: ["remove"],
       help: "/agent remove <name> - Remove an agent.",
       withArgs: true,
-      run: async ({ invocation, reply }) => {
-        const name = invocation.args[0];
+      run: async ({ args, reply }) => {
+        const name = args[0];
         const state = stateStore.get();
         if (!name) {
           await reply.system("Usage: /agent remove <name>");
@@ -322,8 +322,8 @@ ${referencedSessions.length} session(s) still reference it.`);
       tokens: ["default"],
       help: "/agent default [name] - Show or set the default agent.",
       withArgs: true,
-      run: async ({ invocation, reply }) => {
-        const name = invocation.args[0];
+      run: async ({ args, reply }) => {
+        const name = args[0];
         const state = stateStore.get();
         if (!name) {
           await reply.system(`Default agent: ${state.defaultAgent}`);

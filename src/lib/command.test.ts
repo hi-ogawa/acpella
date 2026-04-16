@@ -30,8 +30,8 @@ describe(createCommandHandler, () => {
           tokens: ["set"],
           help: "/config set <value...> - Set config.",
           withArgs: true,
-          run: async ({ invocation, prefix }) => {
-            events.push(`${prefix}:set:${invocation.args.join(" ")}`);
+          run: async ({ args, prefix }) => {
+            events.push(`${prefix}:set:${args.join(" ")}`);
           },
         },
       ],

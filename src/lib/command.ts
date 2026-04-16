@@ -9,13 +9,8 @@ export type CommandSpec<T> = {
   run: (context: CommandRunContext<T>) => Promise<void>;
 };
 
-export type CommandInvocation = {
-  command: string;
-  args: string[];
-};
-
 export type CommandRunContext<T> = T & {
-  invocation: CommandInvocation;
+  args: string[];
 };
 
 export function createCommandHandler<T>(options: {
@@ -50,10 +45,7 @@ export function createCommandHandler<T>(options: {
 
       await matched.command.run({
         ...handleOptions.context,
-        invocation: {
-          command: commandName,
-          args: matched.args,
-        },
+        args: matched.args,
       });
       return true;
     },
