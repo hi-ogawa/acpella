@@ -309,7 +309,8 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
         if (referencedSessions.length > 0) {
           await reply.system(`\
 Cannot remove agent: ${name}
-${referencedSessions.length} session(s) still reference it.`);
+${referencedSessions.length} session(s) still reference it.
+`);
           return;
         }
         stateStore.set((state) => {
