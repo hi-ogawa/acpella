@@ -1,5 +1,3 @@
-// TODO: review slop
-
 export type CommandTree<T> = Record<string, CommandSpec<T>[]>;
 
 export type CommandSpec<T> = {
