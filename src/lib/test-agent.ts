@@ -31,14 +31,14 @@ import {
 } from "@agentclientprotocol/sdk";
 import { z } from "zod";
 
-const testAgentSessionSchema = z.object({
-  sessionId: z.string().min(1),
-  cwd: z.string().min(1),
-});
-
 const testAgentStateSchema = z.object({
-  nextSessionNumber: z.number().int().min(1).catch(1),
-  sessions: z.array(testAgentSessionSchema).catch([]),
+  nextSessionNumber: z.number().int().min(1),
+  sessions: z.array(
+    z.object({
+      sessionId: z.string().min(1),
+      cwd: z.string().min(1),
+    }),
+  ),
 });
 
 type TestAgentState = z.infer<typeof testAgentStateSchema>;
@@ -47,25 +47,20 @@ function getStateFile(cwd: string): string {
   return path.join(cwd, ".acpella/.test-agent.json");
 }
 
-function getInitialState(): TestAgentState {
+function readState(cwd: string): TestAgentState {
+  const stateFile = getStateFile(cwd);
+  if (fs.existsSync(stateFile)) {
+    try {
+      const parsed: unknown = JSON.parse(fs.readFileSync(stateFile, "utf8"));
+      return testAgentStateSchema.parse(parsed);
+    } catch (e) {
+      console.error(`[test-agent] Failed to read state file: ${stateFile}`, e);
+    }
+  }
   return {
     nextSessionNumber: 1,
     sessions: [],
   };
-}
-
-function readState(cwd: string): TestAgentState {
-  const stateFile = getStateFile(cwd);
-  if (!fs.existsSync(stateFile)) {
-    return getInitialState();
-  }
-
-  try {
-    const parsed: unknown = JSON.parse(fs.readFileSync(stateFile, "utf8"));
-    return testAgentStateSchema.parse(parsed);
-  } catch {
-    return getInitialState();
-  }
 }
 
 function writeState(cwd: string, state: TestAgentState): void {
