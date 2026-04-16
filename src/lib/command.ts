@@ -1,11 +1,11 @@
+export type CommandTree<T> = Record<string, CommandSpec<T>[]>;
+
 export type CommandSpec<T> = {
   path: string[];
   usage: string;
   summary: string;
-  run: (context: CommandRunContext<T>) => Promise<void> | void;
+  run: (context: CommandRunContext<T>) => Promise<void>;
 };
-
-export type CommandTree<T> = Record<string, CommandSpec<T>[]>;
 
 export type CommandInvocation = {
   command: string;
@@ -20,7 +20,7 @@ export type CommandRunContext<T> = T & {
 
 export function createCommandHandler<T>(options: {
   commands: CommandTree<T>;
-  onUsage: (usage: string, context: T) => Promise<void> | void;
+  onUsage: (usage: string, context: T) => Promise<void>;
 }) {
   const usageByCommand = buildUsageByCommand(options.commands);
 

@@ -19,11 +19,6 @@ export interface HandlerContext extends ReplyContext {
   };
 }
 
-type SystemCommandContext = {
-  reply: Reply;
-  sessionName: string;
-};
-
 export async function createHandler(
   config: AppConfig,
   handlerOptions: {
@@ -381,19 +376,10 @@ Usage:
     return true;
   }
 
-  function handleStatus(): string {
-    return `\
-status: running
-version: ${handlerOptions.version ?? "(unknown)"}
-default agent: ${stateStore.get().defaultAgent}
-home: ${config.home}
-`;
-  }
-
-  function handleVerboseStatus(options: { sessionName: string }): string {
-    const { verbose } = stateStore.getSession(options.sessionName);
-    return `Tool call output: ${verbose ? "on" : "off"}`;
-  }
+  type SystemCommandContext = {
+    reply: Reply;
+    sessionName: string;
+  };
 
   const systemCommands: CommandTree<SystemCommandContext> = {
     status: [
@@ -402,7 +388,12 @@ home: ${config.home}
         usage: "/status",
         summary: "Show service status.",
         run: async ({ reply }) => {
-          await reply.system(handleStatus());
+          await reply.system(`\
+status: running
+version: ${handlerOptions.version ?? "(unknown)"}
+default agent: ${stateStore.get().defaultAgent}
+home: ${config.home}
+`);
         },
       },
     ],
@@ -420,11 +411,13 @@ home: ${config.home}
     verbose: [
       {
         path: [],
+        // TODO: use "/verbose current" for consistency
         usage: "/verbose [on|off]",
         summary: "Show tool-call output setting.",
         run: async ({ reply, sessionName }) => {
+          const { verbose } = stateStore.getSession(sessionName);
           await reply.system(`\
-${handleVerboseStatus({ sessionName })}
+Tool call output: ${verbose ? "on" : "off"}
 Usage: /verbose [on|off]
 `);
         },
@@ -453,6 +446,7 @@ Usage: /verbose [on|off]
       },
     ],
   };
+
   const systemCommandHandler = createCommandHandler({
     commands: systemCommands,
     onUsage: async (usage, context) => {
@@ -468,12 +462,11 @@ Usage: /verbose [on|off]
       limit: MESSAGE_SPLIT_BUDGET,
     });
 
-    if (
-      await systemCommandHandler.handle({
-        text,
-        context: { reply, sessionName },
-      })
-    ) {
+    const handledSystem = await systemCommandHandler.handle({
+      text,
+      context: { reply, sessionName },
+    });
+    if (handledSystem) {
       return;
     }
     if (text === "/cancel") {
