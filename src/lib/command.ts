@@ -3,10 +3,10 @@
 export type CommandTree<T> = Record<string, CommandSpec<T>[]>;
 
 export type CommandSpec<T> = {
-  path: string[]; // TODO: optional?
+  path: string[];
   usage: string;
   summary: string;
-  match?: "exact" | "prefix";
+  match?: "prefix";
   run: (context: CommandRunContext<T>) => Promise<void>;
 };
 
