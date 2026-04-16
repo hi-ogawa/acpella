@@ -1,13 +1,14 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, it, expect, onTestFinished } from "vitest";
+import { TEST_AGENT_COMMAND } from "../state.ts";
 import { startAcpManager } from "./index.ts";
 
 describe(startAcpManager, () => {
   it("basic", async () => {
     const home = createTempHome();
     const manager = await startAcpManager({
-      command: getTestAgentCommand(),
+      command: TEST_AGENT_COMMAND,
       cwd: home,
     });
     const session = await manager.newSession({
@@ -33,7 +34,7 @@ describe(startAcpManager, () => {
   it("loadSession", async () => {
     const home = createTempHome();
     const manager = await startAcpManager({
-      command: getTestAgentCommand(),
+      command: TEST_AGENT_COMMAND,
       cwd: home,
     });
     const newSession = await manager.newSession({
@@ -71,6 +72,7 @@ describe(startAcpManager, () => {
   });
 });
 
+// TODO: consolidate test utils
 function createTempHome(): string {
   const home = path.join(import.meta.dirname, `../../.tmp/test-acp-${crypto.randomUUID()}`);
   fs.mkdirSync(home, { recursive: true });
@@ -78,10 +80,6 @@ function createTempHome(): string {
     fs.rmSync(home, { recursive: true, force: true });
   });
   return home;
-}
-
-function getTestAgentCommand(): string {
-  return `node ${path.join(import.meta.dirname, "../lib/test-agent.ts")}`;
 }
 
 async function arrayFromAsyncIterator<T>(iter: AsyncIterable<T>): Promise<T[]> {

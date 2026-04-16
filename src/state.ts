@@ -135,16 +135,16 @@ export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
   return store;
 }
 
-const BUILTIN_AGENT_KEY = "test" as const;
+export const TEST_AGENT_COMMAND = `node ${path.join(import.meta.dirname, "lib/test-agent.ts")}`;
 
-export const BUILTIN_AGENTS = {
-  [BUILTIN_AGENT_KEY]: { command: `node ${path.join(import.meta.dirname, "lib/test-agent.ts")}` },
-} satisfies State["agents"];
+const BUILTIN_AGENTS: State["agents"] = {
+  test: { command: TEST_AGENT_COMMAND },
+};
 
 function getInitialState(): State {
   return {
     version: 2,
-    defaultAgent: BUILTIN_AGENT_KEY,
+    defaultAgent: Object.keys(BUILTIN_AGENTS)[0],
     agents: { ...BUILTIN_AGENTS },
     sessions: {},
   };

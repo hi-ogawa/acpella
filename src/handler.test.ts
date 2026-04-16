@@ -65,7 +65,7 @@ import path from "node:path";
 import { expect, onTestFinished, test, vi } from "vitest";
 import { loadConfig, type AppConfig } from "./config";
 import { createHandler, type HandlerContext } from "./handler";
-import { BUILTIN_AGENTS } from "./state";
+import { TEST_AGENT_COMMAND } from "./state";
 
 async function createHandlerTester() {
   const home = path.join(import.meta.dirname, `../.tmp/test-handler-${crypto.randomUUID()}`);
@@ -348,8 +348,7 @@ test("agent command", async () => {
     - test -> node <cwd>/src/lib/test-agent.ts (default)
     - test-error -> no-such-command"
   `);
-  expect(await session.request(`/agent new test2 ${BUILTIN_AGENTS.test.command}`))
-    .toMatchInlineSnapshot(`
+  expect(await session.request(`/agent new test2 ${TEST_AGENT_COMMAND}`)).toMatchInlineSnapshot(`
     "[⚙️ System]
     Saved new agent: test2"
   `);
