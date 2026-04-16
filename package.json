@@ -18,6 +18,8 @@
   "devDependencies": {
     "@agentclientprotocol/sdk": "^0.18.2",
     "@types/node": "^24.12.2",
+    "@vitest/coverage-v8": "^4.1.4",
+    "@vitest/ui": "^4.1.4",
     "@zed-industries/codex-acp": "^0.11.1",
     "acpx": "^0.5.3",
     "typescript": "^6.0.2",

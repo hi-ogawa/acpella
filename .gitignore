@@ -1,6 +1,8 @@
 node_modules/
 .env
 *.tsbuildinfo
+coverage/
+html/
 refs/
 acpella.config.json
 .acpella/
