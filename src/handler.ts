@@ -269,17 +269,17 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
     },
     {
       tokens: ["new"],
-      help: "/agent new <name> <command...> - Save a new agent.",
+      help: "/agent new <name> <command>... - Save a new agent.",
       withArgs: true,
       run: async ({ args, reply }) => {
         const [name, ...commandParts] = args;
-        const agentCommand = commandParts.join(" ");
-        if (!name || !agentCommand) {
-          await reply.system("Usage: /agent new <name> <command...>");
+        const command = commandParts.join(" ");
+        if (!name || !command) {
+          await reply.system("Usage: /agent new <name> <command>...");
           return;
         }
         stateStore.set((state) => {
-          state.agents[name] = { command: agentCommand };
+          state.agents[name] = { command };
         });
         await reply.system(`Saved new agent: ${name}`);
       },
