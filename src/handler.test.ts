@@ -147,7 +147,7 @@ test("basic", async () => {
       /agent default [name] - Show or set the default agent.
 
     /verbose
-      /verbose [on|off] - Show tool-call output setting.
+      /verbose current - Show tool-call output setting.
       /verbose on - Show tool-call updates.
       /verbose off - Hide tool-call updates."
   `);
@@ -242,11 +242,10 @@ test("verbose command toggles tool call output", async () => {
   const tester = await createHandlerTester();
   const session = tester.createSession("test");
 
-  expect(await session.request("/verbose")).toMatchInlineSnapshot(`
-      "[⚙️ System]
-      Tool call output: off
-      Usage: /verbose [on|off]"
-    `);
+  expect(await session.request("/verbose current")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Tool call output: off"
+  `);
   expect(await session.request("/verbose on")).toMatchInlineSnapshot(`
       "[⚙️ System]
       Tool call output: on"
@@ -266,11 +265,10 @@ test("verbose command toggles tool call output", async () => {
       "before
       after"
     `);
-  expect(await session.request("/verbose")).toMatchInlineSnapshot(`
-      "[⚙️ System]
-      Tool call output: off
-      Usage: /verbose [on|off]"
-    `);
+  expect(await session.request("/verbose current")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Tool call output: off"
+  `);
   expect(await session.request("/verbose on")).toMatchInlineSnapshot(`
       "[⚙️ System]
       Tool call output: on"

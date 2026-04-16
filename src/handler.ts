@@ -406,15 +406,13 @@ home: ${config.home}
     agent: systemAgentCommands,
     verbose: [
       {
-        path: [],
-        // TODO: use "/verbose current" for consistency
-        usage: "/verbose [on|off]",
+        path: ["current"],
+        usage: "/verbose current",
         summary: "Show tool-call output setting.",
         run: async ({ reply, sessionName }) => {
           const { verbose } = stateStore.getSession(sessionName);
           await reply.system(`\
 Tool call output: ${verbose ? "on" : "off"}
-Usage: /verbose [on|off]
 `);
         },
       },
