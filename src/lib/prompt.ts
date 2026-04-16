@@ -82,11 +82,16 @@ function buildSkillsCatalog(skillsDir: string): string {
   const skills = fs
     .readdirSync(skillsDir, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
-    .flatMap((entry) => readSkillMetadata(path.join(skillsDir, entry.name, "SKILL.md")));
+    .flatMap((entry) =>
+      readSkillCatalogEntry({
+        directory: entry.name,
+        file: path.join(skillsDir, entry.name, "SKILL.md"),
+      }),
+    );
 
-  skills.sort((a, b) => a.name.localeCompare(b.name));
+  skills.sort((a, b) => a.directory.localeCompare(b.directory));
 
-  // Keep this catalog close to Codex's skill listing: name, description, and file path only.
+  // Keep this catalog close to Codex's skill listing: metadata and file path only.
   let output = `\
 ### Available Skills
 
@@ -94,58 +99,47 @@ When a task matches one of these skills, read the listed SKILL.md before acting.
   for (const skill of skills) {
     output += `
 
-- ${skill.name}
-  Description: ${skill.description}
-  File: ${skill.file}`;
+- Skill directory: ${skill.directory}
+  File: ${skill.file}
+  Frontmatter:
+${indentBlock(skill.frontmatter ?? "(none)", "    ")}`;
   }
   return `${output}\n`;
 }
 
-function readSkillMetadata(file: string): { name: string; description: string; file: string }[] {
+function readSkillCatalogEntry(options: {
+  directory: string;
+  file: string;
+}): { directory: string; file: string; frontmatter?: string }[] {
   let text: string;
   try {
-    text = fs.readFileSync(file, "utf8");
+    text = fs.readFileSync(options.file, "utf8");
   } catch {
     return [];
   }
 
-  const frontmatter = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(text);
-  if (!frontmatter) {
-    return [];
-  }
-  const metadata = parseFrontmatter(frontmatter[1]);
-  if (!metadata.name || !metadata.description) {
-    return [];
-  }
-  return [{ name: metadata.name, description: metadata.description, file }];
+  return [
+    {
+      directory: options.directory,
+      file: options.file,
+      frontmatter: readFrontmatter(text),
+    },
+  ];
 }
 
-function parseFrontmatter(text: string): Record<string, string> {
-  const result: Record<string, string> = {};
-  for (const line of text.split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) {
-      continue;
-    }
-    const separator = trimmed.indexOf(":");
-    if (separator === -1) {
-      continue;
-    }
-    const key = trimmed.slice(0, separator).trim();
-    const value = trimmed.slice(separator + 1).trim();
-    result[key] = unquoteYamlScalar(value);
+function readFrontmatter(text: string): string | undefined {
+  const match = /^---(?:\r?\n[\s\S]*?\r?\n)---(?=\r?\n|$)/.exec(text);
+  if (!match) {
+    return;
   }
-  return result;
+  return match[0];
 }
 
-function unquoteYamlScalar(value: string): string {
-  if (
-    (value.startsWith('"') && value.endsWith('"')) ||
-    (value.startsWith("'") && value.endsWith("'"))
-  ) {
-    return value.slice(1, -1);
-  }
-  return value;
+function indentBlock(text: string, indent: string): string {
+  return text
+    .split(/\r?\n/)
+    .map((line) => `${indent}${line}`)
+    .join("\n");
 }
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {
