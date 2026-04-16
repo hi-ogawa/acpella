@@ -1,6 +1,8 @@
 import type { List, ListItem, PhrasingContent, RootContent, Table } from "mdast";
 import { fromMarkdown } from "mdast-util-from-markdown";
 
+// TODO: review slop
+
 const SAFE_LINK_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tg:"]);
 const FILE_REF_EXTENSIONS_WITH_TLD = new Set([
   "md",
@@ -13,27 +15,30 @@ const FILE_REF_EXTENSIONS_WITH_TLD = new Set([
   "be",
   "cc",
 ]);
-const AUTO_LINKED_ANCHOR_PATTERN = /<a\s+href="https?:\/\/([^"]+)"[^>]*>\1<\/a>/gi;
-const HTML_TAG_PATTERN = /(<\/?)([a-zA-Z][a-zA-Z0-9-]*)\b[^>]*?>/gi;
 let fileReferencePattern: RegExp | undefined;
 let orphanedTldPattern: RegExp | undefined;
 
 export function markdownToTelegramHtml(markdown: string): string {
-  return wrapFileReferencesInHtml(renderBlocks(fromMarkdown(markdown).children));
+  const ast = fromMarkdown(markdown);
+  return renderBlocks(ast.children, { wrapFileRefs: true });
 }
 
-function renderBlocks(nodes: readonly RootContent[]): string {
+type RenderOptions = {
+  wrapFileRefs: boolean;
+};
+
+function renderBlocks(nodes: readonly RootContent[], options: RenderOptions): string {
   return nodes
-    .map((node) => renderBlock(node))
+    .map((node) => renderBlock(node, options))
     .filter((text) => text.length > 0)
     .join("\n\n");
 }
 
-function renderBlock(node: RootContent): string {
+function renderBlock(node: RootContent, options: RenderOptions): string {
   switch (node.type) {
     case "blockquote": {
       // Telegram Bot API supports <blockquote>; OpenClaw's Telegram renderer uses this tag.
-      const body = renderBlocks(node.children).trim();
+      const body = renderBlocks(node.children, options).trim();
       return body ? `<blockquote>${body}</blockquote>` : "";
     }
     case "break": {
@@ -48,18 +53,18 @@ function renderBlock(node: RootContent): string {
     }
     case "delete": {
       // Telegram Bot API supports <s> for strikethrough in HTML parse mode.
-      return `<s>${renderInline(node.children)}</s>`;
+      return `<s>${renderInline(node.children, options)}</s>`;
     }
     case "emphasis": {
       // Telegram Bot API supports <i> for italic in HTML parse mode.
-      return `<i>${renderInline(node.children)}</i>`;
+      return `<i>${renderInline(node.children, options)}</i>`;
     }
     case "footnoteReference": {
       return escapeHtml(`[${node.label ?? node.identifier}]`);
     }
     case "heading": {
       // Telegram has no heading tags; OpenClaw flattens headings instead of emitting generic HTML.
-      const body = renderInline(node.children);
+      const body = renderInline(node.children, options);
       return body ? `<b>${body}</b>` : "";
     }
     case "html": {
@@ -80,7 +85,7 @@ function renderBlock(node: RootContent): string {
       return renderLink(node.url, node.children);
     }
     case "linkReference": {
-      return renderInline(node.children);
+      return renderInline(node.children, options);
     }
     case "list": {
       // Telegram HTML does not support list tags; OpenClaw renders lists as plain text bullets.
@@ -90,23 +95,25 @@ function renderBlock(node: RootContent): string {
       return renderListItem(node, "-");
     }
     case "paragraph": {
-      return renderInline(node.children);
+      return renderInline(node.children, options);
     }
     case "strong": {
       // Telegram Bot API supports <b> for bold in HTML parse mode.
-      return `<b>${renderInline(node.children)}</b>`;
+      return `<b>${renderInline(node.children, options)}</b>`;
     }
     case "table": {
       return renderTable(node);
     }
     case "tableCell": {
-      return renderInline(node.children);
+      return renderInline(node.children, options);
     }
     case "tableRow": {
-      return node.children.map((cell) => renderInline(cell.children).trim()).join(" | ");
+      return node.children.map((cell) => renderInline(cell.children, options).trim()).join(" | ");
     }
     case "text": {
-      return escapeHtml(node.value);
+      return options.wrapFileRefs
+        ? renderTextWithFileReferences(node.value)
+        : escapeHtml(node.value);
     }
     case "thematicBreak": {
       return "---";
@@ -114,11 +121,14 @@ function renderBlock(node: RootContent): string {
     case "yaml": {
       return escapeHtml(node.value);
     }
+    default: {
+      return node satisfies never;
+    }
   }
 }
 
-function renderInline(nodes: readonly PhrasingContent[]): string {
-  return nodes.map((node) => renderBlock(node)).join("");
+function renderInline(nodes: readonly PhrasingContent[], options: RenderOptions): string {
+  return nodes.map((node) => renderBlock(node, options)).join("");
 }
 
 function renderCodeBlock(code: string, rawLanguage?: string | null): string {
@@ -134,7 +144,7 @@ function sanitizeCodeLanguage(rawLanguage?: string | null): string {
 }
 
 function renderLink(rawUrl: string, children: readonly PhrasingContent[]): string {
-  const label = renderInline(children);
+  const label = renderInline(children, { wrapFileRefs: false });
   const url = rawUrl.trim();
   if (!label || !isSafeLinkUrl(url)) {
     return label;
@@ -158,7 +168,7 @@ function renderList(list: List): string {
 
 function renderListItem(item: ListItem, marker: string): string {
   const body = item.children
-    .map((child) => renderBlock(child))
+    .map((child) => renderBlock(child, { wrapFileRefs: true }))
     .filter((text) => text.length > 0)
     .join("\n");
   if (!body) {
@@ -173,79 +183,58 @@ function renderListItem(item: ListItem, marker: string): string {
 }
 
 function renderTable(table: Table): string {
-  return table.children.map((row) => renderBlock(row)).join("\n");
+  return table.children.map((row) => renderBlock(row, { wrapFileRefs: true })).join("\n");
 }
 
-function wrapFileReferencesInHtml(html: string): string {
-  AUTO_LINKED_ANCHOR_PATTERN.lastIndex = 0;
-  const deLinkified = html.replace(AUTO_LINKED_ANCHOR_PATTERN, (match, label: string) => {
-    if (!isAutoLinkedFileRef(`http://${label}`, label)) {
-      return match;
-    }
-    return `<code>${escapeHtml(label)}</code>`;
-  });
+function renderTextWithFileReferences(text: string): string {
+  // OpenClaw policy, applied at AST text-render time here: wrap standalone file refs to avoid Telegram previews.
+  const pattern = getFileReferencePattern();
+  pattern.lastIndex = 0;
 
-  let codeDepth = 0;
-  let preDepth = 0;
-  let anchorDepth = 0;
   let result = "";
-  let lastIndex = 0;
-
-  // OpenClaw technique: scan rendered Telegram HTML token-by-token so file-ref wrapping skips protected tags.
-  HTML_TAG_PATTERN.lastIndex = 0;
+  let index = 0;
   let match: RegExpExecArray | null;
 
-  while ((match = HTML_TAG_PATTERN.exec(deLinkified)) !== null) {
-    const tagStart = match.index;
-    const tagEnd = HTML_TAG_PATTERN.lastIndex;
-    const isClosing = match[1] === "</";
-    const tagName = normalizeLowercaseStringOrEmpty(match[2]);
-
-    result += wrapSegmentFileRefs(deLinkified.slice(lastIndex, tagStart), {
-      codeDepth,
-      preDepth,
-      anchorDepth,
-    });
-
-    if (tagName === "code") {
-      codeDepth = isClosing ? Math.max(0, codeDepth - 1) : codeDepth + 1;
-    } else if (tagName === "pre") {
-      preDepth = isClosing ? Math.max(0, preDepth - 1) : preDepth + 1;
-    } else if (tagName === "a") {
-      anchorDepth = isClosing ? Math.max(0, anchorDepth - 1) : anchorDepth + 1;
-    }
-
-    result += deLinkified.slice(tagStart, tagEnd);
-    lastIndex = tagEnd;
+  while ((match = pattern.exec(text)) !== null) {
+    const prefix = match[1] ?? "";
+    const filename = match[2] ?? "";
+    result += renderTextSegmentWithOrphanedTlds(text.slice(index, match.index));
+    result += renderStandaloneFileRef(match[0], prefix, filename);
+    index = match.index + match[0].length;
   }
 
-  result += wrapSegmentFileRefs(deLinkified.slice(lastIndex), {
-    codeDepth,
-    preDepth,
-    anchorDepth,
-  });
-
+  result += renderTextSegmentWithOrphanedTlds(text.slice(index));
   return result;
 }
 
-function wrapSegmentFileRefs(
-  text: string,
-  options: { codeDepth: number; preDepth: number; anchorDepth: number },
-): string {
-  if (!text || options.codeDepth > 0 || options.preDepth > 0 || options.anchorDepth > 0) {
-    return text;
+function renderTextSegmentWithOrphanedTlds(text: string): string {
+  const pattern = getOrphanedTldPattern();
+  pattern.lastIndex = 0;
+
+  let result = "";
+  let index = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(text)) !== null) {
+    const prefix = match[1] ?? "";
+    const tld = match[2] ?? "";
+    result += escapeHtml(text.slice(index, match.index));
+    result +=
+      prefix === ">"
+        ? escapeHtml(match[0])
+        : `${escapeHtml(prefix)}<code>${escapeHtml(tld)}</code>`;
+    index = match.index + match[0].length;
   }
-  const wrappedStandalone = text.replace(getFileReferencePattern(), wrapStandaloneFileRef);
-  return wrappedStandalone.replace(getOrphanedTldPattern(), (match, prefix: string, tld: string) =>
-    prefix === ">" ? match : `${prefix}<code>${escapeHtml(tld)}</code>`,
-  );
+
+  result += escapeHtml(text.slice(index));
+  return result;
 }
 
-function wrapStandaloneFileRef(match: string, prefix: string, filename: string): string {
+function renderStandaloneFileRef(match: string, prefix: string, filename: string): string {
   if (filename.startsWith("//") || /https?:\/\/$/i.test(prefix)) {
-    return match;
+    return escapeHtml(match);
   }
-  return `${prefix}<code>${escapeHtml(filename)}</code>`;
+  return `${escapeHtml(prefix)}<code>${escapeHtml(filename)}</code>`;
 }
 
 function getFileReferencePattern(): RegExp {
@@ -272,36 +261,8 @@ function getOrphanedTldPattern(): RegExp {
   return orphanedTldPattern;
 }
 
-function isAutoLinkedFileRef(href: string, label: string): boolean {
-  const stripped = href.replace(/^https?:\/\//i, "");
-  if (stripped !== label) {
-    return false;
-  }
-  const dotIndex = label.lastIndexOf(".");
-  if (dotIndex < 1) {
-    return false;
-  }
-  const ext = normalizeLowercaseStringOrEmpty(label.slice(dotIndex + 1));
-  if (!FILE_REF_EXTENSIONS_WITH_TLD.has(ext)) {
-    return false;
-  }
-  const segments = label.split("/");
-  if (segments.length > 1) {
-    for (let i = 0; i < segments.length - 1; i++) {
-      if (segments[i]?.includes(".")) {
-        return false;
-      }
-    }
-  }
-  return true;
-}
-
 function escapeRegex(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function normalizeLowercaseStringOrEmpty(value: unknown): string {
-  return typeof value === "string" ? value.trim().toLowerCase() : "";
 }
 
 function isSafeLinkUrl(url: string): boolean {
