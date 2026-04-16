@@ -119,6 +119,22 @@ function sanitizeOutput(output: string, config: AppConfig) {
 test("basic", async () => {
   const tester = await createHandlerTester();
   const session = tester.createSession("test");
+  expect(await session.request("/help")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Commands:
+    /help - Show command help.
+
+    /status
+      /status - Show service status.
+
+    /service
+      /service exit - Exit acpella.
+
+    /verbose
+      /verbose [on|off] - Show tool-call output setting.
+      /verbose on - Show tool-call updates.
+      /verbose off - Hide tool-call updates."
+  `);
   expect(await session.request("/status")).toMatchInlineSnapshot(`
     "[⚙️ System]
     status: running

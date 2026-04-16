@@ -1,3 +1,5 @@
+// TODO: review slop
+
 export type CommandTree<T> = Record<string, CommandSpec<T>[]>;
 
 export type CommandSpec<T> = {
@@ -23,12 +25,17 @@ export function createCommandHandler<T>(options: {
   onUsage: (usage: string, context: T) => Promise<void>;
 }) {
   const usageByCommand = buildUsageByCommand(options.commands);
+  const commandOverview = renderCommandOverview(options.commands);
 
   return {
     async handle(handleOptions: { text: string; context: T }): Promise<boolean> {
       const invocation = parseCommand(handleOptions.text);
       if (!invocation) {
         return false;
+      }
+      if (invocation.command === "help") {
+        await options.onUsage(commandOverview, handleOptions.context);
+        return true;
       }
 
       const commandGroup = options.commands[invocation.command];
@@ -113,4 +120,15 @@ function renderCommandUsage<T>(commands: CommandSpec<T>[]): string {
     return `Usage: ${usages[0]}`;
   }
   return `Usage:\n${usages.join("\n")}`;
+}
+
+function renderCommandOverview<T>(commands: CommandTree<T>): string {
+  let output = "Commands:\n/help - Show command help.";
+  for (const [command, commandGroup] of Object.entries(commands)) {
+    output += `\n\n/${command}`;
+    for (const commandSpec of commandGroup) {
+      output += `\n  ${commandSpec.usage} - ${commandSpec.summary}`;
+    }
+  }
+  return output;
 }
