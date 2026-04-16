@@ -108,6 +108,245 @@ export async function createHandler(
     sessionName: string;
   };
 
+  const systemSessionCommands: CommandTree<SystemCommandContext>[string] = [
+    {
+      path: ["current"],
+      usage: "/session current",
+      summary: "Show the current session.",
+      run: async ({ reply, sessionName }) => {
+        const stateSession = stateStore.getSession(sessionName);
+        await reply.system(`\
+session: ${sessionName}
+agent: ${stateSession.agentKey}
+agent session id: ${stateSession.agentSessionId ?? "none"}
+`);
+      },
+    },
+    {
+      path: ["list"],
+      usage: "/session list",
+      summary: "List known agent sessions.",
+      run: async ({ reply }) => {
+        const state = stateStore.get();
+        const activeAgentSessions = new Set<string>();
+        for (const [agentKey] of Object.entries(state.agents)) {
+          try {
+            const manager = await getAgentManager(agentKey);
+            const agentSessions = await manager.listSessions();
+            for (const session of agentSessions.sessions) {
+              activeAgentSessions.add(
+                toAgentSessionKey({ agentKey, agentSessionId: session.sessionId }),
+              );
+            }
+          } catch (e) {
+            // TODO: include errored agent in message response
+            console.error(`[acp] listSessions failed for agent ${agentKey}:`, e);
+          }
+        }
+        const stateAgentSessions = new Map<string, string>();
+        for (const [sessionName, stateSession] of Object.entries(state.sessions)) {
+          if (stateSession.agentKey && stateSession.agentSessionId) {
+            stateAgentSessions.set(
+              toAgentSessionKey({
+                agentKey: stateSession.agentKey,
+                agentSessionId: stateSession.agentSessionId,
+              }),
+              sessionName,
+            );
+          }
+        }
+        let output = "";
+        for (const [agentSessionKey, sessionName] of stateAgentSessions) {
+          output += `- ${sessionName} -> ${agentSessionKey}`;
+          if (activeAgentSessions.has(agentSessionKey)) {
+            output += " (active)";
+          } else {
+            output += " (not active)";
+          }
+          output += "\n";
+        }
+        for (const agentSessionKey of activeAgentSessions) {
+          if (!stateAgentSessions.has(agentSessionKey)) {
+            output += `- (unknown) -> ${agentSessionKey} (active)\n`;
+          }
+        }
+        await reply.system(output || "No sessions.");
+      },
+    },
+    {
+      path: ["new"],
+      usage: "/session new [agent]",
+      summary: "Start a new agent session.",
+      match: "prefix",
+      run: async ({ invocation, reply, sessionName }) => {
+        const agentKey = invocation.args[0];
+        if (agentKey) {
+          if (!stateStore.get().agents[agentKey]) {
+            await reply.system(`Unknown agent: ${agentKey}`);
+            return;
+          }
+          stateStore.setSession(sessionName, { agentKey, agentSessionId: undefined });
+        }
+        await handlePrompt({
+          reply,
+          sessionName,
+          text: "",
+        });
+      },
+    },
+    {
+      path: ["load"],
+      usage: "/session load <sessionId|agent:sessionId>",
+      summary: "Load an existing agent session.",
+      match: "prefix",
+      run: async ({ invocation, reply, sessionName }) => {
+        const sessionIdArg = invocation.args[0];
+        if (!sessionIdArg) {
+          await reply.system("Usage: /session load <sessionId|agent:sessionId>");
+          return;
+        }
+        const stateSession = stateStore.getSession(sessionName);
+        const parsed = parseAgentSessionKey(sessionIdArg);
+        const agentKey = parsed.agentKey ?? stateSession.agentKey;
+        const manager = await getAgentManager(agentKey);
+        const loaded = await manager.loadSession({
+          sessionCwd: config.home,
+          sessionId: parsed.agentSessionId,
+        });
+        const newStateSession: StateAgentSession = {
+          agentKey,
+          agentSessionId: loaded.sessionId,
+        };
+        try {
+          stateStore.setSession(sessionName, newStateSession);
+          await reply.system(`Loaded session: ${toAgentSessionKey(newStateSession)}`);
+        } finally {
+          loaded.close();
+        }
+      },
+    },
+    {
+      path: ["close"],
+      usage: "/session close [sessionId|agent:sessionId]",
+      summary: "Close an agent session.",
+      match: "prefix",
+      run: async ({ invocation, reply, sessionName }) => {
+        const stateSession = stateStore.getSession(sessionName);
+        const sessionIdArg = invocation.args[0];
+        const parsed = sessionIdArg ? parseAgentSessionKey(sessionIdArg) : undefined;
+        const agentKey = parsed?.agentKey ?? stateSession.agentKey;
+        const agentSessionId = parsed?.agentSessionId ?? stateSession.agentSessionId;
+        if (!agentSessionId) {
+          await reply.system("No associated session.");
+          return;
+        }
+        const targetSession = { agentKey, agentSessionId };
+        stateStore.deleteSession(targetSession);
+        let output = `Session closed: ${toAgentSessionKey(targetSession)}.\n`;
+        try {
+          const manager = await getAgentManager(agentKey);
+          await manager.closeSession({ sessionId: agentSessionId });
+        } catch (e) {
+          output += "[acp] closeSession failed";
+          console.error("[acp] closeSession failed:", e);
+        }
+        await reply.system(output);
+      },
+    },
+  ];
+
+  const systemAgentCommands: CommandTree<SystemCommandContext>["agent"] = [
+    {
+      path: ["list"],
+      usage: "/agent list",
+      summary: "List configured agents.",
+      run: async ({ reply }) => {
+        const state = stateStore.get();
+        let response = "";
+        for (const [agentKey, agent] of Object.entries(state.agents)) {
+          const marker = agentKey === state.defaultAgent ? " (default)" : "";
+          response += `- ${agentKey} -> ${agent.command}${marker}\n`;
+        }
+        await reply.system(response || "No agents.");
+      },
+    },
+    {
+      path: ["new"],
+      usage: "/agent new <name> <command...>",
+      summary: "Save a new agent.",
+      match: "prefix",
+      run: async ({ invocation, reply }) => {
+        const [name, ...args] = invocation.args;
+        const agentCommand = args.join(" ");
+        if (!name || !agentCommand) {
+          await reply.system("Usage: /agent new <name> <command...>");
+          return;
+        }
+        stateStore.set((state) => {
+          state.agents[name] = { command: agentCommand };
+        });
+        await reply.system(`Saved new agent: ${name}`);
+      },
+    },
+    {
+      path: ["remove"],
+      usage: "/agent remove <name>",
+      summary: "Remove an agent.",
+      match: "prefix",
+      run: async ({ invocation, reply }) => {
+        const name = invocation.args[0];
+        const state = stateStore.get();
+        if (!name) {
+          await reply.system("Usage: /agent remove <name>");
+          return;
+        }
+        if (!state.agents[name]) {
+          await reply.system(`Unknown agent: ${name}`);
+          return;
+        }
+        if (state.defaultAgent === name) {
+          await reply.system(`Cannot remove default agent: ${name}`);
+          return;
+        }
+        const referencedSessions = Object.values(state.sessions).filter(
+          (session) => session.agentKey === name,
+        );
+        if (referencedSessions.length > 0) {
+          await reply.system(`\
+Cannot remove agent: ${name}
+${referencedSessions.length} session(s) still reference it.`);
+          return;
+        }
+        stateStore.set((state) => {
+          delete state.agents[name];
+        });
+        await reply.system(`Removed agent: ${name}`);
+      },
+    },
+    {
+      path: ["default"],
+      usage: "/agent default [name]",
+      summary: "Show or set the default agent.",
+      match: "prefix",
+      run: async ({ invocation, reply }) => {
+        const name = invocation.args[0];
+        const state = stateStore.get();
+        if (!name) {
+          await reply.system(`Default agent: ${state.defaultAgent}`);
+          return;
+        }
+        if (!state.agents[name]) {
+          await reply.system(`Unknown agent: ${name}`);
+          return;
+        }
+        stateStore.set((s) => {
+          s.defaultAgent = name;
+        });
+        await reply.system(`Set default agent: ${name}`);
+      },
+    },
+  ];
+
   const systemCommands: CommandTree<SystemCommandContext> = {
     status: [
       {
@@ -159,243 +398,8 @@ home: ${config.home}
         },
       },
     ],
-    session: [
-      {
-        path: ["current"],
-        usage: "/session current",
-        summary: "Show the current session.",
-        run: async ({ reply, sessionName }) => {
-          const stateSession = stateStore.getSession(sessionName);
-          await reply.system(`\
-session: ${sessionName}
-agent: ${stateSession.agentKey}
-agent session id: ${stateSession.agentSessionId ?? "none"}
-`);
-        },
-      },
-      {
-        path: ["list"],
-        usage: "/session list",
-        summary: "List known agent sessions.",
-        run: async ({ reply }) => {
-          const state = stateStore.get();
-          const activeAgentSessions = new Set<string>();
-          for (const [agentKey] of Object.entries(state.agents)) {
-            try {
-              const manager = await getAgentManager(agentKey);
-              const agentSessions = await manager.listSessions();
-              for (const session of agentSessions.sessions) {
-                activeAgentSessions.add(
-                  toAgentSessionKey({ agentKey, agentSessionId: session.sessionId }),
-                );
-              }
-            } catch (e) {
-              // TODO: include errored agent in message response
-              console.error(`[acp] listSessions failed for agent ${agentKey}:`, e);
-            }
-          }
-          const stateAgentSessions = new Map<string, string>();
-          for (const [sessionName, stateSession] of Object.entries(state.sessions)) {
-            if (stateSession.agentKey && stateSession.agentSessionId) {
-              stateAgentSessions.set(
-                toAgentSessionKey({
-                  agentKey: stateSession.agentKey,
-                  agentSessionId: stateSession.agentSessionId,
-                }),
-                sessionName,
-              );
-            }
-          }
-          let output = "";
-          for (const [agentSessionKey, sessionName] of stateAgentSessions) {
-            output += `- ${sessionName} -> ${agentSessionKey}`;
-            if (activeAgentSessions.has(agentSessionKey)) {
-              output += " (active)";
-            } else {
-              output += " (not active)";
-            }
-            output += "\n";
-          }
-          for (const agentSessionKey of activeAgentSessions) {
-            if (!stateAgentSessions.has(agentSessionKey)) {
-              output += `- (unknown) -> ${agentSessionKey} (active)\n`;
-            }
-          }
-          await reply.system(output || "No sessions.");
-        },
-      },
-      {
-        path: ["new"],
-        usage: "/session new [agent]",
-        summary: "Start a new agent session.",
-        match: "prefix",
-        run: async ({ invocation, reply, sessionName }) => {
-          const agentKey = invocation.args[0];
-          if (agentKey) {
-            if (!stateStore.get().agents[agentKey]) {
-              await reply.system(`Unknown agent: ${agentKey}`);
-              return;
-            }
-            stateStore.setSession(sessionName, { agentKey, agentSessionId: undefined });
-          }
-          await handlePrompt({
-            reply,
-            sessionName,
-            text: "",
-          });
-        },
-      },
-      {
-        path: ["load"],
-        usage: "/session load <sessionId|agent:sessionId>",
-        summary: "Load an existing agent session.",
-        match: "prefix",
-        run: async ({ invocation, reply, sessionName }) => {
-          const sessionIdArg = invocation.args[0];
-          if (!sessionIdArg) {
-            await reply.system("Usage: /session load <sessionId|agent:sessionId>");
-            return;
-          }
-          const stateSession = stateStore.getSession(sessionName);
-          const parsed = parseAgentSessionKey(sessionIdArg);
-          const agentKey = parsed.agentKey ?? stateSession.agentKey;
-          const manager = await getAgentManager(agentKey);
-          const loaded = await manager.loadSession({
-            sessionCwd: config.home,
-            sessionId: parsed.agentSessionId,
-          });
-          const newStateSession: StateAgentSession = {
-            agentKey,
-            agentSessionId: loaded.sessionId,
-          };
-          try {
-            stateStore.setSession(sessionName, newStateSession);
-            await reply.system(`Loaded session: ${toAgentSessionKey(newStateSession)}`);
-          } finally {
-            loaded.close();
-          }
-        },
-      },
-      {
-        path: ["close"],
-        usage: "/session close [sessionId|agent:sessionId]",
-        summary: "Close an agent session.",
-        match: "prefix",
-        run: async ({ invocation, reply, sessionName }) => {
-          const stateSession = stateStore.getSession(sessionName);
-          const sessionIdArg = invocation.args[0];
-          const parsed = sessionIdArg ? parseAgentSessionKey(sessionIdArg) : undefined;
-          const agentKey = parsed?.agentKey ?? stateSession.agentKey;
-          const agentSessionId = parsed?.agentSessionId ?? stateSession.agentSessionId;
-          if (!agentSessionId) {
-            await reply.system("No associated session.");
-            return;
-          }
-          const targetSession = { agentKey, agentSessionId };
-          stateStore.deleteSession(targetSession);
-          let output = `Session closed: ${toAgentSessionKey(targetSession)}.\n`;
-          try {
-            const manager = await getAgentManager(agentKey);
-            await manager.closeSession({ sessionId: agentSessionId });
-          } catch (e) {
-            output += "[acp] closeSession failed";
-            console.error("[acp] closeSession failed:", e);
-          }
-          await reply.system(output);
-        },
-      },
-    ],
-    agent: [
-      {
-        path: ["list"],
-        usage: "/agent list",
-        summary: "List configured agents.",
-        run: async ({ reply }) => {
-          const state = stateStore.get();
-          let response = "";
-          for (const [agentKey, agent] of Object.entries(state.agents)) {
-            const marker = agentKey === state.defaultAgent ? " (default)" : "";
-            response += `- ${agentKey} -> ${agent.command}${marker}\n`;
-          }
-          await reply.system(response || "No agents.");
-        },
-      },
-      {
-        path: ["new"],
-        usage: "/agent new <name> <command...>",
-        summary: "Save a new agent.",
-        match: "prefix",
-        run: async ({ invocation, reply }) => {
-          const [name, ...args] = invocation.args;
-          const agentCommand = args.join(" ");
-          if (!name || !agentCommand) {
-            await reply.system("Usage: /agent new <name> <command...>");
-            return;
-          }
-          stateStore.set((state) => {
-            state.agents[name] = { command: agentCommand };
-          });
-          await reply.system(`Saved new agent: ${name}`);
-        },
-      },
-      {
-        path: ["remove"],
-        usage: "/agent remove <name>",
-        summary: "Remove an agent.",
-        match: "prefix",
-        run: async ({ invocation, reply }) => {
-          const name = invocation.args[0];
-          const state = stateStore.get();
-          if (!name) {
-            await reply.system("Usage: /agent remove <name>");
-            return;
-          }
-          if (!state.agents[name]) {
-            await reply.system(`Unknown agent: ${name}`);
-            return;
-          }
-          if (state.defaultAgent === name) {
-            await reply.system(`Cannot remove default agent: ${name}`);
-            return;
-          }
-          const referencedSessions = Object.values(state.sessions).filter(
-            (session) => session.agentKey === name,
-          );
-          if (referencedSessions.length > 0) {
-            await reply.system(`\
-Cannot remove agent: ${name}
-${referencedSessions.length} session(s) still reference it.`);
-            return;
-          }
-          stateStore.set((state) => {
-            delete state.agents[name];
-          });
-          await reply.system(`Removed agent: ${name}`);
-        },
-      },
-      {
-        path: ["default"],
-        usage: "/agent default [name]",
-        summary: "Show or set the default agent.",
-        match: "prefix",
-        run: async ({ invocation, reply }) => {
-          const name = invocation.args[0];
-          const state = stateStore.get();
-          if (!name) {
-            await reply.system(`Default agent: ${state.defaultAgent}`);
-            return;
-          }
-          if (!state.agents[name]) {
-            await reply.system(`Unknown agent: ${name}`);
-            return;
-          }
-          stateStore.set((s) => {
-            s.defaultAgent = name;
-          });
-          await reply.system(`Set default agent: ${name}`);
-        },
-      },
-    ],
+    session: systemSessionCommands,
+    agent: systemAgentCommands,
     verbose: [
       {
         path: [],
