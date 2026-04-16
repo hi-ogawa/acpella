@@ -3,7 +3,7 @@
 export type CommandTree<T> = Record<string, CommandSpec<T>[]>;
 
 export type CommandSpec<T> = {
-  path: string[];
+  tokens: string[];
   usage: string;
   summary: string;
   match?: "prefix";
@@ -32,7 +32,7 @@ export function createCommandHandler<T>(options: {
       if (!tokens) {
         return false;
       }
-      const [commandName, ...commandPath] = tokens;
+      const [commandName, ...subcommandTokens] = tokens;
       if (commandName === "help") {
         await options.onUsage(commandOverview, handleOptions.context);
         return true;
@@ -43,7 +43,7 @@ export function createCommandHandler<T>(options: {
         return false;
       }
 
-      const matched = findCommand(commandGroup, commandPath);
+      const matched = findCommand(commandGroup, subcommandTokens);
       if (!matched) {
         await options.onUsage(usageByCommand[commandName]!, handleOptions.context);
         return true;
@@ -83,7 +83,7 @@ function parseCommandTokens(text: string): string[] | undefined {
 
 function findCommand<T>(
   commands: CommandSpec<T>[],
-  path: string[],
+  tokens: string[],
 ):
   | {
       command: CommandSpec<T>;
@@ -91,10 +91,10 @@ function findCommand<T>(
     }
   | undefined {
   for (const command of commands) {
-    if (!matchesPath({ path, command })) {
+    if (!matchesTokens({ tokens, command })) {
       continue;
     }
-    const args = path.slice(command.path.length);
+    const args = tokens.slice(command.tokens.length);
 
     return {
       command,
@@ -104,18 +104,18 @@ function findCommand<T>(
   return;
 }
 
-function matchesPath<T>(options: { path: string[]; command: CommandSpec<T> }): boolean {
+function matchesTokens<T>(options: { tokens: string[]; command: CommandSpec<T> }): boolean {
   if (options.command.match === "prefix") {
-    return startsWithPath(options.path, options.command.path);
+    return startsWithTokens(options.tokens, options.command.tokens);
   }
-  return equalPath(options.path, options.command.path);
+  return equalTokens(options.tokens, options.command.tokens);
 }
 
-function startsWithPath(path: string[], prefix: string[]): boolean {
-  return prefix.every((segment, index) => path[index] === segment);
+function startsWithTokens(tokens: string[], prefix: string[]): boolean {
+  return prefix.every((segment, index) => tokens[index] === segment);
 }
 
-function equalPath(left: string[], right: string[]): boolean {
+function equalTokens(left: string[], right: string[]): boolean {
   return left.length === right.length && left.every((segment, index) => right[index] === segment);
 }
 

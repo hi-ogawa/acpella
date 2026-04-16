@@ -113,7 +113,7 @@ export async function createHandler(
 
   const systemSessionCommands: CommandTree<SystemCommandContext>[string] = [
     {
-      path: ["current"],
+      tokens: ["current"],
       usage: "/session current",
       summary: "Show the current session.",
       run: async ({ reply, sessionName }) => {
@@ -126,7 +126,7 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
       },
     },
     {
-      path: ["list"],
+      tokens: ["list"],
       usage: "/session list",
       summary: "List known agent sessions.",
       run: async ({ reply }) => {
@@ -177,7 +177,7 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
       },
     },
     {
-      path: ["new"],
+      tokens: ["new"],
       usage: "/session new [agent]",
       summary: "Start a new agent session.",
       match: "prefix",
@@ -198,7 +198,7 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
       },
     },
     {
-      path: ["load"],
+      tokens: ["load"],
       usage: "/session load <sessionId|agent:sessionId>",
       summary: "Load an existing agent session.",
       match: "prefix",
@@ -229,7 +229,7 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
       },
     },
     {
-      path: ["close"],
+      tokens: ["close"],
       usage: "/session close [sessionId|agent:sessionId]",
       summary: "Close an agent session.",
       match: "prefix",
@@ -260,7 +260,7 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
 
   const systemAgentCommands: CommandTree<SystemCommandContext>["agent"] = [
     {
-      path: ["list"],
+      tokens: ["list"],
       usage: "/agent list",
       summary: "List configured agents.",
       run: async ({ reply }) => {
@@ -274,7 +274,7 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
       },
     },
     {
-      path: ["new"],
+      tokens: ["new"],
       usage: "/agent new <name> <command...>",
       summary: "Save a new agent.",
       match: "prefix",
@@ -292,7 +292,7 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
       },
     },
     {
-      path: ["remove"],
+      tokens: ["remove"],
       usage: "/agent remove <name>",
       summary: "Remove an agent.",
       match: "prefix",
@@ -327,7 +327,7 @@ ${referencedSessions.length} session(s) still reference it.`);
       },
     },
     {
-      path: ["default"],
+      tokens: ["default"],
       usage: "/agent default [name]",
       summary: "Show or set the default agent.",
       match: "prefix",
@@ -353,7 +353,7 @@ ${referencedSessions.length} session(s) still reference it.`);
   const systemCommands: CommandTree<SystemCommandContext> = {
     status: [
       {
-        path: [],
+        tokens: [],
         usage: "/status",
         summary: "Show service status.",
         run: async ({ reply }) => {
@@ -368,7 +368,7 @@ home: ${config.home}
     ],
     service: [
       {
-        path: ["exit"],
+        tokens: ["exit"],
         usage: "/service exit",
         summary: "Exit acpella.",
         run: async ({ reply }) => {
@@ -379,7 +379,7 @@ home: ${config.home}
     ],
     cancel: [
       {
-        path: [],
+        tokens: [],
         usage: "/cancel",
         summary: "Cancel the active agent turn.",
         run: async ({ reply, sessionName }) => {
@@ -405,7 +405,7 @@ home: ${config.home}
     agent: systemAgentCommands,
     verbose: [
       {
-        path: ["current"],
+        tokens: ["current"],
         usage: "/verbose current",
         summary: "Show tool-call output setting.",
         run: async ({ reply, sessionName }) => {
@@ -414,7 +414,7 @@ home: ${config.home}
         },
       },
       {
-        path: ["on"],
+        tokens: ["on"],
         usage: "/verbose on",
         summary: "Show tool-call updates.",
         run: async ({ reply, sessionName }) => {
@@ -425,7 +425,7 @@ home: ${config.home}
         },
       },
       {
-        path: ["off"],
+        tokens: ["off"],
         usage: "/verbose off",
         summary: "Hide tool-call updates.",
         run: async ({ reply, sessionName }) => {

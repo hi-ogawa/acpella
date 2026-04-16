@@ -11,7 +11,7 @@ describe(createCommandHandler, () => {
     const commands: CommandTree<TestContext> = {
       ping: [
         {
-          path: [],
+          tokens: [],
           usage: "/ping",
           summary: "Ping the service.",
           run: async ({ prefix }) => {
@@ -21,7 +21,7 @@ describe(createCommandHandler, () => {
       ],
       config: [
         {
-          path: ["show"],
+          tokens: ["show"],
           usage: "/config show",
           summary: "Show config.",
           run: async ({ prefix }) => {
@@ -29,7 +29,7 @@ describe(createCommandHandler, () => {
           },
         },
         {
-          path: ["set"],
+          tokens: ["set"],
           usage: "/config set <value...>",
           summary: "Set config.",
           match: "prefix",
