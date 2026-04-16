@@ -13,7 +13,11 @@ describe("fixtures", () => {
   for (const [file, mod] of Object.entries(fixtures)) {
     it(path.basename(file), async () => {
       const input = (await mod()).default;
-      await expect(toTelegramHtml(input)).toMatchFileSnapshot(file + ".snap.html");
+      let output = toTelegramHtml(input);
+      if (!output.endsWith("\n")) {
+        output += "\n";
+      }
+      await expect(output).toMatchFileSnapshot(file + ".snap.html");
     });
   }
 });
