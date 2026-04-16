@@ -43,6 +43,9 @@ Fenced code:
 
 <pre><code class="language-js">const x = 1;</code></pre>
 
+Autolink literal inside bold:
+<b>start https://example.com</b> end
+
 Nested link and bold:
 <b>bold <a href="https://example.com">link</a> text</b>
 
@@ -51,3 +54,21 @@ Bold link with trailing text:
 
 Bold inside link:
 <a href="https://example.com"><b>bold</b></a>
+
+File reference wrapping:
+See README.md. Also (backup.sh).
+
+Spoiler:
+the answer is ||42||
+
+Spoiler with nested formatting:
+||<b>secret</b> text||
+
+Single pipe is not spoiler:
+(￣_￣|) face
+
+Unpaired spoiler delimiter:
+before || after
+
+Valid spoiler pair with trailing unmatched delimiter:
+||secret|| trailing ||

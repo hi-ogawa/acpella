@@ -45,6 +45,9 @@ Fenced code:
 const x = 1;
 ```
 
+Autolink literal inside bold:
+**start https://example.com** end
+
 Nested link and bold:
 **bold [link](https://example.com) text**
 
@@ -53,3 +56,21 @@ Bold link with trailing text:
 
 Bold inside link:
 [**bold**](https://example.com)
+
+File reference wrapping:
+See README.md. Also (backup.sh).
+
+Spoiler:
+the answer is ||42||
+
+Spoiler with nested formatting:
+||**secret** text||
+
+Single pipe is not spoiler:
+(￣_￣|) face
+
+Unpaired spoiler delimiter:
+before || after
+
+Valid spoiler pair with trailing unmatched delimiter:
+||secret|| trailing ||
