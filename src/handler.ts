@@ -182,8 +182,9 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
             await reply.system(`Unknown agent: ${agentKey}`);
             return;
           }
-          stateStore.setSession(sessionName, { agentKey, agentSessionId: undefined });
+          stateStore.setSession(sessionName, { agentKey });
         }
+        stateStore.setSession(sessionName, { agentSessionId: undefined });
         await handlePrompt({
           reply,
           sessionName,
