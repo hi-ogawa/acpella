@@ -11,6 +11,7 @@ import type { StateAgentSession } from "./state.ts";
 
 export interface Handler {
   handle: (options: { sessionName: string; context: HandlerContext }) => Promise<void>;
+  systemCommands: CommandTree<SystemCommandContext>;
 }
 
 export interface HandlerContext extends ReplyContext {
@@ -18,6 +19,11 @@ export interface HandlerContext extends ReplyContext {
     text?: string;
   };
 }
+
+export type SystemCommandContext = {
+  reply: Reply;
+  sessionName: string;
+};
 
 export async function createHandler(
   config: AppConfig,
@@ -102,11 +108,6 @@ export async function createHandler(
       agentSession.close();
     }
   }
-
-  type SystemCommandContext = {
-    reply: Reply;
-    sessionName: string;
-  };
 
   const systemSessionCommands: CommandTree<SystemCommandContext>[string] = [
     {
@@ -452,5 +453,5 @@ home: ${config.home}
     });
   };
 
-  return { handle };
+  return { handle, systemCommands };
 }
