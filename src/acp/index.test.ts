@@ -5,7 +5,7 @@ import { startAcpManager } from "./index.ts";
 
 describe(startAcpManager, () => {
   it("basic", async () => {
-    const { root } = useFs({ prefix: "test-acp" });
+    const { root } = useFs({ prefix: "acp" });
     const manager = await startAcpManager({
       command: TEST_AGENT_COMMAND,
       cwd: root,
@@ -31,7 +31,7 @@ describe(startAcpManager, () => {
   });
 
   it("loadSession", async () => {
-    const { root } = useFs({ prefix: "test-acp" });
+    const { root } = useFs({ prefix: "acp" });
     const manager = await startAcpManager({
       command: TEST_AGENT_COMMAND,
       cwd: root,

@@ -68,7 +68,7 @@ import { TEST_AGENT_COMMAND } from "./state";
 import { useFs } from "./test/helper.ts";
 
 async function createHandlerTester() {
-  const { root } = useFs({ prefix: "test-handler" });
+  const { root } = useFs({ prefix: "handler" });
   const config = loadConfig({
     ACPELLA_HOME: root,
   });

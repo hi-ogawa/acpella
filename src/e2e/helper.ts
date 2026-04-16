@@ -7,7 +7,7 @@ export type TestService = ReturnType<typeof startService>;
 
 export function startService(options?: { env?: Record<string, string>; sourceDir?: string }) {
   const { root } = useFs({
-    prefix: "acpella-test",
+    prefix: "e2e",
     sourceDir: options?.sourceDir,
   });
 
