@@ -411,9 +411,7 @@ home: ${config.home}
         summary: "Show tool-call output setting.",
         run: async ({ reply, sessionName }) => {
           const { verbose } = stateStore.getSession(sessionName);
-          await reply.system(`\
-Tool call output: ${verbose ? "on" : "off"}
-`);
+          await reply.system(`Tool call output: ${verbose ? "on" : "off"}`);
         },
       },
       {
