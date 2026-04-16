@@ -103,104 +103,6 @@ export async function createHandler(
     }
   }
 
-  async function handleCloseSession(options: {
-    sessionName: string;
-    sessionIdArg?: string;
-  }): Promise<string> {
-    const stateSession = stateStore.getSession(options.sessionName);
-    const parsed = options.sessionIdArg ? parseAgentSessionKey(options.sessionIdArg) : undefined;
-    const agentKey = parsed?.agentKey ?? stateSession.agentKey;
-    const agentSessionId = parsed?.agentSessionId ?? stateSession.agentSessionId;
-    if (!agentSessionId) {
-      return "No associated session.";
-    }
-    const targetSession = { agentKey, agentSessionId };
-    stateStore.deleteSession(targetSession);
-    let output = `Session closed: ${toAgentSessionKey(targetSession)}.\n`;
-    try {
-      const manager = await getAgentManager(agentKey);
-      await manager.closeSession({ sessionId: agentSessionId });
-    } catch (e) {
-      output += "[acp] closeSession failed";
-      console.error("[acp] closeSession failed:", e);
-    }
-    return output;
-  }
-
-  async function handleLoadSession(options: {
-    sessionName: string;
-    sessionIdArg?: string;
-  }): Promise<string> {
-    if (!options.sessionIdArg) {
-      return "Usage: /session load <sessionId|agent:sessionId>";
-    }
-    const stateSession = stateStore.getSession(options.sessionName);
-    const parsed = parseAgentSessionKey(options.sessionIdArg);
-    const agentKey = parsed.agentKey ?? stateSession.agentKey;
-    const manager = await getAgentManager(agentKey);
-    const loaded = await manager.loadSession({
-      sessionCwd: config.home,
-      sessionId: parsed.agentSessionId,
-    });
-    const newStateSession: StateAgentSession = {
-      agentKey,
-      agentSessionId: loaded.sessionId,
-    };
-    try {
-      stateStore.setSession(options.sessionName, newStateSession);
-      return `Loaded session: ${toAgentSessionKey(newStateSession)}`;
-    } finally {
-      loaded.close();
-    }
-  }
-
-  async function handleListSessions(): Promise<string> {
-    const state = stateStore.get();
-    const activeAgentSessions = new Set<string>();
-    for (const [agentKey] of Object.entries(state.agents)) {
-      try {
-        const manager = await getAgentManager(agentKey);
-        const agentSessions = await manager.listSessions();
-        for (const session of agentSessions.sessions) {
-          activeAgentSessions.add(
-            toAgentSessionKey({ agentKey, agentSessionId: session.sessionId }),
-          );
-        }
-      } catch (e) {
-        // TODO: include errored agent in message response
-        console.error(`[acp] listSessions failed for agent ${agentKey}:`, e);
-      }
-    }
-    const stateAgentSessions = new Map<string, string>();
-    for (const [sessionName, stateSession] of Object.entries(state.sessions)) {
-      if (stateSession.agentKey && stateSession.agentSessionId) {
-        stateAgentSessions.set(
-          toAgentSessionKey({
-            agentKey: stateSession.agentKey,
-            agentSessionId: stateSession.agentSessionId,
-          }),
-          sessionName,
-        );
-      }
-    }
-    let output = "";
-    for (const [agentSessionKey, sessionName] of stateAgentSessions) {
-      output += `- ${sessionName} -> ${agentSessionKey}`;
-      if (activeAgentSessions.has(agentSessionKey)) {
-        output += " (active)";
-      } else {
-        output += " (not active)";
-      }
-      output += "\n";
-    }
-    for (const agentSessionKey of activeAgentSessions) {
-      if (!stateAgentSessions.has(agentSessionKey)) {
-        output += `- (unknown) -> ${agentSessionKey} (active)\n`;
-      }
-    }
-    return output || "No sessions.";
-  }
-
   type SystemCommandContext = {
     reply: Reply;
     sessionName: string;
@@ -276,7 +178,50 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
         usage: "/session list",
         summary: "List known agent sessions.",
         run: async ({ reply }) => {
-          await reply.system(await handleListSessions());
+          const state = stateStore.get();
+          const activeAgentSessions = new Set<string>();
+          for (const [agentKey] of Object.entries(state.agents)) {
+            try {
+              const manager = await getAgentManager(agentKey);
+              const agentSessions = await manager.listSessions();
+              for (const session of agentSessions.sessions) {
+                activeAgentSessions.add(
+                  toAgentSessionKey({ agentKey, agentSessionId: session.sessionId }),
+                );
+              }
+            } catch (e) {
+              // TODO: include errored agent in message response
+              console.error(`[acp] listSessions failed for agent ${agentKey}:`, e);
+            }
+          }
+          const stateAgentSessions = new Map<string, string>();
+          for (const [sessionName, stateSession] of Object.entries(state.sessions)) {
+            if (stateSession.agentKey && stateSession.agentSessionId) {
+              stateAgentSessions.set(
+                toAgentSessionKey({
+                  agentKey: stateSession.agentKey,
+                  agentSessionId: stateSession.agentSessionId,
+                }),
+                sessionName,
+              );
+            }
+          }
+          let output = "";
+          for (const [agentSessionKey, sessionName] of stateAgentSessions) {
+            output += `- ${sessionName} -> ${agentSessionKey}`;
+            if (activeAgentSessions.has(agentSessionKey)) {
+              output += " (active)";
+            } else {
+              output += " (not active)";
+            }
+            output += "\n";
+          }
+          for (const agentSessionKey of activeAgentSessions) {
+            if (!stateAgentSessions.has(agentSessionKey)) {
+              output += `- (unknown) -> ${agentSessionKey} (active)\n`;
+            }
+          }
+          await reply.system(output || "No sessions.");
         },
       },
       {
@@ -306,12 +251,29 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
         summary: "Load an existing agent session.",
         match: "prefix",
         run: async ({ invocation, reply, sessionName }) => {
-          await reply.system(
-            await handleLoadSession({
-              sessionName,
-              sessionIdArg: invocation.args[0],
-            }),
-          );
+          const sessionIdArg = invocation.args[0];
+          if (!sessionIdArg) {
+            await reply.system("Usage: /session load <sessionId|agent:sessionId>");
+            return;
+          }
+          const stateSession = stateStore.getSession(sessionName);
+          const parsed = parseAgentSessionKey(sessionIdArg);
+          const agentKey = parsed.agentKey ?? stateSession.agentKey;
+          const manager = await getAgentManager(agentKey);
+          const loaded = await manager.loadSession({
+            sessionCwd: config.home,
+            sessionId: parsed.agentSessionId,
+          });
+          const newStateSession: StateAgentSession = {
+            agentKey,
+            agentSessionId: loaded.sessionId,
+          };
+          try {
+            stateStore.setSession(sessionName, newStateSession);
+            await reply.system(`Loaded session: ${toAgentSessionKey(newStateSession)}`);
+          } finally {
+            loaded.close();
+          }
         },
       },
       {
@@ -320,12 +282,26 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
         summary: "Close an agent session.",
         match: "prefix",
         run: async ({ invocation, reply, sessionName }) => {
-          await reply.system(
-            await handleCloseSession({
-              sessionName,
-              sessionIdArg: invocation.args[0],
-            }),
-          );
+          const stateSession = stateStore.getSession(sessionName);
+          const sessionIdArg = invocation.args[0];
+          const parsed = sessionIdArg ? parseAgentSessionKey(sessionIdArg) : undefined;
+          const agentKey = parsed?.agentKey ?? stateSession.agentKey;
+          const agentSessionId = parsed?.agentSessionId ?? stateSession.agentSessionId;
+          if (!agentSessionId) {
+            await reply.system("No associated session.");
+            return;
+          }
+          const targetSession = { agentKey, agentSessionId };
+          stateStore.deleteSession(targetSession);
+          let output = `Session closed: ${toAgentSessionKey(targetSession)}.\n`;
+          try {
+            const manager = await getAgentManager(agentKey);
+            await manager.closeSession({ sessionId: agentSessionId });
+          } catch (e) {
+            output += "[acp] closeSession failed";
+            console.error("[acp] closeSession failed:", e);
+          }
+          await reply.system(output);
         },
       },
     ],
