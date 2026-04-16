@@ -38,22 +38,25 @@ export async function createHandler(
     return startAcpManager({ command: agent.command, cwd: config.home });
   }
 
-  async function handlePrompt(options: {
+  async function handlePrompt({
+    reply,
+    sessionName,
+    text,
+  }: {
     reply: Reply;
     sessionName: string;
     text: string;
   }): Promise<void> {
-    const { reply } = options;
-    if (activeSessions.has(options.sessionName)) {
+    if (activeSessions.has(sessionName)) {
       await reply.system("Agent turn already in progress. Send /cancel to stop it.");
       return;
     }
 
-    const stateSession = stateStore.getSession(options.sessionName);
+    const stateSession = stateStore.getSession(sessionName);
     const manager = await getAgentManager(stateSession.agentKey);
 
     let agentSession: AgentSession;
-    let promptText = options.text;
+    let promptText = text;
     if (stateSession.agentSessionId) {
       agentSession = await manager.loadSession({
         sessionCwd: config.home,
@@ -61,7 +64,7 @@ export async function createHandler(
       });
     } else {
       agentSession = await manager.newSession({ sessionCwd: config.home });
-      stateStore.setSession(options.sessionName, {
+      stateStore.setSession(sessionName, {
         agentKey: stateSession.agentKey,
         agentSessionId: agentSession.sessionId,
       });
@@ -73,7 +76,7 @@ export async function createHandler(
 
     try {
       const { queue } = agentSession.prompt(promptText);
-      activeSessions.set(options.sessionName, agentSession);
+      activeSessions.set(sessionName, agentSession);
 
       for await (const update of queue) {
         if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
@@ -96,8 +99,8 @@ export async function createHandler(
       }
       await reply.finish();
     } finally {
-      if (activeSessions.get(options.sessionName) === agentSession) {
-        activeSessions.delete(options.sessionName);
+      if (activeSessions.get(sessionName) === agentSession) {
+        activeSessions.delete(sessionName);
       }
       agentSession.close();
     }
