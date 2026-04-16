@@ -32,13 +32,13 @@ export function markdownToTelegramHtml(markdown: string): string {
 }
 
 type RenderContext = {
-  listMarker: string;
+  listItemPrefix: string;
   wrapFileRefs: boolean;
 };
 
 class TelegramHtmlRenderer {
   private context: RenderContext = {
-    listMarker: "-",
+    listItemPrefix: "-",
     wrapFileRefs: true,
   };
 
@@ -165,7 +165,7 @@ class TelegramHtmlRenderer {
       .map((item, index) =>
         this.withContent(
           {
-            listMarker: list.start != null ? `${list.start + index}.` : "-",
+            listItemPrefix: list.start != null ? `${list.start + index}.` : "-",
           },
           () => this.renderBlock(item),
         ),
@@ -175,19 +175,19 @@ class TelegramHtmlRenderer {
   }
 
   private renderListItem(item: ListItem): string {
-    const marker = this.context.listMarker;
+    const prefix = this.context.listItemPrefix;
     const body = item.children
       .map((child) => this.renderBlock(child))
       .filter((text) => text.length > 0)
       .join("\n");
     if (!body) {
-      return marker;
+      return prefix;
     }
 
-    const continuationPrefix = " ".repeat(marker.length + 1);
+    const prefixIndent = " ".repeat(prefix.length + 1);
     return body
       .split("\n")
-      .map((line, index) => `${index === 0 ? `${marker} ` : continuationPrefix}${line}`)
+      .map((line, index) => `${index === 0 ? `${prefix} ` : prefixIndent}${line}`)
       .join("\n");
   }
 
