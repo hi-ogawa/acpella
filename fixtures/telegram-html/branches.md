@@ -32,6 +32,13 @@ Ordered list:
 2. two
 3. three
 
+Nested list:
+
+- parent
+  - child
+  - second child
+- after
+
 Thematic break:
 
 ***
