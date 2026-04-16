@@ -7,6 +7,7 @@ import { loadConfig, type AppConfig } from "./config.ts";
 import { createHandler, type Handler } from "./handler.ts";
 import { handleSetupSystemd } from "./lib/systemd.ts";
 import { telegramSequentialKey, telegramSessionName } from "./lib/telegram.ts";
+import { formatZonedDateTime } from "./lib/time.ts";
 import { getVersion } from "./lib/version.ts";
 
 async function main() {
@@ -111,7 +112,18 @@ Options:
     console.log(`[${sessionName}] <- ${text}`);
 
     try {
-      await handler.handle({ sessionName, context: ctx });
+      await handler.handle({
+        sessionName,
+        context: {
+          message: ctx.message,
+          metadata: {
+            receivedAt: formatZonedDateTime(new Date(), config.timezone),
+            timezone: config.timezone,
+            sessionName,
+          },
+          reply: ctx.reply.bind(ctx),
+        },
+      });
       console.log(`[${sessionName}] -> response sent`);
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
@@ -142,6 +154,11 @@ async function startRepl(config: AppConfig, handler: Handler, version: string) {
         sessionName: "repl",
         context: {
           message: { text },
+          metadata: {
+            receivedAt: formatZonedDateTime(new Date(), config.timezone),
+            timezone: config.timezone,
+            sessionName: "repl",
+          },
           async reply(text) {
             console.log(text);
           },

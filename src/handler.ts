@@ -14,10 +14,17 @@ export interface Handler {
   commands: Record<string, string>;
 }
 
+export interface MessageMetadata {
+  receivedAt: string;
+  timezone: string;
+  sessionName: string;
+}
+
 export interface HandlerContext extends ReplyContext {
   message?: {
     text?: string;
   };
+  metadata?: MessageMetadata;
 }
 
 export type SystemCommandContext = {
@@ -459,9 +466,23 @@ home: ${config.home}
     await handlePrompt({
       reply,
       sessionName,
-      text,
+      text: formatPromptWithMetadata(text, options.context.metadata),
     });
   };
 
   return { handle, commands: systemCommandsMetadata };
+}
+
+function formatPromptWithMetadata(text: string, metadata: MessageMetadata | undefined): string {
+  if (!metadata) {
+    return text;
+  }
+  return `\
+<message_metadata>
+received_at: ${metadata.receivedAt}
+timezone: ${metadata.timezone}
+session_name: ${metadata.sessionName}
+</message_metadata>
+
+${text}`;
 }
