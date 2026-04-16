@@ -199,6 +199,7 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
     },
     {
       path: ["load"],
+      // TODO: support <agent:sessionId> only
       usage: "/session load <sessionId|agent:sessionId>",
       summary: "Load an existing agent session.",
       match: "prefix",
