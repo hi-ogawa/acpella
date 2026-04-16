@@ -4,9 +4,8 @@ import { parseArgs } from "node:util";
 import { run, sequentialize } from "@grammyjs/runner";
 import { Bot } from "grammy";
 import { loadConfig, type AppConfig } from "./config.ts";
-import { createHandler, type Handler, type HandlerContext } from "./handler.ts";
+import { createHandler, type Handler } from "./handler.ts";
 import { handleSetupSystemd } from "./lib/systemd.ts";
-import { toTelegramMarkdownV2 } from "./lib/telegram-format.ts";
 import { telegramSequentialKey, telegramSessionName } from "./lib/telegram.ts";
 import { getVersion } from "./lib/version.ts";
 
@@ -112,20 +111,7 @@ Options:
     console.log(`[${sessionName}] <- ${text}`);
 
     try {
-      const context: HandlerContext = {
-        message: ctx.message,
-        reply: async (replyText: string) => {
-          try {
-            return await ctx.reply(toTelegramMarkdownV2(replyText), {
-              parse_mode: "MarkdownV2",
-            });
-          } catch (error) {
-            console.error(`[${sessionName}] MarkdownV2 reply failed:`, error);
-            return await ctx.reply(replyText);
-          }
-        },
-      };
-      await handler.handle({ sessionName, context });
+      await handler.handle({ sessionName, context: ctx });
       console.log(`[${sessionName}] -> response sent`);
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
