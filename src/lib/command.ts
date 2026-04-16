@@ -4,13 +4,8 @@ export type CommandTree<T> = Record<string, CommandSpec<T>[]>;
 
 export type CommandSpec<T> = {
   tokens: string[];
-  // TODO: merge usage and summary? e.g.
-  //   "/status - Show service status."
-  //   "/service exit - Exit the service."
-  usage: string;
-  summary: string;
-  // TODO: rename to withArgs: boolean
-  match?: "prefix";
+  help: string;
+  withArgs?: boolean;
   run: (context: CommandRunContext<T>) => Promise<void>;
 };
 
@@ -89,7 +84,7 @@ function findCommand<T>(commands: CommandSpec<T>[], tokens: string[]) {
 }
 
 function matchesTokens<T>(command: CommandSpec<T>, tokens: string[]): boolean {
-  if (command.match === "prefix") {
+  if (command.withArgs) {
     return isPrefixArray(command.tokens, tokens);
   }
   return isEqualArray(command.tokens, tokens);
@@ -112,11 +107,15 @@ function buildUsageByCommand<T>(commands: CommandTree<T>): Record<string, string
 }
 
 function renderCommandUsage<T>(commands: CommandSpec<T>[]): string {
-  const usages = commands.map((command) => command.usage);
+  const usages = commands.map((command) => getCommandUsage(command));
   if (usages.length === 1) {
     return `Usage: ${usages[0]}`;
   }
   return `Usage:\n${usages.join("\n")}`;
+}
+
+function getCommandUsage<T>(command: CommandSpec<T>): string {
+  return command.help.split(" - ", 1)[0]!;
 }
 
 function renderCommandOverview<T>(commands: CommandTree<T>): string {
@@ -124,7 +123,7 @@ function renderCommandOverview<T>(commands: CommandTree<T>): string {
   for (const [command, commandGroup] of Object.entries(commands)) {
     output += `\n\n/${command}`;
     for (const commandSpec of commandGroup) {
-      output += `\n  ${commandSpec.usage} - ${commandSpec.summary}`;
+      output += `\n  ${commandSpec.help}`;
     }
   }
   return output;

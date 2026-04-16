@@ -12,8 +12,7 @@ describe(createCommandHandler, () => {
       ping: [
         {
           tokens: [],
-          usage: "/ping",
-          summary: "Ping the service.",
+          help: "/ping - Ping the service.",
           run: async ({ prefix }) => {
             events.push(`${prefix}:pong`);
           },
@@ -22,17 +21,15 @@ describe(createCommandHandler, () => {
       config: [
         {
           tokens: ["show"],
-          usage: "/config show",
-          summary: "Show config.",
+          help: "/config show - Show config.",
           run: async ({ prefix }) => {
             events.push(`${prefix}:config`);
           },
         },
         {
           tokens: ["set"],
-          usage: "/config set <value...>",
-          summary: "Set config.",
-          match: "prefix",
+          help: "/config set <value...> - Set config.",
+          withArgs: true,
           run: async ({ invocation, prefix }) => {
             events.push(`${prefix}:set:${invocation.args.join(" ")}`);
           },

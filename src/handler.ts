@@ -114,8 +114,7 @@ export async function createHandler(
   const systemSessionCommands: CommandTree<SystemCommandContext>[string] = [
     {
       tokens: ["current"],
-      usage: "/session current",
-      summary: "Show the current session.",
+      help: "/session current - Show the current session.",
       run: async ({ reply, sessionName }) => {
         const stateSession = stateStore.getSession(sessionName);
         await reply.system(`\
@@ -127,8 +126,7 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
     },
     {
       tokens: ["list"],
-      usage: "/session list",
-      summary: "List known agent sessions.",
+      help: "/session list - List known agent sessions.",
       run: async ({ reply }) => {
         const state = stateStore.get();
         const activeAgentSessions = new Set<string>();
@@ -178,9 +176,8 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
     },
     {
       tokens: ["new"],
-      usage: "/session new [agent]",
-      summary: "Start a new agent session.",
-      match: "prefix",
+      help: "/session new [agent] - Start a new agent session.",
+      withArgs: true,
       run: async ({ invocation, reply, sessionName }) => {
         const agentKey = invocation.args[0];
         if (agentKey) {
@@ -199,9 +196,8 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
     },
     {
       tokens: ["load"],
-      usage: "/session load <sessionId|agent:sessionId>",
-      summary: "Load an existing agent session.",
-      match: "prefix",
+      help: "/session load <sessionId|agent:sessionId> - Load an existing agent session.",
+      withArgs: true,
       run: async ({ invocation, reply, sessionName }) => {
         const sessionIdArg = invocation.args[0];
         if (!sessionIdArg) {
@@ -230,9 +226,8 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
     },
     {
       tokens: ["close"],
-      usage: "/session close [sessionId|agent:sessionId]",
-      summary: "Close an agent session.",
-      match: "prefix",
+      help: "/session close [sessionId|agent:sessionId] - Close an agent session.",
+      withArgs: true,
       run: async ({ invocation, reply, sessionName }) => {
         const stateSession = stateStore.getSession(sessionName);
         const sessionIdArg = invocation.args[0];
@@ -261,8 +256,7 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
   const systemAgentCommands: CommandTree<SystemCommandContext>["agent"] = [
     {
       tokens: ["list"],
-      usage: "/agent list",
-      summary: "List configured agents.",
+      help: "/agent list - List configured agents.",
       run: async ({ reply }) => {
         const state = stateStore.get();
         let response = "";
@@ -275,9 +269,8 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
     },
     {
       tokens: ["new"],
-      usage: "/agent new <name> <command...>",
-      summary: "Save a new agent.",
-      match: "prefix",
+      help: "/agent new <name> <command...> - Save a new agent.",
+      withArgs: true,
       run: async ({ invocation, reply }) => {
         const [name, ...args] = invocation.args;
         const agentCommand = args.join(" ");
@@ -293,9 +286,8 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
     },
     {
       tokens: ["remove"],
-      usage: "/agent remove <name>",
-      summary: "Remove an agent.",
-      match: "prefix",
+      help: "/agent remove <name> - Remove an agent.",
+      withArgs: true,
       run: async ({ invocation, reply }) => {
         const name = invocation.args[0];
         const state = stateStore.get();
@@ -328,9 +320,8 @@ ${referencedSessions.length} session(s) still reference it.`);
     },
     {
       tokens: ["default"],
-      usage: "/agent default [name]",
-      summary: "Show or set the default agent.",
-      match: "prefix",
+      help: "/agent default [name] - Show or set the default agent.",
+      withArgs: true,
       run: async ({ invocation, reply }) => {
         const name = invocation.args[0];
         const state = stateStore.get();
@@ -354,8 +345,7 @@ ${referencedSessions.length} session(s) still reference it.`);
     status: [
       {
         tokens: [],
-        usage: "/status",
-        summary: "Show service status.",
+        help: "/status - Show service status.",
         run: async ({ reply }) => {
           await reply.system(`\
 status: running
@@ -369,8 +359,7 @@ home: ${config.home}
     service: [
       {
         tokens: ["exit"],
-        usage: "/service exit",
-        summary: "Exit acpella.",
+        help: "/service exit - Exit acpella.",
         run: async ({ reply }) => {
           await reply.system("Exiting acpella.");
           handlerOptions.onServiceExit();
@@ -380,8 +369,7 @@ home: ${config.home}
     cancel: [
       {
         tokens: [],
-        usage: "/cancel",
-        summary: "Cancel the active agent turn.",
+        help: "/cancel - Cancel the active agent turn.",
         run: async ({ reply, sessionName }) => {
           const session = activeSessions.get(sessionName);
           if (!session) {
@@ -406,8 +394,7 @@ home: ${config.home}
     verbose: [
       {
         tokens: ["current"],
-        usage: "/verbose current",
-        summary: "Show tool-call output setting.",
+        help: "/verbose current - Show tool-call output setting.",
         run: async ({ reply, sessionName }) => {
           const { verbose } = stateStore.getSession(sessionName);
           await reply.system(`Tool call output: ${verbose ? "on" : "off"}`);
@@ -415,8 +402,7 @@ home: ${config.home}
       },
       {
         tokens: ["on"],
-        usage: "/verbose on",
-        summary: "Show tool-call updates.",
+        help: "/verbose on - Show tool-call updates.",
         run: async ({ reply, sessionName }) => {
           stateStore.setSession(sessionName, {
             verbose: true,
@@ -426,8 +412,7 @@ home: ${config.home}
       },
       {
         tokens: ["off"],
-        usage: "/verbose off",
-        summary: "Hide tool-call updates.",
+        help: "/verbose off - Hide tool-call updates.",
         run: async ({ reply, sessionName }) => {
           stateStore.setSession(sessionName, {
             verbose: false,
