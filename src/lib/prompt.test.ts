@@ -1,9 +1,10 @@
+import path from "node:path";
 import { expect, test } from "vitest";
 import { buildFirstPrompt } from "./prompt.ts";
 
 test("basic", () => {
   const output = buildFirstPrompt({
-    promptFile: "./fixtures/prompt-includes/AGENTS.md",
+    promptFile: path.resolve("./fixtures/prompt-includes/AGENTS.md"),
     text: "my first message",
   });
   expect(output).toMatchInlineSnapshot(`
@@ -27,7 +28,7 @@ test("basic", () => {
 
 test("not-found", () => {
   const output = buildFirstPrompt({
-    promptFile: "./fixtures/prompt-includes/MISSING.md",
+    promptFile: path.resolve("./fixtures/prompt-includes/MISSING.md"),
     text: "my first message",
   });
   expect(output).toMatchInlineSnapshot(`"my first message"`);
