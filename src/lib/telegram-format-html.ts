@@ -11,21 +11,6 @@ const MARKDOWN_PARSE_OPTIONS = {
   mdastExtensions: [gfmFromMarkdown()],
 } satisfies FromMarkdownOptions;
 
-const SAFE_LINK_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tg:"]);
-const FILE_REF_EXTENSIONS_WITH_TLD = new Set([
-  "md",
-  "go",
-  "py",
-  "pl",
-  "sh",
-  "am",
-  "at",
-  "be",
-  "cc",
-]);
-let fileReferencePattern: RegExp | undefined;
-let orphanedTldPattern: RegExp | undefined;
-
 export function markdownToTelegramHtml(markdown: string): string {
   const ast = fromMarkdown(markdown, MARKDOWN_PARSE_OPTIONS);
   return new TelegramHtmlRenderer().renderRoot(ast);
@@ -223,8 +208,56 @@ function renderImageText(alt: string | null | undefined, fallback: string): stri
   return label ? escapeHtml(`[Image: ${label}]`) : "[Image]";
 }
 
+const SAFE_LINK_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tg:"]);
+
+function isSafeLinkUrl(url: string): boolean {
+  if (!url || hasUrlUnsafeWhitespaceOrControl(url)) {
+    return false;
+  }
+  try {
+    return SAFE_LINK_PROTOCOLS.has(new URL(url).protocol);
+  } catch {
+    return false;
+  }
+}
+
+function hasUrlUnsafeWhitespaceOrControl(url: string): boolean {
+  for (const char of url) {
+    const code = char.charCodeAt(0);
+    if (code <= 0x20 || code === 0x7f) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function escapeHtml(text: string): string {
+  // Telegram HTML requires raw &, <, and > text to be escaped.
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function escapeHtmlAttr(text: string): string {
+  return escapeHtml(text).replace(/"/g, "&quot;");
+}
+
+// ported from
+// https://github.com/openclaw/openclaw/blob/05cac5b980f60f2de9f27332c3bc55f6ff9f64e0/extensions/telegram/src/format.ts#L94-L101
+
+const FILE_REF_EXTENSIONS_WITH_TLD = new Set([
+  "md",
+  "go",
+  "py",
+  "pl",
+  "sh",
+  "am",
+  "at",
+  "be",
+  "cc",
+]);
+let fileReferencePattern: RegExp | undefined;
+let orphanedTldPattern: RegExp | undefined;
+
 function renderTextWithFileReferences(text: string): string {
-  // OpenClaw policy, applied at AST text-render time here: wrap standalone file refs to avoid Telegram previews.
   const pattern = getFileReferencePattern();
   pattern.lastIndex = 0;
 
@@ -300,34 +333,4 @@ function getOrphanedTldPattern(): RegExp {
 
 function escapeRegex(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function isSafeLinkUrl(url: string): boolean {
-  if (!url || hasUrlUnsafeWhitespaceOrControl(url)) {
-    return false;
-  }
-  try {
-    return SAFE_LINK_PROTOCOLS.has(new URL(url).protocol);
-  } catch {
-    return false;
-  }
-}
-
-function hasUrlUnsafeWhitespaceOrControl(url: string): boolean {
-  for (const char of url) {
-    const code = char.charCodeAt(0);
-    if (code <= 0x20 || code === 0x7f) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function escapeHtml(text: string): string {
-  // Telegram HTML requires raw &, <, and > text to be escaped.
-  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function escapeHtmlAttr(text: string): string {
-  return escapeHtml(text).replace(/"/g, "&quot;");
 }
