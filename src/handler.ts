@@ -1,6 +1,8 @@
 import { startAcpManager } from "./acp/index.ts";
 import type { AgentSession } from "./acp/index.ts";
 import type { AppConfig } from "./config.ts";
+import { handleCommand } from "./lib/command.ts";
+import type { CommandTree } from "./lib/command.ts";
 import { readOptionalPromptFile } from "./lib/prompt.ts";
 import { createReply, MESSAGE_SPLIT_BUDGET } from "./lib/reply.ts";
 import type { Reply, ReplyContext } from "./lib/reply.ts";
@@ -17,25 +19,10 @@ export interface HandlerContext extends ReplyContext {
   };
 }
 
-type SystemCommandSpec = {
-  path: string[];
-  usage: string;
-  summary: string;
-  run: (options: {
-    invocation: SystemCommandInvocation;
-    reply: Reply;
-    sessionName: string;
-  }) => Promise<void> | void;
+type SystemCommandContext = {
+  reply: Reply;
+  sessionName: string;
 };
-
-type SystemCommandInvocation = {
-  command: string;
-  path: string[];
-  args: string[];
-  rawArgs: string;
-};
-
-type SystemCommandTree = Record<string, SystemCommandSpec[]>;
 
 export async function createHandler(
   config: AppConfig,
@@ -408,7 +395,7 @@ home: ${config.home}
     return `Tool call output: ${verbose ? "on" : "off"}`;
   }
 
-  const systemCommands: SystemCommandTree = {
+  const systemCommands: CommandTree<SystemCommandContext> = {
     status: [
       {
         path: [],
@@ -475,7 +462,16 @@ Usage: /verbose [on|off]
       limit: MESSAGE_SPLIT_BUDGET,
     });
 
-    if (await handleSystemCommand({ reply, text, sessionName, commands: systemCommands })) {
+    if (
+      await handleCommand({
+        text,
+        commands: systemCommands,
+        context: { reply, sessionName },
+        onUsage: async (usage, context) => {
+          await context.reply.system(usage);
+        },
+      })
+    ) {
       return;
     }
     if (text === "/cancel") {
@@ -521,90 +517,4 @@ ${options.customPrompt.trim()}
 
 ${options.userText}
 `;
-}
-
-async function handleSystemCommand(options: {
-  reply: Reply;
-  text: string;
-  sessionName: string;
-  commands: SystemCommandTree;
-}): Promise<boolean> {
-  const invocation = parseSystemCommand(options.text);
-  if (!invocation) {
-    return false;
-  }
-
-  const commandGroup = options.commands[invocation.command];
-  if (!commandGroup) {
-    return false;
-  }
-
-  const matched = findSystemCommand(commandGroup, invocation);
-  if (!matched) {
-    await options.reply.system(renderSystemCommandUsage(commandGroup));
-    return true;
-  }
-
-  await matched.command.run({
-    invocation: matched.invocation,
-    reply: options.reply,
-    sessionName: options.sessionName,
-  });
-  return true;
-}
-
-function parseSystemCommand(text: string): SystemCommandInvocation | undefined {
-  const trimmed = text.trim();
-  if (!trimmed.startsWith("/")) {
-    return undefined;
-  }
-  const [command, ...path] = trimmed.slice(1).split(/\s+/);
-  if (!command) {
-    return undefined;
-  }
-  return {
-    command,
-    path,
-    args: path,
-    rawArgs: path.join(" "),
-  };
-}
-
-function findSystemCommand(
-  commands: SystemCommandSpec[],
-  invocation: SystemCommandInvocation,
-):
-  | {
-      command: SystemCommandSpec;
-      invocation: SystemCommandInvocation;
-    }
-  | undefined {
-  for (const command of commands) {
-    if (!equalPath(invocation.path, command.path)) {
-      continue;
-    }
-
-    return {
-      command,
-      invocation: {
-        command: invocation.command,
-        path: command.path,
-        args: [],
-        rawArgs: "",
-      },
-    };
-  }
-  return undefined;
-}
-
-function equalPath(left: string[], right: string[]): boolean {
-  return left.length === right.length && left.every((segment, index) => right[index] === segment);
-}
-
-function renderSystemCommandUsage(commands: SystemCommandSpec[]): string {
-  const usages = commands.map((command) => command.usage);
-  if (usages.length === 1) {
-    return `Usage: ${usages[0]}`;
-  }
-  return `Usage:\n${usages.join("\n")}`;
 }
