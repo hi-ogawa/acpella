@@ -2,7 +2,7 @@ import { defineConfig } from "vite-plus";
 
 export default defineConfig({
   fmt: {
-    ignorePatterns: ["./refs/**"],
+    ignorePatterns: ["./refs/**", "./fixtures/telegram-html/**"],
     sortImports: {
       newlinesBetween: false,
     },
