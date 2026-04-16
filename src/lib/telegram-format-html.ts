@@ -28,11 +28,11 @@ let orphanedTldPattern: RegExp | undefined;
 
 export function markdownToTelegramHtml(markdown: string): string {
   const ast = fromMarkdown(markdown, MARKDOWN_PARSE_OPTIONS);
-  return renderBlocks(ast.children, { wrapFileRefs: true });
+  return renderBlocks(ast.children, { listMarker: "-", wrapFileRefs: true });
 }
 
 type RenderContext = {
-  listMarker?: string;
+  listMarker: string;
   wrapFileRefs: boolean;
 };
 
@@ -84,7 +84,7 @@ function renderBlock(node: RootContent, options: RenderContext): string {
       return `<code>${escapeHtml(node.value)}</code>`;
     }
     case "link": {
-      return renderLink(node.url, node.children);
+      return renderLink(node.url, node.children, options);
     }
     case "linkReference": {
       return renderInline(node.children, options);
@@ -104,7 +104,7 @@ function renderBlock(node: RootContent, options: RenderContext): string {
       return `<b>${renderInline(node.children, options)}</b>`;
     }
     case "table": {
-      return renderTable(node);
+      return renderTable(node, options);
     }
     case "tableCell": {
       return renderInline(node.children, options);
@@ -152,8 +152,12 @@ function sanitizeCodeLanguage(rawLanguage?: string | null): string {
   return language.replace(/[^A-Za-z0-9_-]/g, "");
 }
 
-function renderLink(rawUrl: string, children: readonly PhrasingContent[]): string {
-  const label = renderInline(children, { wrapFileRefs: false });
+function renderLink(
+  rawUrl: string,
+  children: readonly PhrasingContent[],
+  options: RenderContext,
+): string {
+  const label = renderInline(children, { ...options, wrapFileRefs: false });
   const url = rawUrl.trim();
   if (!label || !isSafeLinkUrl(url)) {
     return label;
@@ -181,7 +185,7 @@ function renderList(list: List, options: RenderContext): string {
 }
 
 function renderListItem(item: ListItem, options: RenderContext): string {
-  const marker = options.listMarker ?? "-";
+  const marker = options.listMarker;
   const body = item.children
     .map((child) => renderBlock(child, options))
     .filter((text) => text.length > 0)
@@ -197,8 +201,8 @@ function renderListItem(item: ListItem, options: RenderContext): string {
     .join("\n");
 }
 
-function renderTable(table: Table): string {
-  return table.children.map((row) => renderBlock(row, { wrapFileRefs: true })).join("\n");
+function renderTable(table: Table, options: RenderContext): string {
+  return table.children.map((row) => renderBlock(row, options)).join("\n");
 }
 
 function renderTextWithFileReferences(text: string): string {
