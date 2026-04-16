@@ -1,7 +1,17 @@
 import type { List, ListItem, PhrasingContent, RootContent, Table } from "mdast";
+import type { Options as FromMarkdownOptions } from "mdast-util-from-markdown";
 import { fromMarkdown } from "mdast-util-from-markdown";
+import { frontmatterFromMarkdown } from "mdast-util-frontmatter";
+import { gfmFromMarkdown } from "mdast-util-gfm";
+import { frontmatter } from "micromark-extension-frontmatter";
+import { gfm } from "micromark-extension-gfm";
 
 // TODO: review slop
+
+const MARKDOWN_PARSE_OPTIONS = {
+  extensions: [gfm(), frontmatter(["yaml"])],
+  mdastExtensions: [gfmFromMarkdown(), frontmatterFromMarkdown(["yaml"])],
+} satisfies FromMarkdownOptions;
 
 const SAFE_LINK_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tg:"]);
 const FILE_REF_EXTENSIONS_WITH_TLD = new Set([
@@ -19,11 +29,12 @@ let fileReferencePattern: RegExp | undefined;
 let orphanedTldPattern: RegExp | undefined;
 
 export function markdownToTelegramHtml(markdown: string): string {
-  const ast = fromMarkdown(markdown);
+  const ast = fromMarkdown(markdown, MARKDOWN_PARSE_OPTIONS);
   return renderBlocks(ast.children, { wrapFileRefs: true });
 }
 
 type RenderOptions = {
+  listMarker?: string;
   wrapFileRefs: boolean;
 };
 
@@ -89,10 +100,10 @@ function renderBlock(node: RootContent, options: RenderOptions): string {
     }
     case "list": {
       // Telegram HTML does not support list tags; OpenClaw renders lists as plain text bullets.
-      return renderList(node);
+      return renderList(node, options);
     }
     case "listItem": {
-      return renderListItem(node, "-");
+      return renderListItem(node, options.listMarker ?? "-");
     }
     case "paragraph": {
       return renderInline(node.children, options);
@@ -108,7 +119,7 @@ function renderBlock(node: RootContent, options: RenderOptions): string {
       return renderInline(node.children, options);
     }
     case "tableRow": {
-      return node.children.map((cell) => renderInline(cell.children, options).trim()).join(" | ");
+      return node.children.map((cell) => renderBlock(cell, options).trim()).join(" | ");
     }
     case "text": {
       return options.wrapFileRefs
@@ -158,10 +169,15 @@ function renderImageText(alt: string | null | undefined, fallback: string): stri
   return label ? escapeHtml(`[Image: ${label}]`) : "[Image]";
 }
 
-function renderList(list: List): string {
+function renderList(list: List, options: RenderOptions): string {
   const start = list.ordered && typeof list.start === "number" ? list.start : 1;
   return list.children
-    .map((item, index) => renderListItem(item, list.ordered ? `${start + index}.` : "-"))
+    .map((item, index) =>
+      renderBlock(item, {
+        ...options,
+        listMarker: list.ordered ? `${start + index}.` : "-",
+      }),
+    )
     .filter((text) => text.length > 0)
     .join("\n");
 }
