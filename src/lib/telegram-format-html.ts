@@ -31,19 +31,12 @@ export function markdownToTelegramHtml(markdown: string): string {
   return renderBlocks(ast.children, { wrapFileRefs: true });
 }
 
-type RenderOptions = {
+type RenderContext = {
   listMarker?: string;
   wrapFileRefs: boolean;
 };
 
-function renderBlocks(nodes: readonly RootContent[], options: RenderOptions): string {
-  return nodes
-    .map((node) => renderBlock(node, options))
-    .filter((text) => text.length > 0)
-    .join("\n\n");
-}
-
-function renderBlock(node: RootContent, options: RenderOptions): string {
+function renderBlock(node: RootContent, options: RenderContext): string {
   switch (node.type) {
     case "blockquote": {
       // Telegram Bot API supports <blockquote>; OpenClaw's Telegram renderer uses this tag.
@@ -101,7 +94,7 @@ function renderBlock(node: RootContent, options: RenderOptions): string {
       return renderList(node, options);
     }
     case "listItem": {
-      return renderListItem(node, options.listMarker ?? "-");
+      return renderListItem(node, options);
     }
     case "paragraph": {
       return renderInline(node.children, options);
@@ -136,7 +129,14 @@ function renderBlock(node: RootContent, options: RenderOptions): string {
   }
 }
 
-function renderInline(nodes: readonly PhrasingContent[], options: RenderOptions): string {
+function renderBlocks(nodes: readonly RootContent[], options: RenderContext): string {
+  return nodes
+    .map((node) => renderBlock(node, options))
+    .filter((text) => text.length > 0)
+    .join("\n\n");
+}
+
+function renderInline(nodes: readonly PhrasingContent[], options: RenderContext): string {
   return nodes.map((node) => renderBlock(node, options)).join("");
 }
 
@@ -167,7 +167,7 @@ function renderImageText(alt: string | null | undefined, fallback: string): stri
   return label ? escapeHtml(`[Image: ${label}]`) : "[Image]";
 }
 
-function renderList(list: List, options: RenderOptions): string {
+function renderList(list: List, options: RenderContext): string {
   const start = list.ordered && typeof list.start === "number" ? list.start : 1;
   return list.children
     .map((item, index) =>
@@ -180,9 +180,10 @@ function renderList(list: List, options: RenderOptions): string {
     .join("\n");
 }
 
-function renderListItem(item: ListItem, marker: string): string {
+function renderListItem(item: ListItem, options: RenderContext): string {
+  const marker = options.listMarker ?? "-";
   const body = item.children
-    .map((child) => renderBlock(child, { wrapFileRefs: true }))
+    .map((child) => renderBlock(child, options))
     .filter((text) => text.length > 0)
     .join("\n");
   if (!body) {
