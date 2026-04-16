@@ -150,7 +150,7 @@ test("basic", async () => {
 
     /agent
       /agent list - List configured agents.
-      /agent new <name> <command>... - Save a new agent.
+      /agent new <name> <command...> - Save a new agent.
       /agent remove <name> - Remove an agent.
       /agent default [name] - Show or set the default agent.
 
@@ -293,7 +293,7 @@ test("agent command", async () => {
     "[⚙️ System]
     Usage:
     /agent list
-    /agent new <name> <command>...
+    /agent new <name> <command...>
     /agent remove <name>
     /agent default [name]"
   `);
