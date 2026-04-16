@@ -92,19 +92,14 @@ function buildSkillsCatalog(skillsDir: string): string {
   skills.sort((a, b) => a.directory.localeCompare(b.directory));
 
   // Keep this catalog close to Codex's skill listing: metadata and file path only.
-  let output = `\
-### Available Skills
-
-When a task matches one of these skills, read the listed SKILL.md before acting.`;
+  let output = "";
   for (const skill of skills) {
-    output += `
-
-- Skill directory: ${skill.directory}
+    output += `${output ? "\n\n" : ""}- Skill directory: ${skill.directory}
   File: ${skill.file}
   Frontmatter:
 ${indentBlock(skill.frontmatter ?? "(none)", "    ")}`;
   }
-  return `${output}\n`;
+  return output ? `${output}\n` : "";
 }
 
 function readSkillCatalogEntry(options: {

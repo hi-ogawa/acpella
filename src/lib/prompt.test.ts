@@ -45,10 +45,6 @@ test("acpella skills directive", () => {
 
     <custom_instructions>
     before
-    ### Available Skills
-
-    When a task matches one of these skills, read the listed SKILL.md before acting.
-
     - Skill directory: alpha
       File: <root>/fixtures/prompt-directives/skills/alpha/SKILL.md
       Frontmatter:
