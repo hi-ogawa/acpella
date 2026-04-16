@@ -1,11 +1,11 @@
-export type CommandSpec<TContext> = {
+export type CommandSpec<T> = {
   path: string[];
   usage: string;
   summary: string;
-  run: (context: CommandRunContext<TContext>) => Promise<void> | void;
+  run: (context: CommandRunContext<T>) => Promise<void> | void;
 };
 
-export type CommandTree<TContext> = Record<string, CommandSpec<TContext>[]>;
+export type CommandTree<T> = Record<string, CommandSpec<T>[]>;
 
 export type CommandInvocation = {
   command: string;
@@ -14,37 +14,49 @@ export type CommandInvocation = {
   rawArgs: string;
 };
 
-export type CommandRunContext<TContext> = TContext & {
+export type CommandRunContext<T> = T & {
   invocation: CommandInvocation;
 };
 
-export async function handleCommand<TContext>(options: {
-  text: string;
-  commands: CommandTree<TContext>;
-  context: TContext;
-  onUsage: (usage: string, context: TContext) => Promise<void> | void;
-}): Promise<boolean> {
-  const invocation = parseCommand(options.text);
-  if (!invocation) {
-    return false;
-  }
+export function createCommandHandler<T>(options: {
+  commands: CommandTree<T>;
+  onUsage: (usage: string, context: T) => Promise<void> | void;
+}) {
+  const usageByCommand = buildUsageByCommand(options.commands);
 
-  const commandGroup = options.commands[invocation.command];
-  if (!commandGroup) {
-    return false;
-  }
+  return {
+    async handle(handleOptions: { text: string; context: T }): Promise<boolean> {
+      const invocation = parseCommand(handleOptions.text);
+      if (!invocation) {
+        return false;
+      }
 
-  const matched = findCommand(commandGroup, invocation);
-  if (!matched) {
-    await options.onUsage(renderCommandUsage(commandGroup), options.context);
-    return true;
-  }
+      const commandGroup = options.commands[invocation.command];
+      if (!commandGroup) {
+        return false;
+      }
 
-  await matched.command.run({
-    ...options.context,
-    invocation: matched.invocation,
-  });
-  return true;
+      const matched = findCommand(commandGroup, invocation);
+      if (!matched) {
+        await options.onUsage(usageByCommand[invocation.command]!, handleOptions.context);
+        return true;
+      }
+
+      await matched.command.run({
+        ...handleOptions.context,
+        invocation: matched.invocation,
+      });
+      return true;
+    },
+  };
+}
+
+function buildUsageByCommand<T>(commands: CommandTree<T>): Record<string, string> {
+  const usageByCommand: Record<string, string> = {};
+  for (const [command, commandGroup] of Object.entries(commands)) {
+    usageByCommand[command] = renderCommandUsage(commandGroup);
+  }
+  return usageByCommand;
 }
 
 function parseCommand(text: string): CommandInvocation | undefined {
@@ -64,12 +76,12 @@ function parseCommand(text: string): CommandInvocation | undefined {
   };
 }
 
-function findCommand<TContext>(
-  commands: CommandSpec<TContext>[],
+function findCommand<T>(
+  commands: CommandSpec<T>[],
   invocation: CommandInvocation,
 ):
   | {
-      command: CommandSpec<TContext>;
+      command: CommandSpec<T>;
       invocation: CommandInvocation;
     }
   | undefined {
@@ -95,7 +107,7 @@ function equalPath(left: string[], right: string[]): boolean {
   return left.length === right.length && left.every((segment, index) => right[index] === segment);
 }
 
-function renderCommandUsage<TContext>(commands: CommandSpec<TContext>[]): string {
+function renderCommandUsage<T>(commands: CommandSpec<T>[]): string {
   const usages = commands.map((command) => command.usage);
   if (usages.length === 1) {
     return `Usage: ${usages[0]}`;

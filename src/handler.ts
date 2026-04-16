@@ -1,7 +1,7 @@
 import { startAcpManager } from "./acp/index.ts";
 import type { AgentSession } from "./acp/index.ts";
 import type { AppConfig } from "./config.ts";
-import { handleCommand } from "./lib/command.ts";
+import { createCommandHandler } from "./lib/command.ts";
 import type { CommandTree } from "./lib/command.ts";
 import { readOptionalPromptFile } from "./lib/prompt.ts";
 import { createReply, MESSAGE_SPLIT_BUDGET } from "./lib/reply.ts";
@@ -453,6 +453,12 @@ Usage: /verbose [on|off]
       },
     ],
   };
+  const systemCommandHandler = createCommandHandler({
+    commands: systemCommands,
+    onUsage: async (usage, context) => {
+      await context.reply.system(usage);
+    },
+  });
 
   const handle: Handler["handle"] = async (options) => {
     const text = options.context.message!.text!;
@@ -463,13 +469,9 @@ Usage: /verbose [on|off]
     });
 
     if (
-      await handleCommand({
+      await systemCommandHandler.handle({
         text,
-        commands: systemCommands,
         context: { reply, sessionName },
-        onUsage: async (usage, context) => {
-          await context.reply.system(usage);
-        },
       })
     ) {
       return;
