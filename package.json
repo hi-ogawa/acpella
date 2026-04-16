@@ -6,6 +6,7 @@
     "prepare": "vp config",
     "cli": "node --env-file-if-exists=.env src/cli.ts",
     "test": "vitest --project=unit",
+    "test-ci": "vitest --project=unit --coverage --reporter=default --reporter=html",
     "test-codex": "vitest --project=codex",
     "lint": "vp check --fix",
     "lint-check": "vp check"
