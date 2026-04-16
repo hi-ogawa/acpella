@@ -2,9 +2,24 @@ import type { List, ListItem, PhrasingContent, RootContent, Table } from "mdast"
 import { fromMarkdown } from "mdast-util-from-markdown";
 
 const SAFE_LINK_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tg:"]);
+const FILE_REF_EXTENSIONS_WITH_TLD = new Set([
+  "md",
+  "go",
+  "py",
+  "pl",
+  "sh",
+  "am",
+  "at",
+  "be",
+  "cc",
+]);
+const AUTO_LINKED_ANCHOR_PATTERN = /<a\s+href="https?:\/\/([^"]+)"[^>]*>\1<\/a>/gi;
+const HTML_TAG_PATTERN = /(<\/?)([a-zA-Z][a-zA-Z0-9-]*)\b[^>]*?>/gi;
+let fileReferencePattern: RegExp | undefined;
+let orphanedTldPattern: RegExp | undefined;
 
 export function toTelegramHtml(markdown: string): string {
-  return renderBlocks(fromMarkdown(markdown).children);
+  return wrapFileReferencesInHtml(renderBlocks(fromMarkdown(markdown).children));
 }
 
 function renderBlocks(nodes: readonly RootContent[]): string {
@@ -159,6 +174,134 @@ function renderListItem(item: ListItem, marker: string): string {
 
 function renderTable(table: Table): string {
   return table.children.map((row) => renderBlock(row)).join("\n");
+}
+
+function wrapFileReferencesInHtml(html: string): string {
+  AUTO_LINKED_ANCHOR_PATTERN.lastIndex = 0;
+  const deLinkified = html.replace(AUTO_LINKED_ANCHOR_PATTERN, (match, label: string) => {
+    if (!isAutoLinkedFileRef(`http://${label}`, label)) {
+      return match;
+    }
+    return `<code>${escapeHtml(label)}</code>`;
+  });
+
+  let codeDepth = 0;
+  let preDepth = 0;
+  let anchorDepth = 0;
+  let result = "";
+  let lastIndex = 0;
+
+  // OpenClaw technique: scan rendered Telegram HTML token-by-token so file-ref wrapping skips protected tags.
+  HTML_TAG_PATTERN.lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = HTML_TAG_PATTERN.exec(deLinkified)) !== null) {
+    const tagStart = match.index;
+    const tagEnd = HTML_TAG_PATTERN.lastIndex;
+    const isClosing = match[1] === "</";
+    const tagName = normalizeLowercaseStringOrEmpty(match[2]);
+
+    result += wrapSegmentFileRefs(deLinkified.slice(lastIndex, tagStart), {
+      codeDepth,
+      preDepth,
+      anchorDepth,
+    });
+
+    if (tagName === "code") {
+      codeDepth = isClosing ? Math.max(0, codeDepth - 1) : codeDepth + 1;
+    } else if (tagName === "pre") {
+      preDepth = isClosing ? Math.max(0, preDepth - 1) : preDepth + 1;
+    } else if (tagName === "a") {
+      anchorDepth = isClosing ? Math.max(0, anchorDepth - 1) : anchorDepth + 1;
+    }
+
+    result += deLinkified.slice(tagStart, tagEnd);
+    lastIndex = tagEnd;
+  }
+
+  result += wrapSegmentFileRefs(deLinkified.slice(lastIndex), {
+    codeDepth,
+    preDepth,
+    anchorDepth,
+  });
+
+  return result;
+}
+
+function wrapSegmentFileRefs(
+  text: string,
+  options: { codeDepth: number; preDepth: number; anchorDepth: number },
+): string {
+  if (!text || options.codeDepth > 0 || options.preDepth > 0 || options.anchorDepth > 0) {
+    return text;
+  }
+  const wrappedStandalone = text.replace(getFileReferencePattern(), wrapStandaloneFileRef);
+  return wrappedStandalone.replace(getOrphanedTldPattern(), (match, prefix: string, tld: string) =>
+    prefix === ">" ? match : `${prefix}<code>${escapeHtml(tld)}</code>`,
+  );
+}
+
+function wrapStandaloneFileRef(match: string, prefix: string, filename: string): string {
+  if (filename.startsWith("//") || /https?:\/\/$/i.test(prefix)) {
+    return match;
+  }
+  return `${prefix}<code>${escapeHtml(filename)}</code>`;
+}
+
+function getFileReferencePattern(): RegExp {
+  if (fileReferencePattern) {
+    return fileReferencePattern;
+  }
+  const fileExtensionsPattern = Array.from(FILE_REF_EXTENSIONS_WITH_TLD).map(escapeRegex).join("|");
+  fileReferencePattern = new RegExp(
+    `(^|[^a-zA-Z0-9_\\-/])([a-zA-Z0-9_.\\-./]+\\.(?:${fileExtensionsPattern}))(?=$|[^a-zA-Z0-9_\\-/])`,
+    "gi",
+  );
+  return fileReferencePattern;
+}
+
+function getOrphanedTldPattern(): RegExp {
+  if (orphanedTldPattern) {
+    return orphanedTldPattern;
+  }
+  const fileExtensionsPattern = Array.from(FILE_REF_EXTENSIONS_WITH_TLD).map(escapeRegex).join("|");
+  orphanedTldPattern = new RegExp(
+    `([^a-zA-Z0-9]|^)([A-Za-z]\\.(?:${fileExtensionsPattern}))(?=[^a-zA-Z0-9/]|$)`,
+    "g",
+  );
+  return orphanedTldPattern;
+}
+
+function isAutoLinkedFileRef(href: string, label: string): boolean {
+  const stripped = href.replace(/^https?:\/\//i, "");
+  if (stripped !== label) {
+    return false;
+  }
+  const dotIndex = label.lastIndexOf(".");
+  if (dotIndex < 1) {
+    return false;
+  }
+  const ext = normalizeLowercaseStringOrEmpty(label.slice(dotIndex + 1));
+  if (!FILE_REF_EXTENSIONS_WITH_TLD.has(ext)) {
+    return false;
+  }
+  const segments = label.split("/");
+  if (segments.length > 1) {
+    for (let i = 0; i < segments.length - 1; i++) {
+      if (segments[i]?.includes(".")) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+function escapeRegex(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function normalizeLowercaseStringOrEmpty(value: unknown): string {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
 }
 
 function isSafeLinkUrl(url: string): boolean {
