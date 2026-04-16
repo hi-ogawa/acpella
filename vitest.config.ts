@@ -1,18 +1,19 @@
-import { defaultExclude, defineConfig } from "vitest/config";
+import { defaultExclude, defineConfig, type TestUserConfig } from "vitest/config";
 
 const isCI = process.env.CI === "true";
 const isGitHubActions = process.env.GITHUB_ACTIONS === "true";
+type ReporterEntry = Extract<NonNullable<TestUserConfig["reporters"]>, unknown[]>[number];
+const htmlReporter = ["html", { outputFile: ".vitest/html/index.html" }] satisfies ReporterEntry;
+const reporters: TestUserConfig["reporters"] = [
+  "default",
+  ...(isGitHubActions ? (["github-actions"] as const) : []),
+  ...(isCI ? [htmlReporter] : []),
+];
 
 export default defineConfig({
   test: {
     dir: "./src",
-    reporters: isCI
-      ? [
-          "default",
-          ...(isGitHubActions ? ["github-actions"] : []),
-          ["html", { outputFile: ".vitest/html/index.html" }],
-        ]
-      : ["default"],
+    reporters,
     coverage: {
       provider: "v8",
       reportsDirectory: ".vitest/coverage",
