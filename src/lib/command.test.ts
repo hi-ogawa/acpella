@@ -4,7 +4,11 @@ import { createCommandHandler, type CommandTree } from "./command.ts";
 describe(createCommandHandler, () => {
   test("dispatches commands and renders generated help", async () => {
     const events: string[] = [];
-    const commands: CommandTree<{ prefix: string; usage: (text: string) => Promise<void> }> = {
+    type TestContext = {
+      prefix: string;
+      usage: (text: string) => Promise<void>;
+    };
+    const commands: CommandTree<TestContext> = {
       ping: [
         {
           path: [],
@@ -30,7 +34,7 @@ describe(createCommandHandler, () => {
           summary: "Set config.",
           match: "prefix",
           run: async ({ invocation, prefix }) => {
-            events.push(`${prefix}:set:${invocation.rawArgs}`);
+            events.push(`${prefix}:set:${invocation.args.join(" ")}`);
           },
         },
       ],
@@ -41,7 +45,7 @@ describe(createCommandHandler, () => {
         await context.usage(usage);
       },
     });
-    const context = {
+    const context: TestContext = {
       prefix: "test",
       usage: async (text: string) => {
         events.push(text);

@@ -12,9 +12,7 @@ export type CommandSpec<T> = {
 
 export type CommandInvocation = {
   command: string;
-  path: string[];
   args: string[];
-  rawArgs: string;
 };
 
 export type CommandRunContext<T> = T & {
@@ -30,29 +28,33 @@ export function createCommandHandler<T>(options: {
 
   return {
     async handle(handleOptions: { text: string; context: T }): Promise<boolean> {
-      const invocation = parseCommand(handleOptions.text);
-      if (!invocation) {
+      const tokens = parseCommandTokens(handleOptions.text);
+      if (!tokens) {
         return false;
       }
-      if (invocation.command === "help") {
+      const [commandName, ...commandPath] = tokens;
+      if (commandName === "help") {
         await options.onUsage(commandOverview, handleOptions.context);
         return true;
       }
 
-      const commandGroup = options.commands[invocation.command];
+      const commandGroup = options.commands[commandName];
       if (!commandGroup) {
         return false;
       }
 
-      const matched = findCommand(commandGroup, invocation);
+      const matched = findCommand(commandGroup, commandPath);
       if (!matched) {
-        await options.onUsage(usageByCommand[invocation.command]!, handleOptions.context);
+        await options.onUsage(usageByCommand[commandName]!, handleOptions.context);
         return true;
       }
 
       await matched.command.run({
         ...handleOptions.context,
-        invocation: matched.invocation,
+        invocation: {
+          command: commandName,
+          args: matched.args,
+        },
       });
       return true;
     },
@@ -67,46 +69,36 @@ function buildUsageByCommand<T>(commands: CommandTree<T>): Record<string, string
   return usageByCommand;
 }
 
-function parseCommand(text: string): CommandInvocation | undefined {
+function parseCommandTokens(text: string): string[] | undefined {
   const trimmed = text.trim();
   if (!trimmed.startsWith("/")) {
     return;
   }
-  const [command, ...path] = trimmed.slice(1).split(/\s+/);
-  if (!command) {
+  const tokens = trimmed.slice(1).split(/\s+/);
+  if (!tokens[0]) {
     return;
   }
-  return {
-    command,
-    path,
-    args: path,
-    rawArgs: path.join(" "),
-  };
+  return tokens;
 }
 
 function findCommand<T>(
   commands: CommandSpec<T>[],
-  invocation: CommandInvocation,
+  path: string[],
 ):
   | {
       command: CommandSpec<T>;
-      invocation: CommandInvocation;
+      args: string[];
     }
   | undefined {
   for (const command of commands) {
-    if (!matchesPath({ path: invocation.path, command })) {
+    if (!matchesPath({ path, command })) {
       continue;
     }
-    const args = invocation.path.slice(command.path.length);
+    const args = path.slice(command.path.length);
 
     return {
       command,
-      invocation: {
-        command: invocation.command,
-        path: command.path,
-        args,
-        rawArgs: args.join(" "),
-      },
+      args,
     };
   }
   return;
