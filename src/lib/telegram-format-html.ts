@@ -162,7 +162,7 @@ function renderTable(table: Table): string {
 }
 
 function isSafeLinkUrl(url: string): boolean {
-  if (!url || /[\u0000-\u001F\u007F\s]/.test(url)) {
+  if (!url || hasUrlUnsafeWhitespaceOrControl(url)) {
     return false;
   }
   try {
@@ -170,6 +170,16 @@ function isSafeLinkUrl(url: string): boolean {
   } catch {
     return false;
   }
+}
+
+function hasUrlUnsafeWhitespaceOrControl(url: string): boolean {
+  for (const char of url) {
+    const code = char.charCodeAt(0);
+    if (code <= 0x20 || code === 0x7f) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function escapeHtml(text: string): string {
