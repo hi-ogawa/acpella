@@ -8,7 +8,7 @@ export function readOptionalPromptFile(file: string): string | undefined {
     return readPromptFileWithIncludes(file, new Set());
   } catch (error) {
     if (isNodeError(error) && error.code === "ENOENT" && error.path === file) {
-      return undefined;
+      return;
     }
     throw error;
   }

@@ -44,7 +44,7 @@ export function loadConfig(envOverride?: Record<string, string>): AppConfig {
 
 function parseIdList(value: string | undefined): number[] | undefined {
   if (value === undefined) {
-    return undefined;
+    return;
   }
   if (value.trim() === "") {
     return [];

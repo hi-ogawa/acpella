@@ -70,11 +70,11 @@ function buildUsageByCommand<T>(commands: CommandTree<T>): Record<string, string
 function parseCommand(text: string): CommandInvocation | undefined {
   const trimmed = text.trim();
   if (!trimmed.startsWith("/")) {
-    return undefined;
+    return;
   }
   const [command, ...path] = trimmed.slice(1).split(/\s+/);
   if (!command) {
-    return undefined;
+    return;
   }
   return {
     command,
@@ -109,7 +109,7 @@ function findCommand<T>(
       },
     };
   }
-  return undefined;
+  return;
 }
 
 function matchesPath<T>(options: { path: string[]; command: CommandSpec<T> }): boolean {
