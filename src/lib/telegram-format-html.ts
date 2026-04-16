@@ -1,4 +1,4 @@
-import type { List, ListItem, PhrasingContent, RootContent, Table } from "mdast";
+import type { List, ListItem, PhrasingContent, Root, RootContent, Table } from "mdast";
 import type { Options as FromMarkdownOptions } from "mdast-util-from-markdown";
 import { fromMarkdown } from "mdast-util-from-markdown";
 import { gfmFromMarkdown } from "mdast-util-gfm";
@@ -28,7 +28,7 @@ let orphanedTldPattern: RegExp | undefined;
 
 export function markdownToTelegramHtml(markdown: string): string {
   const ast = fromMarkdown(markdown, MARKDOWN_PARSE_OPTIONS);
-  return renderBlocks(ast.children, { listMarker: "-", wrapFileRefs: true });
+  return new TelegramHtmlRenderer().renderRoot(ast);
 }
 
 type RenderContext = {
@@ -36,108 +36,175 @@ type RenderContext = {
   wrapFileRefs: boolean;
 };
 
-function renderBlock(node: RootContent, options: RenderContext): string {
-  switch (node.type) {
-    case "blockquote": {
-      // Telegram Bot API supports <blockquote>; OpenClaw's Telegram renderer uses this tag.
-      const body = renderBlocks(node.children, options).trim();
-      return body ? `<blockquote>${body}</blockquote>` : "";
-    }
-    case "break": {
-      return "\n";
-    }
-    case "code": {
-      return renderCodeBlock(node.value, node.lang);
-    }
-    case "definition":
-    case "footnoteDefinition": {
-      return "";
-    }
-    case "delete": {
-      // Telegram Bot API supports <s> for strikethrough in HTML parse mode.
-      return `<s>${renderInline(node.children, options)}</s>`;
-    }
-    case "emphasis": {
-      // Telegram Bot API supports <i> for italic in HTML parse mode.
-      return `<i>${renderInline(node.children, options)}</i>`;
-    }
-    case "footnoteReference": {
-      return escapeHtml(`[${node.label ?? node.identifier}]`);
-    }
-    case "heading": {
-      // Telegram has no heading tags; OpenClaw flattens headings instead of emitting generic HTML.
-      const body = renderInline(node.children, options);
-      return body ? `<b>${body}</b>` : "";
-    }
-    case "html": {
-      // Do not pass raw Markdown HTML through; render our own Telegram allowlist only.
-      return escapeHtml(node.value);
-    }
-    case "image": {
-      return renderImageText(node.alt, node.url);
-    }
-    case "imageReference": {
-      return renderImageText(node.alt, node.label ?? node.identifier);
-    }
-    case "inlineCode": {
-      // Telegram Bot API supports <code> for inline code in HTML parse mode.
-      return `<code>${escapeHtml(node.value)}</code>`;
-    }
-    case "link": {
-      return renderLink(node.url, node.children, options);
-    }
-    case "linkReference": {
-      return renderInline(node.children, options);
-    }
-    case "list": {
-      // Telegram HTML does not support list tags; OpenClaw renders lists as plain text bullets.
-      return renderList(node, options);
-    }
-    case "listItem": {
-      return renderListItem(node, options);
-    }
-    case "paragraph": {
-      return renderInline(node.children, options);
-    }
-    case "strong": {
-      // Telegram Bot API supports <b> for bold in HTML parse mode.
-      return `<b>${renderInline(node.children, options)}</b>`;
-    }
-    case "table": {
-      return renderTable(node, options);
-    }
-    case "tableCell": {
-      return renderInline(node.children, options);
-    }
-    case "tableRow": {
-      return node.children.map((cell) => renderBlock(cell, options).trim()).join(" | ");
-    }
-    case "text": {
-      return options.wrapFileRefs
-        ? renderTextWithFileReferences(node.value)
-        : escapeHtml(node.value);
-    }
-    case "thematicBreak": {
-      return "---";
-    }
-    case "yaml": {
-      return escapeHtml(node.value);
-    }
-    default: {
-      return node satisfies never;
+class TelegramHtmlRenderer {
+  private context: RenderContext = {
+    listMarker: "-",
+    wrapFileRefs: true,
+  };
+
+  renderRoot(root: Root) {
+    return this.renderBlocks(root.children);
+  }
+
+  private renderBlock(node: RootContent): string {
+    switch (node.type) {
+      case "blockquote": {
+        // Telegram Bot API supports <blockquote>; OpenClaw's Telegram renderer uses this tag.
+        const body = this.renderBlocks(node.children).trim();
+        return body ? `<blockquote>${body}</blockquote>` : "";
+      }
+      case "break": {
+        return "\n";
+      }
+      case "code": {
+        return renderCodeBlock(node.value, node.lang);
+      }
+      case "definition":
+      case "footnoteDefinition": {
+        return "";
+      }
+      case "delete": {
+        // Telegram Bot API supports <s> for strikethrough in HTML parse mode.
+        return `<s>${this.renderInline(node.children)}</s>`;
+      }
+      case "emphasis": {
+        // Telegram Bot API supports <i> for italic in HTML parse mode.
+        return `<i>${this.renderInline(node.children)}</i>`;
+      }
+      case "footnoteReference": {
+        return escapeHtml(`[${node.label ?? node.identifier}]`);
+      }
+      case "heading": {
+        // Telegram has no heading tags; OpenClaw flattens headings instead of emitting generic HTML.
+        const body = this.renderInline(node.children);
+        return body ? `<b>${body}</b>` : "";
+      }
+      case "html": {
+        // Do not pass raw Markdown HTML through; render our own Telegram allowlist only.
+        return escapeHtml(node.value);
+      }
+      case "image": {
+        return renderImageText(node.alt, node.url);
+      }
+      case "imageReference": {
+        return renderImageText(node.alt, node.label ?? node.identifier);
+      }
+      case "inlineCode": {
+        // Telegram Bot API supports <code> for inline code in HTML parse mode.
+        return `<code>${escapeHtml(node.value)}</code>`;
+      }
+      case "link": {
+        return this.renderLink(node.url, node.children);
+      }
+      case "linkReference": {
+        return this.renderInline(node.children);
+      }
+      case "list": {
+        // Telegram HTML does not support list tags; OpenClaw renders lists as plain text bullets.
+        return this.renderList(node);
+      }
+      case "listItem": {
+        return this.renderListItem(node);
+      }
+      case "paragraph": {
+        return this.renderInline(node.children);
+      }
+      case "strong": {
+        // Telegram Bot API supports <b> for bold in HTML parse mode.
+        return `<b>${this.renderInline(node.children)}</b>`;
+      }
+      case "table": {
+        return this.renderTable(node);
+      }
+      case "tableCell": {
+        return this.renderInline(node.children);
+      }
+      case "tableRow": {
+        return node.children.map((cell) => this.renderBlock(cell).trim()).join(" | ");
+      }
+      case "text": {
+        return this.context.wrapFileRefs
+          ? renderTextWithFileReferences(node.value)
+          : escapeHtml(node.value);
+      }
+      case "thematicBreak": {
+        return "---";
+      }
+      case "yaml": {
+        return escapeHtml(node.value);
+      }
+      default: {
+        return node satisfies never;
+      }
     }
   }
-}
 
-function renderBlocks(nodes: readonly RootContent[], options: RenderContext): string {
-  return nodes
-    .map((node) => renderBlock(node, options))
-    .filter((text) => text.length > 0)
-    .join("\n\n");
-}
+  renderBlocks(nodes: readonly RootContent[]): string {
+    return nodes
+      .map((node) => this.renderBlock(node))
+      .filter((text) => text.length > 0)
+      .join("\n\n");
+  }
 
-function renderInline(nodes: readonly PhrasingContent[], options: RenderContext): string {
-  return nodes.map((node) => renderBlock(node, options)).join("");
+  private renderInline(nodes: readonly PhrasingContent[]): string {
+    return nodes.map((node) => this.renderBlock(node)).join("");
+  }
+
+  private renderLink(rawUrl: string, children: readonly PhrasingContent[]): string {
+    const label = this.withContent({ wrapFileRefs: false }, () => this.renderInline(children));
+    const url = rawUrl.trim();
+    if (!label || !isSafeLinkUrl(url)) {
+      return label;
+    }
+    // Telegram Bot API supports <a href="..."> links; keep hrefs scheme-allowlisted.
+    return `<a href="${escapeHtmlAttr(url)}">${label}</a>`;
+  }
+
+  private renderList(list: List): string {
+    const start = list.ordered && typeof list.start === "number" ? list.start : 1;
+    return list.children
+      .map((item, index) =>
+        this.withContent(
+          {
+            listMarker: list.ordered ? `${start + index}.` : "-",
+          },
+          () => this.renderBlock(item),
+        ),
+      )
+      .filter((text) => text.length > 0)
+      .join("\n");
+  }
+
+  private renderListItem(item: ListItem): string {
+    const marker = this.context.listMarker;
+    const body = item.children
+      .map((child) => this.renderBlock(child))
+      .filter((text) => text.length > 0)
+      .join("\n");
+    if (!body) {
+      return marker;
+    }
+
+    const continuationPrefix = " ".repeat(marker.length + 1);
+    return body
+      .split("\n")
+      .map((line, index) => `${index === 0 ? `${marker} ` : continuationPrefix}${line}`)
+      .join("\n");
+  }
+
+  private renderTable(table: Table): string {
+    return table.children.map((row) => this.renderBlock(row)).join("\n");
+  }
+
+  private withContent(patch: Partial<RenderContext>, render: () => string): string {
+    const previous = this.context;
+    this.context = { ...previous, ...patch };
+    try {
+      return render();
+    } finally {
+      this.context = previous;
+    }
+  }
 }
 
 function renderCodeBlock(code: string, rawLanguage?: string | null): string {
@@ -152,57 +219,9 @@ function sanitizeCodeLanguage(rawLanguage?: string | null): string {
   return language.replace(/[^A-Za-z0-9_-]/g, "");
 }
 
-function renderLink(
-  rawUrl: string,
-  children: readonly PhrasingContent[],
-  options: RenderContext,
-): string {
-  const label = renderInline(children, { ...options, wrapFileRefs: false });
-  const url = rawUrl.trim();
-  if (!label || !isSafeLinkUrl(url)) {
-    return label;
-  }
-  // Telegram Bot API supports <a href="..."> links; keep hrefs scheme-allowlisted.
-  return `<a href="${escapeHtmlAttr(url)}">${label}</a>`;
-}
-
 function renderImageText(alt: string | null | undefined, fallback: string): string {
   const label = alt?.trim() || fallback.trim();
   return label ? escapeHtml(`[Image: ${label}]`) : "[Image]";
-}
-
-function renderList(list: List, options: RenderContext): string {
-  const start = list.ordered && typeof list.start === "number" ? list.start : 1;
-  return list.children
-    .map((item, index) =>
-      renderBlock(item, {
-        ...options,
-        listMarker: list.ordered ? `${start + index}.` : "-",
-      }),
-    )
-    .filter((text) => text.length > 0)
-    .join("\n");
-}
-
-function renderListItem(item: ListItem, options: RenderContext): string {
-  const marker = options.listMarker;
-  const body = item.children
-    .map((child) => renderBlock(child, options))
-    .filter((text) => text.length > 0)
-    .join("\n");
-  if (!body) {
-    return marker;
-  }
-
-  const continuationPrefix = " ".repeat(marker.length + 1);
-  return body
-    .split("\n")
-    .map((line, index) => `${index === 0 ? `${marker} ` : continuationPrefix}${line}`)
-    .join("\n");
-}
-
-function renderTable(table: Table, options: RenderContext): string {
-  return table.children.map((row) => renderBlock(row, options)).join("\n");
 }
 
 function renderTextWithFileReferences(text: string): string {
