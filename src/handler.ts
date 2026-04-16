@@ -17,6 +17,23 @@ export interface HandlerContext extends ReplyContext {
   };
 }
 
+type SystemCommandSpec = {
+  path: string[];
+  usage: string;
+  summary: string;
+  allowArgs?: boolean;
+  run: (options: { invocation: SystemCommandInvocation; reply: Reply }) => Promise<void> | void;
+};
+
+type SystemCommandInvocation = {
+  command: string;
+  path: string[];
+  args: string[];
+  rawArgs: string;
+};
+
+type SystemCommandTree = Record<string, SystemCommandSpec[]>;
+
 export async function createHandler(
   config: AppConfig,
   handlerOptions: {
@@ -286,20 +303,6 @@ Usage:
     return true;
   }
 
-  async function handleServiceCommand(options: { reply: Reply; text: string }): Promise<boolean> {
-    const [command, subcommand] = options.text.trim().split(/\s+/);
-    if (command !== "/service") {
-      return false;
-    }
-    if (subcommand === "exit") {
-      await options.reply.system("Exiting acpella.");
-      handlerOptions.onServiceExit();
-      return true;
-    }
-    await options.reply.system("Usage: /service exit");
-    return true;
-  }
-
   async function handleAgentCommand(options: { reply: Reply; text: string }): Promise<boolean> {
     const [command, subcommand, name, ...args] = options.text.trim().split(/\s+/);
     if (command !== "/agent") {
@@ -442,6 +445,44 @@ home: ${config.home}
 `;
   }
 
+  const systemCommands: SystemCommandTree = {
+    status: [
+      {
+        path: [],
+        usage: "/status",
+        summary: "Show service status.",
+        run: async ({ invocation, reply }) => {
+          if (invocation.args.length > 0) {
+            await reply.system("Usage: /status");
+            return;
+          }
+          await reply.system(handleStatus());
+        },
+      },
+    ],
+    service: [
+      {
+        path: ["exit"],
+        usage: "/service exit",
+        summary: "Exit acpella.",
+        allowArgs: true,
+        run: async ({ reply }) => {
+          await reply.system("Exiting acpella.");
+          handlerOptions.onServiceExit();
+        },
+      },
+      {
+        path: [],
+        usage: "/service exit",
+        summary: "Control the acpella service.",
+        allowArgs: true,
+        run: async ({ reply }) => {
+          await reply.system("Usage: /service exit");
+        },
+      },
+    ],
+  };
+
   const handle: Handler["handle"] = async (options) => {
     const text = options.context.message!.text!;
     const sessionName = options.sessionName;
@@ -450,8 +491,7 @@ home: ${config.home}
       limit: MESSAGE_SPLIT_BUDGET,
     });
 
-    if (text === "/status") {
-      await reply.system(handleStatus());
+    if (await handleSystemCommand({ reply, text, commands: systemCommands })) {
       return;
     }
     if (text === "/cancel") {
@@ -459,13 +499,6 @@ home: ${config.home}
         reply,
         sessionName,
       });
-      return;
-    }
-    const handledServiceCommand = await handleServiceCommand({
-      reply,
-      text,
-    });
-    if (handledServiceCommand) {
       return;
     }
     const handledAgentCommand = await handleAgentCommand({
@@ -512,4 +545,93 @@ ${options.customPrompt.trim()}
 
 ${options.userText}
 `;
+}
+
+async function handleSystemCommand(options: {
+  reply: Reply;
+  text: string;
+  commands: SystemCommandTree;
+}): Promise<boolean> {
+  const invocation = parseSystemCommand(options.text);
+  if (!invocation) {
+    return false;
+  }
+
+  const commandGroup = options.commands[invocation.command];
+  if (!commandGroup) {
+    return false;
+  }
+
+  const matched = findSystemCommand(commandGroup, invocation);
+  if (!matched) {
+    await options.reply.system(renderSystemCommandUsage(commandGroup));
+    return true;
+  }
+
+  await matched.command.run({
+    invocation: matched.invocation,
+    reply: options.reply,
+  });
+  return true;
+}
+
+function parseSystemCommand(text: string): SystemCommandInvocation | undefined {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith("/")) {
+    return undefined;
+  }
+  const [command, ...path] = trimmed.slice(1).split(/\s+/);
+  if (!command) {
+    return undefined;
+  }
+  return {
+    command,
+    path,
+    args: path,
+    rawArgs: path.join(" "),
+  };
+}
+
+function findSystemCommand(
+  commands: SystemCommandSpec[],
+  invocation: SystemCommandInvocation,
+):
+  | {
+      command: SystemCommandSpec;
+      invocation: SystemCommandInvocation;
+    }
+  | undefined {
+  for (const command of commands) {
+    if (!startsWithPath(invocation.path, command.path)) {
+      continue;
+    }
+
+    const args = invocation.path.slice(command.path.length);
+    if (!command.allowArgs && args.length > 0) {
+      continue;
+    }
+
+    return {
+      command,
+      invocation: {
+        command: invocation.command,
+        path: command.path,
+        args,
+        rawArgs: args.join(" "),
+      },
+    };
+  }
+  return undefined;
+}
+
+function startsWithPath(path: string[], prefix: string[]): boolean {
+  return prefix.every((segment, index) => path[index] === segment);
+}
+
+function renderSystemCommandUsage(commands: SystemCommandSpec[]): string {
+  const usages = commands.map((command) => command.usage);
+  if (usages.length === 1) {
+    return `Usage: ${usages[0]}`;
+  }
+  return `Usage:\n${usages.join("\n")}`;
 }
