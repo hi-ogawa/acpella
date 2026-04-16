@@ -81,10 +81,11 @@ Options:
 
   const bot = new Bot(config.telegram.token);
   try {
-    await bot.api.setMyCommands([
-      { command: "help", description: "" },
-      ...Object.keys(handler.systemCommands).map((command) => ({ command, description: "" })),
-    ]);
+    const commands = Object.entries(handler.commands).map(([command, description]) => ({
+      command,
+      description,
+    }));
+    await bot.api.setMyCommands(commands);
   } catch (error) {
     console.warn("[telegram] failed to register bot commands:", error);
   }
