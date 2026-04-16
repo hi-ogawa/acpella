@@ -1,10 +1,16 @@
 import { defaultExclude, defineConfig } from "vitest/config";
 
+const isCI = process.env.CI === "true";
+
 export default defineConfig({
   test: {
     dir: "./src",
+    reporters: isCI
+      ? ["default", ["html", { outputFile: ".vitest/html/index.html" }]]
+      : ["default"],
     coverage: {
       provider: "v8",
+      reportsDirectory: ".vitest/coverage",
       include: ["src/**/*.ts"],
       exclude: ["src/**/*.test.ts", "src/test/**", "src/e2e/**"],
     },
