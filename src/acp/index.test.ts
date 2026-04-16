@@ -1,18 +1,17 @@
-import fs from "node:fs";
-import path from "node:path";
 import { describe, it, expect, onTestFinished } from "vitest";
 import { TEST_AGENT_COMMAND } from "../state.ts";
+import { useFs } from "../test/helper.ts";
 import { startAcpManager } from "./index.ts";
 
 describe(startAcpManager, () => {
   it("basic", async () => {
-    const home = createTempHome();
+    const { root } = useFs({ prefix: "test-acp" });
     const manager = await startAcpManager({
       command: TEST_AGENT_COMMAND,
-      cwd: home,
+      cwd: root,
     });
     const session = await manager.newSession({
-      sessionCwd: home,
+      sessionCwd: root,
     });
     onTestFinished(() => session.close());
 
@@ -32,24 +31,24 @@ describe(startAcpManager, () => {
   });
 
   it("loadSession", async () => {
-    const home = createTempHome();
+    const { root } = useFs({ prefix: "test-acp" });
     const manager = await startAcpManager({
       command: TEST_AGENT_COMMAND,
-      cwd: home,
+      cwd: root,
     });
     const newSession = await manager.newSession({
-      sessionCwd: home,
+      sessionCwd: root,
     });
     onTestFinished(() => newSession.close());
 
     const listedSessions = await manager.listSessions();
     expect(listedSessions).toEqual({
-      sessions: [{ sessionId: "__testSession1", cwd: home }],
+      sessions: [{ sessionId: "__testSession1", cwd: root }],
     });
 
     const session = await manager.loadSession({
       sessionId: "__testSession1",
-      sessionCwd: home,
+      sessionCwd: root,
     });
     onTestFinished(() => session.close());
 
@@ -71,16 +70,6 @@ describe(startAcpManager, () => {
     await expect(manager.listSessions()).resolves.toEqual({ sessions: [] });
   });
 });
-
-// TODO: consolidate test utils
-function createTempHome(): string {
-  const home = path.join(import.meta.dirname, `../../.tmp/test-acp-${crypto.randomUUID()}`);
-  fs.mkdirSync(home, { recursive: true });
-  onTestFinished(() => {
-    fs.rmSync(home, { recursive: true, force: true });
-  });
-  return home;
-}
 
 async function arrayFromAsyncIterator<T>(iter: AsyncIterable<T>): Promise<T[]> {
   const result: T[] = [];

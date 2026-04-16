@@ -61,21 +61,16 @@ Coverage checklist:
 */
 
 import fs from "node:fs";
-import path from "node:path";
-import { expect, onTestFinished, test, vi } from "vitest";
+import { expect, test, vi } from "vitest";
 import { loadConfig, type AppConfig } from "./config";
 import { createHandler, type HandlerContext } from "./handler";
 import { TEST_AGENT_COMMAND } from "./state";
+import { useFs } from "./test/helper.ts";
 
 async function createHandlerTester() {
-  const home = path.join(import.meta.dirname, `../.tmp/test-handler-${crypto.randomUUID()}`);
-  fs.mkdirSync(home, { recursive: true });
-  onTestFinished(() => {
-    fs.rmSync(home, { recursive: true, force: true });
-  });
-
+  const { root } = useFs({ prefix: "test-handler" });
   const config = loadConfig({
-    ACPELLA_HOME: home,
+    ACPELLA_HOME: root,
   });
 
   const onServiceExit = vi.fn();

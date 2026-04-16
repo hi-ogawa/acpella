@@ -1,26 +1,21 @@
 import { spawn } from "node:child_process";
-import fs from "node:fs";
 import path from "node:path";
 import { onTestFinished, TestRunner, vi, type TestContext } from "vitest";
+import { useFs } from "../test/helper.ts";
 
 export type TestService = ReturnType<typeof startService>;
 
 export function startService(options?: { env?: Record<string, string>; sourceDir?: string }) {
-  const home = path.join(import.meta.dirname, `../../.tmp/acpella-test-${crypto.randomUUID()}`);
-  fs.mkdirSync(home, { recursive: true });
-  if (options?.sourceDir) {
-    fs.rmSync(home, { recursive: true, force: true });
-    fs.cpSync(options.sourceDir, home, { recursive: true });
-  }
-  onTestFinished(async () => {
-    fs.rmSync(home, { recursive: true, force: true });
+  const { root } = useFs({
+    prefix: "acpella-test",
+    sourceDir: options?.sourceDir,
   });
 
   const child = spawn("pnpm", ["-s", "cli", "--repl"], {
     cwd: path.join(import.meta.dirname, "../.."),
     env: {
       ...process.env,
-      ACPELLA_HOME: home,
+      ACPELLA_HOME: root,
       ...options?.env,
     },
     stdio: ["pipe", "pipe", "pipe"],
