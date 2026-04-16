@@ -2,16 +2,11 @@ import { describe, it } from "vitest";
 import { startService } from "./helper.ts";
 
 describe("basic", () => {
-  it("starts and responds to /status", async () => {
+  it("basic", async () => {
     const service = startService();
     await service.waitForOutput("Starting repl");
     service.write("/status");
     await service.waitForOutput("status: running");
-  });
-
-  it("echo agent round-trip", async () => {
-    const service = startService();
-    await service.waitForOutput("Starting repl");
     service.write("hello world");
     await service.waitForOutput("echo: hello world");
   });
