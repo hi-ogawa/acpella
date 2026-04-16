@@ -1,18 +1,17 @@
+import fs from "node:fs";
 import path from "node:path";
 import { describe, it, expect, onTestFinished } from "vitest";
 import { startAcpManager } from "./index.ts";
 
-// TODO: test
-// - multiple updates per prompt
-
 describe(startAcpManager, () => {
   it("basic", async () => {
+    const home = createTempHome();
     const manager = await startAcpManager({
-      command: "node src/lib/test-agent.ts",
-      cwd: path.join(import.meta.dirname, "../.."),
+      command: getTestAgentCommand(),
+      cwd: home,
     });
     const session = await manager.newSession({
-      sessionCwd: "/session-cwd",
+      sessionCwd: home,
     });
     onTestFinished(() => session.close());
 
@@ -32,29 +31,24 @@ describe(startAcpManager, () => {
   });
 
   it("loadSession", async () => {
+    const home = createTempHome();
     const manager = await startAcpManager({
-      command: "node src/lib/test-agent.ts",
-      cwd: path.join(import.meta.dirname, "../.."),
+      command: getTestAgentCommand(),
+      cwd: home,
     });
+    const newSession = await manager.newSession({
+      sessionCwd: home,
+    });
+    onTestFinished(() => newSession.close());
+
     const listedSessions = await manager.listSessions();
-    expect(listedSessions).toMatchInlineSnapshot(`
-      {
-        "sessions": [
-          {
-            "cwd": "/",
-            "sessionId": "__testLoadSession",
-          },
-          {
-            "cwd": "/",
-            "sessionId": "other-session",
-          },
-        ],
-      }
-    `);
+    expect(listedSessions).toEqual({
+      sessions: [{ sessionId: "__testSession1", cwd: home }],
+    });
 
     const session = await manager.loadSession({
-      sessionId: "__testLoadSession",
-      sessionCwd: "/session-cwd",
+      sessionId: "__testSession1",
+      sessionCwd: home,
     });
     onTestFinished(() => session.close());
 
@@ -72,9 +66,23 @@ describe(startAcpManager, () => {
       ]
     `);
 
-    await manager.closeSession({ sessionId: "__testLoadSession" });
+    await manager.closeSession({ sessionId: "__testSession1" });
+    await expect(manager.listSessions()).resolves.toEqual({ sessions: [] });
   });
 });
+
+function createTempHome(): string {
+  const home = path.join(import.meta.dirname, `../../.tmp/test-acp-${crypto.randomUUID()}`);
+  fs.mkdirSync(home, { recursive: true });
+  onTestFinished(() => {
+    fs.rmSync(home, { recursive: true, force: true });
+  });
+  return home;
+}
+
+function getTestAgentCommand(): string {
+  return `node ${path.join(import.meta.dirname, "../lib/test-agent.ts")}`;
+}
 
 async function arrayFromAsyncIterator<T>(iter: AsyncIterable<T>): Promise<T[]> {
   const result: T[] = [];

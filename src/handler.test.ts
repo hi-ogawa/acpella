@@ -21,10 +21,10 @@ Coverage checklist:
 - /session
   - [x] current
   - [x] bare usage output
-  - [ ] new with default agent
+  - [x] new with default agent
   - [ ] new with named agent
-  - [ ] new resets agentSessionId before creating a fresh ACP session
-  - [ ] new sends an empty prompt
+  - [x] new resets agentSessionId before creating a fresh ACP session
+  - [x] new sends an empty prompt
   - [x] new unknown agent
   - [x] new agent startup failure
   - [x] load with agent:sessionId
@@ -179,7 +179,7 @@ test("basic", async () => {
         "sessions": {
           "test": {
             "agentKey": "test",
-            "agentSessionId": "__testLoadSession",
+            "agentSessionId": "__testSession1",
             "verbose": false
           }
         }
@@ -221,22 +221,33 @@ test("session commands", async () => {
     agent session id: none"
   `);
   expect(await session.request("/session list")).toMatchInlineSnapshot(`
-      "[⚙️ System]
-      - (unknown) -> test:__testLoadSession (active)
-      - (unknown) -> test:other-session (active)"
-    `);
+    "[⚙️ System]
+    No sessions."
+  `);
   expect(await session.request("hello")).toMatchInlineSnapshot(`"echo: hello"`);
   expect(await session.request("/session current")).toMatchInlineSnapshot(`
     "[⚙️ System]
     session: test
     agent: test
-    agent session id: __testLoadSession"
+    agent session id: __testSession1"
   `);
   expect(await session.request("/session list")).toMatchInlineSnapshot(`
-      "[⚙️ System]
-      - test -> test:__testLoadSession (active)
-      - (unknown) -> test:other-session (active)"
-    `);
+    "[⚙️ System]
+    - test -> test:__testSession1 (active)"
+  `);
+  expect(await session.request("/session new")).toMatchInlineSnapshot(`"echo: (empty)"`);
+  expect(await session.request("/session current")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    session: test
+    agent: test
+    agent session id: __testSession2"
+  `);
+  expect(await session.request("__session")).toMatchInlineSnapshot(`"session: __testSession2"`);
+  expect(await session.request("/session list")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    - test -> test:__testSession2 (active)
+    - (unknown) -> test:__testSession1 (active)"
+  `);
   expect(await session.request("/session new no-such-agent")).toMatchInlineSnapshot(
     `
     "[⚙️ System]
@@ -370,14 +381,12 @@ test("agent command", async () => {
     "[⚙️ System]
     session: test
     agent: test2
-    agent session id: __testLoadSession"
+    agent session id: __testSession1"
   `);
   expect(await session.request("/session list")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    - test -> test2:__testLoadSession (active)
-    - (unknown) -> test:__testLoadSession (active)
-    - (unknown) -> test:other-session (active)
-    - (unknown) -> test2:other-session (active)"
+    - test -> test2:__testSession1 (active)
+    - (unknown) -> test:__testSession1 (active)"
   `);
   expect(await session.request("/agent remove test-error")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -398,25 +407,25 @@ test("agent command", async () => {
       "sessions": {
         "test": {
           "agentKey": "test2",
-          "agentSessionId": "__testLoadSession",
+          "agentSessionId": "__testSession1",
           "verbose": false
         }
       }
     }"
   `);
-  expect(await session.request("/session load test:__testLoadSession")).toMatchInlineSnapshot(`
+  expect(await session.request("/session load test:__testSession1")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    Loaded session: test:__testLoadSession"
+    Loaded session: test:__testSession1"
   `);
   expect(await session.request("/session current")).toMatchInlineSnapshot(`
     "[⚙️ System]
     session: test
     agent: test
-    agent session id: __testLoadSession"
+    agent session id: __testSession1"
   `);
-  expect(await session.request("/session close test2:__testLoadSession")).toMatchInlineSnapshot(`
+  expect(await session.request("/session close test2:__testSession1")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    Session closed: test2:__testLoadSession."
+    Session closed: test2:__testSession1."
   `);
   expect(readStateFile(tester.config)).toMatchInlineSnapshot(`
     "{
@@ -433,7 +442,7 @@ test("agent command", async () => {
       "sessions": {
         "test": {
           "agentKey": "test",
-          "agentSessionId": "__testLoadSession",
+          "agentSessionId": "__testSession1",
           "verbose": false
         }
       }
