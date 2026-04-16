@@ -86,6 +86,7 @@ function buildSkillsCatalog(skillsDir: string): string {
 
   skills.sort((a, b) => a.name.localeCompare(b.name));
 
+  // Keep this catalog close to Codex's skill listing: name, description, and file path only.
   let output = `\
 ### Available Skills
 
