@@ -18,7 +18,7 @@ const HTML_TAG_PATTERN = /(<\/?)([a-zA-Z][a-zA-Z0-9-]*)\b[^>]*?>/gi;
 let fileReferencePattern: RegExp | undefined;
 let orphanedTldPattern: RegExp | undefined;
 
-export function toTelegramHtml(markdown: string): string {
+export function markdownToTelegramHtml(markdown: string): string {
   return wrapFileReferencesInHtml(renderBlocks(fromMarkdown(markdown).children));
 }
 
