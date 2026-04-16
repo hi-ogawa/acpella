@@ -1,18 +1,17 @@
-import path from "node:path";
 import { describe, it, expect, onTestFinished } from "vitest";
+import { TEST_AGENT_COMMAND } from "../state.ts";
+import { useFs } from "../test/helper.ts";
 import { startAcpManager } from "./index.ts";
-
-// TODO: test
-// - multiple updates per prompt
 
 describe(startAcpManager, () => {
   it("basic", async () => {
+    const { root } = useFs({ prefix: "acp" });
     const manager = await startAcpManager({
-      command: "node src/lib/test-agent.ts",
-      cwd: path.join(import.meta.dirname, "../.."),
+      command: TEST_AGENT_COMMAND,
+      cwd: root,
     });
     const session = await manager.newSession({
-      sessionCwd: "/session-cwd",
+      sessionCwd: root,
     });
     onTestFinished(() => session.close());
 
@@ -32,29 +31,24 @@ describe(startAcpManager, () => {
   });
 
   it("loadSession", async () => {
+    const { root } = useFs({ prefix: "acp" });
     const manager = await startAcpManager({
-      command: "node src/lib/test-agent.ts",
-      cwd: path.join(import.meta.dirname, "../.."),
+      command: TEST_AGENT_COMMAND,
+      cwd: root,
     });
+    const newSession = await manager.newSession({
+      sessionCwd: root,
+    });
+    onTestFinished(() => newSession.close());
+
     const listedSessions = await manager.listSessions();
-    expect(listedSessions).toMatchInlineSnapshot(`
-      {
-        "sessions": [
-          {
-            "cwd": "/",
-            "sessionId": "__testLoadSession",
-          },
-          {
-            "cwd": "/",
-            "sessionId": "other-session",
-          },
-        ],
-      }
-    `);
+    expect(listedSessions).toEqual({
+      sessions: [{ sessionId: "__testSession1", cwd: root }],
+    });
 
     const session = await manager.loadSession({
-      sessionId: "__testLoadSession",
-      sessionCwd: "/session-cwd",
+      sessionId: "__testSession1",
+      sessionCwd: root,
     });
     onTestFinished(() => session.close());
 
@@ -72,7 +66,8 @@ describe(startAcpManager, () => {
       ]
     `);
 
-    await manager.closeSession({ sessionId: "__testLoadSession" });
+    await manager.closeSession({ sessionId: "__testSession1" });
+    await expect(manager.listSessions()).resolves.toEqual({ sessions: [] });
   });
 });
 
