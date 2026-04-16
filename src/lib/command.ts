@@ -4,8 +4,12 @@ export type CommandTree<T> = Record<string, CommandSpec<T>[]>;
 
 export type CommandSpec<T> = {
   tokens: string[];
+  // TODO: merge usage and summary? e.g.
+  //   "/status - Show service status."
+  //   "/service exit - Exit the service."
   usage: string;
   summary: string;
+  // TODO: rename to withArgs: boolean
   match?: "prefix";
   run: (context: CommandRunContext<T>) => Promise<void>;
 };
@@ -61,14 +65,6 @@ export function createCommandHandler<T>(options: {
   };
 }
 
-function buildUsageByCommand<T>(commands: CommandTree<T>): Record<string, string> {
-  const usageByCommand: Record<string, string> = {};
-  for (const [command, commandGroup] of Object.entries(commands)) {
-    usageByCommand[command] = renderCommandUsage(commandGroup);
-  }
-  return usageByCommand;
-}
-
 function parseCommandTokens(text: string): string[] | undefined {
   const trimmed = text.trim();
   if (!trimmed.startsWith("/")) {
@@ -81,42 +77,38 @@ function parseCommandTokens(text: string): string[] | undefined {
   return tokens;
 }
 
-function findCommand<T>(
-  commands: CommandSpec<T>[],
-  tokens: string[],
-):
-  | {
-      command: CommandSpec<T>;
-      args: string[];
-    }
-  | undefined {
+function findCommand<T>(commands: CommandSpec<T>[], tokens: string[]) {
   for (const command of commands) {
-    if (!matchesTokens({ tokens, command })) {
-      continue;
+    if (matchesTokens(command, tokens)) {
+      return {
+        command,
+        args: tokens.slice(command.tokens.length),
+      };
     }
-    const args = tokens.slice(command.tokens.length);
-
-    return {
-      command,
-      args,
-    };
   }
-  return;
 }
 
-function matchesTokens<T>(options: { tokens: string[]; command: CommandSpec<T> }): boolean {
-  if (options.command.match === "prefix") {
-    return startsWithTokens(options.tokens, options.command.tokens);
+function matchesTokens<T>(command: CommandSpec<T>, tokens: string[]): boolean {
+  if (command.match === "prefix") {
+    return isPrefixArray(command.tokens, tokens);
   }
-  return equalTokens(options.tokens, options.command.tokens);
+  return isEqualArray(command.tokens, tokens);
 }
 
-function startsWithTokens(tokens: string[], prefix: string[]): boolean {
-  return prefix.every((segment, index) => tokens[index] === segment);
+function isPrefixArray(left: string[], right: string[]): boolean {
+  return left.every((s, index) => s === right[index]);
 }
 
-function equalTokens(left: string[], right: string[]): boolean {
-  return left.length === right.length && left.every((segment, index) => right[index] === segment);
+function isEqualArray(left: string[], right: string[]): boolean {
+  return left.length === right.length && isPrefixArray(left, right);
+}
+
+function buildUsageByCommand<T>(commands: CommandTree<T>): Record<string, string> {
+  const usageByCommand: Record<string, string> = {};
+  for (const [command, commandGroup] of Object.entries(commands)) {
+    usageByCommand[command] = renderCommandUsage(commandGroup);
+  }
+  return usageByCommand;
 }
 
 function renderCommandUsage<T>(commands: CommandSpec<T>[]): string {
