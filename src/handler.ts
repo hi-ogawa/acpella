@@ -1,13 +1,15 @@
 import { startAcpManager } from "./acp/index.ts";
 import type { AgentSession } from "./acp/index.ts";
 import type { AppConfig } from "./config.ts";
-import { readOptionalPromptFile } from "./lib/prompt.ts";
+import { createCommandHandler } from "./lib/command.ts";
+import type { CommandTree } from "./lib/command.ts";
+import { buildFirstPrompt } from "./lib/prompt.ts";
 import { createReply, MESSAGE_SPLIT_BUDGET } from "./lib/reply.ts";
 import type { Reply, ReplyContext } from "./lib/reply.ts";
-import { createSessionStateStore } from "./state.ts";
-import type { StateSession } from "./state.ts";
+import { createSessionStateStore, parseAgentSessionKey, toAgentSessionKey } from "./state.ts";
+import type { StateAgentSession } from "./state.ts";
 
-interface Handler {
+export interface Handler {
   handle: (options: { sessionName: string; context: HandlerContext }) => Promise<void>;
 }
 
@@ -19,45 +21,59 @@ export interface HandlerContext extends ReplyContext {
 
 export async function createHandler(
   config: AppConfig,
-  options: {
+  handlerOptions: {
     version?: string;
     onServiceExit: () => void;
   },
 ): Promise<Handler> {
-  const manager = await startAcpManager({ command: config.agent.command, cwd: config.home });
-  const state = createSessionStateStore(config);
+  const stateStore = createSessionStateStore(config);
   const activeSessions = new Map<string, AgentSession>();
   const cancelledSessions = new WeakSet<AgentSession>();
 
-  async function handlePrompt(options: {
+  async function getAgentManager(agentKey: string) {
+    const agent = stateStore.get().agents[agentKey];
+    if (!agent) {
+      throw new Error(`Unknown agent: ${agentKey}`);
+    }
+    return startAcpManager({ command: agent.command, cwd: config.home });
+  }
+
+  async function handlePrompt({
+    reply,
+    sessionName,
+    text,
+  }: {
     reply: Reply;
     sessionName: string;
     text: string;
-    stateSession?: StateSession;
   }): Promise<void> {
-    const { reply, stateSession } = options;
-    if (activeSessions.has(options.sessionName)) {
+    if (activeSessions.has(sessionName)) {
       await reply.system("Agent turn already in progress. Send /cancel to stop it.");
       return;
     }
 
-    const verbose = stateSession?.verbose ?? true;
-    const sessionId = stateSession?.sessionId;
-    const session = sessionId
-      ? await manager.loadSession({
-          sessionCwd: config.home,
-          sessionId,
-        })
-      : await manager.newSession({ sessionCwd: config.home });
+    const stateSession = stateStore.getSession(sessionName);
+    const manager = await getAgentManager(stateSession.agentKey);
+
+    let agentSession: AgentSession;
+    let promptText = text;
+    if (stateSession.agentSessionId) {
+      agentSession = await manager.loadSession({
+        sessionCwd: config.home,
+        sessionId: stateSession.agentSessionId,
+      });
+    } else {
+      agentSession = await manager.newSession({ sessionCwd: config.home });
+      stateStore.setSession(sessionName, {
+        agentKey: stateSession.agentKey,
+        agentSessionId: agentSession.sessionId,
+      });
+      promptText = buildFirstPrompt({ promptFile: config.prompt.file, text });
+    }
 
     try {
-      const customPrompt = !sessionId ? readOptionalPromptFile(config.prompt.file) : undefined;
-      const promptText = customPrompt
-        ? formatFirstPrompt({ customPrompt, userText: options.text })
-        : options.text;
-
-      const { queue } = session.prompt(promptText);
-      activeSessions.set(options.sessionName, session);
+      const { queue } = agentSession.prompt(promptText);
+      activeSessions.set(sessionName, agentSession);
 
       for await (const update of queue) {
         if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
@@ -65,7 +81,7 @@ export async function createHandler(
         } else if (update.sessionUpdate === "tool_call") {
           console.log(`[acp:update] tool_call: ${update.title}`);
           await reply.flush();
-          if (verbose) {
+          if (stateSession.verbose) {
             await reply.write(`Tool: ${update.title}`);
             await reply.flush();
           }
@@ -73,295 +89,359 @@ export async function createHandler(
           console.log(`[acp:update] ${update.sessionUpdate}`);
         }
       }
-      if (cancelledSessions.has(session)) {
+      if (cancelledSessions.has(agentSession)) {
         await reply.flush();
         await reply.system("Agent turn cancelled.");
         return;
       }
       await reply.finish();
-      if (!sessionId) {
-        state.setSession(options.sessionName, { sessionId: session.sessionId });
-      }
     } finally {
-      if (activeSessions.get(options.sessionName) === session) {
-        activeSessions.delete(options.sessionName);
+      if (activeSessions.get(sessionName) === agentSession) {
+        activeSessions.delete(sessionName);
       }
-      session.close();
+      agentSession.close();
     }
   }
 
-  async function handleCancel(options: { reply: Reply; sessionName: string }): Promise<void> {
-    const session = activeSessions.get(options.sessionName);
-    if (!session) {
-      await options.reply.system("No active agent turn.");
-      return;
-    }
-
-    cancelledSessions.add(session);
-    let response = "Cancelled current agent turn.";
-    try {
-      await session.cancel();
-    } catch (e) {
-      console.error("[acp] cancel failed, killing agent process:", e);
-      session.close();
-      response = "Cancelled current agent turn by killing the agent process.";
-    }
-    await options.reply.system(response);
-  }
-
-  async function handleCloseSession(options: {
-    sessionName: string;
-    sessionIdArg?: string;
-  }): Promise<void> {
-    const currentSessionId = state.getSession(options.sessionName)?.sessionId;
-    const sessionId = options.sessionIdArg ?? currentSessionId;
-    if (sessionId) {
-      try {
-        await manager.closeSession({ sessionId });
-      } catch (e) {
-        console.error("[acp] closeSession failed:", e);
-      }
-    }
-    if (!options.sessionIdArg || options.sessionIdArg === currentSessionId) {
-      state.deleteSession(options.sessionName);
-    }
-  }
-
-  async function handleLoadSession(options: {
-    sessionName: string;
-    sessionId?: string;
-  }): Promise<string> {
-    if (!options.sessionId) {
-      return "Usage: /session load <sessionId>";
-    }
-    const session = await manager.loadSession({
-      sessionCwd: config.home,
-      sessionId: options.sessionId,
-    });
-    try {
-      state.setSession(options.sessionName, { sessionId: session.sessionId });
-      return `Loaded session: ${session.sessionId}`;
-    } finally {
-      session.close();
-    }
-  }
-
-  function handleCurrentSession(options: { sessionName: string }): string {
-    return `\
-session: ${options.sessionName}
-agent: ${config.agent.alias}
-session id: ${state.getSession(options.sessionName)?.sessionId ?? "none"}`;
-  }
-
-  async function handleListSessions(): Promise<string> {
-    const stateSessions = state.getSessions();
-    const agentSessions = await manager.listSessions();
-    const agentSessionIds = new Set(agentSessions.sessions.map((session) => session.sessionId));
-    const stateSessionIds = new Set(Object.values(stateSessions).map((entry) => entry.sessionId));
-    let output = "";
-    for (const [sessionName, entry] of Object.entries(stateSessions)) {
-      output += `- ${sessionName} -> ${entry.sessionId}`;
-      if (agentSessionIds.has(entry.sessionId)) {
-        output += " (active)";
-      } else {
-        output += " (not active)";
-      }
-      output += "\n";
-    }
-    for (const session of agentSessions.sessions) {
-      if (!stateSessionIds.has(session.sessionId)) {
-        output += `- (unknown) -> ${session.sessionId} (active)\n`;
-      }
-    }
-    return output || "No sessions.";
-  }
-
-  async function handleSessionCommand(options: {
+  type SystemCommandContext = {
     reply: Reply;
-    text: string;
     sessionName: string;
-  }): Promise<boolean> {
-    const [command, subcommand, ...args] = options.text.trim().split(/\s+/);
-    if (command !== "/session") {
-      return false;
-    }
-    let response: string;
-    switch (subcommand) {
-      case undefined: {
-        response = handleCurrentSession({ sessionName: options.sessionName });
-        break;
-      }
-      case "list": {
-        response = await handleListSessions();
-        break;
-      }
-      case "new": {
+  };
+
+  const systemSessionCommands: CommandTree<SystemCommandContext>[string] = [
+    {
+      tokens: ["current"],
+      help: "/session current - Show the current session.",
+      run: async ({ reply, sessionName }) => {
+        const stateSession = stateStore.getSession(sessionName);
+        await reply.system(`\
+session: ${sessionName}
+agent: ${stateSession.agentKey}
+agent session id: ${stateSession.agentSessionId ?? "none"}
+`);
+      },
+    },
+    {
+      tokens: ["list"],
+      help: "/session list - List known agent sessions.",
+      run: async ({ reply }) => {
+        const state = stateStore.get();
+        const activeAgentSessions = new Set<string>();
+        for (const [agentKey] of Object.entries(state.agents)) {
+          try {
+            const manager = await getAgentManager(agentKey);
+            const agentSessions = await manager.listSessions();
+            for (const session of agentSessions.sessions) {
+              activeAgentSessions.add(
+                toAgentSessionKey({ agentKey, agentSessionId: session.sessionId }),
+              );
+            }
+          } catch (e) {
+            // TODO: include errored agent in message response
+            console.error(`[acp] listSessions failed for agent ${agentKey}:`, e);
+          }
+        }
+        const stateAgentSessions = new Map<string, string>();
+        for (const [sessionName, stateSession] of Object.entries(state.sessions)) {
+          if (stateSession.agentKey && stateSession.agentSessionId) {
+            stateAgentSessions.set(
+              toAgentSessionKey({
+                agentKey: stateSession.agentKey,
+                agentSessionId: stateSession.agentSessionId,
+              }),
+              sessionName,
+            );
+          }
+        }
+        let output = "";
+        for (const [agentSessionKey, sessionName] of stateAgentSessions) {
+          output += `- ${sessionName} -> ${agentSessionKey}`;
+          if (activeAgentSessions.has(agentSessionKey)) {
+            output += " (active)";
+          } else {
+            output += " (not active)";
+          }
+          output += "\n";
+        }
+        for (const agentSessionKey of activeAgentSessions) {
+          if (!stateAgentSessions.has(agentSessionKey)) {
+            output += `- (unknown) -> ${agentSessionKey} (active)\n`;
+          }
+        }
+        await reply.system(output || "No sessions.");
+      },
+    },
+    {
+      tokens: ["new"],
+      help: "/session new [agent] - Start a new agent session.",
+      withArgs: true,
+      run: async ({ args, reply, sessionName }) => {
+        const agentKey = args[0];
+        if (agentKey) {
+          if (!stateStore.get().agents[agentKey]) {
+            await reply.system(`Unknown agent: ${agentKey}`);
+            return;
+          }
+          stateStore.setSession(sessionName, { agentKey });
+        }
+        stateStore.setSession(sessionName, { agentSessionId: undefined });
         await handlePrompt({
-          reply: options.reply,
-          sessionName: options.sessionName,
-          text: args.join(" "),
+          reply,
+          sessionName,
+          text: "",
         });
-        return true;
-      }
-      case "load": {
-        response = await handleLoadSession({
-          sessionName: options.sessionName,
-          sessionId: args[0],
-        });
-        break;
-      }
-      case "close": {
-        await handleCloseSession({
-          sessionName: options.sessionName,
-          sessionIdArg: args[0],
-        });
-        response = "Session closed. Next message will start a fresh session.";
-        break;
-      }
-      default: {
-        response = `\
-Usage:
-/session
-/session list
-/session new
-/session load <sessionId>
-/session close [sessionId]`;
-      }
-    }
-    await options.reply.system(response);
-    return true;
-  }
-
-  async function handleServiceCommand(commandOptions: {
-    reply: Reply;
-    text: string;
-  }): Promise<boolean> {
-    const [command, subcommand] = commandOptions.text.trim().split(/\s+/);
-    if (command !== "/service") {
-      return false;
-    }
-    if (subcommand === "exit") {
-      await commandOptions.reply.system("Exiting acpella.");
-      options.onServiceExit();
-      return true;
-    }
-    await commandOptions.reply.system("Usage: /service exit");
-    return true;
-  }
-
-  async function handleVerboseCommand(options: {
-    reply: Reply;
-    text: string;
-    sessionName: string;
-    stateSession?: StateSession;
-  }): Promise<boolean> {
-    const [command, subcommand] = options.text.trim().split(/\s+/);
-    if (command !== "/verbose") {
-      return false;
-    }
-
-    const verbose = options.stateSession?.verbose ?? true;
-    const verboseStatus = `Tool call output: ${verbose ? "on" : "off"}`;
-    const verboseHelp = `\
-${verboseStatus}
-Usage: /verbose [on|off]
-`;
-
-    let response: string;
-    switch (subcommand) {
-      case undefined: {
-        response = verboseHelp;
-        break;
-      }
-      case "on": {
-        if (!options.stateSession) {
-          response = `\
-No session. Send a prompt first, then use /verbose ${subcommand}.
-
-${verboseHelp}`;
-          break;
+      },
+    },
+    {
+      tokens: ["load"],
+      help: "/session load <sessionId|agent:sessionId> - Load an existing agent session.",
+      withArgs: true,
+      run: async ({ args, reply, sessionName }) => {
+        const sessionIdArg = args[0];
+        if (!sessionIdArg) {
+          await reply.system("Usage: /session load <sessionId|agent:sessionId>");
+          return;
         }
-        state.setSession(options.sessionName, {
-          ...options.stateSession,
-          verbose: true,
+        const stateSession = stateStore.getSession(sessionName);
+        const parsed = parseAgentSessionKey(sessionIdArg);
+        const agentKey = parsed.agentKey ?? stateSession.agentKey;
+        const manager = await getAgentManager(agentKey);
+        const loaded = await manager.loadSession({
+          sessionCwd: config.home,
+          sessionId: parsed.agentSessionId,
         });
-        response = `Tool call output: ${subcommand}`;
-        break;
-      }
-      case "off": {
-        if (!options.stateSession) {
-          response = `\
-No session. Send a prompt first, then use /verbose ${subcommand}.
-
-${verboseHelp}`;
-          break;
+        const newStateSession: StateAgentSession = {
+          agentKey,
+          agentSessionId: loaded.sessionId,
+        };
+        try {
+          stateStore.setSession(sessionName, newStateSession);
+          await reply.system(`Loaded session: ${toAgentSessionKey(newStateSession)}`);
+        } finally {
+          loaded.close();
         }
-        state.setSession(options.sessionName, {
-          ...options.stateSession,
-          verbose: false,
-        });
-        response = `Tool call output: ${subcommand}`;
-        break;
-      }
-      default: {
-        response = verboseHelp;
-      }
-    }
-    await options.reply.system(response);
-    return true;
-  }
+      },
+    },
+    {
+      tokens: ["close"],
+      help: "/session close [sessionId|agent:sessionId] - Close an agent session.",
+      withArgs: true,
+      run: async ({ args, reply, sessionName }) => {
+        const stateSession = stateStore.getSession(sessionName);
+        const sessionIdArg = args[0];
+        const parsed = sessionIdArg ? parseAgentSessionKey(sessionIdArg) : undefined;
+        const agentKey = parsed?.agentKey ?? stateSession.agentKey;
+        const agentSessionId = parsed?.agentSessionId ?? stateSession.agentSessionId;
+        if (!agentSessionId) {
+          await reply.system("No associated session.");
+          return;
+        }
+        const targetSession = { agentKey, agentSessionId };
+        stateStore.deleteSession(targetSession);
+        let output = `Session closed: ${toAgentSessionKey(targetSession)}.\n`;
+        try {
+          const manager = await getAgentManager(agentKey);
+          await manager.closeSession({ sessionId: agentSessionId });
+        } catch (e) {
+          output += "[acp] closeSession failed";
+          console.error("[acp] closeSession failed:", e);
+        }
+        await reply.system(output);
+      },
+    },
+  ];
 
-  function handleStatus(): string {
-    return `\
+  const systemAgentCommands: CommandTree<SystemCommandContext>["agent"] = [
+    {
+      tokens: ["list"],
+      help: "/agent list - List configured agents.",
+      run: async ({ reply }) => {
+        const state = stateStore.get();
+        let response = "";
+        for (const [agentKey, agent] of Object.entries(state.agents)) {
+          const marker = agentKey === state.defaultAgent ? " (default)" : "";
+          response += `- ${agentKey} -> ${agent.command}${marker}\n`;
+        }
+        await reply.system(response || "No agents.");
+      },
+    },
+    {
+      tokens: ["new"],
+      help: "/agent new <name> <command...> - Save a new agent.",
+      withArgs: true,
+      run: async ({ args, reply }) => {
+        const [name, ...commandParts] = args;
+        const command = commandParts.join(" ");
+        if (!name || !command) {
+          await reply.system("Usage: /agent new <name> <command...>");
+          return;
+        }
+        stateStore.set((state) => {
+          state.agents[name] = { command };
+        });
+        await reply.system(`Saved new agent: ${name}`);
+      },
+    },
+    {
+      tokens: ["remove"],
+      help: "/agent remove <name> - Remove an agent.",
+      withArgs: true,
+      run: async ({ args, reply }) => {
+        const name = args[0];
+        const state = stateStore.get();
+        if (!name) {
+          await reply.system("Usage: /agent remove <name>");
+          return;
+        }
+        if (!state.agents[name]) {
+          await reply.system(`Unknown agent: ${name}`);
+          return;
+        }
+        if (state.defaultAgent === name) {
+          await reply.system(`Cannot remove default agent: ${name}`);
+          return;
+        }
+        const referencedSessions = Object.values(state.sessions).filter(
+          (session) => session.agentKey === name,
+        );
+        if (referencedSessions.length > 0) {
+          await reply.system(`\
+Cannot remove agent: ${name}
+${referencedSessions.length} session(s) still reference it.
+`);
+          return;
+        }
+        stateStore.set((state) => {
+          delete state.agents[name];
+        });
+        await reply.system(`Removed agent: ${name}`);
+      },
+    },
+    {
+      tokens: ["default"],
+      help: "/agent default [name] - Show or set the default agent.",
+      withArgs: true,
+      run: async ({ args, reply }) => {
+        const name = args[0];
+        const state = stateStore.get();
+        if (!name) {
+          await reply.system(`Default agent: ${state.defaultAgent}`);
+          return;
+        }
+        if (!state.agents[name]) {
+          await reply.system(`Unknown agent: ${name}`);
+          return;
+        }
+        stateStore.set((s) => {
+          s.defaultAgent = name;
+        });
+        await reply.system(`Set default agent: ${name}`);
+      },
+    },
+  ];
+
+  const systemCommands: CommandTree<SystemCommandContext> = {
+    status: [
+      {
+        tokens: [],
+        help: "/status - Show service status.",
+        run: async ({ reply }) => {
+          await reply.system(`\
 status: running
-version: ${options.version ?? "(unknown)"}
-agent: ${config.agent.command}
+version: ${handlerOptions.version ?? "(unknown)"}
+default agent: ${stateStore.get().defaultAgent}
 home: ${config.home}
-`;
-  }
+`);
+        },
+      },
+    ],
+    service: [
+      {
+        tokens: ["exit"],
+        help: "/service exit - Exit acpella.",
+        run: async ({ reply }) => {
+          await reply.system("Exiting acpella.");
+          handlerOptions.onServiceExit();
+        },
+      },
+    ],
+    cancel: [
+      {
+        tokens: [],
+        help: "/cancel - Cancel the active agent turn.",
+        run: async ({ reply, sessionName }) => {
+          const session = activeSessions.get(sessionName);
+          if (!session) {
+            await reply.system("No active agent turn.");
+            return;
+          }
+          cancelledSessions.add(session);
+          let response = "Cancelled current agent turn.";
+          try {
+            await session.cancel();
+          } catch (e) {
+            console.error("[acp] cancel failed, killing agent process:", e);
+            session.close();
+            response = "Cancelled current agent turn by killing the agent process.";
+          }
+          await reply.system(response);
+        },
+      },
+    ],
+    session: systemSessionCommands,
+    agent: systemAgentCommands,
+    verbose: [
+      {
+        tokens: ["current"],
+        help: "/verbose current - Show tool-call output setting.",
+        run: async ({ reply, sessionName }) => {
+          const { verbose } = stateStore.getSession(sessionName);
+          await reply.system(`Tool call output: ${verbose ? "on" : "off"}`);
+        },
+      },
+      {
+        tokens: ["on"],
+        help: "/verbose on - Show tool-call updates.",
+        run: async ({ reply, sessionName }) => {
+          stateStore.setSession(sessionName, {
+            verbose: true,
+          });
+          await reply.system("Tool call output: on");
+        },
+      },
+      {
+        tokens: ["off"],
+        help: "/verbose off - Hide tool-call updates.",
+        run: async ({ reply, sessionName }) => {
+          stateStore.setSession(sessionName, {
+            verbose: false,
+          });
+          await reply.system("Tool call output: off");
+        },
+      },
+    ],
+  };
+
+  const systemCommandHandler = createCommandHandler({
+    commands: systemCommands,
+    onUsage: async (usage, context) => {
+      await context.reply.system(usage);
+    },
+  });
 
   const handle: Handler["handle"] = async (options) => {
     const text = options.context.message!.text!;
     const sessionName = options.sessionName;
-    const stateSession = state.getSession(sessionName);
     const reply = createReply({
       context: options.context,
       limit: MESSAGE_SPLIT_BUDGET,
     });
 
-    if (text === "/status") {
-      await reply.system(handleStatus());
-      return;
-    }
-    if (text === "/cancel") {
-      await handleCancel({
-        reply,
-        sessionName,
-      });
-      return;
-    }
-    const handledServiceCommand = await handleServiceCommand({
-      reply,
+    const handledSystem = await systemCommandHandler.handle({
       text,
+      context: { reply, sessionName },
     });
-    if (handledServiceCommand) {
-      return;
-    }
-    const handledVerboseCommand = await handleVerboseCommand({
-      reply,
-      text,
-      sessionName,
-      stateSession,
-    });
-    if (handledVerboseCommand) {
-      return;
-    }
-    const handledSessionCommand = await handleSessionCommand({
-      reply,
-      text,
-      sessionName,
-    });
-    if (handledSessionCommand) {
+    if (handledSystem) {
       return;
     }
 
@@ -369,21 +449,8 @@ home: ${config.home}
       reply,
       sessionName,
       text,
-      stateSession,
     });
   };
 
   return { handle };
-}
-
-function formatFirstPrompt(options: { customPrompt: string; userText: string }): string {
-  return `\
-Use these additional instructions for this session:
-
-<custom_instructions>
-${options.customPrompt.trim()}
-</custom_instructions>
-
-${options.userText}
-`;
 }

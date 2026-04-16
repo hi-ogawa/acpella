@@ -1,31 +1,30 @@
-import path from "node:path";
 import { it, vi } from "vitest";
-import { startService } from "../helper.ts";
+import { startService, type TestService } from "../helper.ts";
 
 vi.setConfig({
-  testTimeout: 30000,
+  testTimeout: 15000,
 });
 
+async function setupService(service: TestService) {
+  await service.waitForOutput("Starting repl");
+  service.write("/agent new codex codex-acp");
+  await service.waitForOutput("Saved new agent: codex");
+  service.write("/agent default codex");
+  await service.waitForOutput("Set default agent: codex");
+}
+
 it("basic", async () => {
-  const service = startService(
-    {
-      ACPELLA_AGENT: "codex-acp",
-    },
-    { sourceDir: path.join(import.meta.dirname, "fixtures/basic") },
-  );
-  await service.waitForOutput("Starting service");
+  const service = startService({ sourceDir: "./fixtures/basic" });
+  await setupService(service);
   service.write("hello");
   await service.waitForOutput("world");
 });
 
 it("uses custom prompt file", async () => {
-  const service = startService(
-    {
-      ACPELLA_AGENT: "codex-acp",
-    },
-    { sourceDir: path.join(import.meta.dirname, "fixtures/custom-prompt") },
-  );
-  await service.waitForOutput("Starting service");
+  const service = startService({
+    sourceDir: "./fixtures/custom-prompt",
+  });
+  await setupService(service);
   service.write("ping-custom-prompt");
-  await service.waitForOutput("pong-custom-prompt");
+  await service.waitForOutput("prompt-pong-custom");
 });

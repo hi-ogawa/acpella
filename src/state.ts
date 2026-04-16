@@ -3,90 +3,169 @@ import path from "node:path";
 import { z } from "zod";
 import type { AppConfig } from "./config.ts";
 
-// TODO: review slop
+const agentSchema = z.object({
+  command: z.string().min(1),
+});
 
-// TODO: for multi agent support, the format should be:
-// { [sessionName: string]: { agent, sessionId } }
-//
-// then /session load can support this to switch session
-// /session load <agent:sessionId>
+const agentKeySchema = z
+  .string()
+  .min(1)
+  .regex(/^[a-zA-Z0-9_-]+$/);
+
+const stateSessionSchema = z.object({
+  agentKey: agentKeySchema,
+  agentSessionId: z.string().min(1).optional(),
+  verbose: z.boolean().optional(),
+});
 
 const stateSchema = z
   .object({
-    // TODO: makes use of version for auto state migrations
-    version: z.literal(1),
-    scopes: z.record(
-      z.string().min(1), // scopeKey: agent command
-      z.object({
-        sessions: z.record(
-          z.string().min(1), // sessionName
-          z.object({
-            sessionId: z.string().min(1),
-            verbose: z.boolean().optional(),
-          }),
-        ),
-      }),
-    ),
+    version: z.literal(2),
+    defaultAgent: agentKeySchema,
+    agents: z.record(agentKeySchema, agentSchema),
+    sessions: z.record(z.string().min(1), stateSessionSchema),
   })
-  .strict();
+  .superRefine((state, ctx) => {
+    if (!state.agents[state.defaultAgent]) {
+      ctx.addIssue({
+        code: "custom",
+        message: `defaultAgent does not exist: ${state.defaultAgent}`,
+        path: ["defaultAgent"],
+      });
+    }
+    for (const [sessionName, session] of Object.entries(state.sessions)) {
+      if (!session.agentKey) {
+        ctx.addIssue({
+          code: "custom",
+          message: "session must include agentKey",
+          path: ["sessions", sessionName, "agentKey"],
+        });
+      }
+      if (session.agentKey && !state.agents[session.agentKey]) {
+        ctx.addIssue({
+          code: "custom",
+          message: `session references missing agent: ${session.agentKey}`,
+          path: ["sessions", sessionName, "agentKey"],
+        });
+      }
+    }
+  });
 
-type State = z.infer<typeof stateSchema>;
-type Scope = State["scopes"][string];
-export type StateSession = Scope["sessions"][string];
+export type State = z.infer<typeof stateSchema>;
+export type StateSession = State["sessions"][string];
 export type SessionStateStore = ReturnType<typeof createSessionStateStore>;
 
-export function createSessionStateStore(config: Pick<AppConfig, "agent" | "stateFile">) {
-  const scopeKey = config.agent.command;
+export interface StateAgentSession {
+  agentKey: string;
+  agentSessionId: string;
+}
+
+export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
+  // TODO: add a custom command to reload state from disk if manual edits become a supported workflow.
+  let state = readState();
 
   function readState(): State {
     if (fs.existsSync(config.stateFile)) {
       try {
         const data = fs.readFileSync(config.stateFile, "utf8");
-        return stateSchema.parse(JSON.parse(data));
+        return parseState(JSON.parse(data));
       } catch (e) {
         console.error("[state] readState failed:", e);
       }
     }
-    return { version: 1, scopes: {} };
+    return getInitialState();
   }
 
-  function writeState(state: State): void {
+  function parseState(value: unknown): State {
+    const version =
+      value && typeof value === "object" && "version" in value ? value.version : undefined;
+    if (version === 1) {
+      throw new Error("version 1 state is ignored. creating new fresh state.");
+    }
+    return stateSchema.parse(value);
+  }
+
+  function writeState(nextState: State): void {
     fs.mkdirSync(path.dirname(config.stateFile), { recursive: true });
-    fs.writeFileSync(config.stateFile, JSON.stringify(state, null, 2));
+    fs.writeFileSync(config.stateFile, JSON.stringify(nextState, null, 2));
   }
 
-  function ensureScope(state: State): Scope {
-    return (state.scopes[scopeKey] ??= { sessions: {} });
-  }
-
-  function getSessions() {
-    const state = readState();
-    return ensureScope(state).sessions;
-  }
-
-  function writeSessions(sessions: Scope["sessions"]) {
-    const state = readState();
-    const scope = ensureScope(state);
-    scope.sessions = sessions;
+  function updateState(updater: (state: State) => void): void {
+    // Mutate a draft so validation failures do not leave the in-memory cache
+    // ahead of the persisted state.
+    const nextState = structuredClone(state);
+    updater(nextState);
+    state = stateSchema.parse(nextState);
     writeState(state);
   }
 
+  const store = {
+    get: () => state,
+    set: updateState,
+    getSession(sessionName: string): StateSession {
+      const session = state.sessions[sessionName];
+      return {
+        ...session,
+        agentKey: session?.agentKey ?? state.defaultAgent,
+        verbose: session?.verbose ?? false,
+      };
+    },
+    setSession(sessionName: string, patch: Partial<StateSession>) {
+      updateState((state) => {
+        state.sessions[sessionName] = {
+          ...store.getSession(sessionName),
+          ...patch,
+        };
+      });
+    },
+    deleteSession(target: StateAgentSession) {
+      updateState((state) => {
+        for (const [name, session] of Object.entries(state.sessions)) {
+          if (
+            session.agentKey === target.agentKey &&
+            session.agentSessionId === target.agentSessionId
+          ) {
+            delete state.sessions[name];
+          }
+        }
+      });
+    },
+  };
+
+  return store;
+}
+
+const BUILTIN_AGENT_KEY = "test" as const;
+
+export const BUILTIN_AGENTS = {
+  [BUILTIN_AGENT_KEY]: { command: `node ${path.join(import.meta.dirname, "lib/test-agent.ts")}` },
+} satisfies State["agents"];
+
+function getInitialState(): State {
   return {
-    getSessions,
-    getSession(sessionName: string) {
-      return getSessions()[sessionName];
-    },
-    setSession(sessionName: string, patch: StateSession) {
-      const sessions = getSessions();
-      sessions[sessionName] = { ...sessions[sessionName], ...patch };
-      writeSessions(sessions);
-    },
-    deleteSession(sessionName: string) {
-      const sessions = getSessions();
-      if (sessions[sessionName]) {
-        delete sessions[sessionName];
-        writeSessions(sessions);
-      }
-    },
+    version: 2,
+    defaultAgent: BUILTIN_AGENT_KEY,
+    agents: { ...BUILTIN_AGENTS },
+    sessions: {},
+  };
+}
+
+export function toAgentSessionKey(options: StateAgentSession): string {
+  return `${options.agentKey}:${options.agentSessionId}`;
+}
+
+export function parseAgentSessionKey(fullKey: string): {
+  agentKey?: string;
+  agentSessionId: string;
+} {
+  const sep = fullKey.indexOf(":");
+  if (sep === -1) {
+    return {
+      agentSessionId: fullKey,
+    };
+  }
+  return {
+    agentKey: fullKey.slice(0, sep),
+    agentSessionId: fullKey.slice(sep + 1),
   };
 }

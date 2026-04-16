@@ -1,14 +1,14 @@
 import path from "node:path";
+import { createInterface } from "node:readline/promises";
 import { parseArgs } from "node:util";
 import { run, sequentialize } from "@grammyjs/runner";
 import { Bot } from "grammy";
-import { loadConfig } from "./config.ts";
-import { createHandler, type HandlerContext } from "./handler.ts";
+import { loadConfig, type AppConfig } from "./config.ts";
+import { createHandler, type Handler, type HandlerContext } from "./handler.ts";
 import { handleSetupSystemd } from "./lib/systemd.ts";
 import { toTelegramMarkdownV2 } from "./lib/telegram-format.ts";
 import { telegramSequentialKey, telegramSessionName } from "./lib/telegram.ts";
 import { getVersion } from "./lib/version.ts";
-import { createTestBot, type TestBot } from "./repl.ts";
 
 async function main() {
   const argv = process.argv.slice(2);
@@ -51,35 +51,6 @@ Options:
   const config = loadConfig();
   const version = await getVersion({ cwd: path.join(import.meta.dirname, "..") });
 
-  // --- create bot (real or test) ---
-
-  let bot: Bot;
-  let testBot: TestBot | undefined;
-  let allowedUsers: Set<number> | undefined;
-  let allowedChats: Set<number> | undefined;
-
-  if (cli.repl) {
-    testBot = createTestBot({ chatId: config.testChatId });
-    bot = testBot.bot;
-  } else {
-    allowedUsers = new Set(config.telegram.allowedUserIds);
-    allowedChats = new Set(config.telegram.allowedChatIds);
-
-    if (!config.telegram.token) {
-      console.error("ACPELLA_TELEGRAM_BOT_TOKEN is required");
-      process.exitCode = 1;
-      return;
-    }
-    if (allowedUsers.size === 0) {
-      console.error("ACPELLA_TELEGRAM_ALLOWED_USER_IDS must be non-empty");
-      process.exitCode = 1;
-      return;
-    }
-    bot = new Bot(config.telegram.token);
-  }
-
-  // --- wire handler (shared between real and test) ---
-
   const handler = await createHandler(config, {
     version,
     onServiceExit: () => {
@@ -89,77 +60,136 @@ Options:
       });
     },
   });
-  if (!cli.repl) {
-    bot.use(sequentialize(telegramSequentialKey));
+
+  if (cli.repl) {
+    await startRepl(config, handler, version);
+    return;
   }
+
+  const allowedUsers = new Set(config.telegram.allowedUserIds);
+  const allowedChats = new Set(config.telegram.allowedChatIds);
+
+  if (!config.telegram.token) {
+    console.error("ACPELLA_TELEGRAM_BOT_TOKEN is required");
+    process.exitCode = 1;
+    return;
+  }
+  if (allowedUsers.size === 0) {
+    console.error("ACPELLA_TELEGRAM_ALLOWED_USER_IDS must be non-empty");
+    process.exitCode = 1;
+    return;
+  }
+
+  const bot = new Bot(config.telegram.token);
+  bot.use(sequentialize(telegramSequentialKey));
 
   bot.on("message:text", async (ctx) => {
     const chatId = ctx.chat.id;
     const threadId = ctx.message.message_thread_id;
     const sessionName = telegramSessionName({ chatId, threadId });
+    const userId = ctx.from?.id;
 
-    if (!cli.repl) {
-      const userId = ctx.from?.id;
-
-      if (allowedChats?.size && !allowedChats.has(chatId)) {
-        console.error(`[${sessionName}] rejected: chat ${chatId} is not allowed`);
-        return;
-      }
-      if (!userId || (allowedUsers?.size && !allowedUsers.has(userId))) {
-        console.error(`[${sessionName}] rejected: user ${userId ?? "unknown"} is not allowed`);
-        return;
-      }
+    if (allowedChats.size && !allowedChats.has(chatId)) {
+      console.error(`[${sessionName}] rejected: chat ${chatId} is not allowed`);
+      return;
+    }
+    if (!userId || (allowedUsers.size && !allowedUsers.has(userId))) {
+      console.error(`[${sessionName}] rejected: user ${userId ?? "unknown"} is not allowed`);
+      return;
     }
 
     const text = ctx.message.text;
 
-    if (!cli.repl) {
-      console.log(`[${sessionName}] <- ${text}`);
-    }
+    console.log(`[${sessionName}] <- ${text}`);
 
     try {
-      const context: HandlerContext = cli.repl
-        ? ctx
-        : {
-            message: ctx.message,
-            reply: async (replyText: string) => {
-              try {
-                return await ctx.reply(toTelegramMarkdownV2(replyText), {
-                  parse_mode: "MarkdownV2",
-                });
-              } catch (error) {
-                console.error(`[${sessionName}] MarkdownV2 reply failed:`, error);
-                return await ctx.reply(replyText);
-              }
-            },
-          };
+      const context: HandlerContext = {
+        message: ctx.message,
+        reply: async (replyText: string) => {
+          try {
+            return await ctx.reply(toTelegramMarkdownV2(replyText), {
+              parse_mode: "MarkdownV2",
+            });
+          } catch (error) {
+            console.error(`[${sessionName}] MarkdownV2 reply failed:`, error);
+            return await ctx.reply(replyText);
+          }
+        },
+      };
       await handler.handle({ sessionName, context });
-      if (!cli.repl) {
-        console.log(`[${sessionName}] -> response sent`);
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      console.log(`[${sessionName}] -> response sent`);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
       console.error(`[${sessionName}] error: ${msg}`);
       await ctx.reply(`Error: ${msg.slice(0, 200)}`);
     }
   });
 
-  // --- start ---
+  console.log(`Starting service (version: ${version}, home: ${config.home})`);
 
-  console.log(
-    `Starting service (agent: ${config.agent.alias}, home: ${config.home}, repl: ${cli.repl})`,
-  );
+  const runner = run(bot, {
+    sink: {
+      // @grammyjs/runner defaults to 500; keep acpella conservative because prompts spawn child agents.
+      concurrency: 4,
+    },
+  });
+  await runner.task();
+}
 
-  if (testBot) {
-    await testBot.startRepl();
-  } else {
-    const runner = run(bot, {
-      sink: {
-        // @grammyjs/runner defaults to 500; keep acpella conservative because prompts spawn child agents.
-        concurrency: 4,
-      },
+async function startRepl(config: AppConfig, handler: Handler, version: string) {
+  console.log(`Starting repl (version: ${version}, home: ${config.home})`);
+
+  let isHandling = false;
+  async function sendMessage(text: string) {
+    isHandling = true;
+    try {
+      await handler.handle({
+        sessionName: "repl",
+        context: {
+          message: { text },
+          async reply(text) {
+            console.log(text);
+          },
+        },
+      });
+    } catch (error) {
+      console.error(error);
+    } finally {
+      isHandling = false;
+    }
+  }
+
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+
+  let cancelRequested = false;
+  rl.on("SIGINT", () => {
+    if (!isHandling || cancelRequested) {
+      rl.close();
+      return;
+    }
+    cancelRequested = true;
+    void sendMessage("/cancel").finally(() => {
+      cancelRequested = false;
     });
-    await runner.task();
+  });
+
+  try {
+    while (true) {
+      const text = await rl.question("> ");
+      if (!text) {
+        continue;
+      }
+      if (text === "/quit") {
+        break;
+      }
+      await sendMessage(text);
+    }
+  } catch (e) {
+    if (!(e instanceof Error && e.name === "AbortError")) {
+      throw e;
+    }
+  } finally {
+    rl.close();
   }
 }
 
