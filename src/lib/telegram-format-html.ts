@@ -4,8 +4,6 @@ import { fromMarkdown } from "mdast-util-from-markdown";
 import { gfmFromMarkdown } from "mdast-util-gfm";
 import { gfm } from "micromark-extension-gfm";
 
-// TODO: review slop
-
 const MARKDOWN_PARSE_OPTIONS = {
   extensions: [gfm()],
   mdastExtensions: [gfmFromMarkdown()],
