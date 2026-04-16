@@ -24,6 +24,15 @@ describe(createCommandHandler, () => {
             events.push(`${prefix}:config`);
           },
         },
+        {
+          path: ["set"],
+          usage: "/config set <value...>",
+          summary: "Set config.",
+          match: "prefix",
+          run: async ({ invocation, prefix }) => {
+            events.push(`${prefix}:set:${invocation.rawArgs}`);
+          },
+        },
       ],
     };
     const commandHandler = createCommandHandler({
@@ -43,12 +52,16 @@ describe(createCommandHandler, () => {
     expect(await commandHandler.handle({ text: "/missing", context })).toBe(false);
     expect(await commandHandler.handle({ text: "/ping", context })).toBe(true);
     expect(await commandHandler.handle({ text: "/config", context })).toBe(true);
+    expect(await commandHandler.handle({ text: "/config set theme dark", context })).toBe(true);
     expect(await commandHandler.handle({ text: "/help", context })).toBe(true);
 
     expect(events).toMatchInlineSnapshot(`
       [
         "test:pong",
-        "Usage: /config show",
+        "Usage:
+      /config show
+      /config set <value...>",
+        "test:set:theme dark",
         "Commands:
       /help - Show command help.
 
@@ -56,7 +69,8 @@ describe(createCommandHandler, () => {
         /ping - Ping the service.
 
       /config
-        /config show - Show config.",
+        /config show - Show config.
+        /config set <value...> - Set config.",
       ]
     `);
   });

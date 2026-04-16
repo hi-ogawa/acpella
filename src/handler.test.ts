@@ -130,6 +130,22 @@ test("basic", async () => {
     /service
       /service exit - Exit acpella.
 
+    /cancel
+      /cancel - Cancel the active agent turn.
+
+    /session
+      /session current - Show the current session.
+      /session list - List known agent sessions.
+      /session new [agent] - Start a new agent session.
+      /session load <sessionId|agent:sessionId> - Load an existing agent session.
+      /session close [sessionId|agent:sessionId] - Close an agent session.
+
+    /agent
+      /agent list - List configured agents.
+      /agent new <name> <command...> - Save a new agent.
+      /agent remove <name> - Remove an agent.
+      /agent default [name] - Show or set the default agent.
+
     /verbose
       /verbose [on|off] - Show tool-call output setting.
       /verbose on - Show tool-call updates.

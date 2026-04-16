@@ -3,9 +3,10 @@
 export type CommandTree<T> = Record<string, CommandSpec<T>[]>;
 
 export type CommandSpec<T> = {
-  path: string[];
+  path: string[]; // TODO: optional?
   usage: string;
   summary: string;
+  match?: "exact" | "prefix";
   run: (context: CommandRunContext<T>) => Promise<void>;
 };
 
@@ -93,21 +94,33 @@ function findCommand<T>(
     }
   | undefined {
   for (const command of commands) {
-    if (!equalPath(invocation.path, command.path)) {
+    if (!matchesPath({ path: invocation.path, command })) {
       continue;
     }
+    const args = invocation.path.slice(command.path.length);
 
     return {
       command,
       invocation: {
         command: invocation.command,
         path: command.path,
-        args: [],
-        rawArgs: "",
+        args,
+        rawArgs: args.join(" "),
       },
     };
   }
   return undefined;
+}
+
+function matchesPath<T>(options: { path: string[]; command: CommandSpec<T> }): boolean {
+  if (options.command.match === "prefix") {
+    return startsWithPath(options.path, options.command.path);
+  }
+  return equalPath(options.path, options.command.path);
+}
+
+function startsWithPath(path: string[], prefix: string[]): boolean {
+  return prefix.every((segment, index) => path[index] === segment);
 }
 
 function equalPath(left: string[], right: string[]): boolean {
