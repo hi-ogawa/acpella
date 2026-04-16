@@ -3,6 +3,23 @@ import path from "node:path";
 
 const INCLUDE_LINE_RE = /^[^\S\r\n]*@(\S+)[^\S\r\n]*$/gm;
 
+export function buildFirstPrompt(options: { promptFile: string; text: string }): string {
+  let output = "";
+  const customPrompt = readOptionalPromptFile(options.promptFile);
+  if (customPrompt) {
+    output += `\
+Use these additional instructions for this session:
+
+<custom_instructions>
+${customPrompt.trim()}
+</custom_instructions>
+
+`;
+  }
+  output += options.text;
+  return output;
+}
+
 export function readOptionalPromptFile(file: string): string | undefined {
   try {
     return readPromptFileWithIncludes(file, new Set());

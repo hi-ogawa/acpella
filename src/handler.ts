@@ -3,7 +3,7 @@ import type { AgentSession } from "./acp/index.ts";
 import type { AppConfig } from "./config.ts";
 import { createCommandHandler } from "./lib/command.ts";
 import type { CommandTree } from "./lib/command.ts";
-import { readOptionalPromptFile } from "./lib/prompt.ts";
+import { buildFirstPrompt } from "./lib/prompt.ts";
 import { createReply, MESSAGE_SPLIT_BUDGET } from "./lib/reply.ts";
 import type { Reply, ReplyContext } from "./lib/reply.ts";
 import { createSessionStateStore, parseAgentSessionKey, toAgentSessionKey } from "./state.ts";
@@ -68,10 +68,7 @@ export async function createHandler(
         agentKey: stateSession.agentKey,
         agentSessionId: agentSession.sessionId,
       });
-      const customPrompt = readOptionalPromptFile(config.prompt.file);
-      if (customPrompt) {
-        promptText = formatFirstPrompt({ customPrompt, userText: promptText });
-      }
+      promptText = buildFirstPrompt({ promptFile: config.prompt.file, text });
     }
 
     try {
@@ -455,16 +452,4 @@ home: ${config.home}
   };
 
   return { handle };
-}
-
-function formatFirstPrompt(options: { customPrompt: string; userText: string }): string {
-  return `\
-Use these additional instructions for this session:
-
-<custom_instructions>
-${options.customPrompt.trim()}
-</custom_instructions>
-
-${options.userText}
-`;
 }
