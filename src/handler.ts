@@ -21,8 +21,11 @@ type SystemCommandSpec = {
   path: string[];
   usage: string;
   summary: string;
-  allowArgs?: boolean;
-  run: (options: { invocation: SystemCommandInvocation; reply: Reply }) => Promise<void> | void;
+  run: (options: {
+    invocation: SystemCommandInvocation;
+    reply: Reply;
+    sessionName: string;
+  }) => Promise<void> | void;
 };
 
 type SystemCommandInvocation = {
@@ -391,51 +394,6 @@ Usage:
     return true;
   }
 
-  async function handleVerboseCommand(options: {
-    reply: Reply;
-    text: string;
-    sessionName: string;
-  }): Promise<boolean> {
-    const [command, subcommand] = options.text.trim().split(/\s+/);
-    if (command !== "/verbose") {
-      return false;
-    }
-
-    const { verbose } = stateStore.getSession(options.sessionName);
-    const verboseStatus = `Tool call output: ${verbose ? "on" : "off"}`;
-    const verboseHelp = `\
-${verboseStatus}
-Usage: /verbose [on|off]
-`;
-
-    let response: string;
-    switch (subcommand) {
-      case undefined: {
-        response = verboseHelp;
-        break;
-      }
-      case "on": {
-        stateStore.setSession(options.sessionName, {
-          verbose: true,
-        });
-        response = `Tool call output: ${subcommand}`;
-        break;
-      }
-      case "off": {
-        stateStore.setSession(options.sessionName, {
-          verbose: false,
-        });
-        response = `Tool call output: ${subcommand}`;
-        break;
-      }
-      default: {
-        response = verboseHelp;
-      }
-    }
-    await options.reply.system(response);
-    return true;
-  }
-
   function handleStatus(): string {
     return `\
 status: running
@@ -445,17 +403,18 @@ home: ${config.home}
 `;
   }
 
+  function handleVerboseStatus(options: { sessionName: string }): string {
+    const { verbose } = stateStore.getSession(options.sessionName);
+    return `Tool call output: ${verbose ? "on" : "off"}`;
+  }
+
   const systemCommands: SystemCommandTree = {
     status: [
       {
         path: [],
         usage: "/status",
         summary: "Show service status.",
-        run: async ({ invocation, reply }) => {
-          if (invocation.args.length > 0) {
-            await reply.system("Usage: /status");
-            return;
-          }
+        run: async ({ reply }) => {
           await reply.system(handleStatus());
         },
       },
@@ -465,19 +424,44 @@ home: ${config.home}
         path: ["exit"],
         usage: "/service exit",
         summary: "Exit acpella.",
-        allowArgs: true,
         run: async ({ reply }) => {
           await reply.system("Exiting acpella.");
           handlerOptions.onServiceExit();
         },
       },
+    ],
+    verbose: [
       {
         path: [],
-        usage: "/service exit",
-        summary: "Control the acpella service.",
-        allowArgs: true,
-        run: async ({ reply }) => {
-          await reply.system("Usage: /service exit");
+        usage: "/verbose [on|off]",
+        summary: "Show tool-call output setting.",
+        run: async ({ reply, sessionName }) => {
+          await reply.system(`\
+${handleVerboseStatus({ sessionName })}
+Usage: /verbose [on|off]
+`);
+        },
+      },
+      {
+        path: ["on"],
+        usage: "/verbose on",
+        summary: "Show tool-call updates.",
+        run: async ({ reply, sessionName }) => {
+          stateStore.setSession(sessionName, {
+            verbose: true,
+          });
+          await reply.system("Tool call output: on");
+        },
+      },
+      {
+        path: ["off"],
+        usage: "/verbose off",
+        summary: "Hide tool-call updates.",
+        run: async ({ reply, sessionName }) => {
+          stateStore.setSession(sessionName, {
+            verbose: false,
+          });
+          await reply.system("Tool call output: off");
         },
       },
     ],
@@ -491,7 +475,7 @@ home: ${config.home}
       limit: MESSAGE_SPLIT_BUDGET,
     });
 
-    if (await handleSystemCommand({ reply, text, commands: systemCommands })) {
+    if (await handleSystemCommand({ reply, text, sessionName, commands: systemCommands })) {
       return;
     }
     if (text === "/cancel") {
@@ -506,14 +490,6 @@ home: ${config.home}
       text,
     });
     if (handledAgentCommand) {
-      return;
-    }
-    const handledVerboseCommand = await handleVerboseCommand({
-      reply,
-      text,
-      sessionName,
-    });
-    if (handledVerboseCommand) {
       return;
     }
     const handledSessionCommand = await handleSessionCommand({
@@ -550,6 +526,7 @@ ${options.userText}
 async function handleSystemCommand(options: {
   reply: Reply;
   text: string;
+  sessionName: string;
   commands: SystemCommandTree;
 }): Promise<boolean> {
   const invocation = parseSystemCommand(options.text);
@@ -571,6 +548,7 @@ async function handleSystemCommand(options: {
   await matched.command.run({
     invocation: matched.invocation,
     reply: options.reply,
+    sessionName: options.sessionName,
   });
   return true;
 }
@@ -602,12 +580,7 @@ function findSystemCommand(
     }
   | undefined {
   for (const command of commands) {
-    if (!startsWithPath(invocation.path, command.path)) {
-      continue;
-    }
-
-    const args = invocation.path.slice(command.path.length);
-    if (!command.allowArgs && args.length > 0) {
+    if (!equalPath(invocation.path, command.path)) {
       continue;
     }
 
@@ -616,16 +589,16 @@ function findSystemCommand(
       invocation: {
         command: invocation.command,
         path: command.path,
-        args,
-        rawArgs: args.join(" "),
+        args: [],
+        rawArgs: "",
       },
     };
   }
   return undefined;
 }
 
-function startsWithPath(path: string[], prefix: string[]): boolean {
-  return prefix.every((segment, index) => path[index] === segment);
+function equalPath(left: string[], right: string[]): boolean {
+  return left.length === right.length && left.every((segment, index) => right[index] === segment);
 }
 
 function renderSystemCommandUsage(commands: SystemCommandSpec[]): string {
