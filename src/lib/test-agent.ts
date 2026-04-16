@@ -3,6 +3,8 @@
 // Minimal ACP-compatible echo agent for testing.
 // Echoes back the prompt text as an agent_message_chunk.
 
+import fs from "node:fs";
+import path from "node:path";
 import { Readable, Writable } from "node:stream";
 import {
   AgentSideConnection,
@@ -27,6 +29,45 @@ import {
   type PromptResponse,
   type CancelNotification,
 } from "@agentclientprotocol/sdk";
+import { z } from "zod";
+
+const testAgentStateSchema = z.object({
+  nextSessionNumber: z.number().int().min(1),
+  sessions: z.array(
+    z.object({
+      sessionId: z.string().min(1),
+      cwd: z.string().min(1),
+    }),
+  ),
+});
+
+type TestAgentState = z.infer<typeof testAgentStateSchema>;
+
+function getStateFile(cwd: string): string {
+  return path.join(cwd, ".acpella/.test-agent.json");
+}
+
+function readState(cwd: string): TestAgentState {
+  const stateFile = getStateFile(cwd);
+  if (fs.existsSync(stateFile)) {
+    try {
+      const parsed: unknown = JSON.parse(fs.readFileSync(stateFile, "utf8"));
+      return testAgentStateSchema.parse(parsed);
+    } catch (e) {
+      console.error(`[test-agent] Failed to read state file: ${stateFile}`, e);
+    }
+  }
+  return {
+    nextSessionNumber: 1,
+    sessions: [],
+  };
+}
+
+function writeState(cwd: string, state: TestAgentState): void {
+  const stateFile = getStateFile(cwd);
+  fs.mkdirSync(path.dirname(stateFile), { recursive: true });
+  fs.writeFileSync(stateFile, JSON.stringify(state, null, 2));
+}
 
 class EchoAgent implements Agent {
   private connection: AgentSideConnection;
@@ -42,30 +83,39 @@ class EchoAgent implements Agent {
     };
   }
 
-  async newSession(_params: NewSessionRequest): Promise<NewSessionResponse> {
-    return { sessionId: "__testLoadSession" };
+  async newSession(params: NewSessionRequest): Promise<NewSessionResponse> {
+    const state = readState(params.cwd);
+    const sessionId = `__testSession${state.nextSessionNumber}`;
+    state.nextSessionNumber += 1;
+    state.sessions.push({ sessionId, cwd: params.cwd });
+    writeState(params.cwd, state);
+    return { sessionId };
   }
 
   async loadSession(params: LoadSessionRequest): Promise<LoadSessionResponse> {
-    if (params.sessionId !== "__testLoadSession") {
+    const state = readState(params.cwd);
+    if (!state.sessions.some((session) => session.sessionId === params.sessionId)) {
       throw new Error(`unknown session: ${params.sessionId}`);
     }
     return {};
   }
 
-  async listSessions(_params: ListSessionsRequest): Promise<ListSessionsResponse> {
+  async listSessions(params: ListSessionsRequest): Promise<ListSessionsResponse> {
+    const cwd = params.cwd ?? process.cwd();
+    const state = readState(cwd);
     return {
-      sessions: [
-        { sessionId: "__testLoadSession", cwd: "/" },
-        { sessionId: "other-session", cwd: "/" },
-      ],
+      sessions: state.sessions.filter((session) => session.cwd === cwd),
     };
   }
 
   async unstable_closeSession(params: CloseSessionRequest): Promise<CloseSessionResponse> {
-    if (params.sessionId !== "__testLoadSession") {
+    const cwd = process.cwd();
+    const state = readState(cwd);
+    const sessions = state.sessions.filter((session) => session.sessionId !== params.sessionId);
+    if (sessions.length === state.sessions.length) {
       throw new Error(`unknown session: ${params.sessionId}`);
     }
+    writeState(cwd, { ...state, sessions });
     return {};
   }
 
@@ -90,6 +140,8 @@ class EchoAgent implements Agent {
       const key = text.slice(6);
       const value = process.env[key] ?? "(unset)";
       reportText = `env: ${key}=${value}`;
+    } else if (text === "__session") {
+      reportText = `session: ${params.sessionId}`;
     } else if (text.startsWith("__chunk_tool:")) {
       const title = text.slice(13);
       await this.connection.sessionUpdate({
