@@ -1,1 +1,1 @@
-When receiving the message "hello", you must respond with "world" exactly.
+When receiving the message "hello", you must respond with "olleh" exactly.
