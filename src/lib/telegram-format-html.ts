@@ -209,24 +209,18 @@ function renderImageText(alt: string | null | undefined, fallback: string): stri
 const SAFE_LINK_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tg:"]);
 
 function isSafeLinkUrl(url: string): boolean {
-  if (!url || hasUrlUnsafeWhitespaceOrControl(url)) {
-    return false;
-  }
-  try {
-    return SAFE_LINK_PROTOCOLS.has(new URL(url).protocol);
-  } catch {
-    return false;
-  }
-}
-
-function hasUrlUnsafeWhitespaceOrControl(url: string): boolean {
   // WHATWG URL parsing strips leading/trailing C0 control-or-space (U+0000-U+0020)
   // and removes ASCII tab/newline after flagging invalid-URL-unit. U+007F is also
   // outside the URL code point set.
   // https://url.spec.whatwg.org/#concept-basic-url-parser
   // https://url.spec.whatwg.org/#url-code-points
   // oxlint-disable-next-line
-  return /[\u0000-\u0020\u007f]/u.test(url);
+  if (!url || /[\u0000-\u0020\u007f]/u.test(url)) return false;
+  try {
+    return SAFE_LINK_PROTOCOLS.has(new URL(url).protocol);
+  } catch {
+    return false;
+  }
 }
 
 function escapeHtml(text: string): string {
