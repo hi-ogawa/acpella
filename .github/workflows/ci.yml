@@ -29,7 +29,5 @@ jobs:
           name: vitest-report
           path: .vitest/html/
           if-no-files-found: ignore
-      - name: Add Vitest report link
-        if: always() && steps.upload-report.outputs.artifact-url != ''
-        run: |
-          echo "[View Vitest report](https://viewer.vitest.dev/?url=${{ steps.upload-report.outputs.artifact-url }})" >> $GITHUB_STEP_SUMMARY
+      - if: always() && steps.upload-report.outputs.artifact-url != ''
+        run: echo "[View Vitest report](https://viewer.vitest.dev/?url=${{ steps.upload-report.outputs.artifact-url }})" >> $GITHUB_STEP_SUMMARY

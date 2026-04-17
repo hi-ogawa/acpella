@@ -1,4 +1,4 @@
-import { defaultExclude, defineConfig, type TestUserConfig } from "vitest/config";
+import { defaultExclude, defineConfig } from "vitest/config";
 
 const isCI = process.env.CI === "true";
 const isGitHubActions = process.env.GITHUB_ACTIONS === "true";
