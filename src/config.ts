@@ -19,7 +19,6 @@ export interface AppConfig {
 const envSchema = z
   .object({
     ACPELLA_HOME: z.string().optional(),
-    ACPELLA_TIMEZONE: z.string().optional(),
     ACPELLA_TELEGRAM_BOT_TOKEN: z.string().optional(),
     ACPELLA_TELEGRAM_ALLOWED_USER_IDS: z.string().optional(),
     ACPELLA_TELEGRAM_ALLOWED_CHAT_IDS: z.string().optional(),
@@ -29,9 +28,7 @@ const envSchema = z
 export function loadConfig(envOverride?: Record<string, string>): AppConfig {
   const env = envSchema.parse({ ...process.env, ...envOverride });
   const home = env.ACPELLA_HOME ? path.resolve(env.ACPELLA_HOME) : process.cwd();
-  const timezone =
-    env.ACPELLA_TIMEZONE ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? "UTC";
-  validateTimezone(timezone);
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   return {
     home,
@@ -46,14 +43,6 @@ export function loadConfig(envOverride?: Record<string, string>): AppConfig {
       file: path.join(home, ".acpella", "AGENTS.md"),
     },
   };
-}
-
-function validateTimezone(timezone: string) {
-  try {
-    new Intl.DateTimeFormat("en-US", { timeZone: timezone }).format();
-  } catch {
-    throw new Error(`Invalid timezone: ${timezone}`);
-  }
 }
 
 function parseIdList(value: string | undefined): number[] | undefined {
