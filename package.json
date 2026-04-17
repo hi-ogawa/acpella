@@ -6,6 +6,7 @@
     "prepare": "vp config",
     "cli": "node --env-file-if-exists=.env src/cli.ts",
     "test": "vitest --project=unit",
+    "test-ci": "CI=true vitest --project=unit --coverage",
     "test-codex": "vitest --project=codex",
     "lint": "vp check --fix",
     "lint-check": "vp check"
@@ -13,11 +14,17 @@
   "dependencies": {
     "@grammyjs/runner": "^2.0.3",
     "grammy": "^1.42.0",
+    "mdast-util-from-markdown": "^2.0.3",
+    "mdast-util-gfm": "^3.1.0",
+    "micromark-extension-gfm": "^3.0.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
     "@agentclientprotocol/sdk": "^0.18.2",
+    "@types/mdast": "^4.0.4",
     "@types/node": "^24.12.2",
+    "@vitest/coverage-v8": "^4.1.4",
+    "@vitest/ui": "^4.1.4",
     "@zed-industries/codex-acp": "^0.11.1",
     "acpx": "^0.5.3",
     "typescript": "^6.0.2",

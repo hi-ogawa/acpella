@@ -6,6 +6,7 @@ import { Bot } from "grammy";
 import { loadConfig, type AppConfig } from "./config.ts";
 import { createHandler, type Handler } from "./handler.ts";
 import { handleSetupSystemd } from "./lib/systemd.ts";
+import { markdownToTelegramHtml } from "./lib/telegram-format-html.ts";
 import { telegramSequentialKey, telegramSessionName } from "./lib/telegram.ts";
 import { formatZonedDateTime } from "./lib/time.ts";
 import { getVersion } from "./lib/version.ts";
@@ -121,7 +122,20 @@ Options:
             timezone: config.timezone,
             sessionName,
           },
-          reply: ctx.reply.bind(ctx),
+          reply: async (replyText) => {
+            const html = markdownToTelegramHtml(replyText);
+            try {
+              return await ctx.reply(html, {
+                parse_mode: "HTML",
+              });
+            } catch (error) {
+              console.warn(
+                `[${sessionName}] formatted reply failed; falling back to raw text:`,
+                error,
+              );
+              return await ctx.reply(replyText);
+            }
+          },
         },
       });
       console.log(`[${sessionName}] -> response sent`);
