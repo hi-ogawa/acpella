@@ -39,8 +39,8 @@ function readPromptFileWithIncludes(file: string, seen: Set<string>): string {
 
   seen.add(file);
   try {
-    const text = fs.readFileSync(file, "utf8");
-    const included = text.replace(INCLUDE_LINE_RE, (line, includePath: string) => {
+    let text = fs.readFileSync(file, "utf8");
+    text = text.replace(INCLUDE_LINE_RE, (line, includePath: string) => {
       const target = path.isAbsolute(includePath)
         ? includePath
         : path.resolve(path.dirname(file), includePath);
@@ -50,13 +50,14 @@ function readPromptFileWithIncludes(file: string, seen: Set<string>): string {
         return line;
       }
     });
-    return included.replace(ACP_DIRECTIVE_LINE_RE, (line, command: string, args?: string) => {
+    text = text.replace(ACP_DIRECTIVE_LINE_RE, (line, command: string, args?: string) => {
       try {
         return expandAcpellaDirective({ line, command, args, file });
       } catch {
         return line;
       }
     });
+    return text;
   } finally {
     seen.delete(file);
   }
