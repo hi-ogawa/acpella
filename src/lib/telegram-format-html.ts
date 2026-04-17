@@ -16,13 +16,11 @@ export function markdownToTelegramHtml(markdown: string): string {
 
 type RenderContext = {
   listItemPrefix: string;
-  wrapFileRefs: boolean;
 };
 
 class TelegramHtmlRenderer {
   context: RenderContext = {
     listItemPrefix: "-",
-    wrapFileRefs: true,
   };
 
   renderRoot(root: Root) {
@@ -106,9 +104,7 @@ class TelegramHtmlRenderer {
         return node.children.map((cell) => this.renderBlock(cell).trim()).join(" | ");
       }
       case "text": {
-        return this.context.wrapFileRefs
-          ? renderTextWithFileReferences(node.value)
-          : escapeHtml(node.value);
+        return escapeHtml(node.value);
       }
       case "thematicBreak": {
         return "---";
@@ -134,7 +130,7 @@ class TelegramHtmlRenderer {
   }
 
   renderLink(rawUrl: string, children: readonly PhrasingContent[]): string {
-    const label = this.withContent({ wrapFileRefs: false }, () => this.renderInline(children));
+    const label = this.renderInline(children);
     const url = rawUrl.trim();
     if (!label || !isSafeLinkUrl(url)) {
       return label;
@@ -209,8 +205,10 @@ function isSafeLinkUrl(url: string): boolean {
   // outside the URL code point set.
   // https://url.spec.whatwg.org/#concept-basic-url-parser
   // https://url.spec.whatwg.org/#url-code-points
-  // oxlint-disable-next-line
-  if (!url || /[\u0000-\u0020\u007f]/u.test(url)) return false;
+  // oxlint-disable-next-line no-control-regex
+  if (!url || /[\u0000-\u0020\u007f]/u.test(url)) {
+    return false;
+  }
   try {
     return SAFE_LINK_PROTOCOLS.has(new URL(url).protocol);
   } catch {
@@ -225,71 +223,4 @@ function escapeHtml(text: string): string {
 
 function escapeHtmlAttr(text: string): string {
   return escapeHtml(text).replace(/"/g, "&quot;");
-}
-
-// ported from
-// https://github.com/openclaw/openclaw/blob/05cac5b980f60f2de9f27332c3bc55f6ff9f64e0/extensions/telegram/src/format.ts#L94-L101
-
-const FILE_REF_EXTENSIONS_PATTERN = ["md", "go", "py", "pl", "sh", "am", "at", "be", "cc"].join(
-  "|",
-);
-
-const FILE_REFERENCE_PATTERN = new RegExp(
-  `(^|[^a-zA-Z0-9_\\-/])([a-zA-Z0-9_.\\-./]+\\.(?:${FILE_REF_EXTENSIONS_PATTERN}))(?=$|[^a-zA-Z0-9_\\-/])`,
-  "gi",
-);
-
-const ORPHANED_TLD_PATTERN = new RegExp(
-  `([^a-zA-Z0-9]|^)([A-Za-z]\\.(?:${FILE_REF_EXTENSIONS_PATTERN}))(?=[^a-zA-Z0-9/]|$)`,
-  "g",
-);
-
-function renderTextWithFileReferences(text: string): string {
-  const pattern = FILE_REFERENCE_PATTERN;
-  pattern.lastIndex = 0;
-
-  let result = "";
-  let index = 0;
-  let match: RegExpExecArray | null;
-
-  while ((match = pattern.exec(text)) !== null) {
-    const prefix = match[1] ?? "";
-    const filename = match[2] ?? "";
-    result += renderTextSegmentWithOrphanedTlds(text.slice(index, match.index));
-    result += renderStandaloneFileRef(match[0], prefix, filename);
-    index = match.index + match[0].length;
-  }
-
-  result += renderTextSegmentWithOrphanedTlds(text.slice(index));
-  return result;
-}
-
-function renderTextSegmentWithOrphanedTlds(text: string): string {
-  const pattern = ORPHANED_TLD_PATTERN;
-  pattern.lastIndex = 0;
-
-  let result = "";
-  let index = 0;
-  let match: RegExpExecArray | null;
-
-  while ((match = pattern.exec(text)) !== null) {
-    const prefix = match[1] ?? "";
-    const tld = match[2] ?? "";
-    result += escapeHtml(text.slice(index, match.index));
-    result +=
-      prefix === ">"
-        ? escapeHtml(match[0])
-        : `${escapeHtml(prefix)}<code>${escapeHtml(tld)}</code>`;
-    index = match.index + match[0].length;
-  }
-
-  result += escapeHtml(text.slice(index));
-  return result;
-}
-
-function renderStandaloneFileRef(match: string, prefix: string, filename: string): string {
-  if (filename.startsWith("//") || /https?:\/\/$/i.test(prefix)) {
-    return escapeHtml(match);
-  }
-  return `${escapeHtml(prefix)}<code>${escapeHtml(filename)}</code>`;
 }
