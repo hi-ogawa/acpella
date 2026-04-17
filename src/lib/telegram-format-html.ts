@@ -67,10 +67,10 @@ class TelegramHtmlRenderer {
         return escapeHtml(node.value);
       }
       case "image": {
-        return renderImageText(node.alt, node.url);
+        return renderImageText(node.alt);
       }
       case "imageReference": {
-        return renderImageText(node.alt, node.label ?? node.identifier);
+        return renderImageText(node.alt);
       }
       case "inlineCode": {
         // Telegram Bot API supports <code> for inline code in HTML parse mode.
@@ -196,8 +196,8 @@ function renderCodeBlock(code: string, rawLanguage?: string | null): string {
   return `<pre><code${classAttr}>${escapeHtml(code)}</code></pre>`;
 }
 
-function renderImageText(alt: string | null | undefined, fallback: string): string {
-  const label = alt?.trim() || fallback.trim();
+function renderImageText(alt: string | null | undefined): string {
+  const label = alt?.trim();
   return label ? escapeHtml(`[Image: ${label}]`) : "[Image]";
 }
 
