@@ -1,3 +1,6 @@
+// TODO: review slop.
+// (temporal polyfill?)
+
 export function formatZonedDateTime(date: Date, timezone: string): string {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: timezone,

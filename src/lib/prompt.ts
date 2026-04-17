@@ -1,11 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
+import { formatZonedDateTime } from "./time.ts";
 
 const INCLUDE_LINE_RE = /^[^\S\r\n]*@(\S+)[^\S\r\n]*$/gm;
 const ACP_DIRECTIVE_LINE_RE = /^[^\S\r\n]*::acpella\s+(\S+)(?:\s+(.+?))?[^\S\r\n]*$/gm;
 
 export interface MessageMetadata {
-  receivedAt: string;
+  timestamp: number;
   timezone: string;
   sessionName: string;
 }
@@ -27,18 +28,20 @@ ${customPrompt.trim()}
   return output;
 }
 
-export function buildMessagePrompt(options: {
-  text: string;
-  messageMetadata: MessageMetadata | undefined;
-}): string {
-  if (!options.messageMetadata) {
+export function buildMessagePrompt(options: { text: string; metadata?: MessageMetadata }): string {
+  if (!options.metadata) {
     return options.text;
   }
+
+  const receivedAt = formatZonedDateTime(
+    new Date(options.metadata.timestamp),
+    options.metadata.timezone,
+  );
   return `\
 <message_metadata>
-received_at: ${options.messageMetadata.receivedAt}
-timezone: ${options.messageMetadata.timezone}
-session_name: ${options.messageMetadata.sessionName}
+received_at: ${receivedAt}
+timezone: ${options.metadata.timezone}
+session_name: ${options.metadata.sessionName}
 </message_metadata>
 
 ${options.text}`;

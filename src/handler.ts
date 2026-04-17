@@ -3,28 +3,36 @@ import type { AgentSession } from "./acp/index.ts";
 import type { AppConfig } from "./config.ts";
 import { createCommandHandler } from "./lib/command.ts";
 import type { CommandTree } from "./lib/command.ts";
-import { buildFirstPrompt, buildMessagePrompt, type MessageMetadata } from "./lib/prompt.ts";
+import { buildFirstPrompt, buildMessagePrompt } from "./lib/prompt.ts";
 import { createReply, MESSAGE_SPLIT_BUDGET } from "./lib/reply.ts";
 import type { Reply, ReplyContext } from "./lib/reply.ts";
 import { createSessionStateStore, parseAgentSessionKey, toAgentSessionKey } from "./state.ts";
 import type { StateAgentSession } from "./state.ts";
 
 export interface Handler {
-  handle: (options: { sessionName: string; context: HandlerContext }) => Promise<void>;
+  handle: (args: HandleArgs) => Promise<void>;
   commands: Record<string, string>;
 }
 
+// TODO: why so nested HandleArgs -> HandlerContext -> metadata?
+interface HandleArgs {
+  sessionName: string;
+  context: HandlerContext;
+}
+
 export interface HandlerContext extends ReplyContext {
-  message?: {
-    text?: string;
+  message: {
+    text: string;
   };
-  messageMetadata?: MessageMetadata;
+  metadata?: {
+    timestamp: number;
+  };
 }
 
 export type SystemCommandContext = {
   reply: Reply;
   sessionName: string;
-  messageMetadata?: MessageMetadata;
+  handlerArgs: HandleArgs;
 };
 
 export async function createHandler(
@@ -50,12 +58,12 @@ export async function createHandler(
     reply,
     sessionName,
     text,
-    messageMetadata,
+    handlerArgs,
   }: {
     reply: Reply;
     sessionName: string;
     text: string;
-    messageMetadata?: MessageMetadata;
+    handlerArgs: HandleArgs;
   }): Promise<void> {
     if (activeSessions.has(sessionName)) {
       await reply.system("Agent turn already in progress. Send /cancel to stop it.");
@@ -66,8 +74,17 @@ export async function createHandler(
     const manager = await getAgentManager(stateSession.agentKey);
 
     let agentSession: AgentSession;
-    const messagePrompt = buildMessagePrompt({ text, messageMetadata });
-    let promptText = messagePrompt;
+    let promptText = text;
+    if (handlerArgs.context.metadata) {
+      promptText = buildMessagePrompt({
+        text,
+        metadata: {
+          timestamp: handlerArgs.context.metadata.timestamp,
+          timezone: config.timezone,
+          sessionName,
+        },
+      });
+    }
     if (stateSession.agentSessionId) {
       agentSession = await manager.loadSession({
         sessionCwd: config.home,
@@ -79,7 +96,7 @@ export async function createHandler(
         agentKey: stateSession.agentKey,
         agentSessionId: agentSession.sessionId,
       });
-      promptText = buildFirstPrompt({ promptFile: config.prompt.file, text: messagePrompt });
+      promptText = buildFirstPrompt({ promptFile: config.prompt.file, text: promptText });
     }
 
     try {
@@ -181,7 +198,7 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
       tokens: ["new"],
       help: "/session new [agent] - Start a new agent session.",
       withArgs: true,
-      run: async ({ args, messageMetadata, reply, sessionName }) => {
+      run: async ({ args, reply, sessionName, handlerArgs }) => {
         const agentKey = args[0];
         if (agentKey) {
           if (!stateStore.get().agents[agentKey]) {
@@ -195,7 +212,7 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
           reply,
           sessionName,
           text: "",
-          messageMetadata,
+          handlerArgs,
         });
       },
     },
@@ -447,7 +464,7 @@ home: ${config.home}
   });
 
   const handle: Handler["handle"] = async (options) => {
-    const text = options.context.message!.text!;
+    const text = options.context.message.text;
     const sessionName = options.sessionName;
     const reply = createReply({
       context: options.context,
@@ -456,7 +473,7 @@ home: ${config.home}
 
     const handledSystem = await systemCommandHandler.handle({
       text,
-      context: { reply, sessionName, messageMetadata: options.context.messageMetadata },
+      context: { reply, sessionName, handlerArgs: options },
     });
     if (handledSystem) {
       return;
@@ -466,7 +483,7 @@ home: ${config.home}
       reply,
       sessionName,
       text,
-      messageMetadata: options.context.messageMetadata,
+      handlerArgs: options,
     });
   };
 

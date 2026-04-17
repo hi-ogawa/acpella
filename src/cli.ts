@@ -8,7 +8,6 @@ import { createHandler, type Handler } from "./handler.ts";
 import { handleSetupSystemd } from "./lib/systemd.ts";
 import { markdownToTelegramHtml } from "./lib/telegram-format-html.ts";
 import { telegramSequentialKey, telegramSessionName } from "./lib/telegram.ts";
-import { formatZonedDateTime } from "./lib/time.ts";
 import { getVersion } from "./lib/version.ts";
 
 async function main() {
@@ -117,10 +116,8 @@ Options:
         sessionName,
         context: {
           message: ctx.message,
-          messageMetadata: {
-            receivedAt: formatZonedDateTime(new Date(), config.timezone),
-            timezone: config.timezone,
-            sessionName,
+          metadata: {
+            timestamp: Date.now(),
           },
           reply: async (replyText) => {
             const html = markdownToTelegramHtml(replyText);
@@ -168,10 +165,8 @@ async function startRepl(config: AppConfig, handler: Handler, version: string) {
         sessionName: "repl",
         context: {
           message: { text },
-          messageMetadata: {
-            receivedAt: formatZonedDateTime(new Date(), config.timezone),
-            timezone: config.timezone,
-            sessionName: "repl",
+          metadata: {
+            timestamp: Date.now(),
           },
           async reply(text) {
             console.log(text);
