@@ -220,13 +220,13 @@ function isSafeLinkUrl(url: string): boolean {
 }
 
 function hasUrlUnsafeWhitespaceOrControl(url: string): boolean {
-  for (const char of url) {
-    const code = char.charCodeAt(0);
-    if (code <= 0x20 || code === 0x7f) {
-      return true;
-    }
-  }
-  return false;
+  // WHATWG URL parsing strips leading/trailing C0 control-or-space (U+0000-U+0020)
+  // and removes ASCII tab/newline after flagging invalid-URL-unit. U+007F is also
+  // outside the URL code point set.
+  // https://url.spec.whatwg.org/#concept-basic-url-parser
+  // https://url.spec.whatwg.org/#url-code-points
+  // oxlint-disable-next-line
+  return /[\u0000-\u0020\u007f]/u.test(url);
 }
 
 function escapeHtml(text: string): string {
