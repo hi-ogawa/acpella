@@ -68,9 +68,7 @@ function expandAcpellaDirective(options: {
     return options.line;
   }
 
-  const skillsDir = path.isAbsolute(options.args)
-    ? options.args
-    : path.resolve(path.dirname(options.file), options.args);
+  const skillsDir = path.resolve(path.dirname(options.file), options.args);
   try {
     return buildSkillsCatalog(skillsDir);
   } catch {
