@@ -235,22 +235,22 @@ function escapeHtmlAttr(text: string): string {
 // ported from
 // https://github.com/openclaw/openclaw/blob/05cac5b980f60f2de9f27332c3bc55f6ff9f64e0/extensions/telegram/src/format.ts#L94-L101
 
-const FILE_REF_EXTENSIONS_WITH_TLD = new Set([
-  "md",
-  "go",
-  "py",
-  "pl",
-  "sh",
-  "am",
-  "at",
-  "be",
-  "cc",
-]);
-let fileReferencePattern: RegExp | undefined;
-let orphanedTldPattern: RegExp | undefined;
+const FILE_REF_EXTENSIONS_PATTERN = ["md", "go", "py", "pl", "sh", "am", "at", "be", "cc"].join(
+  "|",
+);
+
+const FILE_REFERENCE_PATTERN = new RegExp(
+  `(^|[^a-zA-Z0-9_\\-/])([a-zA-Z0-9_.\\-./]+\\.(?:${FILE_REF_EXTENSIONS_PATTERN}))(?=$|[^a-zA-Z0-9_\\-/])`,
+  "gi",
+);
+
+const ORPHANED_TLD_PATTERN = new RegExp(
+  `([^a-zA-Z0-9]|^)([A-Za-z]\\.(?:${FILE_REF_EXTENSIONS_PATTERN}))(?=[^a-zA-Z0-9/]|$)`,
+  "g",
+);
 
 function renderTextWithFileReferences(text: string): string {
-  const pattern = getFileReferencePattern();
+  const pattern = FILE_REFERENCE_PATTERN;
   pattern.lastIndex = 0;
 
   let result = "";
@@ -270,7 +270,7 @@ function renderTextWithFileReferences(text: string): string {
 }
 
 function renderTextSegmentWithOrphanedTlds(text: string): string {
-  const pattern = getOrphanedTldPattern();
+  const pattern = ORPHANED_TLD_PATTERN;
   pattern.lastIndex = 0;
 
   let result = "";
@@ -297,32 +297,4 @@ function renderStandaloneFileRef(match: string, prefix: string, filename: string
     return escapeHtml(match);
   }
   return `${escapeHtml(prefix)}<code>${escapeHtml(filename)}</code>`;
-}
-
-function getFileReferencePattern(): RegExp {
-  if (fileReferencePattern) {
-    return fileReferencePattern;
-  }
-  const fileExtensionsPattern = Array.from(FILE_REF_EXTENSIONS_WITH_TLD).map(escapeRegex).join("|");
-  fileReferencePattern = new RegExp(
-    `(^|[^a-zA-Z0-9_\\-/])([a-zA-Z0-9_.\\-./]+\\.(?:${fileExtensionsPattern}))(?=$|[^a-zA-Z0-9_\\-/])`,
-    "gi",
-  );
-  return fileReferencePattern;
-}
-
-function getOrphanedTldPattern(): RegExp {
-  if (orphanedTldPattern) {
-    return orphanedTldPattern;
-  }
-  const fileExtensionsPattern = Array.from(FILE_REF_EXTENSIONS_WITH_TLD).map(escapeRegex).join("|");
-  orphanedTldPattern = new RegExp(
-    `([^a-zA-Z0-9]|^)([A-Za-z]\\.(?:${fileExtensionsPattern}))(?=[^a-zA-Z0-9/]|$)`,
-    "g",
-  );
-  return orphanedTldPattern;
-}
-
-function escapeRegex(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
