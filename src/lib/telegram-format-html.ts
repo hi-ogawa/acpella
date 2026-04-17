@@ -190,15 +190,10 @@ class TelegramHtmlRenderer {
 }
 
 function renderCodeBlock(code: string, rawLanguage?: string | null): string {
-  const language = sanitizeCodeLanguage(rawLanguage);
+  const language = rawLanguage?.trim();
   // Telegram supports <pre><code> and optional language-* class on <code>.
-  const classAttr = language ? ` class="language-${language}"` : "";
+  const classAttr = language && /^[\w-]+$/.test(language) ? ` class="language-${language}"` : "";
   return `<pre><code${classAttr}>${escapeHtml(code)}</code></pre>`;
-}
-
-function sanitizeCodeLanguage(rawLanguage?: string | null): string {
-  const language = rawLanguage?.trim().split(/\s+/)[0] ?? "";
-  return language.replace(/[^A-Za-z0-9_-]/g, "");
 }
 
 function renderImageText(alt: string | null | undefined, fallback: string): string {
