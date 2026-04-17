@@ -20,7 +20,7 @@ type RenderContext = {
 };
 
 class TelegramHtmlRenderer {
-  private context: RenderContext = {
+  context: RenderContext = {
     listItemPrefix: "-",
     wrapFileRefs: true,
   };
@@ -29,7 +29,7 @@ class TelegramHtmlRenderer {
     return this.renderBlocks(root.children);
   }
 
-  private renderBlock(node: RootContent): string {
+  renderBlock(node: RootContent): string {
     switch (node.type) {
       case "blockquote": {
         // Telegram Bot API supports <blockquote>; OpenClaw's Telegram renderer uses this tag.
@@ -129,11 +129,11 @@ class TelegramHtmlRenderer {
       .join("\n\n");
   }
 
-  private renderInline(nodes: readonly PhrasingContent[]): string {
+  renderInline(nodes: readonly PhrasingContent[]): string {
     return nodes.map((node) => this.renderBlock(node)).join("");
   }
 
-  private renderLink(rawUrl: string, children: readonly PhrasingContent[]): string {
+  renderLink(rawUrl: string, children: readonly PhrasingContent[]): string {
     const label = this.withContent({ wrapFileRefs: false }, () => this.renderInline(children));
     const url = rawUrl.trim();
     if (!label || !isSafeLinkUrl(url)) {
@@ -143,7 +143,7 @@ class TelegramHtmlRenderer {
     return `<a href="${escapeHtmlAttr(url)}">${label}</a>`;
   }
 
-  private renderList(list: List): string {
+  renderList(list: List): string {
     return list.children
       .map((item, index) =>
         this.withContent(
@@ -157,7 +157,7 @@ class TelegramHtmlRenderer {
       .join("\n");
   }
 
-  private renderListItem(item: ListItem): string {
+  renderListItem(item: ListItem): string {
     const prefix = this.context.listItemPrefix;
     const body = item.children
       .map((child) => this.renderBlock(child))
@@ -174,11 +174,11 @@ class TelegramHtmlRenderer {
       .join("\n");
   }
 
-  private renderTable(table: Table): string {
+  renderTable(table: Table): string {
     return table.children.map((row) => this.renderBlock(row)).join("\n");
   }
 
-  private withContent(patch: Partial<RenderContext>, render: () => string): string {
+  withContent(patch: Partial<RenderContext>, render: () => string): string {
     const previous = this.context;
     this.context = { ...previous, ...patch };
     try {
