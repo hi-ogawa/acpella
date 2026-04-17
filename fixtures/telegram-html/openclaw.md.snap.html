@@ -1,0 +1,75 @@
+Inline formatting:
+hi <i>there</i> <b>boss</b> <code>code</code>
+
+Link:
+see <a href="https://example.com">docs</a>
+
+Raw HTML:
+&lt;b&gt;nope&lt;/b&gt;
+
+Unsafe characters:
+a &amp; b &lt; c
+
+Paragraphs:
+first
+
+second
+
+Unordered list:
+
+- one
+- two
+
+Inline ordered-list-looking text:
+Ordered list: 2. two 3. three
+
+<b>Heading</b>
+
+Blockquote:
+
+<blockquote><b>bold</b> quote</blockquote>
+
+Multiline blockquote:
+
+<blockquote>first
+second</blockquote>
+
+Separated blockquotes:
+
+<blockquote>first</blockquote>
+
+<blockquote>second</blockquote>
+
+Fenced code:
+
+<pre><code class="language-js">const x = 1;</code></pre>
+
+Autolink literal inside bold:
+<b>start <a href="https://example.com">https://example.com</a></b> end
+
+Nested link and bold:
+<b>bold <a href="https://example.com">link</a> text</b>
+
+Bold link with trailing text:
+<b><a href="https://example.com">link</a> rest</b>
+
+Bold inside link:
+<a href="https://example.com"><b>bold</b></a>
+
+File reference wrapping:
+See README.md. Also (backup.sh).
+
+Spoiler:
+the answer is ||42||
+
+Spoiler with nested formatting:
+||<b>secret</b> text||
+
+Single pipe is not spoiler:
+(￣_￣|) face
+
+Unpaired spoiler delimiter:
+before || after
+
+Valid spoiler pair with trailing unmatched delimiter:
+||secret|| trailing ||
