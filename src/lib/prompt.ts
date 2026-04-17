@@ -1,15 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
-import { formatZonedDateTime } from "./time.ts";
+import { Temporal } from "temporal-polyfill";
 
 const INCLUDE_LINE_RE = /^[^\S\r\n]*@(\S+)[^\S\r\n]*$/gm;
 const ACP_DIRECTIVE_LINE_RE = /^[^\S\r\n]*::acpella\s+(\S+)(?:\s+(.+?))?[^\S\r\n]*$/gm;
-
-export interface MessageMetadata {
-  timestamp: number;
-  timezone: string;
-  sessionName: string;
-}
 
 export function buildFirstPrompt(options: { promptFile: string; text: string }): string {
   let output = "";
@@ -28,11 +22,21 @@ ${customPrompt.trim()}
   return output;
 }
 
+export interface MessageMetadata {
+  timestamp: number;
+  timezone: string;
+  sessionName: string;
+}
+
 export function buildMessagePrompt(options: { text: string; metadata: MessageMetadata }): string {
-  const receivedAt = formatZonedDateTime(
-    new Date(options.metadata.timestamp),
-    options.metadata.timezone,
-  );
+  const receivedAt = Temporal.Instant.fromEpochMilliseconds(options.metadata.timestamp)
+    .toZonedDateTimeISO(options.metadata.timezone)
+    .toString({
+      calendarName: "never",
+      fractionalSecondDigits: 0,
+      smallestUnit: "second",
+      timeZoneName: "never",
+    });
   return `\
 <message_metadata>
 received_at: ${receivedAt}

@@ -1,6 +1,6 @@
 import path from "node:path";
 import { expect, test } from "vitest";
-import { buildFirstPrompt } from "./prompt.ts";
+import { buildFirstPrompt, buildMessagePrompt } from "./prompt.ts";
 
 test("basic", () => {
   const output = buildFirstPrompt({
@@ -32,6 +32,26 @@ test("not-found", () => {
     text: "my first message",
   });
   expect(output).toMatchInlineSnapshot(`"my first message"`);
+});
+
+test("message metadata", () => {
+  const output = buildMessagePrompt({
+    text: "my message",
+    metadata: {
+      timestamp: Date.UTC(2024, 0, 2, 3, 4, 5),
+      timezone: "Asia/Tokyo",
+      sessionName: "my-session",
+    },
+  });
+  expect(output).toMatchInlineSnapshot(`
+    "<message_metadata>
+    received_at: 2024-01-02T12:04:05+09:00
+    timezone: Asia/Tokyo
+    session_name: my-session
+    </message_metadata>
+
+    my message"
+  `);
 });
 
 test("acpella skills directive", () => {
