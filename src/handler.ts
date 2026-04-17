@@ -3,7 +3,7 @@ import type { AgentSession } from "./acp/index.ts";
 import type { AppConfig } from "./config.ts";
 import { createCommandHandler } from "./lib/command.ts";
 import type { CommandTree } from "./lib/command.ts";
-import { buildFirstPrompt, buildMessagePrompt } from "./lib/prompt.ts";
+import { buildFirstPrompt, buildMessageMetadataPrompt } from "./lib/prompt.ts";
 import { createReply, MESSAGE_SPLIT_BUDGET } from "./lib/reply.ts";
 import type { Reply, ReplyContext } from "./lib/reply.ts";
 import { createSessionStateStore, parseAgentSessionKey, toAgentSessionKey } from "./state.ts";
@@ -74,17 +74,7 @@ export async function createHandler(
     const manager = await getAgentManager(stateSession.agentKey);
 
     let agentSession: AgentSession;
-    let promptText = text;
-    if (handlerArgs.context.metadata) {
-      promptText = buildMessagePrompt({
-        text,
-        metadata: {
-          timestamp: handlerArgs.context.metadata.timestamp,
-          timezone: config.timezone,
-          sessionName,
-        },
-      });
-    }
+    let promptText = "";
     if (stateSession.agentSessionId) {
       agentSession = await manager.loadSession({
         sessionCwd: config.home,
@@ -96,8 +86,16 @@ export async function createHandler(
         agentKey: stateSession.agentKey,
         agentSessionId: agentSession.sessionId,
       });
-      promptText = buildFirstPrompt({ promptFile: config.prompt.file, text: promptText });
+      promptText += buildFirstPrompt(config.prompt.file);
     }
+    if (handlerArgs.context.metadata) {
+      promptText += buildMessageMetadataPrompt({
+        timestamp: handlerArgs.context.metadata.timestamp,
+        timezone: config.timezone,
+        sessionName,
+      });
+    }
+    promptText += text;
 
     try {
       const { queue } = agentSession.prompt(promptText);
