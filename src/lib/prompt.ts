@@ -51,7 +51,11 @@ function readPromptFileWithIncludes(file: string, seen: Set<string>): string {
       }
     });
     return included.replace(ACP_DIRECTIVE_LINE_RE, (line, command: string, args?: string) => {
-      return expandAcpellaDirective({ line, command, args, file });
+      try {
+        return expandAcpellaDirective({ line, command, args, file });
+      } catch {
+        return line;
+      }
     });
   } finally {
     seen.delete(file);
@@ -69,11 +73,7 @@ function expandAcpellaDirective(options: {
   }
 
   const skillsDir = path.resolve(path.dirname(options.file), options.args);
-  try {
-    return buildSkillsCatalog(skillsDir);
-  } catch {
-    return options.line;
-  }
+  return buildSkillsCatalog(skillsDir);
 }
 
 function buildSkillsCatalog(skillsDir: string): string {
