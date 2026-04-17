@@ -113,7 +113,8 @@ class TelegramHtmlRenderer {
         return escapeHtml(node.value);
       }
       default: {
-        return node satisfies never;
+        node satisfies never;
+        return "";
       }
     }
   }
