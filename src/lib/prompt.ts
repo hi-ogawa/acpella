@@ -28,11 +28,7 @@ ${customPrompt.trim()}
   return output;
 }
 
-export function buildMessagePrompt(options: { text: string; metadata?: MessageMetadata }): string {
-  if (!options.metadata) {
-    return options.text;
-  }
-
+export function buildMessagePrompt(options: { text: string; metadata: MessageMetadata }): string {
   const receivedAt = formatZonedDateTime(
     new Date(options.metadata.timestamp),
     options.metadata.timezone,
