@@ -77,58 +77,41 @@ function expandAcpellaDirective(options: {
 }
 
 function buildSkillsCatalog(skillsDir: string): string {
-  const skills = fs
-    .readdirSync(skillsDir, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .flatMap((entry) =>
-      readSkillCatalogEntry({
-        directory: entry.name,
-        file: path.join(skillsDir, entry.name, "SKILL.md"),
-      }),
-    );
+  const skillsDirStat = fs.statSync(skillsDir);
+  if (!skillsDirStat.isDirectory()) {
+    throw new Error(`Skills path is not a directory: ${skillsDir}`);
+  }
 
-  skills.sort((a, b) => a.directory.localeCompare(b.directory));
+  const files = fs.globSync("*/SKILL.md", { cwd: skillsDir });
+  files.sort();
 
   // Keep this catalog close to Codex's skill listing: metadata and file path only.
   let output = "";
-  for (const skill of skills) {
-    output += `${output ? "\n\n" : ""}- Skill directory: ${skill.directory}
-  File: ${skill.file}
+  for (const file of files) {
+    const filePath = path.resolve(skillsDir, file);
+    let content: string;
+    try {
+      content = fs.readFileSync(filePath, "utf8");
+    } catch {
+      continue;
+    }
+    output += `
+- Skill directory: ${path.basename(path.dirname(filePath))}
+  File: ${filePath}
   Frontmatter:
-${indentBlock(skill.frontmatter ?? "(none)", "    ")}`;
+${addIndent(readFrontmatter(content) ?? "(none)", "    ")}
+`;
   }
-  return output ? `${output}\n` : "";
+  return output.trim() + "\n";
 }
 
-function readSkillCatalogEntry(options: {
-  directory: string;
-  file: string;
-}): { directory: string; file: string; frontmatter?: string }[] {
-  let text: string;
-  try {
-    text = fs.readFileSync(options.file, "utf8");
-  } catch {
-    return [];
-  }
+const FRONTMATTER_RE = /^---(?:\r?\n[\s\S]*?\r?\n)---(?=\r?\n|$)/;
 
-  return [
-    {
-      directory: options.directory,
-      file: options.file,
-      frontmatter: readFrontmatter(text),
-    },
-  ];
+function readFrontmatter(content: string) {
+  return content.match(FRONTMATTER_RE)?.[0];
 }
 
-function readFrontmatter(text: string): string | undefined {
-  const match = /^---(?:\r?\n[\s\S]*?\r?\n)---(?=\r?\n|$)/.exec(text);
-  if (!match) {
-    return;
-  }
-  return match[0];
-}
-
-function indentBlock(text: string, indent: string): string {
+function addIndent(text: string, indent: string): string {
   return text
     .split(/\r?\n/)
     .map((line) => `${indent}${line}`)
