@@ -28,16 +28,12 @@ test(getNextOccurrence, () => {
       timezone: "Asia/Tokyo",
       after: Temporal.Instant.from("2026-04-18T00:00:00Z"),
     }),
-  ).toMatchInlineSnapshot(`
-    {
-      "instant": "2026-04-19T23:00:00Z",
-    }
-  `);
+  ).toMatchInlineSnapshot(`"2026-04-19T23:00:00Z"`);
   expect(
     getNextOccurrence({
       schedule: "* * * * *",
       timezone: "UTC",
       after: Temporal.Instant.from("2026-04-18T00:00:00Z"),
-    }).instant,
+    }),
   ).toMatchInlineSnapshot(`"2026-04-18T00:01:00Z"`);
 });

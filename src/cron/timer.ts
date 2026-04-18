@@ -19,11 +19,7 @@ export interface CronTimer {
 
 interface ScheduledEntry {
   entry: CronTimerEntry;
-  next: CronOccurrence;
-}
-
-interface CronOccurrence {
-  instant: Temporal.Instant;
+  next: Temporal.Instant;
 }
 
 export function validateCronSchedule(options: { schedule: string; timezone: string }): void {
@@ -81,8 +77,8 @@ export function createCronTimer(options: {
     const current = now();
     let nextInstant: Temporal.Instant | undefined;
     for (const scheduledEntry of scheduledEntries.values()) {
-      if (!nextInstant || Temporal.Instant.compare(scheduledEntry.next.instant, nextInstant) < 0) {
-        nextInstant = scheduledEntry.next.instant;
+      if (!nextInstant || Temporal.Instant.compare(scheduledEntry.next, nextInstant) < 0) {
+        nextInstant = scheduledEntry.next;
       }
     }
     if (!nextInstant) {
@@ -101,24 +97,24 @@ export function createCronTimer(options: {
 
     const current = now();
     for (const scheduledEntry of scheduledEntries.values()) {
-      if (Temporal.Instant.compare(scheduledEntry.next.instant, current) > 0) {
+      if (Temporal.Instant.compare(scheduledEntry.next, current) > 0) {
         continue;
       }
       const due = scheduledEntry.next;
-      Promise.resolve(
-        options.onDue({ id: scheduledEntry.entry.id, scheduledAt: due.instant }),
-      ).catch((error: unknown) => {
-        if (options.onError) {
-          options.onError(error);
-          return;
-        }
-        setTimeout(() => {
-          throw error;
-        }, 0);
-      });
+      Promise.resolve(options.onDue({ id: scheduledEntry.entry.id, scheduledAt: due })).catch(
+        (error: unknown) => {
+          if (options.onError) {
+            options.onError(error);
+            return;
+          }
+          setTimeout(() => {
+            throw error;
+          }, 0);
+        },
+      );
       scheduledEntry.next = getNextOccurrence({
         ...scheduledEntry.entry,
-        after: due.instant,
+        after: due,
       });
     }
     scheduleWakeup();
@@ -136,15 +132,14 @@ export function getNextOccurrence(options: {
   schedule: string;
   timezone: string;
   after: Temporal.Instant;
-}): CronOccurrence {
+}): Temporal.Instant {
   const cron = createPausedCron(options);
   try {
     const nextRun = cron.nextRun(new Date(options.after.epochMilliseconds));
     if (!nextRun) {
       throw new Error(`No cron occurrence found: ${options.schedule}`);
     }
-    const instant = Temporal.Instant.fromEpochMilliseconds(nextRun.getTime());
-    return { instant };
+    return Temporal.Instant.fromEpochMilliseconds(nextRun.getTime());
   } finally {
     cron.stop();
   }
