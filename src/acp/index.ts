@@ -12,53 +12,42 @@ import {
 import { AsyncQueue } from "../lib/async-queue.ts";
 import { objectPickBy } from "../lib/utils.ts";
 
-// TODO: review slop (NEVER REMOVE THIS COMMENT)
-
-// Design: session ownership
-//
-//   Option A: startAcpAgent → manager, manager.newSession() → session
-//     manager owns process lifecycle (spawn + initialize).
-//     session owns conversation lifecycle (newSession + prompt + close).
-//     The ACP protocol allows multiple sessions per process.
-//
-//   Option B (current): startAcpAgent → { newSession, loadSession }, each spawns its own process.
-//     Simpler. acpx does the same — one process per named session.
-//
-// Option B was chosen for simplicity, matching acpx's real-world behavior.
-
-export async function startAcpManager(options: { command: string; cwd: string }) {
+// we spawn a process per session instead of per acp command for simplicity.
+// this is likey more robust without acp agent capability assumption
+// and process startup time is negligible compared to LLM interaction itself
+export async function startAcpManager(acpOptions: { command: string; cwd: string }) {
   return {
     async newSession(sessionOptions: { sessionCwd: string }) {
-      const agent = await spawnAgent(options);
+      const agent = await spawnAgent(acpOptions);
       const session = await agent.connection.newSession({
         cwd: sessionOptions.sessionCwd,
         mcpServers: [],
       });
       const sessionId = session.sessionId;
-      return createSession({ agent, sessionId });
+      return toSessionProcess(agent, sessionId);
     },
     async loadSession(sessionOptions: { sessionCwd: string; sessionId: string }) {
-      const agent = await spawnAgent(options);
+      const agent = await spawnAgent(acpOptions);
       const { sessionId } = sessionOptions;
       await agent.connection.loadSession({
         sessionId,
         cwd: sessionOptions.sessionCwd,
         mcpServers: [],
       });
-      return createSession({ agent, sessionId });
+      return toSessionProcess(agent, sessionId);
     },
-    async closeSession(sessionOptions: { sessionId: string }): Promise<void> {
-      const agent = await spawnAgent(options);
+    async closeSession({ sessionId }: { sessionId: string }): Promise<void> {
+      const agent = await spawnAgent(acpOptions);
       try {
-        await agent.connection.unstable_closeSession({ sessionId: sessionOptions.sessionId });
+        await agent.connection.unstable_closeSession({ sessionId });
       } finally {
         agent.stop();
       }
     },
     async listSessions(): Promise<ListSessionsResponse> {
-      const agent = await spawnAgent(options);
+      const agent = await spawnAgent(acpOptions);
       try {
-        return await agent.connection.listSessions({ cwd: options.cwd });
+        return await agent.connection.listSessions({ cwd: acpOptions.cwd });
       } finally {
         agent.stop();
       }
@@ -67,7 +56,7 @@ export async function startAcpManager(options: { command: string; cwd: string })
 }
 
 export type AgentProcess = Awaited<ReturnType<typeof spawnAgent>>;
-export type AgentSessionProcess = Awaited<ReturnType<typeof createSession>>;
+export type AgentSessionProcess = Awaited<ReturnType<typeof toSessionProcess>>;
 
 async function spawnAgent({ command, cwd }: { command: string; cwd: string }) {
   const [cmd, ...args] = command.trim().split(/\s+/);
@@ -157,6 +146,7 @@ function createExitPromise(child: ChildProcess): {
   };
 }
 
+// TODO: deslop
 function pipeAgentStderr(stderr: Readable): void {
   let buffered = "";
   stderr.setEncoding("utf8");
@@ -177,21 +167,18 @@ function pipeAgentStderr(stderr: Readable): void {
   });
 }
 
-async function createSession(options: { agent: AgentProcess; sessionId: string }) {
-  const { agent } = options;
+async function toSessionProcess(agent: AgentProcess, sessionId: string) {
   return {
-    sessionId: options.sessionId,
+    ...agent,
+    sessionId,
     prompt(text: string) {
       return promptAgent(agent, {
-        sessionId: options.sessionId,
+        sessionId,
         prompt: [{ type: "text", text }],
       });
     },
     async cancel(): Promise<void> {
-      await agent.connection.cancel({ sessionId: options.sessionId });
-    },
-    stop() {
-      agent.stop();
+      await agent.connection.cancel({ sessionId });
     },
   };
 }
