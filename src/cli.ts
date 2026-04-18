@@ -2,11 +2,16 @@ import path from "node:path";
 import { createInterface } from "node:readline/promises";
 import { parseArgs } from "node:util";
 import { run, sequentialize } from "@grammyjs/runner";
-import { Bot, GrammyError, type Context } from "grammy";
+import { Bot } from "grammy";
 import { loadConfig, type AppConfig } from "./config.ts";
 import { createHandler, type Handler } from "./handler.ts";
 import { handleSetupSystemd } from "./lib/systemd.ts";
 import { markdownToTelegramHtml } from "./lib/telegram-format-html.ts";
+import {
+  formatTelegramSessionName,
+  getTelegramRetryAfter,
+  normalizeUserMention,
+} from "./lib/telegram/utils.ts";
 import { addIndent, sleep, truncateString } from "./lib/utils.ts";
 import { getVersion } from "./lib/version.ts";
 
@@ -81,6 +86,9 @@ Options:
   }
 
   const bot = new Bot(config.telegram.token);
+  const botInfo = await bot.api.getMe();
+  const botUsername = botInfo.username;
+
   try {
     const commands = Object.entries(handler.commands).map(([command, description]) => ({
       command,
@@ -102,7 +110,10 @@ Options:
   bot.use(
     sequentialize((ctx) => {
       let key = formatTelegramSessionName(ctx);
-      const text = ctx.message?.text?.trim() ?? "";
+      const text = normalizeUserMention({
+        text: ctx.message?.text?.trim() ?? "",
+        username: botUsername,
+      });
       if (text === "/status" || text === "/cancel") {
         key += text;
       }
@@ -155,7 +166,10 @@ Options:
     try {
       await handler.handle({
         sessionName,
-        text: ctx.message.text,
+        text: normalizeUserMention({
+          text: ctx.message.text,
+          username: botUsername,
+        }),
         metadata: {
           timestamp: ctx.message.date * 1000,
         },
@@ -196,18 +210,6 @@ Options:
     },
   });
   await runner.task();
-}
-
-function formatTelegramSessionName(context: Context): string {
-  return ["tg", context.chat?.id ?? "unknown", context.message?.message_thread_id]
-    .filter(Boolean)
-    .join("-");
-}
-
-function getTelegramRetryAfter(error: unknown): number | undefined {
-  if (error instanceof GrammyError && error.error_code === 429) {
-    return error.parameters.retry_after;
-  }
 }
 
 async function startRepl(config: AppConfig, handler: Handler, version: string) {
