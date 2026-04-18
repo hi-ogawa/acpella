@@ -19,12 +19,11 @@ export async function startAcpManager(acpOptions: { command: string; cwd: string
   return {
     async newSession(sessionOptions: { sessionCwd: string }) {
       const agent = await spawnAgent(acpOptions);
-      const session = await agent.connection.newSession({
+      const response = await agent.connection.newSession({
         cwd: sessionOptions.sessionCwd,
         mcpServers: [],
       });
-      const sessionId = session.sessionId;
-      return toSessionProcess(agent, sessionId);
+      return toSessionProcess(agent, response.sessionId);
     },
     async loadSession(sessionOptions: { sessionCwd: string; sessionId: string }) {
       const agent = await spawnAgent(acpOptions);
