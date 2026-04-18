@@ -1,8 +1,9 @@
 import path from "node:path";
 import { createInterface } from "node:readline/promises";
+import { setTimeout as sleep } from "node:timers/promises";
 import { parseArgs } from "node:util";
 import { run, sequentialize } from "@grammyjs/runner";
-import { Bot, Context } from "grammy";
+import { Bot, GrammyError, type Context } from "grammy";
 import { loadConfig, type AppConfig } from "./config.ts";
 import { createHandler, type Handler } from "./handler.ts";
 import { handleSetupSystemd } from "./lib/systemd.ts";
@@ -88,8 +89,20 @@ Options:
     }));
     await bot.api.setMyCommands(commands);
   } catch (error) {
-    console.error("[telegram] failed to register bot commands:", error);
+    console.error("[telegram] failed to register bot commands:", summarizeError(error));
   }
+
+  bot.catch((error) => {
+    const ctx = error.ctx;
+    const sessionName = telegramSessionName(ctx);
+    const label = `[${sessionName}:${ctx.message?.message_id ?? "unknown"}]`;
+    console.error(`${label} (bot error)`, {
+      updateId: ctx.update.update_id,
+      chatId: ctx.chat?.id,
+      threadId: ctx.message?.message_thread_id,
+      error: summarizeError(error.error),
+    });
+  });
 
   // handle messages from each session and system commands concurrently
   bot.use(
@@ -140,16 +153,29 @@ Options:
               parse_mode: "HTML",
             });
           } catch (error) {
-            console.error(`${label} formatted reply failed; falling back to raw text:`, error);
+            if (getTelegramRetryAfter(error) !== undefined) {
+              throw error;
+            }
+            console.error(
+              `${label} formatted reply failed; falling back to raw text:`,
+              summarizeError(error),
+            );
             return await ctx.reply(replyText);
           }
         },
       });
       console.log(`${label} (response ok)`);
     } catch (error) {
-      console.error(`${label} (response error)`, error);
+      console.error(`${label} (response error)`, summarizeError(error));
       const message = error instanceof Error ? error.message : String(error);
-      await ctx.reply(`Error: ${truncateString(message, 200)}`);
+      try {
+        await retryTelegram429Once({
+          label,
+          action: () => ctx.reply(`Error: ${truncateString(message, 200)}`),
+        });
+      } catch (replyError) {
+        console.error(`${label} error reply failed; giving up:`, summarizeError(replyError));
+      }
     }
   });
 
@@ -168,6 +194,55 @@ function telegramSessionName(context: Context): string {
   return ["tg", context.chat?.id ?? "unknown", context.message?.message_thread_id]
     .filter(Boolean)
     .join("-");
+}
+
+function getTelegramRetryAfter(error: unknown): number | undefined {
+  if (!(error instanceof GrammyError) || error.error_code !== 429) {
+    return;
+  }
+  return error.parameters.retry_after;
+}
+
+async function retryTelegram429Once<T>(options: {
+  label: string;
+  action: () => Promise<T>;
+}): Promise<T> {
+  try {
+    return await options.action();
+  } catch (error) {
+    const retryAfter = getTelegramRetryAfter(error);
+    if (retryAfter === undefined) {
+      throw error;
+    }
+
+    const delaySeconds = retryAfter + 1;
+    console.warn(
+      `${options.label} telegram flood control; retrying in ${delaySeconds}s:`,
+      summarizeError(error),
+    );
+    await sleep(delaySeconds * 1000);
+    return await options.action();
+  }
+}
+
+function summarizeError(error: unknown): unknown {
+  if (error instanceof GrammyError) {
+    return {
+      name: error.name,
+      message: error.message,
+      method: error.method,
+      errorCode: error.error_code,
+      description: error.description,
+      retryAfter: error.parameters.retry_after,
+    };
+  }
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+    };
+  }
+  return String(error);
 }
 
 async function startRepl(config: AppConfig, handler: Handler, version: string) {
