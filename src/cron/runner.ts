@@ -1,4 +1,4 @@
-import { Temporal } from "temporal-polyfill";
+import { formatError, formatInstant } from "../lib/utils.ts";
 import type { CronJob, CronStore, CronTelegramTarget } from "./store.ts";
 import { CronScheduler, type CronDueEvent } from "./timer.ts";
 
@@ -47,60 +47,49 @@ export class CronRunner {
   }
 
   async executeCronJob(job: CronJob, event: CronDueEvent) {
-    const options = {
-      job,
-      scheduledAt: event.scheduledAt,
-      store: this.options.store,
-      agent: this.options.agent,
-      delivery: this.options.delivery,
-    };
-    const scheduledAt = formatStoredInstant(options.scheduledAt);
-    const startedAt = formatStoredInstant(now());
-    const run = options.store.startRun({
-      cronId: options.job.id,
+    const { store } = this.options;
+    const scheduledAt = formatInstant(event.scheduledAt);
+    const startedAt = Temporal.Now.instant();
+    const run = store.startRun({
+      cronId: job.id,
       scheduledAt,
-      startedAt,
+      startedAt: formatInstant(startedAt),
     });
     if (!run) {
-      return { status: "duplicate" };
+      return;
     }
 
     try {
       const prompt = buildCronPrompt({
-        cronId: options.job.id,
-        scheduledAt: formatZonedInstant({
-          instant: options.scheduledAt,
-          timezone: options.job.timezone,
-        }),
-        startedAt,
-        timezone: options.job.timezone,
-        sessionName: options.job.target.sessionName,
-        prompt: options.job.prompt,
+        cronId: job.id,
+        scheduledAt: formatInstant(event.scheduledAt, job.timezone),
+        startedAt: formatInstant(startedAt, job.timezone),
+        timezone: job.timezone,
+        sessionName: job.target.sessionName,
+        prompt: job.prompt,
       });
-      const response = await options.agent.promptSession({
-        sessionName: options.job.target.sessionName,
+      const response = await this.options.agent.promptSession({
+        sessionName: job.target.sessionName,
         prompt,
       });
-      await options.delivery.sendTelegram(options.job.target.telegram, response);
-      options.store.finishRun({
-        cronId: options.job.id,
+      await this.options.delivery.sendTelegram(job.target.telegram, response);
+      store.finishRun({
+        cronId: job.id,
         scheduledAt,
-        finishedAt: formatStoredInstant(now()),
+        finishedAt: formatInstant(Temporal.Now.instant()),
         status: "succeeded",
       });
     } catch (error) {
-      options.store.finishRun({
-        cronId: options.job.id,
+      store.finishRun({
+        cronId: job.id,
         scheduledAt,
-        finishedAt: formatStoredInstant(now()),
+        finishedAt: formatInstant(Temporal.Now.instant()),
         status: "failed",
         error: formatError(error),
       });
     }
   }
 }
-
-const now = () => Temporal.Now.instant();
 
 function buildCronPrompt(options: {
   cronId: string;
@@ -122,28 +111,4 @@ session_name: ${options.sessionName}
 
 ${options.prompt}
 `;
-}
-
-function formatStoredInstant(instant: Temporal.Instant): string {
-  return instant.toString({
-    fractionalSecondDigits: 0,
-    smallestUnit: "second",
-  });
-}
-
-// TODO: move lib/utils.ts
-function formatZonedInstant(options: { instant: Temporal.Instant; timezone: string }): string {
-  return options.instant.toZonedDateTimeISO(options.timezone).toString({
-    calendarName: "never",
-    fractionalSecondDigits: 0,
-    smallestUnit: "second",
-    timeZoneName: "never",
-  });
-}
-
-function formatError(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-  return String(error);
 }

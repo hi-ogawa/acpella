@@ -20,3 +20,25 @@ export function objectPickBy<K extends PropertyKey, V>(
 }
 
 export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+export function formatInstant(instant: Temporal.Instant, timezone?: string): string {
+  if (timezone) {
+    return instant.toZonedDateTimeISO(timezone).toString({
+      calendarName: "never",
+      fractionalSecondDigits: 0,
+      smallestUnit: "second",
+      timeZoneName: "never",
+    });
+  }
+  return instant.toString({
+    fractionalSecondDigits: 0,
+    smallestUnit: "second",
+  });
+}
+
+export function formatError(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
+}

@@ -1,3 +1,4 @@
+import "temporal-polyfill/global";
 import path from "node:path";
 import { createInterface } from "node:readline/promises";
 import { parseArgs } from "node:util";
