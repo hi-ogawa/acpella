@@ -180,7 +180,7 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
           stateStore.setSession(sessionName, { agentKey });
         }
         stateStore.setSession(sessionName, { agentSessionId: undefined });
-        await handlePrompt(context);
+        await handlePrompt({ ...context, text: "" });
       },
     },
     {
