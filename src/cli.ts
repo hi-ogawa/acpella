@@ -93,7 +93,7 @@ Options:
 
   bot.catch((error) => {
     const ctx = error.ctx;
-    const sessionName = telegramSessionName(ctx);
+    const sessionName = formatTelegramSessionName(ctx);
     const label = `[${sessionName}:${ctx.message?.message_id ?? "unknown"}]`;
     console.error(`${label} (bot error)`, error.error);
   });
@@ -101,7 +101,7 @@ Options:
   // handle messages from each session and system commands concurrently
   bot.use(
     sequentialize((ctx) => {
-      let key = telegramSessionName(ctx);
+      let key = formatTelegramSessionName(ctx);
       const text = ctx.message?.text?.trim() ?? "";
       if (text === "/status" || text === "/cancel") {
         key += text;
@@ -113,7 +113,7 @@ Options:
   bot.on("message:text", async (ctx) => {
     const chatId = ctx.chat.id;
     const userId = ctx.from?.id;
-    const sessionName = telegramSessionName(ctx);
+    const sessionName = formatTelegramSessionName(ctx);
     const label = `[${sessionName}:${ctx.message.message_id}]`;
 
     if (allowedChats.size && !allowedChats.has(chatId)) {
@@ -198,7 +198,7 @@ Options:
   await runner.task();
 }
 
-function telegramSessionName(context: Context): string {
+function formatTelegramSessionName(context: Context): string {
   return ["tg", context.chat?.id ?? "unknown", context.message?.message_thread_id]
     .filter(Boolean)
     .join("-");
