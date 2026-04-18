@@ -1,11 +1,6 @@
 import { Temporal } from "temporal-polyfill";
 import type { CronJob, CronRun, CronStore, CronTelegramTarget } from "./store.ts";
-import { CronScheduler } from "./timer.ts";
-
-export interface CronRunner {
-  refresh: () => void;
-  stop: () => void;
-}
+import { CronScheduler, type CronDueEvent } from "./timer.ts";
 
 export interface CronAgentClient {
   promptSession: (options: { sessionName: string; prompt: string }) => Promise<string>;
@@ -28,41 +23,19 @@ export interface CreateCronRunnerOptions {
   store: CronStore;
   agent: CronAgentClient;
   delivery: CronDelivery;
-  onRunComplete?: (result: ExecuteCronJobResult) => void;
-  onError?: (error: unknown) => void;
+  onRunComplete: (result: ExecuteCronJobResult) => void;
 }
 
-export function createCronRunner(options: CreateCronRunnerOptions): CronRunner {
-  let scheduler: CronScheduler | undefined;
+// TODO: rewrite to CronRunner class
+export type CronRunner = ReturnType<typeof createCronRunner>;
 
-  function getEnabledJobs(): CronJob[] {
-    return options.store.listJobs().filter((job) => job.enabled);
-  }
+export function createCronRunner(options: CreateCronRunnerOptions) {
+  const scheduler = new CronScheduler({
+    entries: [],
+    onDue,
+  });
 
-  function refresh(): void {
-    const entries = getEnabledJobs().map((job) => ({
-      id: job.id,
-      schedule: job.schedule,
-      timezone: job.timezone,
-    }));
-    if (!scheduler) {
-      scheduler = new CronScheduler({
-        entries,
-        onDue,
-        onError: options.onError,
-      });
-      scheduler.start();
-      return;
-    }
-    scheduler.updateEntries(entries);
-  }
-
-  function stop(): void {
-    scheduler?.stop();
-    scheduler = undefined;
-  }
-
-  async function onDue(event: { id: string; scheduledAt: Temporal.Instant }): Promise<void> {
+  async function onDue(event: CronDueEvent): Promise<void> {
     const job = options.store.getJob(event.id);
     if (!job || !job.enabled) {
       return;
@@ -74,15 +47,30 @@ export function createCronRunner(options: CreateCronRunnerOptions): CronRunner {
       agent: options.agent,
       delivery: options.delivery,
     });
-    options.onRunComplete?.(result);
+    options.onRunComplete(result);
   }
 
-  refresh();
-
-  return {
-    refresh,
-    stop,
+  const runner = {
+    start: () => {
+      scheduler.start();
+      runner.refresh();
+    },
+    refresh: () => {
+      const entries = options.store
+        .listJobs()
+        .filter((job) => job.enabled)
+        .map((job) => ({
+          id: job.id,
+          schedule: job.schedule,
+          timezone: job.timezone,
+        }));
+      scheduler.updateEntries(entries);
+    },
+    stop: () => {
+      scheduler.stop();
+    },
   };
+  return runner;
 }
 
 async function executeCronJob(options: {

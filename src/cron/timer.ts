@@ -19,9 +19,7 @@ interface ScheduledEntry {
 
 export interface CronSchedulerOptions {
   entries: CronTimerEntry[];
-  onDue: (event: CronDueEvent) => void | Promise<void>;
-  onError?: (error: unknown) => void;
-  now?: () => Temporal.Instant;
+  onDue: (event: CronDueEvent) => void;
 }
 
 export class CronScheduler {
@@ -100,17 +98,7 @@ export class CronScheduler {
         continue;
       }
       const due = scheduledEntry.next;
-      Promise.resolve(this.options.onDue({ id: scheduledEntry.entry.id, scheduledAt: due })).catch(
-        (error: unknown) => {
-          if (this.options.onError) {
-            this.options.onError(error);
-            return;
-          }
-          setTimeout(() => {
-            throw error;
-          }, 0);
-        },
-      );
+      this.options.onDue({ id: scheduledEntry.entry.id, scheduledAt: due });
       scheduledEntry.next = getNextOccurrence({
         ...scheduledEntry.entry,
         after: due,
