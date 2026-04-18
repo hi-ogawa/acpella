@@ -7,6 +7,7 @@ import {
   type Client,
   type SessionUpdate,
   type ListSessionsResponse,
+  type PromptRequest,
 } from "@agentclientprotocol/sdk";
 import { AsyncQueue } from "../lib/async-queue.ts";
 import { objectPickBy } from "../lib/utils.ts";
@@ -175,21 +176,10 @@ async function createSession(options: { agent: SpanwedAgent; sessionId: string }
   return {
     sessionId: options.sessionId,
     prompt(text: string) {
-      const queue = new AsyncQueue<SessionUpdate>();
-      const unsubscribe = agent.subscribe((u) => queue.push(u));
-      const promise = agent.connection.prompt({
+      return promptAgent(agent, {
         sessionId: options.sessionId,
         prompt: [{ type: "text", text }],
       });
-      promise
-        .then(
-          () => queue.finish(),
-          (e) => queue.finish(e),
-        )
-        .finally(() => {
-          unsubscribe();
-        });
-      return { promise, queue };
     },
     async cancel(): Promise<void> {
       await agent.connection.cancel({ sessionId: options.sessionId });
@@ -198,4 +188,19 @@ async function createSession(options: { agent: SpanwedAgent; sessionId: string }
       agent.child.kill();
     },
   };
+}
+
+function promptAgent(agent: SpanwedAgent, request: PromptRequest) {
+  const queue = new AsyncQueue<SessionUpdate>();
+  const unsubscribe = agent.subscribe((u) => queue.push(u));
+  const promise = agent.connection.prompt(request);
+  promise
+    .then(
+      () => queue.finish(),
+      (e) => queue.finish(e),
+    )
+    .finally(() => {
+      unsubscribe();
+    });
+  return { promise, queue };
 }
