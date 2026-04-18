@@ -114,7 +114,7 @@ Options:
 
     const text = ctx.message.text;
 
-    console.log(`[${sessionName}] <- ${text}`);
+    console.log(`[${sessionName}] (request) ${text.slice(0, 200)}`);
 
     try {
       await handler.handle({
@@ -137,10 +137,10 @@ Options:
           },
         },
       });
-      console.log(`[${sessionName}] -> response sent`);
+      console.log(`[${sessionName}] (response ok)`);
     } catch (error) {
+      console.error(`[${sessionName}] (response error)`, error);
       const msg = error instanceof Error ? error.message : String(error);
-      console.error(`[${sessionName}] error: ${msg}`);
       await ctx.reply(`Error: ${msg.slice(0, 200)}`);
     }
   });
