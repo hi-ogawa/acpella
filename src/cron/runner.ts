@@ -1,7 +1,6 @@
 import { Temporal } from "temporal-polyfill";
 import type { CronJob, CronRun, CronStore, CronTelegramTarget } from "./store.ts";
-import { createCronTimer } from "./timer.ts";
-import type { CronTimer } from "./timer.ts";
+import { CronScheduler } from "./timer.ts";
 
 export interface CronRunner {
   refresh: () => void;
@@ -34,7 +33,7 @@ export interface CreateCronRunnerOptions {
 }
 
 export function createCronRunner(options: CreateCronRunnerOptions): CronRunner {
-  let timer: CronTimer | undefined;
+  let scheduler: CronScheduler | undefined;
 
   function getEnabledJobs(): CronJob[] {
     return options.store.listJobs().filter((job) => job.enabled);
@@ -46,20 +45,21 @@ export function createCronRunner(options: CreateCronRunnerOptions): CronRunner {
       schedule: job.schedule,
       timezone: job.timezone,
     }));
-    if (!timer) {
-      timer = createCronTimer({
+    if (!scheduler) {
+      scheduler = new CronScheduler({
         entries,
         onDue,
         onError: options.onError,
       });
+      scheduler.start();
       return;
     }
-    timer.replaceEntries(entries);
+    scheduler.updateEntries(entries);
   }
 
   function stop(): void {
-    timer?.stop();
-    timer = undefined;
+    scheduler?.stop();
+    scheduler = undefined;
   }
 
   async function onDue(event: { id: string; scheduledAt: Temporal.Instant }): Promise<void> {

@@ -17,54 +17,68 @@ interface ScheduledEntry {
   next: Temporal.Instant;
 }
 
-export type CronTimer = ReturnType<typeof createCronTimer>;
-
-export function createCronTimer(options: {
+export interface CronSchedulerOptions {
   entries: CronTimerEntry[];
   onDue: (event: CronDueEvent) => void | Promise<void>;
   onError?: (error: unknown) => void;
   now?: () => Temporal.Instant;
-}) {
-  const now = options.now ?? (() => Temporal.Now.instant());
-  const scheduledEntries = new Map<string, ScheduledEntry>();
-  let timeout: ReturnType<typeof setTimeout> | undefined;
-  let stopped = false;
+}
 
-  function replaceEntries(entries: CronTimerEntry[]): void {
-    scheduledEntries.clear();
-    const current = now();
+export class CronScheduler {
+  readonly #now: () => Temporal.Instant;
+  readonly #scheduledEntries = new Map<string, ScheduledEntry>();
+  readonly #options: CronSchedulerOptions;
+  #entries: CronTimerEntry[];
+  #timeout: ReturnType<typeof setTimeout> | undefined;
+  #stopped = true;
+
+  constructor(options: CronSchedulerOptions) {
+    this.#options = options;
+    this.#entries = options.entries;
+    this.#now = options.now ?? (() => Temporal.Now.instant());
+  }
+
+  start(): void {
+    this.#stopped = false;
+    this.updateEntries(this.#entries);
+  }
+
+  stop(): void {
+    this.#stopped = true;
+    if (this.#timeout) {
+      clearTimeout(this.#timeout);
+      this.#timeout = undefined;
+    }
+  }
+
+  updateEntries(entries: CronTimerEntry[]): void {
+    this.#entries = entries;
+    this.#scheduledEntries.clear();
+    const current = this.#now();
     for (const entry of entries) {
-      scheduledEntries.set(entry.id, {
+      this.#scheduledEntries.set(entry.id, {
         entry,
         next: getNextOccurrence({ ...entry, after: current }),
       });
     }
-    scheduleWakeup();
+    this.#scheduleWakeup();
   }
 
-  function stop(): void {
-    stopped = true;
-    if (timeout) {
-      clearTimeout(timeout);
-      timeout = undefined;
-    }
-  }
-
-  function scheduleWakeup(): void {
-    if (stopped) {
+  #scheduleWakeup(): void {
+    if (this.#stopped) {
       return;
     }
-    if (timeout) {
-      clearTimeout(timeout);
-      timeout = undefined;
+    if (this.#timeout) {
+      clearTimeout(this.#timeout);
+      this.#timeout = undefined;
     }
-    if (scheduledEntries.size === 0) {
+    if (this.#scheduledEntries.size === 0) {
       return;
     }
 
-    const current = now();
+    const current = this.#now();
     let nextInstant: Temporal.Instant | undefined;
-    for (const scheduledEntry of scheduledEntries.values()) {
+    for (const scheduledEntry of this.#scheduledEntries.values()) {
       if (!nextInstant || Temporal.Instant.compare(scheduledEntry.next, nextInstant) < 0) {
         nextInstant = scheduledEntry.next;
       }
@@ -74,25 +88,25 @@ export function createCronTimer(options: {
     }
 
     const delay = Math.max(0, nextInstant.epochMilliseconds - current.epochMilliseconds);
-    timeout = setTimeout(runDueEntries, Math.min(delay, 60_000));
+    this.#timeout = setTimeout(() => this.#runDueEntries(), Math.min(delay, 60_000));
   }
 
-  function runDueEntries(): void {
-    timeout = undefined;
-    if (stopped) {
+  #runDueEntries(): void {
+    this.#timeout = undefined;
+    if (this.#stopped) {
       return;
     }
 
-    const current = now();
-    for (const scheduledEntry of scheduledEntries.values()) {
+    const current = this.#now();
+    for (const scheduledEntry of this.#scheduledEntries.values()) {
       if (Temporal.Instant.compare(scheduledEntry.next, current) > 0) {
         continue;
       }
       const due = scheduledEntry.next;
-      Promise.resolve(options.onDue({ id: scheduledEntry.entry.id, scheduledAt: due })).catch(
+      Promise.resolve(this.#options.onDue({ id: scheduledEntry.entry.id, scheduledAt: due })).catch(
         (error: unknown) => {
-          if (options.onError) {
-            options.onError(error);
+          if (this.#options.onError) {
+            this.#options.onError(error);
             return;
           }
           setTimeout(() => {
@@ -105,15 +119,8 @@ export function createCronTimer(options: {
         after: due,
       });
     }
-    scheduleWakeup();
+    this.#scheduleWakeup();
   }
-
-  replaceEntries(options.entries);
-
-  return {
-    replaceEntries,
-    stop,
-  };
 }
 
 // borrow croner for cron pattern logic

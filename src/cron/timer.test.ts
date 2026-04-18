@@ -1,6 +1,6 @@
 import { Temporal } from "temporal-polyfill";
-import { expect, test } from "vitest";
-import { getNextOccurrence, validateCronSchedule } from "./timer.ts";
+import { expect, test, vi } from "vitest";
+import { CronScheduler, getNextOccurrence, validateCronSchedule } from "./timer.ts";
 
 test(validateCronSchedule, () => {
   expect(() => {
@@ -36,4 +36,55 @@ test(getNextOccurrence, () => {
       after: Temporal.Instant.from("2026-04-18T00:00:00Z"),
     }),
   ).toMatchInlineSnapshot(`"2026-04-18T00:01:00Z"`);
+});
+
+test(CronScheduler, () => {
+  vi.useFakeTimers();
+  try {
+    let current = Temporal.Instant.from("2026-04-18T00:00:00Z");
+    const dueEvents: Array<{ id: string; scheduledAt: string }> = [];
+    const scheduler = new CronScheduler({
+      entries: [
+        {
+          id: "first",
+          schedule: "* * * * *",
+          timezone: "UTC",
+        },
+      ],
+      now: () => current,
+      onDue: (event) => {
+        dueEvents.push({
+          id: event.id,
+          scheduledAt: event.scheduledAt.toString(),
+        });
+      },
+    });
+
+    scheduler.start();
+    scheduler.updateEntries([
+      {
+        id: "second",
+        schedule: "* * * * *",
+        timezone: "UTC",
+      },
+    ]);
+
+    current = Temporal.Instant.from("2026-04-18T00:01:00Z");
+    vi.advanceTimersByTime(60_000);
+
+    expect(dueEvents).toEqual([
+      {
+        id: "second",
+        scheduledAt: "2026-04-18T00:01:00Z",
+      },
+    ]);
+
+    scheduler.stop();
+    current = Temporal.Instant.from("2026-04-18T00:02:00Z");
+    vi.advanceTimersByTime(60_000);
+
+    expect(dueEvents).toHaveLength(1);
+  } finally {
+    vi.useRealTimers();
+  }
 });
