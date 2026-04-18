@@ -137,8 +137,9 @@ Options:
       try {
         return await ctx.reply(...args);
       } catch (error) {
+        // rethrow non rate limit errors
         const retryAfter = getTelegramRetryAfter(error);
-        if (retryAfter === undefined) {
+        if (!retryAfter) {
           throw error;
         }
         console.error(`${label} reply failed. retrying...`, {
@@ -165,7 +166,8 @@ Options:
               parse_mode: "HTML",
             });
           } catch (error) {
-            if (getTelegramRetryAfter(error) !== undefined) {
+            // rethrow rate limit errors
+            if (getTelegramRetryAfter(error)) {
               throw error;
             }
             console.error(`${label} formatted reply failed; falling back to raw text:`, error);
@@ -175,6 +177,10 @@ Options:
       });
       console.log(`${label} (response ok)`);
     } catch (error) {
+      if (getTelegramRetryAfter(error)) {
+        console.error(`${label} reply failed due to rate limit.`, error);
+        return;
+      }
       console.error(`${label} (response error)`, error);
       const message = error instanceof Error ? error.message : String(error);
       await replyWithRetry(`Error: ${truncateString(message, 200)}`);
