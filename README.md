@@ -9,8 +9,8 @@ pnpm install
 cp .env.example .env
 # edit .env using the Config section below
 
-pnpm cli        # run service
-pnpm cli --repl # run local in-process REPL
+pnpm cli  # run telegram bot
+pnpm repl # run REPL
 ```
 
 ## Config
