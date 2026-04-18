@@ -11,7 +11,6 @@
 
 | File                         | Purpose                               |
 | ---------------------------- | ------------------------------------- |
-| `docs/todo.md`               | issues, features, backlog             |
 | `docs/architecture.md`       | Design decisions, data flow           |
 | `docs/references.md`         | Reference projects, local clone setup |
 | `docs/tasks/YYYY-MM-DD-*.md` | Per-task notes                        |

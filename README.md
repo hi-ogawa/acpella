@@ -67,4 +67,3 @@ Check `codex-acp --help` for the current configuration override syntax before ch
 
 - [`docs/deploy.md`](docs/deploy.md) — systemd unit, install steps
 - [`docs/architecture.md`](docs/architecture.md) — design decisions, data flow
-- [`docs/todo.md`](docs/todo.md) — issues, features, backlog
