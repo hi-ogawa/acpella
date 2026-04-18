@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { Temporal } from "temporal-polyfill";
+import { addIndent } from "./utils.ts";
 
 const INCLUDE_LINE_RE = /^[^\S\r\n]*@(\S+)[^\S\r\n]*$/gm;
 const ACP_DIRECTIVE_LINE_RE = /^[^\S\r\n]*::acpella\s+(\S+)(?:\s+(.+?))?[^\S\r\n]*$/gm;
@@ -119,11 +120,15 @@ function buildSkillsCatalog(skillsDir: string): string {
     } catch {
       continue;
     }
+    const frontmatter = addIndent({
+      indent: "    ",
+      text: readFrontmatter(content) ?? "(none)",
+    });
     output += `
 - Skill directory: ${path.basename(path.dirname(filePath))}
   File: ${filePath}
   Frontmatter:
-${addIndent(readFrontmatter(content) ?? "(none)", "    ")}
+${frontmatter}
 `;
   }
   return output.trim() + "\n";
@@ -133,13 +138,6 @@ const FRONTMATTER_RE = /^---(?:\r?\n[\s\S]*?\r?\n)---(?=\r?\n|$)/;
 
 function readFrontmatter(content: string) {
   return content.match(FRONTMATTER_RE)?.[0];
-}
-
-function addIndent(text: string, indent: string): string {
-  return text
-    .split(/\r?\n/)
-    .map((line) => `${indent}${line}`)
-    .join("\n");
 }
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {

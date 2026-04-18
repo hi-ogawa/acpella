@@ -5,6 +5,13 @@ export function truncateString(s: string, limit: number) {
   return s;
 }
 
+export function addIndent({ text, indent }: { text: string; indent: string }): string {
+  return text
+    .split(/\r?\n/)
+    .map((line) => `${indent}${line}`)
+    .join("\n");
+}
+
 export function objectPickBy<K extends PropertyKey, V>(
   o: Record<K, V>,
   f: (v: V, k: K) => boolean,
