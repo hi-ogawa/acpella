@@ -52,7 +52,7 @@ export async function startAcpManager(options: { command: string; cwd: string })
       try {
         await agent.connection.unstable_closeSession({ sessionId: sessionOptions.sessionId });
       } finally {
-        agent.child.kill();
+        agent.stop();
       }
     },
     async listSessions(): Promise<ListSessionsResponse> {
@@ -60,14 +60,14 @@ export async function startAcpManager(options: { command: string; cwd: string })
       try {
         return await agent.connection.listSessions({ cwd: options.cwd });
       } finally {
-        agent.child.kill();
+        agent.stop();
       }
     },
   };
 }
 
-export type SpanwedAgent = Awaited<ReturnType<typeof spawnAgent>>;
-export type SpawnedSession = Awaited<ReturnType<typeof createSession>>;
+export type AgentProcess = Awaited<ReturnType<typeof spawnAgent>>;
+export type AgentSessionProcess = Awaited<ReturnType<typeof createSession>>;
 
 async function spawnAgent({ command, cwd }: { command: string; cwd: string }) {
   const [cmd, ...args] = command.trim().split(/\s+/);
@@ -126,7 +126,13 @@ async function spawnAgent({ command, cwd }: { command: string; cwd: string }) {
     return () => listeners.delete(listener);
   }
 
-  return { child, connection, subscribe };
+  return {
+    connection,
+    subscribe,
+    stop() {
+      child.kill();
+    },
+  };
 }
 
 function createExitPromise(child: ChildProcess): {
@@ -171,7 +177,7 @@ function pipeAgentStderr(stderr: Readable): void {
   });
 }
 
-async function createSession(options: { agent: SpanwedAgent; sessionId: string }) {
+async function createSession(options: { agent: AgentProcess; sessionId: string }) {
   const { agent } = options;
   return {
     sessionId: options.sessionId,
@@ -184,14 +190,13 @@ async function createSession(options: { agent: SpanwedAgent; sessionId: string }
     async cancel(): Promise<void> {
       await agent.connection.cancel({ sessionId: options.sessionId });
     },
-    // TODO: rename so not confused with closeSession
-    close() {
-      agent.child.kill();
+    stop() {
+      agent.stop();
     },
   };
 }
 
-function promptAgent(agent: SpanwedAgent, request: PromptRequest) {
+function promptAgent(agent: AgentProcess, request: PromptRequest) {
   const queue = new AsyncQueue<SessionUpdate>();
   const unsubscribe = agent.subscribe((u) => queue.push(u));
   const promise = agent.connection.prompt(request);
