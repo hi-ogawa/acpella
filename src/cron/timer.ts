@@ -12,22 +12,19 @@ export interface CronDueEvent {
   scheduledAt: Temporal.Instant;
 }
 
-export interface CronTimer {
-  replaceEntries: (entries: CronTimerEntry[]) => void;
-  stop: () => void;
-}
-
 interface ScheduledEntry {
   entry: CronTimerEntry;
   next: Temporal.Instant;
 }
+
+export type CronTimer = ReturnType<typeof createCronTimer>;
 
 export function createCronTimer(options: {
   entries: CronTimerEntry[];
   onDue: (event: CronDueEvent) => void | Promise<void>;
   onError?: (error: unknown) => void;
   now?: () => Temporal.Instant;
-}): CronTimer {
+}) {
   const now = options.now ?? (() => Temporal.Now.instant());
   const scheduledEntries = new Map<string, ScheduledEntry>();
   let timeout: ReturnType<typeof setTimeout> | undefined;
