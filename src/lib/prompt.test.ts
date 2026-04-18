@@ -76,7 +76,7 @@ test("message metadata", () => {
   });
   expect(output).toMatchInlineSnapshot(`
     "<message_metadata>
-    received_at: 2024-01-02T12:04:05+09:00
+    sender_timestamp: 2024-01-02T12:04:05+09:00
     timezone: Asia/Tokyo
     session_name: my-session
     </message_metadata>
