@@ -141,7 +141,11 @@ Options:
         if (retryAfter === undefined) {
           throw error;
         }
-        console.error(`${label} reply failed. retrying after ${retryAfter}s`, error);
+        console.error(`${label} reply failed. retrying...`, {
+          args,
+          error,
+          retryAfter,
+        });
         await sleep((retryAfter + 1) * 1000);
         return await ctx.reply(...args);
       }
