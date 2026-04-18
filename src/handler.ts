@@ -5,25 +5,26 @@ import { createCommandHandler } from "./lib/command.ts";
 import type { CommandTree } from "./lib/command.ts";
 import { buildFirstPrompt } from "./lib/prompt.ts";
 import { createReply, MESSAGE_SPLIT_BUDGET } from "./lib/reply.ts";
-import type { Reply, ReplyContext } from "./lib/reply.ts";
+import type { Reply } from "./lib/reply.ts";
 import { createSessionStateStore, parseAgentSessionKey, toAgentSessionKey } from "./state.ts";
 import type { StateAgentSession } from "./state.ts";
 
 export interface Handler {
-  handle: (options: { sessionName: string; context: HandlerContext }) => Promise<void>;
+  handle: (context: HandlerContext) => Promise<void>;
   commands: Record<string, string>;
 }
 
-export interface HandlerContext extends ReplyContext {
-  message?: {
-    text?: string;
-  };
+export interface HandlerContext {
+  sessionName: string;
+  text: string;
+  send: (text: string) => Promise<unknown>;
 }
 
-export type SystemCommandContext = {
+interface HandlerContextExtra extends HandlerContext {
   reply: Reply;
-  sessionName: string;
-};
+}
+
+type SystemCommandTree = CommandTree<HandlerContextExtra>;
 
 export async function createHandler(
   config: AppConfig,
@@ -44,15 +45,7 @@ export async function createHandler(
     return startAcpManager({ command: agent.command, cwd: config.home });
   }
 
-  async function handlePrompt({
-    reply,
-    sessionName,
-    text,
-  }: {
-    reply: Reply;
-    sessionName: string;
-    text: string;
-  }): Promise<void> {
+  async function handlePrompt({ reply, sessionName, text }: HandlerContextExtra): Promise<void> {
     if (activeSessions.has(sessionName)) {
       await reply.system("Agent turn already in progress. Send /cancel to stop it.");
       return;
@@ -109,7 +102,7 @@ export async function createHandler(
     }
   }
 
-  const systemSessionCommands: CommandTree<SystemCommandContext>[string] = [
+  const systemSessionCommands: SystemCommandTree[string] = [
     {
       tokens: ["current"],
       help: "/session current - Show the current session.",
@@ -176,7 +169,8 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
       tokens: ["new"],
       help: "/session new [agent] - Start a new agent session.",
       withArgs: true,
-      run: async ({ args, reply, sessionName }) => {
+      run: async (context) => {
+        const { args, reply, sessionName } = context;
         const agentKey = args[0];
         if (agentKey) {
           if (!stateStore.get().agents[agentKey]) {
@@ -186,11 +180,7 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
           stateStore.setSession(sessionName, { agentKey });
         }
         stateStore.setSession(sessionName, { agentSessionId: undefined });
-        await handlePrompt({
-          reply,
-          sessionName,
-          text: "",
-        });
+        await handlePrompt(context);
       },
     },
     {
@@ -252,7 +242,7 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
     },
   ];
 
-  const systemAgentCommands: CommandTree<SystemCommandContext>["agent"] = [
+  const systemAgentCommands: SystemCommandTree[string] = [
     {
       tokens: ["list"],
       help: "/agent list - List configured agents.",
@@ -341,7 +331,7 @@ ${referencedSessions.length} session(s) still reference it.
     },
   ];
 
-  const systemCommands: CommandTree<SystemCommandContext> = {
+  const systemCommands: SystemCommandTree = {
     status: [
       {
         tokens: [],
@@ -440,27 +430,22 @@ home: ${config.home}
     },
   });
 
-  const handle: Handler["handle"] = async (options) => {
-    const text = options.context.message!.text!;
-    const sessionName = options.sessionName;
+  const handle: Handler["handle"] = async (context) => {
     const reply = createReply({
-      context: options.context,
+      send: context.send,
       limit: MESSAGE_SPLIT_BUDGET,
     });
+    const contextExtra: HandlerContextExtra = { ...context, reply };
 
     const handledSystem = await systemCommandHandler.handle({
-      text,
-      context: { reply, sessionName },
+      text: contextExtra.text,
+      context: contextExtra,
     });
     if (handledSystem) {
       return;
     }
 
-    await handlePrompt({
-      reply,
-      sessionName,
-      text,
-    });
+    await handlePrompt(contextExtra);
   };
 
   return { handle, commands: systemCommandsMetadata };

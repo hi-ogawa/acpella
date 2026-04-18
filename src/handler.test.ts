@@ -63,7 +63,7 @@ Coverage checklist:
 import fs from "node:fs";
 import { expect, test, vi } from "vitest";
 import { loadConfig, type AppConfig } from "./config";
-import { createHandler, type HandlerContext } from "./handler";
+import { createHandler } from "./handler";
 import { TEST_AGENT_COMMAND } from "./state";
 import { useFs } from "./test/helper.ts";
 
@@ -81,15 +81,11 @@ async function createHandlerTester() {
 
   async function request({ sessionName, text }: { sessionName: string; text: string }) {
     const replies: string[] = [];
-    const context: HandlerContext = {
-      message: {
-        text,
-      },
-      async reply(text: string) {
-        replies.push(text);
-      },
-    };
-    await handler.handle({ sessionName, context });
+    await handler.handle({
+      sessionName,
+      text,
+      send: async (t) => replies.push(t),
+    });
     return sanitizeOutput(replies.join("\n"), config);
   }
 
