@@ -92,9 +92,9 @@ Options:
 
   // handle messages from each session and `/cancel` concurrently
   bot.use(
-    sequentialize((context) => {
-      const sessionName = telegramSessionName(context);
-      return context.message?.text === "/cancel" ? `${sessionName}:control` : sessionName;
+    sequentialize((ctx) => {
+      const sessionName = telegramSessionName(ctx);
+      return ctx.message?.text === "/cancel" ? `${sessionName}:control` : sessionName;
     }),
   );
 
