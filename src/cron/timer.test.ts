@@ -1,6 +1,11 @@
 import { Temporal } from "temporal-polyfill";
 import { expect, test, vi } from "vitest";
-import { CronScheduler, getNextOccurrence, validateCronSchedule } from "./timer.ts";
+import {
+  CronScheduler,
+  getNextOccurrence,
+  validateCronSchedule,
+  type CronDueEvent,
+} from "./timer.ts";
 
 test(validateCronSchedule, () => {
   expect(() => {
@@ -38,53 +43,71 @@ test(getNextOccurrence, () => {
   ).toMatchInlineSnapshot(`"2026-04-18T00:01:00Z"`);
 });
 
-test(CronScheduler, () => {
+test(CronScheduler, ({ onTestFinished }) => {
   vi.useFakeTimers();
-  try {
-    let current = Temporal.Instant.from("2026-04-18T00:00:00Z");
-    const dueEvents: Array<{ id: string; scheduledAt: string }> = [];
-    const scheduler = new CronScheduler({
-      entries: [
-        {
-          id: "first",
-          schedule: "* * * * *",
-          timezone: "UTC",
-        },
-      ],
-      now: () => current,
-      onDue: (event) => {
-        dueEvents.push({
-          id: event.id,
-          scheduledAt: event.scheduledAt.toString(),
-        });
-      },
-    });
+  onTestFinished(() => {
+    vi.useRealTimers();
+  });
 
-    scheduler.start();
-    scheduler.updateEntries([
+  vi.setSystemTime(new Date("2026-04-18T00:00:00Z").getTime());
+  const events: CronDueEvent[] = [];
+  const scheduler = new CronScheduler({
+    entries: [
       {
-        id: "second",
+        id: "first",
         schedule: "* * * * *",
         timezone: "UTC",
       },
-    ]);
+    ],
+    onDue: (event) => {
+      events.push(event);
+    },
+  });
 
-    current = Temporal.Instant.from("2026-04-18T00:01:00Z");
-    vi.advanceTimersByTime(60_000);
-
-    expect(dueEvents).toEqual([
+  scheduler.start();
+  vi.advanceTimersByTime(60_000);
+  expect(events).toMatchInlineSnapshot(`
+    [
       {
-        id: "second",
-        scheduledAt: "2026-04-18T00:01:00Z",
+        "id": "first",
+        "scheduledAt": "2026-04-18T00:01:00Z",
       },
-    ]);
+    ]
+  `);
 
-    scheduler.stop();
-    current = Temporal.Instant.from("2026-04-18T00:02:00Z");
-    vi.advanceTimersByTime(60_000);
+  scheduler.updateEntries([
+    {
+      id: "second",
+      schedule: "* * * * *",
+      timezone: "UTC",
+    },
+  ]);
+  vi.advanceTimersByTime(60_000);
+  expect(events).toMatchInlineSnapshot(`
+    [
+      {
+        "id": "first",
+        "scheduledAt": "2026-04-18T00:01:00Z",
+      },
+      {
+        "id": "second",
+        "scheduledAt": "2026-04-18T00:02:00Z",
+      },
+    ]
+  `);
 
-    expect(dueEvents).toHaveLength(1);
-  } finally {
-    vi.useRealTimers();
-  }
+  scheduler.stop();
+  vi.advanceTimersByTime(60_000);
+  expect(events).toMatchInlineSnapshot(`
+    [
+      {
+        "id": "first",
+        "scheduledAt": "2026-04-18T00:01:00Z",
+      },
+      {
+        "id": "second",
+        "scheduledAt": "2026-04-18T00:02:00Z",
+      },
+    ]
+  `);
 });
