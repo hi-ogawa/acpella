@@ -202,5 +202,5 @@ function promptAgent(agent: SpanwedAgent, request: PromptRequest) {
     .finally(() => {
       unsubscribe();
     });
-  return { promise, queue };
+  return { promise, updates: queue };
 }
