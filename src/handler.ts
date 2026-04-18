@@ -48,12 +48,8 @@ export async function createHandler(
     return startAcpManager({ command: agent.command, cwd: config.home });
   }
 
-  async function handlePrompt({
-    reply,
-    sessionName,
-    text,
-    metadata,
-  }: HandlerExtraContext): Promise<void> {
+  async function handlePrompt(context: HandlerExtraContext): Promise<void> {
+    const { reply, sessionName, text, metadata } = context;
     if (activeSessions.has(sessionName)) {
       await reply.system("Agent turn already in progress. Send /cancel to stop it.");
       return;
