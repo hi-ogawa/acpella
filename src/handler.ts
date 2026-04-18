@@ -1,5 +1,5 @@
 import { startAcpManager } from "./acp/index.ts";
-import type { AgentSession } from "./acp/index.ts";
+import type { AgentSessionProcess } from "./acp/index.ts";
 import type { AppConfig } from "./config.ts";
 import { createCommandHandler } from "./lib/command.ts";
 import type { CommandTree } from "./lib/command.ts";
@@ -37,8 +37,8 @@ export async function createHandler(
   },
 ): Promise<Handler> {
   const stateStore = createSessionStateStore(config);
-  const activeSessions = new Map<string, AgentSession>();
-  const cancelledSessions = new WeakSet<AgentSession>();
+  const activeSessions = new Map<string, AgentSessionProcess>();
+  const cancelledSessions = new WeakSet<AgentSessionProcess>();
 
   async function getAgentManager(agentKey: string) {
     const agent = stateStore.get().agents[agentKey];
@@ -58,18 +58,18 @@ export async function createHandler(
     const stateSession = stateStore.getSession(sessionName);
     const manager = await getAgentManager(stateSession.agentKey);
 
-    let agentSession: AgentSession;
+    let session: AgentSessionProcess;
     let promptText = "";
     if (stateSession.agentSessionId) {
-      agentSession = await manager.loadSession({
+      session = await manager.loadSession({
         sessionCwd: config.home,
         sessionId: stateSession.agentSessionId,
       });
     } else {
-      agentSession = await manager.newSession({ sessionCwd: config.home });
+      session = await manager.newSession({ sessionCwd: config.home });
       stateStore.setSession(sessionName, {
         agentKey: stateSession.agentKey,
-        agentSessionId: agentSession.sessionId,
+        agentSessionId: session.sessionId,
       });
       promptText += buildFirstPrompt(config.prompt.file);
     }
@@ -83,10 +83,10 @@ export async function createHandler(
     promptText += text;
 
     try {
-      const { queue } = agentSession.prompt(promptText);
-      activeSessions.set(sessionName, agentSession);
+      const result = session.prompt(promptText);
+      activeSessions.set(sessionName, session);
 
-      for await (const update of queue) {
+      for await (const update of result.consume()) {
         if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
           await reply.write(update.content.text);
         } else if (update.sessionUpdate === "tool_call") {
@@ -100,17 +100,17 @@ export async function createHandler(
           console.log(`[acp:update] ${update.sessionUpdate}`);
         }
       }
-      if (cancelledSessions.has(agentSession)) {
+      if (cancelledSessions.has(session)) {
         await reply.flush();
         await reply.system("Agent turn cancelled.");
         return;
       }
       await reply.finish();
     } finally {
-      if (activeSessions.get(sessionName) === agentSession) {
+      if (activeSessions.get(sessionName) === session) {
         activeSessions.delete(sessionName);
       }
-      agentSession.close();
+      session.stop();
     }
   }
 
@@ -209,19 +209,19 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
         const parsed = parseAgentSessionKey(sessionIdArg);
         const agentKey = parsed.agentKey ?? stateSession.agentKey;
         const manager = await getAgentManager(agentKey);
-        const loaded = await manager.loadSession({
+        const session = await manager.loadSession({
           sessionCwd: config.home,
           sessionId: parsed.agentSessionId,
         });
         const newStateSession: StateAgentSession = {
           agentKey,
-          agentSessionId: loaded.sessionId,
+          agentSessionId: session.sessionId,
         };
         try {
           stateStore.setSession(sessionName, newStateSession);
           await reply.system(`Loaded session: ${toAgentSessionKey(newStateSession)}`);
         } finally {
-          loaded.close();
+          session.stop();
         }
       },
     },
@@ -384,7 +384,7 @@ home: ${config.home}
             await session.cancel();
           } catch (e) {
             console.error("[acp] cancel failed, killing agent process:", e);
-            session.close();
+            session.stop();
             response = "Cancelled current agent turn by killing the agent process.";
           }
           await reply.system(response);

@@ -13,10 +13,10 @@ describe(startAcpManager, () => {
     const session = await manager.newSession({
       sessionCwd: root,
     });
-    onTestFinished(() => session.close());
+    onTestFinished(() => session.stop());
 
     const result = session.prompt("hello");
-    const updates = await arrayFromAsyncIterator(result.queue);
+    const updates = await arrayFromAsyncIterator(result.consume());
     expect(updates).toMatchInlineSnapshot(`
       [
         {
@@ -39,7 +39,7 @@ describe(startAcpManager, () => {
     const newSession = await manager.newSession({
       sessionCwd: root,
     });
-    onTestFinished(() => newSession.close());
+    onTestFinished(() => newSession.stop());
 
     const listedSessions = await manager.listSessions();
     expect(listedSessions).toEqual({
@@ -50,10 +50,10 @@ describe(startAcpManager, () => {
       sessionId: "__testSession1",
       sessionCwd: root,
     });
-    onTestFinished(() => session.close());
+    onTestFinished(() => session.stop());
 
     const result = session.prompt("world");
-    const updates = await arrayFromAsyncIterator(result.queue);
+    const updates = await arrayFromAsyncIterator(result.consume());
     expect(updates).toMatchInlineSnapshot(`
       [
         {

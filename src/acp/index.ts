@@ -7,76 +7,77 @@ import {
   type Client,
   type SessionUpdate,
   type ListSessionsResponse,
+  type PromptRequest,
 } from "@agentclientprotocol/sdk";
 import { AsyncQueue } from "../lib/async-queue.ts";
+import { objectPickBy } from "../lib/utils.ts";
 
-// TODO: review slop (NEVER REMOVE THIS COMMENT)
-
-// Design: session ownership
-//
-//   Option A: startAcpAgent → manager, manager.newSession() → session
-//     manager owns process lifecycle (spawn + initialize).
-//     session owns conversation lifecycle (newSession + prompt + close).
-//     The ACP protocol allows multiple sessions per process.
-//
-//   Option B (current): startAcpAgent → { newSession, loadSession }, each spawns its own process.
-//     Simpler. acpx does the same — one process per named session.
-//
-// Option B was chosen for simplicity, matching acpx's real-world behavior.
-
-export async function startAcpManager(options: { command: string; cwd: string }) {
+// we spawn a process per session instead of per acp command for simplicity.
+// this is likey more robust without acp agent capability assumption
+// and process startup time is negligible compared to LLM interaction itself
+export async function startAcpManager(acpOptions: { command: string; cwd: string }) {
   return {
     async newSession(sessionOptions: { sessionCwd: string }) {
-      const agent = await spawnAgent(options);
-      const session = await agent.connection.newSession({
+      const agent = await spawnAgent(acpOptions);
+      const response = await agent.connection.newSession({
         cwd: sessionOptions.sessionCwd,
         mcpServers: [],
       });
-      const sessionId = session.sessionId;
-      return createSession({ agent, sessionId });
+      return toSessionProcess(agent, response.sessionId);
     },
     async loadSession(sessionOptions: { sessionCwd: string; sessionId: string }) {
-      const agent = await spawnAgent(options);
+      const agent = await spawnAgent(acpOptions);
       const { sessionId } = sessionOptions;
       await agent.connection.loadSession({
         sessionId,
         cwd: sessionOptions.sessionCwd,
         mcpServers: [],
       });
-      return createSession({ agent, sessionId });
+      return toSessionProcess(agent, sessionId);
     },
-    async closeSession(sessionOptions: { sessionId: string }): Promise<void> {
-      const agent = await spawnAgent(options);
+    async closeSession({ sessionId }: { sessionId: string }): Promise<void> {
+      const agent = await spawnAgent(acpOptions);
       try {
-        await agent.connection.unstable_closeSession({ sessionId: sessionOptions.sessionId });
+        await agent.connection.unstable_closeSession({ sessionId });
       } finally {
-        agent.child.kill();
+        agent.stop();
       }
     },
     async listSessions(): Promise<ListSessionsResponse> {
-      const agent = await spawnAgent(options);
+      const agent = await spawnAgent(acpOptions);
       try {
-        return await agent.connection.listSessions({ cwd: options.cwd });
+        return await agent.connection.listSessions({ cwd: acpOptions.cwd });
       } finally {
-        agent.child.kill();
+        agent.stop();
       }
     },
   };
 }
 
-type SpanwedAgent = Awaited<ReturnType<typeof spawnAgent>>;
-export type AgentSession = Awaited<ReturnType<typeof createSession>>;
+export type AgentProcess = Awaited<ReturnType<typeof spawnAgent>>;
+export type AgentSessionProcess = Awaited<ReturnType<typeof toSessionProcess>>;
 
 async function spawnAgent({ command, cwd }: { command: string; cwd: string }) {
   const [cmd, ...args] = command.trim().split(/\s+/);
+  const safeEnvs = objectPickBy(
+    process.env,
+    (_, k) => typeof k === "string" && !k.startsWith("ACPELLA_"),
+  );
   const child = spawn(cmd, args, {
     stdio: ["pipe", "pipe", "pipe"],
     cwd,
-    env: createAgentEnv(process.env),
+    env: safeEnvs,
   });
-  const earlyExit = createEarlyExitPromise(child);
+  const exitPromise = createExitPromise(child);
   if (child.stderr) {
-    pipeAgentStderr(child.stderr);
+    const stream = Readable.toWeb(child.stderr) as ReadableStream;
+    void stream.pipeThrough(new TextDecoderStream()).pipeTo(
+      new WritableStream({
+        write(chunk) {
+          console.error(`[acp:stderr] ${chunk}`);
+        },
+      }),
+    );
   }
 
   const stream = ndJsonStream(
@@ -109,10 +110,10 @@ async function spawnAgent({ command, cwd }: { command: string; cwd: string }) {
         protocolVersion: PROTOCOL_VERSION,
         clientCapabilities: {},
       }),
-      earlyExit.promise,
+      exitPromise.promise,
     ]);
   } finally {
-    earlyExit.cleanup();
+    exitPromise.cleanup();
   }
 
   function subscribe(listener: (update: SessionUpdate) => void) {
@@ -120,22 +121,16 @@ async function spawnAgent({ command, cwd }: { command: string; cwd: string }) {
     return () => listeners.delete(listener);
   }
 
-  return { child, connection, subscribe };
+  return {
+    connection,
+    subscribe,
+    stop() {
+      child.kill();
+    },
+  };
 }
 
-export function createAgentEnv(source: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = {};
-
-  for (const [key, value] of Object.entries(source)) {
-    if (!key.startsWith("ACPELLA_")) {
-      env[key] = value;
-    }
-  }
-
-  return env;
-}
-
-function createEarlyExitPromise(child: ChildProcess): {
+function createExitPromise(child: ChildProcess): {
   promise: Promise<void>;
   cleanup: () => void;
 } {
@@ -157,52 +152,33 @@ function createEarlyExitPromise(child: ChildProcess): {
   };
 }
 
-function pipeAgentStderr(stderr: Readable): void {
-  let buffered = "";
-  stderr.setEncoding("utf8");
-  stderr.on("data", (chunk) => {
-    buffered += String(chunk);
-    let newlineIndex = buffered.indexOf("\n");
-    while (newlineIndex !== -1) {
-      const line = buffered.slice(0, newlineIndex).replace(/\r$/, "");
-      console.error(`[acp:stderr] ${line}`);
-      buffered = buffered.slice(newlineIndex + 1);
-      newlineIndex = buffered.indexOf("\n");
-    }
-  });
-  stderr.on("end", () => {
-    if (buffered) {
-      console.error(`[acp:stderr] ${buffered.replace(/\r$/, "")}`);
-    }
-  });
-}
-
-async function createSession(options: { agent: SpanwedAgent; sessionId: string }) {
-  const { agent } = options;
+async function toSessionProcess(agent: AgentProcess, sessionId: string) {
   return {
-    sessionId: options.sessionId,
+    ...agent,
+    sessionId,
     prompt(text: string) {
-      const queue = new AsyncQueue<SessionUpdate>();
-      const unsubscribe = agent.subscribe((u) => queue.push(u));
-      const promise = agent.connection.prompt({
-        sessionId: options.sessionId,
+      return promptAgent(agent, {
+        sessionId,
         prompt: [{ type: "text", text }],
       });
-      promise
-        .then(
-          () => queue.finish(),
-          (e) => queue.finish(e),
-        )
-        .finally(() => {
-          unsubscribe();
-        });
-      return { promise, queue };
     },
     async cancel(): Promise<void> {
-      await agent.connection.cancel({ sessionId: options.sessionId });
-    },
-    close() {
-      agent.child.kill();
+      await agent.connection.cancel({ sessionId });
     },
   };
+}
+
+function promptAgent(agent: AgentProcess, request: PromptRequest) {
+  const queue = new AsyncQueue<SessionUpdate>();
+  const unsubscribe = agent.subscribe((u) => queue.push(u));
+  const promise = agent.connection.prompt(request);
+  promise
+    .then(
+      () => queue.finish(),
+      (e) => queue.finish(e),
+    )
+    .finally(() => {
+      unsubscribe();
+    });
+  return { promise, consume: () => queue.consume() };
 }
