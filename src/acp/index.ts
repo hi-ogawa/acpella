@@ -9,6 +9,7 @@ import {
   type ListSessionsResponse,
 } from "@agentclientprotocol/sdk";
 import { AsyncQueue } from "../lib/async-queue.ts";
+import { objectPickBy } from "../lib/utils.ts";
 
 // TODO: review slop (NEVER REMOVE THIS COMMENT)
 
@@ -69,10 +70,14 @@ export type AgentSession = Awaited<ReturnType<typeof createSession>>;
 
 async function spawnAgent({ command, cwd }: { command: string; cwd: string }) {
   const [cmd, ...args] = command.trim().split(/\s+/);
+  const safeEnvs = objectPickBy(
+    process.env,
+    (_, k) => typeof k === "string" && !k.startsWith("ACPELLA_"),
+  );
   const child = spawn(cmd, args, {
     stdio: ["pipe", "pipe", "pipe"],
     cwd,
-    env: createAgentEnv(process.env),
+    env: safeEnvs,
   });
   const earlyExit = createEarlyExitPromise(child);
   if (child.stderr) {
@@ -121,18 +126,6 @@ async function spawnAgent({ command, cwd }: { command: string; cwd: string }) {
   }
 
   return { child, connection, subscribe };
-}
-
-export function createAgentEnv(source: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = {};
-
-  for (const [key, value] of Object.entries(source)) {
-    if (!key.startsWith("ACPELLA_")) {
-      env[key] = value;
-    }
-  }
-
-  return env;
 }
 
 function createEarlyExitPromise(child: ChildProcess): {

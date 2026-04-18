@@ -4,3 +4,10 @@ export function truncateString(s: string, limit: number) {
   }
   return s;
 }
+
+export function objectPickBy<K extends PropertyKey, V>(
+  o: Record<K, V>,
+  f: (v: V, k: K) => boolean,
+): Record<K, V> {
+  return Object.fromEntries(Object.entries(o).filter(([k, v]: any[]) => f(v, k))) as any;
+}
