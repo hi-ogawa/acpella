@@ -16,7 +16,7 @@ describe(startAcpManager, () => {
     onTestFinished(() => session.stop());
 
     const result = session.prompt("hello");
-    const updates = await arrayFromAsyncIterator(result.updates);
+    const updates = await arrayFromAsyncIterator(result.consume());
     expect(updates).toMatchInlineSnapshot(`
       [
         {
@@ -53,7 +53,7 @@ describe(startAcpManager, () => {
     onTestFinished(() => session.stop());
 
     const result = session.prompt("world");
-    const updates = await arrayFromAsyncIterator(result.updates);
+    const updates = await arrayFromAsyncIterator(result.consume());
     expect(updates).toMatchInlineSnapshot(`
       [
         {

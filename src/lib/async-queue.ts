@@ -18,7 +18,7 @@ export class AsyncQueue<T> {
     this.notify = undefined;
   }
 
-  async *[Symbol.asyncIterator](): AsyncGenerator<T> {
+  async *consume(): AsyncGenerator<T> {
     do {
       while (this.queue.length > 0) {
         yield this.queue.shift()!;

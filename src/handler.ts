@@ -86,7 +86,7 @@ export async function createHandler(
       const result = session.prompt(promptText);
       activeSessions.set(sessionName, session);
 
-      for await (const update of result.updates) {
+      for await (const update of result.consume()) {
         if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
           await reply.write(update.content.text);
         } else if (update.sessionUpdate === "tool_call") {

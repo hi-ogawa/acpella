@@ -195,5 +195,5 @@ function promptAgent(agent: AgentProcess, request: PromptRequest) {
     .finally(() => {
       unsubscribe();
     });
-  return { promise, updates: queue };
+  return { promise, consume: () => queue.consume() };
 }
