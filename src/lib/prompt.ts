@@ -27,7 +27,7 @@ export interface MessageMetadata {
 }
 
 export function buildMessageMetadataPrompt(metadata: MessageMetadata): string {
-  const receivedAt = Temporal.Instant.fromEpochMilliseconds(metadata.timestamp)
+  const timestamp = Temporal.Instant.fromEpochMilliseconds(metadata.timestamp)
     .toZonedDateTimeISO(metadata.timezone)
     .toString({
       calendarName: "never",
@@ -37,7 +37,7 @@ export function buildMessageMetadataPrompt(metadata: MessageMetadata): string {
     });
   return `\
 <message_metadata>
-received_at: ${receivedAt}
+sender_timestamp: ${timestamp}
 timezone: ${metadata.timezone}
 session_name: ${metadata.sessionName}
 </message_metadata>

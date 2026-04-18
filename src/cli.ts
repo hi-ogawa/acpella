@@ -126,7 +126,7 @@ Options:
         sessionName,
         text: ctx.message.text,
         metadata: {
-          timestamp: Date.now(),
+          timestamp: ctx.message.date * 1000,
         },
         send: async (replyText) => {
           const html = markdownToTelegramHtml(replyText);
