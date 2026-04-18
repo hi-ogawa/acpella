@@ -184,6 +184,7 @@ async function createSession(options: { agent: SpanwedAgent; sessionId: string }
     async cancel(): Promise<void> {
       await agent.connection.cancel({ sessionId: options.sessionId });
     },
+    // TODO: rename so not confused with closeSession
     close() {
       agent.child.kill();
     },
