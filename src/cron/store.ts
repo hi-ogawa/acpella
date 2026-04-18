@@ -1,0 +1,254 @@
+import { randomUUID } from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
+import { z } from "zod";
+import { validateCronSchedule } from "./timer.ts";
+
+const CRON_FILE_VERSION = 1;
+const CRON_STATE_FILE_VERSION = 1;
+
+const cronIdSchema = z
+  .string()
+  .min(1)
+  .regex(/^[a-zA-Z0-9_-]+$/);
+
+const telegramTargetSchema = z.object({
+  chatId: z.number().int(),
+  messageThreadId: z.number().int().optional(),
+});
+
+const cronTargetSchema = z.object({
+  sessionName: z.string().min(1),
+  telegram: telegramTargetSchema,
+});
+
+const cronJobSchema = z
+  .object({
+    id: cronIdSchema,
+    enabled: z.boolean(),
+    schedule: z.string().min(1),
+    timezone: z.string().min(1),
+    prompt: z.string().min(1),
+    target: cronTargetSchema,
+  })
+  .superRefine((job, ctx) => {
+    try {
+      validateCronSchedule({ schedule: job.schedule, timezone: job.timezone });
+    } catch (error) {
+      ctx.addIssue({
+        code: "custom",
+        message: error instanceof Error ? error.message : "Invalid cron schedule",
+        path: ["schedule"],
+      });
+    }
+  });
+
+const cronFileSchema = z
+  .object({
+    version: z.literal(CRON_FILE_VERSION),
+    jobs: z.record(cronIdSchema, cronJobSchema),
+  })
+  .superRefine((file, ctx) => {
+    for (const [id, job] of Object.entries(file.jobs)) {
+      if (id !== job.id) {
+        ctx.addIssue({
+          code: "custom",
+          message: `job id does not match key: ${job.id}`,
+          path: ["jobs", id, "id"],
+        });
+      }
+    }
+  });
+
+const cronRunSchema = z.object({
+  id: z.uuid(),
+  scheduledAt: z.string().min(1),
+  startedAt: z.string().min(1),
+  finishedAt: z.string().min(1).optional(),
+  status: z.enum(["running", "succeeded", "failed"]),
+  error: z.string().optional(),
+});
+
+const cronStateFileSchema = z.object({
+  version: z.literal(CRON_STATE_FILE_VERSION),
+  runs: z.record(cronIdSchema, z.record(z.string().min(1), cronRunSchema)),
+});
+
+export type CronFile = z.infer<typeof cronFileSchema>;
+export type CronStateFile = z.infer<typeof cronStateFileSchema>;
+export type CronJob = z.infer<typeof cronJobSchema>;
+export type CronTarget = z.infer<typeof cronTargetSchema>;
+export type CronTelegramTarget = z.infer<typeof telegramTargetSchema>;
+export type CronRun = z.infer<typeof cronRunSchema>;
+export type CronStore = ReturnType<typeof createCronStore>;
+
+export interface CreateCronStoreOptions {
+  cronFile: string;
+  cronStateFile: string;
+}
+
+export interface AddCronJobOptions {
+  id: string;
+  schedule: string;
+  timezone: string;
+  prompt: string;
+  target: CronTarget;
+}
+
+export function createCronStore(options: CreateCronStoreOptions) {
+  let cronFile = readCronFile(options.cronFile);
+  let cronStateFile = readCronStateFile(options.cronStateFile);
+
+  function writeCronFile(nextFile: CronFile): void {
+    cronFile = cronFileSchema.parse(nextFile);
+    writeJsonFile(options.cronFile, cronFile);
+  }
+
+  function writeCronStateFile(nextFile: CronStateFile): void {
+    cronStateFile = cronStateFileSchema.parse(nextFile);
+    writeJsonFile(options.cronStateFile, cronStateFile);
+  }
+
+  function updateCronFile(updater: (file: CronFile) => void): void {
+    const nextFile = structuredClone(cronFile);
+    updater(nextFile);
+    writeCronFile(nextFile);
+  }
+
+  function updateCronStateFile(updater: (file: CronStateFile) => void): void {
+    const nextFile = structuredClone(cronStateFile);
+    updater(nextFile);
+    writeCronStateFile(nextFile);
+  }
+
+  return {
+    getFile: () => cronFile,
+    getStateFile: () => cronStateFile,
+    listJobs(): CronJob[] {
+      return Object.values(cronFile.jobs).sort((a, b) => a.id.localeCompare(b.id));
+    },
+    getJob(id: string): CronJob | undefined {
+      return cronFile.jobs[id];
+    },
+    addJob(job: AddCronJobOptions): CronJob {
+      const nextJob = cronJobSchema.parse({
+        ...job,
+        enabled: true,
+      });
+      updateCronFile((file) => {
+        if (file.jobs[nextJob.id]) {
+          throw new Error(`Cron job already exists: ${nextJob.id}`);
+        }
+        file.jobs[nextJob.id] = nextJob;
+      });
+      return nextJob;
+    },
+    setJobEnabled(id: string, enabled: boolean): CronJob {
+      let nextJob: CronJob | undefined;
+      updateCronFile((file) => {
+        const job = file.jobs[id];
+        if (!job) {
+          throw new Error(`Unknown cron job: ${id}`);
+        }
+        job.enabled = enabled;
+        nextJob = job;
+      });
+      return nextJob!;
+    },
+    deleteJob(id: string): void {
+      updateCronFile((file) => {
+        if (!file.jobs[id]) {
+          throw new Error(`Unknown cron job: ${id}`);
+        }
+        delete file.jobs[id];
+      });
+      updateCronStateFile((file) => {
+        delete file.runs[id];
+      });
+    },
+    getRun(options: { cronId: string; scheduledAt: string }): CronRun | undefined {
+      return cronStateFile.runs[options.cronId]?.[options.scheduledAt];
+    },
+    getLatestRun(cronId: string): CronRun | undefined {
+      const runs = Object.values(cronStateFile.runs[cronId] ?? {});
+      runs.sort((a, b) => b.scheduledAt.localeCompare(a.scheduledAt));
+      return runs[0];
+    },
+    startRun(options: {
+      cronId: string;
+      scheduledAt: string;
+      startedAt: string;
+    }): CronRun | undefined {
+      let run: CronRun | undefined;
+      updateCronStateFile((file) => {
+        file.runs[options.cronId] ??= {};
+        if (file.runs[options.cronId][options.scheduledAt]) {
+          return;
+        }
+        run = {
+          id: randomUUID(),
+          scheduledAt: options.scheduledAt,
+          startedAt: options.startedAt,
+          status: "running",
+        };
+        file.runs[options.cronId][options.scheduledAt] = run;
+      });
+      return run;
+    },
+    finishRun(options: {
+      cronId: string;
+      scheduledAt: string;
+      finishedAt: string;
+      status: "succeeded" | "failed";
+      error?: string;
+    }): CronRun {
+      let nextRun: CronRun | undefined;
+      updateCronStateFile((file) => {
+        const run = file.runs[options.cronId]?.[options.scheduledAt];
+        if (!run) {
+          throw new Error(
+            `Cannot finish missing cron run: ${options.cronId} ${options.scheduledAt}`,
+          );
+        }
+        run.finishedAt = options.finishedAt;
+        run.status = options.status;
+        run.error = options.error;
+        nextRun = run;
+      });
+      return nextRun!;
+    },
+  };
+}
+
+function readCronFile(file: string): CronFile {
+  if (!fs.existsSync(file)) {
+    return getInitialCronFile();
+  }
+  return cronFileSchema.parse(JSON.parse(fs.readFileSync(file, "utf8")));
+}
+
+function readCronStateFile(file: string): CronStateFile {
+  if (!fs.existsSync(file)) {
+    return getInitialCronStateFile();
+  }
+  return cronStateFileSchema.parse(JSON.parse(fs.readFileSync(file, "utf8")));
+}
+
+function writeJsonFile(file: string, value: unknown): void {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify(value, null, 2));
+}
+
+function getInitialCronFile(): CronFile {
+  return {
+    version: CRON_FILE_VERSION,
+    jobs: {},
+  };
+}
+
+function getInitialCronStateFile(): CronStateFile {
+  return {
+    version: CRON_STATE_FILE_VERSION,
+    runs: {},
+  };
+}
