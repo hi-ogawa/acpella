@@ -7,6 +7,7 @@ import { loadConfig, type AppConfig } from "./config.ts";
 import { createHandler, type Handler } from "./handler.ts";
 import { handleSetupSystemd } from "./lib/systemd.ts";
 import { markdownToTelegramHtml } from "./lib/telegram-format-html.ts";
+import { truncateString } from "./lib/utils.ts";
 import { getVersion } from "./lib/version.ts";
 
 async function main() {
@@ -90,11 +91,15 @@ Options:
     console.warn("[telegram] failed to register bot commands:", error);
   }
 
-  // handle messages from each session and `/cancel` concurrently
+  // handle messages from each session and system commands concurrently
   bot.use(
     sequentialize((ctx) => {
-      const sessionName = telegramSessionName(ctx);
-      return ctx.message?.text === "/cancel" ? `${sessionName}:control` : sessionName;
+      let key = telegramSessionName(ctx);
+      const text = ctx.message?.text?.trim() ?? "";
+      if (text === "/status" || text === "/cancel") {
+        key += text;
+      }
+      return key;
     }),
   );
 
@@ -114,7 +119,7 @@ Options:
 
     const text = ctx.message.text;
 
-    console.log(`[${sessionName}] (request) ${text.slice(0, 200)}`);
+    console.log(`[${sessionName}] (request) ${truncateString(text, 200)}`);
 
     try {
       await handler.handle({
@@ -140,8 +145,8 @@ Options:
       console.log(`[${sessionName}] (response ok)`);
     } catch (error) {
       console.error(`[${sessionName}] (response error)`, error);
-      const msg = error instanceof Error ? error.message : String(error);
-      await ctx.reply(`Error: ${msg.slice(0, 200)}`);
+      const message = error instanceof Error ? error.message : String(error);
+      await ctx.reply(`Error: ${truncateString(message, 200)}`);
     }
   });
 
