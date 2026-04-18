@@ -1,4 +1,4 @@
-import { GrammyError, type Context } from "grammy/web";
+import { GrammyError, type Context } from "grammy";
 
 export function normalizeUserMention({
   text,
