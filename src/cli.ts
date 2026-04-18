@@ -88,7 +88,7 @@ Options:
     }));
     await bot.api.setMyCommands(commands);
   } catch (error) {
-    console.warn("[telegram] failed to register bot commands:", error);
+    console.error("[telegram] failed to register bot commands:", error);
   }
 
   // handle messages from each session and system commands concurrently
@@ -140,7 +140,7 @@ Options:
               parse_mode: "HTML",
             });
           } catch (error) {
-            console.warn(`${label} formatted reply failed; falling back to raw text:`, error);
+            console.error(`${label} formatted reply failed; falling back to raw text:`, error);
             return await ctx.reply(replyText);
           }
         },
