@@ -31,7 +31,6 @@ test(getNextOccurrence, () => {
   ).toMatchInlineSnapshot(`
     {
       "instant": "2026-04-19T23:00:00Z",
-      "scheduledAt": "2026-04-20T08:00:00+09:00",
     }
   `);
   expect(
@@ -39,6 +38,6 @@ test(getNextOccurrence, () => {
       schedule: "* * * * *",
       timezone: "UTC",
       after: Temporal.Instant.from("2026-04-18T00:00:00Z"),
-    }).scheduledAt,
-  ).toMatchInlineSnapshot(`"2026-04-18T00:01:00+00:00"`);
+    }).instant,
+  ).toMatchInlineSnapshot(`"2026-04-18T00:01:00Z"`);
 });

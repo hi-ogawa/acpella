@@ -9,7 +9,7 @@ export interface CronTimerEntry {
 
 export interface CronDueEvent {
   id: string;
-  scheduledAt: string;
+  scheduledAt: Temporal.Instant;
 }
 
 export interface CronTimer {
@@ -24,7 +24,6 @@ interface ScheduledEntry {
 
 interface CronOccurrence {
   instant: Temporal.Instant;
-  scheduledAt: string;
 }
 
 export function validateCronSchedule(options: { schedule: string; timezone: string }): void {
@@ -107,7 +106,7 @@ export function createCronTimer(options: {
       }
       const due = scheduledEntry.next;
       Promise.resolve(
-        options.onDue({ id: scheduledEntry.entry.id, scheduledAt: due.scheduledAt }),
+        options.onDue({ id: scheduledEntry.entry.id, scheduledAt: due.instant }),
       ).catch((error: unknown) => {
         if (options.onError) {
           options.onError(error);
@@ -145,10 +144,7 @@ export function getNextOccurrence(options: {
       throw new Error(`No cron occurrence found: ${options.schedule}`);
     }
     const instant = Temporal.Instant.fromEpochMilliseconds(nextRun.getTime());
-    return {
-      instant,
-      scheduledAt: formatInstant({ instant, timezone: options.timezone }),
-    };
+    return { instant };
   } finally {
     cron.stop();
   }
@@ -159,14 +155,5 @@ function createPausedCron(options: { schedule: string; timezone: string }): Cron
     timezone: options.timezone,
     paused: true,
     mode: "5-part",
-  });
-}
-
-function formatInstant(options: { instant: Temporal.Instant; timezone: string }): string {
-  return options.instant.toZonedDateTimeISO(options.timezone).toString({
-    calendarName: "never",
-    fractionalSecondDigits: 0,
-    smallestUnit: "second",
-    timeZoneName: "never",
   });
 }

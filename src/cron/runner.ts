@@ -62,7 +62,7 @@ export function createCronRunner(options: CreateCronRunnerOptions): CronRunner {
     timer = undefined;
   }
 
-  async function onDue(event: { id: string; scheduledAt: string }): Promise<void> {
+  async function onDue(event: { id: string; scheduledAt: Temporal.Instant }): Promise<void> {
     const job = options.store.getJob(event.id);
     if (!job || !job.enabled) {
       return;
@@ -87,17 +87,18 @@ export function createCronRunner(options: CreateCronRunnerOptions): CronRunner {
 
 async function executeCronJob(options: {
   job: CronJob;
-  scheduledAt: string;
+  scheduledAt: Temporal.Instant;
   store: Pick<CronStore, "startRun" | "finishRun">;
   agent: CronAgentClient;
   delivery: CronDelivery;
   now?: () => Temporal.Instant;
 }): Promise<ExecuteCronJobResult> {
   const now = options.now ?? (() => Temporal.Now.instant());
-  const startedAt = formatInstant({ instant: now(), timezone: options.job.timezone });
+  const scheduledAt = formatStoredInstant(options.scheduledAt);
+  const startedAt = formatStoredInstant(now());
   const run = options.store.startRun({
     cronId: options.job.id,
-    scheduledAt: options.scheduledAt,
+    scheduledAt,
     startedAt,
   });
   if (!run) {
@@ -107,7 +108,10 @@ async function executeCronJob(options: {
   try {
     const prompt = buildCronPrompt({
       cronId: options.job.id,
-      scheduledAt: options.scheduledAt,
+      scheduledAt: formatZonedInstant({
+        instant: options.scheduledAt,
+        timezone: options.job.timezone,
+      }),
       startedAt,
       timezone: options.job.timezone,
       sessionName: options.job.target.sessionName,
@@ -120,8 +124,8 @@ async function executeCronJob(options: {
     await options.delivery.sendTelegram(options.job.target.telegram, response);
     const nextRun = options.store.finishRun({
       cronId: options.job.id,
-      scheduledAt: options.scheduledAt,
-      finishedAt: formatInstant({ instant: now(), timezone: options.job.timezone }),
+      scheduledAt,
+      finishedAt: formatStoredInstant(now()),
       status: "succeeded",
     });
     return {
@@ -131,8 +135,8 @@ async function executeCronJob(options: {
   } catch (error) {
     const nextRun = options.store.finishRun({
       cronId: options.job.id,
-      scheduledAt: options.scheduledAt,
-      finishedAt: formatInstant({ instant: now(), timezone: options.job.timezone }),
+      scheduledAt,
+      finishedAt: formatStoredInstant(now()),
       status: "failed",
       error: formatError(error),
     });
@@ -165,8 +169,15 @@ ${options.prompt}
 `;
 }
 
+function formatStoredInstant(instant: Temporal.Instant): string {
+  return instant.toString({
+    fractionalSecondDigits: 0,
+    smallestUnit: "second",
+  });
+}
+
 // TODO: move lib/utils.ts
-function formatInstant(options: { instant: Temporal.Instant; timezone: string }): string {
+function formatZonedInstant(options: { instant: Temporal.Instant; timezone: string }): string {
   return options.instant.toZonedDateTimeISO(options.timezone).toString({
     calendarName: "never",
     fractionalSecondDigits: 0,
