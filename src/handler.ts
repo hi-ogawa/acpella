@@ -20,11 +20,11 @@ export interface HandlerContext {
   send: (text: string) => Promise<unknown>;
 }
 
-interface HandlerContextExtra extends HandlerContext {
+interface HandlerExtraContext extends HandlerContext {
   reply: Reply;
 }
 
-type SystemCommandTree = CommandTree<HandlerContextExtra>;
+type SystemCommandTree = CommandTree<HandlerExtraContext>;
 
 export async function createHandler(
   config: AppConfig,
@@ -45,7 +45,7 @@ export async function createHandler(
     return startAcpManager({ command: agent.command, cwd: config.home });
   }
 
-  async function handlePrompt({ reply, sessionName, text }: HandlerContextExtra): Promise<void> {
+  async function handlePrompt({ reply, sessionName, text }: HandlerExtraContext): Promise<void> {
     if (activeSessions.has(sessionName)) {
       await reply.system("Agent turn already in progress. Send /cancel to stop it.");
       return;
@@ -435,17 +435,17 @@ home: ${config.home}
       send: context.send,
       limit: MESSAGE_SPLIT_BUDGET,
     });
-    const contextExtra: HandlerContextExtra = { ...context, reply };
+    const extraContext: HandlerExtraContext = { ...context, reply };
 
     const handledSystem = await systemCommandHandler.handle({
-      text: contextExtra.text,
-      context: contextExtra,
+      text: extraContext.text,
+      context: extraContext,
     });
     if (handledSystem) {
       return;
     }
 
-    await handlePrompt(contextExtra);
+    await handlePrompt(extraContext);
   };
 
   return { handle, commands: systemCommandsMetadata };
