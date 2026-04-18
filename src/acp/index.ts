@@ -66,8 +66,8 @@ export async function startAcpManager(options: { command: string; cwd: string })
   };
 }
 
-type SpanwedAgent = Awaited<ReturnType<typeof spawnAgent>>;
-export type AgentSession = Awaited<ReturnType<typeof createSession>>;
+export type SpanwedAgent = Awaited<ReturnType<typeof spawnAgent>>;
+export type SpawnedSession = Awaited<ReturnType<typeof createSession>>;
 
 async function spawnAgent({ command, cwd }: { command: string; cwd: string }) {
   const [cmd, ...args] = command.trim().split(/\s+/);

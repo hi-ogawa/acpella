@@ -1,5 +1,5 @@
 import { startAcpManager } from "./acp/index.ts";
-import type { AgentSession } from "./acp/index.ts";
+import type { SpawnedSession } from "./acp/index.ts";
 import type { AppConfig } from "./config.ts";
 import { createCommandHandler } from "./lib/command.ts";
 import type { CommandTree } from "./lib/command.ts";
@@ -37,8 +37,8 @@ export async function createHandler(
   },
 ): Promise<Handler> {
   const stateStore = createSessionStateStore(config);
-  const activeSessions = new Map<string, AgentSession>();
-  const cancelledSessions = new WeakSet<AgentSession>();
+  const activeSessions = new Map<string, SpawnedSession>();
+  const cancelledSessions = new WeakSet<SpawnedSession>();
 
   async function getAgentManager(agentKey: string) {
     const agent = stateStore.get().agents[agentKey];
@@ -58,7 +58,7 @@ export async function createHandler(
     const stateSession = stateStore.getSession(sessionName);
     const manager = await getAgentManager(stateSession.agentKey);
 
-    let agentSession: AgentSession;
+    let agentSession: SpawnedSession;
     let promptText = "";
     if (stateSession.agentSessionId) {
       agentSession = await manager.loadSession({
