@@ -1,4 +1,5 @@
-// TODO: link to reference
+// https://core.telegram.org/bots/api#sendmessage
+// > Text of the message to be sent, 1-4096 characters after entities parsing
 export const MESSAGE_SPLIT_BUDGET = 3900;
 
 export type Reply = ReturnType<typeof createReply>;

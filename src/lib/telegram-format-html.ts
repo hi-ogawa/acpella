@@ -4,6 +4,8 @@ import { fromMarkdown } from "mdast-util-from-markdown";
 import { gfmFromMarkdown } from "mdast-util-gfm";
 import { gfm } from "micromark-extension-gfm";
 
+// https://core.telegram.org/bots/api#html-style
+
 const MARKDOWN_PARSE_OPTIONS = {
   extensions: [gfm()],
   mdastExtensions: [gfmFromMarkdown()],
