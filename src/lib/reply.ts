@@ -1,20 +1,16 @@
 // TODO: link to reference
 export const MESSAGE_SPLIT_BUDGET = 3900;
 
-export interface ReplyContext {
-  reply: (text: string) => Promise<unknown>;
-}
-
 export type Reply = ReturnType<typeof createReply>;
 
-export function createReply(options: { context: ReplyContext; limit: number }) {
+export function createReply(options: { send: (text: string) => Promise<unknown>; limit: number }) {
   let buffer = "";
   let sent = false;
 
   async function send(text: string): Promise<void> {
     const parts = splitMessageText(text, options.limit);
     for (const part of parts) {
-      await options.context.reply(part);
+      await options.send(part);
     }
     sent = true;
   }

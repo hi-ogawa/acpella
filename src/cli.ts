@@ -124,22 +124,20 @@ Options:
     try {
       await handler.handle({
         sessionName,
-        context: {
-          message: ctx.message,
-          reply: async (replyText) => {
-            const html = markdownToTelegramHtml(replyText);
-            try {
-              return await ctx.reply(html, {
-                parse_mode: "HTML",
-              });
-            } catch (error) {
-              console.warn(
-                `[${sessionName}] formatted reply failed; falling back to raw text:`,
-                error,
-              );
-              return await ctx.reply(replyText);
-            }
-          },
+        text: ctx.message.text,
+        send: async (replyText) => {
+          const html = markdownToTelegramHtml(replyText);
+          try {
+            return await ctx.reply(html, {
+              parse_mode: "HTML",
+            });
+          } catch (error) {
+            console.warn(
+              `[${sessionName}] formatted reply failed; falling back to raw text:`,
+              error,
+            );
+            return await ctx.reply(replyText);
+          }
         },
       });
       console.log(`[${sessionName}] (response ok)`);
@@ -176,12 +174,8 @@ async function startRepl(config: AppConfig, handler: Handler, version: string) {
     try {
       await handler.handle({
         sessionName: "repl",
-        context: {
-          message: { text },
-          async reply(text) {
-            console.log(text);
-          },
-        },
+        text,
+        send: async (replyText) => console.log(replyText),
       });
     } catch (error) {
       console.error(error);

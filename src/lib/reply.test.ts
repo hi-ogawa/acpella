@@ -4,11 +4,7 @@ import { createReply } from "./reply.ts";
 function createReplyTest(options: { limit: number }) {
   const messages: string[] = [];
   const reply = createReply({
-    context: {
-      async reply(text: string): Promise<void> {
-        messages.push(text);
-      },
-    },
+    send: async (t) => messages.push(t),
     limit: options.limit,
   });
   return { reply, messages };
