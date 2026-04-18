@@ -7,7 +7,7 @@ import { loadConfig, type AppConfig } from "./config.ts";
 import { createHandler, type Handler } from "./handler.ts";
 import { handleSetupSystemd } from "./lib/systemd.ts";
 import { markdownToTelegramHtml } from "./lib/telegram-format-html.ts";
-import { truncateString } from "./lib/utils.ts";
+import { addIndent, truncateString } from "./lib/utils.ts";
 import { getVersion } from "./lib/version.ts";
 
 async function main() {
@@ -119,7 +119,12 @@ Options:
     }
 
     const text = ctx.message.text;
-    console.log(`${label} (request) ${truncateString(text, 200)}`);
+    console.log(
+      addIndent({
+        indent: `${label} (request) `,
+        text: truncateString(text, 200),
+      }),
+    );
 
     try {
       await handler.handle({
