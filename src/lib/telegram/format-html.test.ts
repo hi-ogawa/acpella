@@ -1,10 +1,10 @@
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { markdownToTelegramHtml } from "./telegram-format-html.ts";
+import { markdownToTelegramHtml } from "./format-html.ts";
 
 describe("fixtures", () => {
   const fixtures: Record<string, () => Promise<any>> = import.meta.glob(
-    ["../../fixtures/telegram-html/*.md", "!**/*.snap.*"],
+    ["../../../fixtures/telegram-html/*.md", "!**/*.snap.*"],
     {
       query: "raw",
     },
