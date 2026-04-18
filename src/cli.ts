@@ -145,7 +145,7 @@ Options:
   const runner = run(bot, {
     sink: {
       // @grammyjs/runner defaults to 500; keep acpella conservative because prompts spawn child agents.
-      concurrency: 4,
+      concurrency: 5,
     },
   });
   await runner.task();
