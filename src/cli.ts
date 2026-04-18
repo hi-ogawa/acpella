@@ -90,7 +90,13 @@ Options:
     console.warn("[telegram] failed to register bot commands:", error);
   }
 
-  bot.use(sequentialize(telegramSequentialConstraint));
+  // handle messages from each session and `/cancel` concurrently
+  bot.use(
+    sequentialize((context) => {
+      const sessionName = telegramSessionName(context);
+      return context.message?.text === "/cancel" ? `${sessionName}:control` : sessionName;
+    }),
+  );
 
   bot.on("message:text", async (ctx) => {
     const chatId = ctx.chat.id;
@@ -154,11 +160,6 @@ function telegramSessionName(context: Context): string {
   return ["tg", context.chat?.id ?? "unknown", context.message?.message_thread_id]
     .filter(Boolean)
     .join("-");
-}
-
-function telegramSequentialConstraint(context: Context): string {
-  const base = telegramSessionName(context);
-  return context.message?.text === "/cancel" ? `${base}:control` : base;
 }
 
 async function startRepl(config: AppConfig, handler: Handler, version: string) {
