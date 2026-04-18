@@ -107,19 +107,19 @@ Options:
     const chatId = ctx.chat.id;
     const userId = ctx.from?.id;
     const sessionName = telegramSessionName(ctx);
+    const label = `[${sessionName}:${ctx.message.message_id}]`;
 
     if (allowedChats.size && !allowedChats.has(chatId)) {
-      console.error(`[${sessionName}] rejected: chat ${chatId} is not allowed`);
+      console.error(`${label} rejected: chat ${chatId} is not allowed`);
       return;
     }
     if (!userId || (allowedUsers.size && !allowedUsers.has(userId))) {
-      console.error(`[${sessionName}] rejected: user ${userId ?? "unknown"} is not allowed`);
+      console.error(`${label} rejected: user ${userId ?? "unknown"} is not allowed`);
       return;
     }
 
     const text = ctx.message.text;
-
-    console.log(`[${sessionName}] (request) ${truncateString(text, 200)}`);
+    console.log(`${label} (request) ${truncateString(text, 200)}`);
 
     try {
       await handler.handle({
@@ -135,17 +135,14 @@ Options:
               parse_mode: "HTML",
             });
           } catch (error) {
-            console.warn(
-              `[${sessionName}] formatted reply failed; falling back to raw text:`,
-              error,
-            );
+            console.warn(`${label} formatted reply failed; falling back to raw text:`, error);
             return await ctx.reply(replyText);
           }
         },
       });
-      console.log(`[${sessionName}] (response ok)`);
+      console.log(`${label} (response ok)`);
     } catch (error) {
-      console.error(`[${sessionName}] (response error)`, error);
+      console.error(`${label} (response error)`, error);
       const message = error instanceof Error ? error.message : String(error);
       await ctx.reply(`Error: ${truncateString(message, 200)}`);
     }
