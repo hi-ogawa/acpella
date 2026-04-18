@@ -208,13 +208,13 @@ Options:
   await runner.task();
 }
 
-export function formatTelegramSessionName(context: Context): string {
+function formatTelegramSessionName(context: Context): string {
   return ["tg", context.chat?.id ?? "unknown", context.message?.message_thread_id]
     .filter(Boolean)
     .join("-");
 }
 
-export function getTelegramRetryAfter(error: unknown): number | undefined {
+function getTelegramRetryAfter(error: unknown): number | undefined {
   if (error instanceof GrammyError && error.error_code === 429) {
     return error.parameters.retry_after;
   }
