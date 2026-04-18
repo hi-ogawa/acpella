@@ -1,5 +1,5 @@
 import { Temporal } from "temporal-polyfill";
-import type { CronJob, CronRun, CronStore, CronTelegramTarget } from "./store.ts";
+import type { CronJob, CronStore, CronTelegramTarget } from "./store.ts";
 import { CronScheduler, type CronDueEvent } from "./timer.ts";
 
 export interface CronRunnerOptions {
@@ -10,17 +10,7 @@ export interface CronRunnerOptions {
   delivery: {
     sendTelegram: (target: CronTelegramTarget, text: string) => Promise<void>;
   };
-  onRunComplete: (result: ExecuteCronJobResult) => void;
 }
-
-export type ExecuteCronJobResult =
-  | {
-      status: "duplicate";
-    }
-  | {
-      status: "succeeded" | "failed";
-      run: CronRun;
-    };
 
 export class CronRunner {
   options: CronRunnerOptions;
@@ -53,11 +43,10 @@ export class CronRunner {
     if (!job || !job.enabled) {
       return;
     }
-    const result = await this.executeCronJob(job, event);
-    this.options.onRunComplete(result);
+    await this.executeCronJob(job, event);
   }
 
-  async executeCronJob(job: CronJob, event: CronDueEvent): Promise<ExecuteCronJobResult> {
+  async executeCronJob(job: CronJob, event: CronDueEvent) {
     const options = {
       job,
       scheduledAt: event.scheduledAt,
@@ -93,28 +82,20 @@ export class CronRunner {
         prompt,
       });
       await options.delivery.sendTelegram(options.job.target.telegram, response);
-      const nextRun = options.store.finishRun({
+      options.store.finishRun({
         cronId: options.job.id,
         scheduledAt,
         finishedAt: formatStoredInstant(now()),
         status: "succeeded",
       });
-      return {
-        status: "succeeded",
-        run: nextRun,
-      };
     } catch (error) {
-      const nextRun = options.store.finishRun({
+      options.store.finishRun({
         cronId: options.job.id,
         scheduledAt,
         finishedAt: formatStoredInstant(now()),
         status: "failed",
         error: formatError(error),
       });
-      return {
-        status: "failed",
-        run: nextRun,
-      };
     }
   }
 }
