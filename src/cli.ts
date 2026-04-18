@@ -89,19 +89,14 @@ Options:
     }));
     await bot.api.setMyCommands(commands);
   } catch (error) {
-    console.error("[telegram] failed to register bot commands:", summarizeError(error));
+    console.error("[telegram] failed to register bot commands:", error);
   }
 
   bot.catch((error) => {
     const ctx = error.ctx;
     const sessionName = telegramSessionName(ctx);
     const label = `[${sessionName}:${ctx.message?.message_id ?? "unknown"}]`;
-    console.error(`${label} (bot error)`, {
-      updateId: ctx.update.update_id,
-      chatId: ctx.chat?.id,
-      threadId: ctx.message?.message_thread_id,
-      error: summarizeError(error.error),
-    });
+    console.error(`${label} (bot error)`, error.error);
   });
 
   // handle messages from each session and system commands concurrently
@@ -156,17 +151,14 @@ Options:
             if (getTelegramRetryAfter(error) !== undefined) {
               throw error;
             }
-            console.error(
-              `${label} formatted reply failed; falling back to raw text:`,
-              summarizeError(error),
-            );
+            console.error(`${label} formatted reply failed; falling back to raw text:`, error);
             return await ctx.reply(replyText);
           }
         },
       });
       console.log(`${label} (response ok)`);
     } catch (error) {
-      console.error(`${label} (response error)`, summarizeError(error));
+      console.error(`${label} (response error)`, error);
       const message = error instanceof Error ? error.message : String(error);
       try {
         await retryTelegram429Once({
@@ -174,7 +166,7 @@ Options:
           action: () => ctx.reply(`Error: ${truncateString(message, 200)}`),
         });
       } catch (replyError) {
-        console.error(`${label} error reply failed; giving up:`, summarizeError(replyError));
+        console.error(`${label} error reply failed; giving up:`, replyError);
       }
     }
   });
@@ -216,33 +208,10 @@ async function retryTelegram429Once<T>(options: {
     }
 
     const delaySeconds = retryAfter + 1;
-    console.warn(
-      `${options.label} telegram flood control; retrying in ${delaySeconds}s:`,
-      summarizeError(error),
-    );
+    console.warn(`${options.label} telegram flood control; retrying in ${delaySeconds}s:`, error);
     await sleep(delaySeconds * 1000);
     return await options.action();
   }
-}
-
-function summarizeError(error: unknown): unknown {
-  if (error instanceof GrammyError) {
-    return {
-      name: error.name,
-      message: error.message,
-      method: error.method,
-      errorCode: error.error_code,
-      description: error.description,
-      retryAfter: error.parameters.retry_after,
-    };
-  }
-  if (error instanceof Error) {
-    return {
-      name: error.name,
-      message: error.message,
-    };
-  }
-  return String(error);
 }
 
 async function startRepl(config: AppConfig, handler: Handler, version: string) {
