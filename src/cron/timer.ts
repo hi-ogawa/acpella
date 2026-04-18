@@ -36,18 +36,6 @@ export function validateCronSchedule(options: { schedule: string; timezone: stri
   }
 }
 
-export function getNextCronOccurrence(options: {
-  schedule: string;
-  timezone: string;
-  after?: Temporal.Instant | Date | string | number;
-}): string {
-  return computeNextCronOccurrence({
-    schedule: options.schedule,
-    timezone: options.timezone,
-    after: toDate(options.after ?? Temporal.Now.instant()),
-  }).scheduledAt;
-}
-
 export function createCronTimer(options: {
   entries: CronTimerEntry[];
   onDue: (event: CronDueEvent) => void | Promise<void>;
@@ -61,11 +49,11 @@ export function createCronTimer(options: {
 
   function replaceEntries(entries: CronTimerEntry[]): void {
     scheduledEntries.clear();
-    const current = toDate(now());
+    const current = now();
     for (const entry of entries) {
       scheduledEntries.set(entry.id, {
         entry,
-        next: computeNextCronOccurrence({ ...entry, after: current }),
+        next: getNextOccurrence({ ...entry, after: current }),
       });
     }
     scheduleWakeup();
@@ -129,9 +117,9 @@ export function createCronTimer(options: {
           throw error;
         }, 0);
       });
-      scheduledEntry.next = computeNextCronOccurrence({
+      scheduledEntry.next = getNextOccurrence({
         ...scheduledEntry.entry,
-        after: toDate(due.instant),
+        after: due.instant,
       });
     }
     scheduleWakeup();
@@ -145,14 +133,14 @@ export function createCronTimer(options: {
   };
 }
 
-function computeNextCronOccurrence(options: {
+export function getNextOccurrence(options: {
   schedule: string;
   timezone: string;
-  after: Date;
+  after: Temporal.Instant;
 }): CronOccurrence {
   const cron = createPausedCron(options);
   try {
-    const nextRun = cron.nextRun(options.after);
+    const nextRun = cron.nextRun(new Date(options.after.epochMilliseconds));
     if (!nextRun) {
       throw new Error(`No cron occurrence found: ${options.schedule}`);
     }
@@ -181,17 +169,4 @@ function formatInstant(options: { instant: Temporal.Instant; timezone: string })
     smallestUnit: "second",
     timeZoneName: "never",
   });
-}
-
-function toDate(value: Temporal.Instant | Date | string | number): Date {
-  if (value instanceof Date) {
-    return value;
-  }
-  if (value instanceof Temporal.Instant) {
-    return new Date(value.epochMilliseconds);
-  }
-  if (typeof value === "number") {
-    return new Date(value);
-  }
-  return new Date(Temporal.Instant.from(value).epochMilliseconds);
 }

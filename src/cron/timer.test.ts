@@ -1,5 +1,6 @@
+import { Temporal } from "temporal-polyfill";
 import { expect, test } from "vitest";
-import { getNextCronOccurrence, validateCronSchedule } from "./timer.ts";
+import { getNextOccurrence, validateCronSchedule } from "./timer.ts";
 
 test(validateCronSchedule, () => {
   expect(() => {
@@ -20,19 +21,24 @@ test(validateCronSchedule, () => {
   );
 });
 
-test(getNextCronOccurrence, () => {
+test(getNextOccurrence, () => {
   expect(
-    getNextCronOccurrence({
+    getNextOccurrence({
       schedule: "0 8 * * 1-5",
       timezone: "Asia/Tokyo",
-      after: "2026-04-18T00:00:00Z",
+      after: Temporal.Instant.from("2026-04-18T00:00:00Z"),
     }),
-  ).toMatchInlineSnapshot(`"2026-04-20T08:00:00+09:00"`);
+  ).toMatchInlineSnapshot(`
+    {
+      "instant": "2026-04-19T23:00:00Z",
+      "scheduledAt": "2026-04-20T08:00:00+09:00",
+    }
+  `);
   expect(
-    getNextCronOccurrence({
+    getNextOccurrence({
       schedule: "* * * * *",
       timezone: "UTC",
-      after: "2026-04-18T00:00:00Z",
-    }),
+      after: Temporal.Instant.from("2026-04-18T00:00:00Z"),
+    }).scheduledAt,
   ).toMatchInlineSnapshot(`"2026-04-18T00:01:00+00:00"`);
 });
