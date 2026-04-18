@@ -2,12 +2,11 @@ import path from "node:path";
 import { createInterface } from "node:readline/promises";
 import { parseArgs } from "node:util";
 import { run, sequentialize } from "@grammyjs/runner";
-import { Bot } from "grammy";
+import { Bot, Context } from "grammy";
 import { loadConfig, type AppConfig } from "./config.ts";
 import { createHandler, type Handler } from "./handler.ts";
 import { handleSetupSystemd } from "./lib/systemd.ts";
 import { markdownToTelegramHtml } from "./lib/telegram-format-html.ts";
-import { telegramSequentialKey, telegramSessionName } from "./lib/telegram.ts";
 import { getVersion } from "./lib/version.ts";
 
 async function main() {
@@ -90,7 +89,8 @@ Options:
   } catch (error) {
     console.warn("[telegram] failed to register bot commands:", error);
   }
-  bot.use(sequentialize(telegramSequentialKey));
+
+  bot.use(sequentialize(telegramSequentialConstraint));
 
   bot.on("message:text", async (ctx) => {
     const chatId = ctx.chat.id;
@@ -149,6 +149,23 @@ Options:
     },
   });
   await runner.task();
+}
+
+function telegramSessionName(options: { chatId: number; threadId?: number }): string {
+  return ["tg", options.chatId, options.threadId].filter(Boolean).join("-");
+}
+
+function telegramSequentialConstraint(context: Context): string {
+  const chatId = context.chat?.id;
+  if (typeof chatId !== "number") {
+    return "tg-unknown";
+  }
+
+  const base = telegramSessionName({
+    chatId,
+    threadId: context.message?.message_thread_id,
+  });
+  return context.message?.text === "/cancel" ? `${base}:control` : base;
 }
 
 async function startRepl(config: AppConfig, handler: Handler, version: string) {
