@@ -2,12 +2,15 @@ import { Temporal } from "temporal-polyfill";
 import type { CronJob, CronRun, CronStore, CronTelegramTarget } from "./store.ts";
 import { CronScheduler, type CronDueEvent } from "./timer.ts";
 
-export interface CronAgentClient {
-  promptSession: (options: { sessionName: string; prompt: string }) => Promise<string>;
-}
-
-export interface CronDelivery {
-  sendTelegram: (target: CronTelegramTarget, text: string) => Promise<void>;
+export interface CronRunnerOptions {
+  store: CronStore;
+  agent: {
+    promptSession: (options: { sessionName: string; prompt: string }) => Promise<string>;
+  };
+  delivery: {
+    sendTelegram: (target: CronTelegramTarget, text: string) => Promise<void>;
+  };
+  onRunComplete: (result: ExecuteCronJobResult) => void;
 }
 
 export type ExecuteCronJobResult =
@@ -19,123 +22,106 @@ export type ExecuteCronJobResult =
       run: CronRun;
     };
 
-export interface CreateCronRunnerOptions {
-  store: CronStore;
-  agent: CronAgentClient;
-  delivery: CronDelivery;
-  onRunComplete: (result: ExecuteCronJobResult) => void;
-}
+export class CronRunner {
+  options: CronRunnerOptions;
+  scheduler: CronScheduler;
 
-// TODO: rewrite to CronRunner class
-export type CronRunner = ReturnType<typeof createCronRunner>;
+  constructor(options: CronRunnerOptions) {
+    this.options = { ...options };
+    this.scheduler = new CronScheduler({
+      entries: [],
+      onDue: this.handleDueEvent.bind(this),
+    });
+  }
 
-export function createCronRunner(options: CreateCronRunnerOptions) {
-  const scheduler = new CronScheduler({
-    entries: [],
-    onDue,
-  });
+  start() {
+    this.scheduler.start();
+    this.refresh();
+  }
 
-  async function onDue(event: CronDueEvent): Promise<void> {
-    const job = options.store.getJob(event.id);
+  stop() {
+    this.scheduler.stop();
+  }
+
+  refresh() {
+    const entries = this.options.store.listJobs().filter((job) => job.enabled);
+    this.scheduler.updateEntries(entries);
+  }
+
+  async handleDueEvent(event: CronDueEvent): Promise<void> {
+    const job = this.options.store.getJob(event.id);
     if (!job || !job.enabled) {
       return;
     }
-    const result = await executeCronJob({
+    const result = await this.executeCronJob(job, event);
+    this.options.onRunComplete(result);
+  }
+
+  async executeCronJob(job: CronJob, event: CronDueEvent): Promise<ExecuteCronJobResult> {
+    const options = {
       job,
       scheduledAt: event.scheduledAt,
-      store: options.store,
-      agent: options.agent,
-      delivery: options.delivery,
-    });
-    options.onRunComplete(result);
-  }
-
-  const runner = {
-    start: () => {
-      scheduler.start();
-      runner.refresh();
-    },
-    refresh: () => {
-      const entries = options.store
-        .listJobs()
-        .filter((job) => job.enabled)
-        .map((job) => ({
-          id: job.id,
-          schedule: job.schedule,
-          timezone: job.timezone,
-        }));
-      scheduler.updateEntries(entries);
-    },
-    stop: () => {
-      scheduler.stop();
-    },
-  };
-  return runner;
-}
-
-async function executeCronJob(options: {
-  job: CronJob;
-  scheduledAt: Temporal.Instant;
-  store: Pick<CronStore, "startRun" | "finishRun">;
-  agent: CronAgentClient;
-  delivery: CronDelivery;
-  now?: () => Temporal.Instant;
-}): Promise<ExecuteCronJobResult> {
-  const now = options.now ?? (() => Temporal.Now.instant());
-  const scheduledAt = formatStoredInstant(options.scheduledAt);
-  const startedAt = formatStoredInstant(now());
-  const run = options.store.startRun({
-    cronId: options.job.id,
-    scheduledAt,
-    startedAt,
-  });
-  if (!run) {
-    return { status: "duplicate" };
-  }
-
-  try {
-    const prompt = buildCronPrompt({
+      store: this.options.store,
+      agent: this.options.agent,
+      delivery: this.options.delivery,
+    };
+    const scheduledAt = formatStoredInstant(options.scheduledAt);
+    const startedAt = formatStoredInstant(now());
+    const run = options.store.startRun({
       cronId: options.job.id,
-      scheduledAt: formatZonedInstant({
-        instant: options.scheduledAt,
-        timezone: options.job.timezone,
-      }),
+      scheduledAt,
       startedAt,
-      timezone: options.job.timezone,
-      sessionName: options.job.target.sessionName,
-      prompt: options.job.prompt,
     });
-    const response = await options.agent.promptSession({
-      sessionName: options.job.target.sessionName,
-      prompt,
-    });
-    await options.delivery.sendTelegram(options.job.target.telegram, response);
-    const nextRun = options.store.finishRun({
-      cronId: options.job.id,
-      scheduledAt,
-      finishedAt: formatStoredInstant(now()),
-      status: "succeeded",
-    });
-    return {
-      status: "succeeded",
-      run: nextRun,
-    };
-  } catch (error) {
-    const nextRun = options.store.finishRun({
-      cronId: options.job.id,
-      scheduledAt,
-      finishedAt: formatStoredInstant(now()),
-      status: "failed",
-      error: formatError(error),
-    });
-    return {
-      status: "failed",
-      run: nextRun,
-    };
+    if (!run) {
+      return { status: "duplicate" };
+    }
+
+    try {
+      const prompt = buildCronPrompt({
+        cronId: options.job.id,
+        scheduledAt: formatZonedInstant({
+          instant: options.scheduledAt,
+          timezone: options.job.timezone,
+        }),
+        startedAt,
+        timezone: options.job.timezone,
+        sessionName: options.job.target.sessionName,
+        prompt: options.job.prompt,
+      });
+      const response = await options.agent.promptSession({
+        sessionName: options.job.target.sessionName,
+        prompt,
+      });
+      await options.delivery.sendTelegram(options.job.target.telegram, response);
+      const nextRun = options.store.finishRun({
+        cronId: options.job.id,
+        scheduledAt,
+        finishedAt: formatStoredInstant(now()),
+        status: "succeeded",
+      });
+      return {
+        status: "succeeded",
+        run: nextRun,
+      };
+    } catch (error) {
+      const nextRun = options.store.finishRun({
+        cronId: options.job.id,
+        scheduledAt,
+        finishedAt: formatStoredInstant(now()),
+        status: "failed",
+        error: formatError(error),
+      });
+      return {
+        status: "failed",
+        run: nextRun,
+      };
+    }
   }
 }
 
-export function buildCronPrompt(options: {
+const now = () => Temporal.Now.instant();
+
+function buildCronPrompt(options: {
   cronId: string;
   scheduledAt: string;
   startedAt: string;
