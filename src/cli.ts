@@ -1,6 +1,5 @@
 import path from "node:path";
 import { createInterface } from "node:readline/promises";
-import { setTimeout as sleep } from "node:timers/promises";
 import { parseArgs } from "node:util";
 import { run, sequentialize } from "@grammyjs/runner";
 import { Bot, GrammyError, type Context } from "grammy";
@@ -8,7 +7,7 @@ import { loadConfig, type AppConfig } from "./config.ts";
 import { createHandler, type Handler } from "./handler.ts";
 import { handleSetupSystemd } from "./lib/systemd.ts";
 import { markdownToTelegramHtml } from "./lib/telegram-format-html.ts";
-import { addIndent, truncateString } from "./lib/utils.ts";
+import { addIndent, sleep, truncateString } from "./lib/utils.ts";
 import { getVersion } from "./lib/version.ts";
 
 async function main() {
@@ -134,6 +133,20 @@ Options:
       }),
     );
 
+    const replyWithRetry = async (...args: Parameters<typeof ctx.reply>) => {
+      try {
+        return await ctx.reply(...args);
+      } catch (error) {
+        const retryAfter = getTelegramRetryAfter(error);
+        if (retryAfter === undefined) {
+          throw error;
+        }
+        console.error(`${label} reply failed. retrying after ${retryAfter}s`, error);
+        await sleep((retryAfter + 1) * 1000);
+        return await ctx.reply(...args);
+      }
+    };
+
     try {
       await handler.handle({
         sessionName,
@@ -144,7 +157,7 @@ Options:
         send: async (replyText) => {
           const html = markdownToTelegramHtml(replyText);
           try {
-            return await ctx.reply(html, {
+            return await replyWithRetry(html, {
               parse_mode: "HTML",
             });
           } catch (error) {
@@ -152,7 +165,7 @@ Options:
               throw error;
             }
             console.error(`${label} formatted reply failed; falling back to raw text:`, error);
-            return await ctx.reply(replyText);
+            return await replyWithRetry(replyText);
           }
         },
       });
@@ -160,14 +173,7 @@ Options:
     } catch (error) {
       console.error(`${label} (response error)`, error);
       const message = error instanceof Error ? error.message : String(error);
-      try {
-        await retryTelegram429Once({
-          label,
-          action: () => ctx.reply(`Error: ${truncateString(message, 200)}`),
-        });
-      } catch (replyError) {
-        console.error(`${label} error reply failed; giving up:`, replyError);
-      }
+      await replyWithRetry(`Error: ${truncateString(message, 200)}`);
     }
   });
 
@@ -189,28 +195,8 @@ function telegramSessionName(context: Context): string {
 }
 
 function getTelegramRetryAfter(error: unknown): number | undefined {
-  if (!(error instanceof GrammyError) || error.error_code !== 429) {
-    return;
-  }
-  return error.parameters.retry_after;
-}
-
-async function retryTelegram429Once<T>(options: {
-  label: string;
-  action: () => Promise<T>;
-}): Promise<T> {
-  try {
-    return await options.action();
-  } catch (error) {
-    const retryAfter = getTelegramRetryAfter(error);
-    if (retryAfter === undefined) {
-      throw error;
-    }
-
-    const delaySeconds = retryAfter + 1;
-    console.warn(`${options.label} telegram flood control; retrying in ${delaySeconds}s:`, error);
-    await sleep(delaySeconds * 1000);
-    return await options.action();
+  if (error instanceof GrammyError && error.error_code === 429) {
+    return error.parameters.retry_after;
   }
 }
 

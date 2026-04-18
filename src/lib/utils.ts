@@ -18,3 +18,5 @@ export function objectPickBy<K extends PropertyKey, V>(
 ): Record<K, V> {
   return Object.fromEntries(Object.entries(o).filter(([k, v]: any[]) => f(v, k))) as any;
 }
+
+export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
