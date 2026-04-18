@@ -11,7 +11,7 @@ export function startService(options?: { env?: Record<string, string>; sourceDir
     sourceDir: options?.sourceDir,
   });
 
-  const child = spawn("pnpm", ["-s", "cli", "--repl"], {
+  const child = spawn("pnpm", ["-s", "repl"], {
     cwd: path.join(import.meta.dirname, "../.."),
     env: {
       ...process.env,

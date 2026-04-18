@@ -3,7 +3,7 @@ import type { AgentSession } from "./acp/index.ts";
 import type { AppConfig } from "./config.ts";
 import { createCommandHandler } from "./lib/command.ts";
 import type { CommandTree } from "./lib/command.ts";
-import { buildFirstPrompt } from "./lib/prompt.ts";
+import { buildFirstPrompt, buildMessageMetadataPrompt } from "./lib/prompt.ts";
 import { createReply, MESSAGE_SPLIT_BUDGET } from "./lib/reply.ts";
 import type { Reply } from "./lib/reply.ts";
 import { createSessionStateStore, parseAgentSessionKey, toAgentSessionKey } from "./state.ts";
@@ -18,6 +18,9 @@ export interface HandlerContext {
   sessionName: string;
   text: string;
   send: (text: string) => Promise<unknown>;
+  metadata?: {
+    timestamp: number;
+  };
 }
 
 interface HandlerExtraContext extends HandlerContext {
@@ -45,7 +48,8 @@ export async function createHandler(
     return startAcpManager({ command: agent.command, cwd: config.home });
   }
 
-  async function handlePrompt({ reply, sessionName, text }: HandlerExtraContext): Promise<void> {
+  async function handlePrompt(context: HandlerExtraContext): Promise<void> {
+    const { reply, sessionName, text, metadata } = context;
     if (activeSessions.has(sessionName)) {
       await reply.system("Agent turn already in progress. Send /cancel to stop it.");
       return;
@@ -55,7 +59,7 @@ export async function createHandler(
     const manager = await getAgentManager(stateSession.agentKey);
 
     let agentSession: AgentSession;
-    let promptText = text;
+    let promptText = "";
     if (stateSession.agentSessionId) {
       agentSession = await manager.loadSession({
         sessionCwd: config.home,
@@ -67,8 +71,16 @@ export async function createHandler(
         agentKey: stateSession.agentKey,
         agentSessionId: agentSession.sessionId,
       });
-      promptText = buildFirstPrompt({ promptFile: config.prompt.file, text });
+      promptText += buildFirstPrompt(config.prompt.file);
     }
+    if (metadata) {
+      promptText += buildMessageMetadataPrompt({
+        timestamp: metadata.timestamp,
+        timezone: config.timezone,
+        sessionName,
+      });
+    }
+    promptText += text;
 
     try {
       const { queue } = agentSession.prompt(promptText);

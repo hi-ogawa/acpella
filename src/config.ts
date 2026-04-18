@@ -4,6 +4,7 @@ import { z } from "zod";
 export interface AppConfig {
   home: string;
   stateFile: string;
+  timezone: string;
   telegram: {
     token?: string;
     allowedUserIds: number[];
@@ -27,10 +28,12 @@ const envSchema = z
 export function loadConfig(envOverride?: Record<string, string>): AppConfig {
   const env = envSchema.parse({ ...process.env, ...envOverride });
   const home = env.ACPELLA_HOME ? path.resolve(env.ACPELLA_HOME) : process.cwd();
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   return {
     home,
     stateFile: path.join(home, ".acpella", "state.json"),
+    timezone,
     telegram: {
       token: env.ACPELLA_TELEGRAM_BOT_TOKEN,
       allowedUserIds: parseIdList(env.ACPELLA_TELEGRAM_ALLOWED_USER_IDS) ?? [],

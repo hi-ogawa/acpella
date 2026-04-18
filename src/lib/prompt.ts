@@ -1,12 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
+import { Temporal } from "temporal-polyfill";
 
 const INCLUDE_LINE_RE = /^[^\S\r\n]*@(\S+)[^\S\r\n]*$/gm;
 const ACP_DIRECTIVE_LINE_RE = /^[^\S\r\n]*::acpella\s+(\S+)(?:\s+(.+?))?[^\S\r\n]*$/gm;
 
-export function buildFirstPrompt(options: { promptFile: string; text: string }): string {
+export function buildFirstPrompt(file: string): string {
   let output = "";
-  const customPrompt = readOptionalPromptFile(options.promptFile);
+  const customPrompt = readOptionalPromptFile(file);
   if (customPrompt) {
     output += `\
 Use these additional instructions for this session:
@@ -14,11 +15,33 @@ Use these additional instructions for this session:
 <custom_instructions>
 ${customPrompt.trim()}
 </custom_instructions>
-
 `;
   }
-  output += options.text;
   return output;
+}
+
+export interface MessageMetadata {
+  timestamp: number;
+  timezone: string;
+  sessionName: string;
+}
+
+export function buildMessageMetadataPrompt(metadata: MessageMetadata): string {
+  const timestamp = Temporal.Instant.fromEpochMilliseconds(metadata.timestamp)
+    .toZonedDateTimeISO(metadata.timezone)
+    .toString({
+      calendarName: "never",
+      fractionalSecondDigits: 0,
+      smallestUnit: "second",
+      timeZoneName: "never",
+    });
+  return `\
+<message_metadata>
+sender_timestamp: ${timestamp}
+timezone: ${metadata.timezone}
+session_name: ${metadata.sessionName}
+</message_metadata>
+`;
 }
 
 export function readOptionalPromptFile(file: string): string | undefined {

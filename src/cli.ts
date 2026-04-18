@@ -125,6 +125,9 @@ Options:
       await handler.handle({
         sessionName,
         text: ctx.message.text,
+        metadata: {
+          timestamp: ctx.message.date * 1000,
+        },
         send: async (replyText) => {
           const html = markdownToTelegramHtml(replyText);
           try {
@@ -175,6 +178,9 @@ async function startRepl(config: AppConfig, handler: Handler, version: string) {
       await handler.handle({
         sessionName: "repl",
         text,
+        metadata: {
+          timestamp: Date.now(),
+        },
         send: async (replyText) => console.log(replyText),
       });
     } catch (error) {

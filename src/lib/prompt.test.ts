@@ -1,12 +1,9 @@
 import path from "node:path";
 import { expect, test } from "vitest";
-import { buildFirstPrompt } from "./prompt.ts";
+import { buildFirstPrompt, buildMessageMetadataPrompt } from "./prompt.ts";
 
 test("basic", () => {
-  const output = buildFirstPrompt({
-    promptFile: path.resolve("./fixtures/prompt-includes/AGENTS.md"),
-    text: "my first message",
-  });
+  const output = buildFirstPrompt(path.resolve("./fixtures/prompt-includes/AGENTS.md"));
   expect(output).toMatchInlineSnapshot(`
     "Use these additional instructions for this session:
 
@@ -21,25 +18,18 @@ test("basic", () => {
     inline @./partials/identity.md stays literal
     after
     </custom_instructions>
-
-    my first message"
+    "
   `);
 });
 
 test("not-found", () => {
-  const output = buildFirstPrompt({
-    promptFile: path.resolve("./fixtures/prompt-includes/MISSING.md"),
-    text: "my first message",
-  });
-  expect(output).toMatchInlineSnapshot(`"my first message"`);
+  const output = buildFirstPrompt(path.resolve("./fixtures/prompt-includes/MISSING.md"));
+  expect(output).toMatchInlineSnapshot(`""`);
 });
 
 test("acpella skills directive", () => {
   const root = process.cwd();
-  const output = buildFirstPrompt({
-    promptFile: path.resolve("./fixtures/prompt-directives/AGENTS.md"),
-    text: "my first message",
-  });
+  const output = buildFirstPrompt(path.resolve("./fixtures/prompt-directives/AGENTS.md"));
   expect(output.replaceAll(root, "<root>")).toMatchInlineSnapshot(`
     "Use these additional instructions for this session:
 
@@ -74,7 +64,22 @@ test("acpella skills directive", () => {
     ::acpella skills ./missing
     after
     </custom_instructions>
+    "
+  `);
+});
 
-    my first message"
+test("message metadata", () => {
+  const output = buildMessageMetadataPrompt({
+    timestamp: Date.UTC(2024, 0, 2, 3, 4, 5),
+    timezone: "Asia/Tokyo",
+    sessionName: "my-session",
+  });
+  expect(output).toMatchInlineSnapshot(`
+    "<message_metadata>
+    sender_timestamp: 2024-01-02T12:04:05+09:00
+    timezone: Asia/Tokyo
+    session_name: my-session
+    </message_metadata>
+    "
   `);
 });

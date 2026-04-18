@@ -129,11 +129,15 @@ class EchoAgent implements Agent {
 
   async prompt(params: PromptRequest): Promise<PromptResponse> {
     // Echo the prompt text back
-    const text =
+    let text =
       params.prompt
         .filter((c) => c.type === "text")
         .map((c) => c.text)
         .join("") || "(empty)";
+
+    if (!text.includes("__keep_metadata") && text.startsWith("<message_metadata>")) {
+      text = text.replace(/^<message_metadata>[\s\S]*?<\/message_metadata>/, "").trim();
+    }
 
     let reportText: string;
     if (text.startsWith("__env:")) {
