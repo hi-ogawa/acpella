@@ -43,7 +43,7 @@ const cronJobSchema = z
     }
   });
 
-const cronFileSchema = z
+const cronJobFileSchema = z
   .object({
     version: z.literal(CRON_FILE_VERSION),
     jobs: z.record(cronIdSchema, cronJobSchema),
@@ -74,7 +74,7 @@ const cronStateFileSchema = z.object({
   runs: z.record(cronIdSchema, z.record(z.string().min(1), cronRunSchema)),
 });
 
-export type CronFile = z.infer<typeof cronFileSchema>;
+export type CronJobFile = z.infer<typeof cronJobFileSchema>;
 export type CronStateFile = z.infer<typeof cronStateFileSchema>;
 export type CronJob = z.infer<typeof cronJobSchema>;
 export type CronTarget = z.infer<typeof cronTargetSchema>;
@@ -99,8 +99,8 @@ export function createCronStore(options: CreateCronStoreOptions) {
   let cronFile = readCronFile(options.cronFile);
   let cronStateFile = readCronStateFile(options.cronStateFile);
 
-  function writeCronFile(nextFile: CronFile): void {
-    cronFile = cronFileSchema.parse(nextFile);
+  function writeCronFile(nextFile: CronJobFile): void {
+    cronFile = cronJobFileSchema.parse(nextFile);
     writeJsonFile(options.cronFile, cronFile);
   }
 
@@ -109,7 +109,7 @@ export function createCronStore(options: CreateCronStoreOptions) {
     writeJsonFile(options.cronStateFile, cronStateFile);
   }
 
-  function updateCronFile(updater: (file: CronFile) => void): void {
+  function updateCronFile(updater: (file: CronJobFile) => void): void {
     const nextFile = structuredClone(cronFile);
     updater(nextFile);
     writeCronFile(nextFile);
@@ -220,11 +220,11 @@ export function createCronStore(options: CreateCronStoreOptions) {
   };
 }
 
-function readCronFile(file: string): CronFile {
+function readCronFile(file: string): CronJobFile {
   if (!fs.existsSync(file)) {
     return getInitialCronFile();
   }
-  return cronFileSchema.parse(JSON.parse(fs.readFileSync(file, "utf8")));
+  return cronJobFileSchema.parse(JSON.parse(fs.readFileSync(file, "utf8")));
 }
 
 function readCronStateFile(file: string): CronStateFile {
@@ -239,7 +239,7 @@ function writeJsonFile(file: string, value: unknown): void {
   fs.writeFileSync(file, JSON.stringify(value, null, 2));
 }
 
-function getInitialCronFile(): CronFile {
+function getInitialCronFile(): CronJobFile {
   return {
     version: CRON_FILE_VERSION,
     jobs: {},
