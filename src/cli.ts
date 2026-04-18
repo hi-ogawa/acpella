@@ -2,12 +2,12 @@ import path from "node:path";
 import { createInterface } from "node:readline/promises";
 import { parseArgs } from "node:util";
 import { run, sequentialize } from "@grammyjs/runner";
-import { Bot } from "grammy";
+import { Bot, Context } from "grammy";
 import { loadConfig, type AppConfig } from "./config.ts";
 import { createHandler, type Handler } from "./handler.ts";
 import { handleSetupSystemd } from "./lib/systemd.ts";
 import { markdownToTelegramHtml } from "./lib/telegram-format-html.ts";
-import { telegramSequentialKey, telegramSessionName } from "./lib/telegram.ts";
+import { truncateString } from "./lib/utils.ts";
 import { getVersion } from "./lib/version.ts";
 
 async function main() {
@@ -90,13 +90,23 @@ Options:
   } catch (error) {
     console.warn("[telegram] failed to register bot commands:", error);
   }
-  bot.use(sequentialize(telegramSequentialKey));
+
+  // handle messages from each session and system commands concurrently
+  bot.use(
+    sequentialize((ctx) => {
+      let key = telegramSessionName(ctx);
+      const text = ctx.message?.text?.trim() ?? "";
+      if (text === "/status" || text === "/cancel") {
+        key += text;
+      }
+      return key;
+    }),
+  );
 
   bot.on("message:text", async (ctx) => {
     const chatId = ctx.chat.id;
-    const threadId = ctx.message.message_thread_id;
-    const sessionName = telegramSessionName({ chatId, threadId });
     const userId = ctx.from?.id;
+    const sessionName = telegramSessionName(ctx);
 
     if (allowedChats.size && !allowedChats.has(chatId)) {
       console.error(`[${sessionName}] rejected: chat ${chatId} is not allowed`);
@@ -109,37 +119,35 @@ Options:
 
     const text = ctx.message.text;
 
-    console.log(`[${sessionName}] <- ${text}`);
+    console.log(`[${sessionName}] (request) ${truncateString(text, 200)}`);
 
     try {
       await handler.handle({
         sessionName,
-        context: {
-          message: ctx.message,
-          metadata: {
-            timestamp: Date.now(),
-          },
-          reply: async (replyText) => {
-            const html = markdownToTelegramHtml(replyText);
-            try {
-              return await ctx.reply(html, {
-                parse_mode: "HTML",
-              });
-            } catch (error) {
-              console.warn(
-                `[${sessionName}] formatted reply failed; falling back to raw text:`,
-                error,
-              );
-              return await ctx.reply(replyText);
-            }
-          },
+        text: ctx.message.text,
+        metadata: {
+          timestamp: Date.now(),
+        },
+        send: async (replyText) => {
+          const html = markdownToTelegramHtml(replyText);
+          try {
+            return await ctx.reply(html, {
+              parse_mode: "HTML",
+            });
+          } catch (error) {
+            console.warn(
+              `[${sessionName}] formatted reply failed; falling back to raw text:`,
+              error,
+            );
+            return await ctx.reply(replyText);
+          }
         },
       });
-      console.log(`[${sessionName}] -> response sent`);
+      console.log(`[${sessionName}] (response ok)`);
     } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      console.error(`[${sessionName}] error: ${msg}`);
-      await ctx.reply(`Error: ${msg.slice(0, 200)}`);
+      console.error(`[${sessionName}] (response error)`, error);
+      const message = error instanceof Error ? error.message : String(error);
+      await ctx.reply(`Error: ${truncateString(message, 200)}`);
     }
   });
 
@@ -148,10 +156,16 @@ Options:
   const runner = run(bot, {
     sink: {
       // @grammyjs/runner defaults to 500; keep acpella conservative because prompts spawn child agents.
-      concurrency: 4,
+      concurrency: 5,
     },
   });
   await runner.task();
+}
+
+function telegramSessionName(context: Context): string {
+  return ["tg", context.chat?.id ?? "unknown", context.message?.message_thread_id]
+    .filter(Boolean)
+    .join("-");
 }
 
 async function startRepl(config: AppConfig, handler: Handler, version: string) {
@@ -163,15 +177,11 @@ async function startRepl(config: AppConfig, handler: Handler, version: string) {
     try {
       await handler.handle({
         sessionName: "repl",
-        context: {
-          message: { text },
-          metadata: {
-            timestamp: Date.now(),
-          },
-          async reply(text) {
-            console.log(text);
-          },
+        text,
+        metadata: {
+          timestamp: Date.now(),
         },
+        send: async (replyText) => console.log(replyText),
       });
     } catch (error) {
       console.error(error);

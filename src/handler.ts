@@ -5,35 +5,29 @@ import { createCommandHandler } from "./lib/command.ts";
 import type { CommandTree } from "./lib/command.ts";
 import { buildFirstPrompt, buildMessageMetadataPrompt } from "./lib/prompt.ts";
 import { createReply, MESSAGE_SPLIT_BUDGET } from "./lib/reply.ts";
-import type { Reply, ReplyContext } from "./lib/reply.ts";
+import type { Reply } from "./lib/reply.ts";
 import { createSessionStateStore, parseAgentSessionKey, toAgentSessionKey } from "./state.ts";
 import type { StateAgentSession } from "./state.ts";
 
 export interface Handler {
-  handle: (args: HandleArgs) => Promise<void>;
+  handle: (context: HandlerContext) => Promise<void>;
   commands: Record<string, string>;
 }
 
-// TODO: why so nested HandleArgs -> HandlerContext -> metadata?
-interface HandleArgs {
+export interface HandlerContext {
   sessionName: string;
-  context: HandlerContext;
-}
-
-export interface HandlerContext extends ReplyContext {
-  message: {
-    text: string;
-  };
+  text: string;
+  send: (text: string) => Promise<unknown>;
   metadata?: {
     timestamp: number;
   };
 }
 
-export type SystemCommandContext = {
+interface HandlerExtraContext extends HandlerContext {
   reply: Reply;
-  sessionName: string;
-  handlerArgs: HandleArgs;
-};
+}
+
+type SystemCommandTree = CommandTree<HandlerExtraContext>;
 
 export async function createHandler(
   config: AppConfig,
@@ -58,13 +52,8 @@ export async function createHandler(
     reply,
     sessionName,
     text,
-    handlerArgs,
-  }: {
-    reply: Reply;
-    sessionName: string;
-    text: string;
-    handlerArgs: HandleArgs;
-  }): Promise<void> {
+    metadata,
+  }: HandlerExtraContext): Promise<void> {
     if (activeSessions.has(sessionName)) {
       await reply.system("Agent turn already in progress. Send /cancel to stop it.");
       return;
@@ -88,9 +77,9 @@ export async function createHandler(
       });
       promptText += buildFirstPrompt(config.prompt.file);
     }
-    if (handlerArgs.context.metadata) {
+    if (metadata) {
       promptText += buildMessageMetadataPrompt({
-        timestamp: handlerArgs.context.metadata.timestamp,
+        timestamp: metadata.timestamp,
         timezone: config.timezone,
         sessionName,
       });
@@ -129,7 +118,7 @@ export async function createHandler(
     }
   }
 
-  const systemSessionCommands: CommandTree<SystemCommandContext>[string] = [
+  const systemSessionCommands: SystemCommandTree[string] = [
     {
       tokens: ["current"],
       help: "/session current - Show the current session.",
@@ -196,7 +185,8 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
       tokens: ["new"],
       help: "/session new [agent] - Start a new agent session.",
       withArgs: true,
-      run: async ({ args, reply, sessionName, handlerArgs }) => {
+      run: async (context) => {
+        const { args, reply, sessionName } = context;
         const agentKey = args[0];
         if (agentKey) {
           if (!stateStore.get().agents[agentKey]) {
@@ -206,12 +196,7 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
           stateStore.setSession(sessionName, { agentKey });
         }
         stateStore.setSession(sessionName, { agentSessionId: undefined });
-        await handlePrompt({
-          reply,
-          sessionName,
-          text: "",
-          handlerArgs,
-        });
+        await handlePrompt({ ...context, text: "" });
       },
     },
     {
@@ -273,7 +258,7 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
     },
   ];
 
-  const systemAgentCommands: CommandTree<SystemCommandContext>["agent"] = [
+  const systemAgentCommands: SystemCommandTree[string] = [
     {
       tokens: ["list"],
       help: "/agent list - List configured agents.",
@@ -362,7 +347,7 @@ ${referencedSessions.length} session(s) still reference it.
     },
   ];
 
-  const systemCommands: CommandTree<SystemCommandContext> = {
+  const systemCommands: SystemCommandTree = {
     status: [
       {
         tokens: [],
@@ -461,28 +446,22 @@ home: ${config.home}
     },
   });
 
-  const handle: Handler["handle"] = async (options) => {
-    const text = options.context.message.text;
-    const sessionName = options.sessionName;
+  const handle: Handler["handle"] = async (context) => {
     const reply = createReply({
-      context: options.context,
+      send: context.send,
       limit: MESSAGE_SPLIT_BUDGET,
     });
+    const extraContext: HandlerExtraContext = { ...context, reply };
 
     const handledSystem = await systemCommandHandler.handle({
-      text,
-      context: { reply, sessionName, handlerArgs: options },
+      text: extraContext.text,
+      context: extraContext,
     });
     if (handledSystem) {
       return;
     }
 
-    await handlePrompt({
-      reply,
-      sessionName,
-      text,
-      handlerArgs: options,
-    });
+    await handlePrompt(extraContext);
   };
 
   return { handle, commands: systemCommandsMetadata };
