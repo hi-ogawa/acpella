@@ -70,7 +70,14 @@ async function spawnAgent({ command, cwd }: { command: string; cwd: string }) {
   });
   const exitPromise = createExitPromise(child);
   if (child.stderr) {
-    pipeAgentStderr(child.stderr);
+    const stream = Readable.toWeb(child.stderr) as ReadableStream;
+    void stream.pipeThrough(new TextDecoderStream()).pipeTo(
+      new WritableStream({
+        write(chunk) {
+          console.error(`[acp:stderr] ${chunk}`);
+        },
+      }),
+    );
   }
 
   const stream = ndJsonStream(
@@ -143,27 +150,6 @@ function createExitPromise(child: ChildProcess): {
       child.off("exit", onExit);
     },
   };
-}
-
-// TODO: deslop
-function pipeAgentStderr(stderr: Readable): void {
-  let buffered = "";
-  stderr.setEncoding("utf8");
-  stderr.on("data", (chunk) => {
-    buffered += String(chunk);
-    let newlineIndex = buffered.indexOf("\n");
-    while (newlineIndex !== -1) {
-      const line = buffered.slice(0, newlineIndex).replace(/\r$/, "");
-      console.error(`[acp:stderr] ${line}`);
-      buffered = buffered.slice(newlineIndex + 1);
-      newlineIndex = buffered.indexOf("\n");
-    }
-  });
-  stderr.on("end", () => {
-    if (buffered) {
-      console.error(`[acp:stderr] ${buffered.replace(/\r$/, "")}`);
-    }
-  });
 }
 
 async function toSessionProcess(agent: AgentProcess, sessionId: string) {
