@@ -79,14 +79,13 @@ async function createHandlerTester() {
     onServiceExit,
   });
 
-  async function request({ sessionName, text }: { sessionName: string; text: string }) {
-    const replies: string[] = [];
+  async function request(context: { sessionName: string; text: string }) {
+    const messages: string[] = [];
     await handler.handle({
-      sessionName,
-      text,
-      send: async (t) => replies.push(t),
+      ...context,
+      send: async (t) => messages.push(t),
     });
-    return sanitizeOutput(replies.join("\n"), config);
+    return sanitizeOutput(messages.join("\n"), config);
   }
 
   function createSession(sessionName: string) {
