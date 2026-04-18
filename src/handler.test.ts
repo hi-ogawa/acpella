@@ -63,7 +63,7 @@ Coverage checklist:
 import fs from "node:fs";
 import { expect, test, vi } from "vitest";
 import { loadConfig, type AppConfig } from "./config";
-import { createHandler } from "./handler";
+import { createHandler, type HandlerContext } from "./handler";
 import { TEST_AGENT_COMMAND } from "./state";
 import { useFs } from "./test/helper.ts";
 
@@ -79,7 +79,7 @@ async function createHandlerTester() {
     onServiceExit,
   });
 
-  async function request(context: { sessionName: string; text: string }) {
+  async function request(context: Omit<HandlerContext, "send">) {
     const messages: string[] = [];
     await handler.handle({
       ...context,
@@ -436,5 +436,27 @@ test("agent command", async () => {
         }
       }
     }"
+  `);
+});
+
+test("message metadata", async () => {
+  const tester = await createHandlerTester();
+  let result = await tester.request({
+    sessionName: "test",
+    text: `__keep_metadata: ok`,
+    metadata: {
+      timestamp: Date.UTC(2024, 0, 2, 3, 4, 5),
+    },
+  });
+  result = result
+    .replace(/sender_timestamp: .+/, "sender_timestamp: <timestamp>")
+    .replace(/timezone: .+/, "timezone: <timezone>");
+  expect(result).toMatchInlineSnapshot(`
+    "echo: <message_metadata>
+    sender_timestamp: <timestamp>
+    timezone: <timezone>
+    session_name: test
+    </message_metadata>
+    __keep_metadata: ok"
   `);
 });

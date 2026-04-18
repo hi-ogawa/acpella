@@ -135,7 +135,7 @@ class EchoAgent implements Agent {
         .map((c) => c.text)
         .join("") || "(empty)";
 
-    if (text.startsWith("<message_metadata>")) {
+    if (!text.includes("__keep_metadata") && text.startsWith("<message_metadata>")) {
       text = text.replace(/^<message_metadata>[\s\S]*?<\/message_metadata>/, "").trim();
     }
 
