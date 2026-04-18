@@ -2,12 +2,16 @@ import path from "node:path";
 import { createInterface } from "node:readline/promises";
 import { parseArgs } from "node:util";
 import { run, sequentialize } from "@grammyjs/runner";
-import { Bot, Context, GrammyError } from "grammy";
+import { Bot } from "grammy";
 import { loadConfig, type AppConfig } from "./config.ts";
 import { createHandler, type Handler } from "./handler.ts";
 import { handleSetupSystemd } from "./lib/systemd.ts";
-import { markdownToTelegramHtml } from "./lib/telegram-format-html.ts";
-import { normalizeUserMention } from "./lib/telegram/utils.ts";
+import { markdownToTelegramHtml } from "./lib/telegram/format-html.ts";
+import {
+  formatTelegramSessionName,
+  getTelegramRetryAfter,
+  normalizeUserMention,
+} from "./lib/telegram/utils.ts";
 import { addIndent, sleep, truncateString } from "./lib/utils.ts";
 import { getVersion } from "./lib/version.ts";
 
@@ -206,18 +210,6 @@ Options:
     },
   });
   await runner.task();
-}
-
-function formatTelegramSessionName(context: Context): string {
-  return ["tg", context.chat?.id ?? "unknown", context.message?.message_thread_id]
-    .filter(Boolean)
-    .join("-");
-}
-
-function getTelegramRetryAfter(error: unknown): number | undefined {
-  if (error instanceof GrammyError && error.error_code === 429) {
-    return error.parameters.retry_after;
-  }
 }
 
 async function startRepl(config: AppConfig, handler: Handler, version: string) {
