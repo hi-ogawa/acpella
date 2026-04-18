@@ -100,8 +100,8 @@ Options:
 
   bot.on("message:text", async (ctx) => {
     const chatId = ctx.chat.id;
-    const sessionName = telegramSessionName(ctx);
     const userId = ctx.from?.id;
+    const sessionName = telegramSessionName(ctx);
 
     if (allowedChats.size && !allowedChats.has(chatId)) {
       console.error(`[${sessionName}] rejected: chat ${chatId} is not allowed`);
