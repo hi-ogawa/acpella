@@ -22,15 +22,6 @@ interface ScheduledEntry {
   next: Temporal.Instant;
 }
 
-export function validateCronSchedule(options: { schedule: string; timezone: string }): void {
-  const cron = createPausedCron(options);
-  try {
-    cron.nextRun();
-  } finally {
-    cron.stop();
-  }
-}
-
 export function createCronTimer(options: {
   entries: CronTimerEntry[];
   onDue: (event: CronDueEvent) => void | Promise<void>;
@@ -126,6 +117,17 @@ export function createCronTimer(options: {
     replaceEntries,
     stop,
   };
+}
+
+// borrow croner for cron pattern logic
+
+export function validateCronSchedule(options: { schedule: string; timezone: string }): void {
+  const cron = createPausedCron(options);
+  try {
+    cron.nextRun();
+  } finally {
+    cron.stop();
+  }
 }
 
 export function getNextOccurrence(options: {
