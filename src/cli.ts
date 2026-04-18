@@ -94,8 +94,7 @@ Options:
 
   bot.on("message:text", async (ctx) => {
     const chatId = ctx.chat.id;
-    const threadId = ctx.message.message_thread_id;
-    const sessionName = telegramSessionName({ chatId, threadId });
+    const sessionName = telegramSessionName(ctx);
     const userId = ctx.from?.id;
 
     if (allowedChats.size && !allowedChats.has(chatId)) {
@@ -151,20 +150,14 @@ Options:
   await runner.task();
 }
 
-function telegramSessionName(options: { chatId: number; threadId?: number }): string {
-  return ["tg", options.chatId, options.threadId].filter(Boolean).join("-");
+function telegramSessionName(context: Context): string {
+  return ["tg", context.chat?.id ?? "unknown", context.message?.message_thread_id]
+    .filter(Boolean)
+    .join("-");
 }
 
 function telegramSequentialConstraint(context: Context): string {
-  const chatId = context.chat?.id;
-  if (typeof chatId !== "number") {
-    return "tg-unknown";
-  }
-
-  const base = telegramSessionName({
-    chatId,
-    threadId: context.message?.message_thread_id,
-  });
+  const base = telegramSessionName(context);
   return context.message?.text === "/cancel" ? `${base}:control` : base;
 }
 
