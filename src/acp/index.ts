@@ -79,7 +79,7 @@ async function spawnAgent({ command, cwd }: { command: string; cwd: string }) {
     cwd,
     env: safeEnvs,
   });
-  const earlyExit = createEarlyExitPromise(child);
+  const exitPromise = createExitPromise(child);
   if (child.stderr) {
     pipeAgentStderr(child.stderr);
   }
@@ -114,10 +114,10 @@ async function spawnAgent({ command, cwd }: { command: string; cwd: string }) {
         protocolVersion: PROTOCOL_VERSION,
         clientCapabilities: {},
       }),
-      earlyExit.promise,
+      exitPromise.promise,
     ]);
   } finally {
-    earlyExit.cleanup();
+    exitPromise.cleanup();
   }
 
   function subscribe(listener: (update: SessionUpdate) => void) {
@@ -128,7 +128,7 @@ async function spawnAgent({ command, cwd }: { command: string; cwd: string }) {
   return { child, connection, subscribe };
 }
 
-function createEarlyExitPromise(child: ChildProcess): {
+function createExitPromise(child: ChildProcess): {
   promise: Promise<void>;
   cleanup: () => void;
 } {
