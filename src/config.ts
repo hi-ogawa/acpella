@@ -4,6 +4,8 @@ import { z } from "zod";
 export interface AppConfig {
   home: string;
   stateFile: string;
+  cronFile: string;
+  cronStateFile: string;
   timezone: string;
   telegram: {
     token?: string;
@@ -32,6 +34,8 @@ export function loadConfig(envOverride?: Record<string, string>): AppConfig {
   return {
     home,
     stateFile: path.join(home, ".acpella", "state.json"),
+    cronFile: path.join(home, ".acpella", "cron.json"),
+    cronStateFile: path.join(home, ".acpella", "cron-state.json"),
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     telegram: {
       token: env.ACPELLA_TELEGRAM_BOT_TOKEN,
