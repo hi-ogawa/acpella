@@ -1,9 +1,9 @@
 import { AgentManager } from "./acp/index.ts";
 import type { AgentSessionProcess } from "./acp/index.ts";
 import type { AppConfig } from "./config.ts";
-import { parseCronAddArgs, renderCronList } from "./cron/format.ts";
+import { parseCronAddArgs, renderCronList } from "./cron/command.ts";
 import type { CronRunner, CronRunnerAgentOptions } from "./cron/runner.ts";
-import type { CronStore, CronDeliveryTarget } from "./cron/store.ts";
+import { type CronStore, type CronDeliveryTarget, cronIdSchema } from "./cron/store.ts";
 import { validateCronSchedule } from "./cron/timer.ts";
 import { createCommandHandler } from "./lib/command.ts";
 import type { CommandTree } from "./lib/command.ts";
@@ -377,10 +377,11 @@ ${referencedSessions.length} session(s) still reference it.
     },
   ];
 
+  const cronAddUsage = `Usage: /cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> <timezone> <prompt...>`;
   const systemCronCommands: SystemCommandTree[string] = [
     {
       tokens: ["add"],
-      help: "/cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> <timezone> <prompt...> - Add a cron job.",
+      help: `${cronAddUsage} - Add a cron job.`,
       withArgs: true,
       run: async ({ args, reply, sessionName, metadata }) => {
         if (!metadata?.cronDeliveryTarget) {
@@ -389,12 +390,11 @@ ${referencedSessions.length} session(s) still reference it.
         }
         const parsed = parseCronAddArgs(args);
         if (!parsed) {
-          await reply.system(
-            "Usage: /cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> <timezone> <prompt...>",
-          );
+          await reply.system("Invalid input\n" + cronAddUsage);
           return;
         }
-        if (!/^[a-zA-Z0-9_-]+$/.test(parsed.id)) {
+        const cronIdResult = cronIdSchema.safeParse(parsed.id);
+        if (!cronIdResult.success) {
           await reply.system("Invalid cron id. Use letters, numbers, underscores, or hyphens.");
           return;
         }

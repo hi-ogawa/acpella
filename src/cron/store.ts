@@ -7,7 +7,7 @@ import { validateCronSchedule } from "./timer.ts";
 const CRON_FILE_VERSION = 1;
 const CRON_STATE_FILE_VERSION = 1;
 
-const cronIdSchema = z
+export const cronIdSchema = z
   .string()
   .min(1)
   .regex(/^[a-zA-Z0-9_-]+$/);
