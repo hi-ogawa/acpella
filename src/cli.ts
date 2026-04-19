@@ -165,8 +165,8 @@ Options:
     };
 
     const chatActionManager = new TelegramChatActionManager({
-      label,
       send: () => ctx.replyWithChatAction("typing"),
+      logLabel: label,
     });
     chatActionManager.start();
 

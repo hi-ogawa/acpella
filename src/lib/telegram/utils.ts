@@ -33,7 +33,7 @@ export function getTelegramRetryAfter(error: unknown): number | undefined {
 
 type TelegramChatActionManagerOptions = {
   send: () => Promise<unknown>;
-  label: string;
+  logLabel: string;
 };
 
 // Matches OpenClaw's Telegram typing cadence: immediate first cue, then 3s keepalive.
@@ -51,7 +51,7 @@ export class TelegramChatActionManager {
 
   start(): void {
     this.stopped = false;
-    void this.promiseLimit.run(() => this.pulse());
+    void this.promiseLimit.run(() => this.trySend());
   }
 
   schedule(): void {
@@ -59,7 +59,7 @@ export class TelegramChatActionManager {
       return;
     }
     const delay = Math.max(3000, this.retryAfterUntil - Date.now(), 0);
-    this.timeout.set(() => void this.promiseLimit.run(() => this.pulse()), delay);
+    this.timeout.set(() => void this.promiseLimit.run(() => this.trySend()), delay);
   }
 
   stop(): void {
@@ -67,7 +67,7 @@ export class TelegramChatActionManager {
     this.timeout.clear();
   }
 
-  async pulse(): Promise<void> {
+  async trySend(): Promise<void> {
     if (this.stopped) {
       return;
     }
@@ -77,11 +77,11 @@ export class TelegramChatActionManager {
     } catch (error) {
       const retryAfter = getTelegramRetryAfter(error);
       if (!retryAfter) {
-        console.error(`${this.options.label} typing indicator failed:`, error);
+        console.error(`${this.options.logLabel} typing indicator failed:`, error);
         return;
       }
       console.error(
-        `${this.options.label} typing indicator rate limited; pausing for ${retryAfter}s:`,
+        `${this.options.logLabel} typing indicator rate limited; pausing for ${retryAfter}s:`,
         error,
       );
       this.retryAfterUntil = Date.now() + (retryAfter + 1) * 1000;
