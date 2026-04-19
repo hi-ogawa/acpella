@@ -179,16 +179,14 @@ export class CronStore {
     return runs[0];
   }
 
-  startRun(options: {
-    cronId: string;
-    scheduledAt: string;
-    startedAt: string;
-  }): CronRun | undefined {
-    let run: CronRun | undefined;
+  startRun(options: { cronId: string; scheduledAt: string; startedAt: string }): CronRun {
+    let run!: CronRun;
     this.setStateFile((file) => {
       file.runs[options.cronId] ??= {};
       if (file.runs[options.cronId][options.scheduledAt]) {
-        return;
+        throw new Error("Cron run already exists for this schedule", {
+          cause: options,
+        });
       }
       run = {
         id: randomUUID(),

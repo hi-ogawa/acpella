@@ -49,16 +49,16 @@ export class CronRunner {
   async executeCronJob(job: CronJob, event: CronDueEvent) {
     const { store } = this.options;
     const scheduledAt = formatInstant(event.scheduledAt);
+    if (store.getRun({ cronId: job.id, scheduledAt })) {
+      // TODO: warn?
+      return;
+    }
     const startedAt = Temporal.Now.instant();
-    const run = store.startRun({
+    store.startRun({
       cronId: job.id,
       scheduledAt,
       startedAt: formatInstant(startedAt),
     });
-    if (!run) {
-      return;
-    }
-
     try {
       const prompt = buildCronPrompt({
         cronId: job.id,
