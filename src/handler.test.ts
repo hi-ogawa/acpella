@@ -109,9 +109,9 @@ async function createHandlerTester() {
     return sanitizeOutput(messages.join("\n"), config);
   }
 
-  function createSession(sessionName: string) {
+  function createSession(sessionName: string, context?: Partial<HandlerContext>) {
     return {
-      request: (text: string) => request({ sessionName, text }),
+      request: (text: string) => request({ ...context, sessionName, text }),
     };
   }
 
@@ -497,12 +497,24 @@ test("message metadata", async () => {
 });
 
 // TODO
-test("cron command", async () => {
+test("cron command", async ({ onTestFinished }) => {
+  vi.useFakeTimers();
+  onTestFinished(() => {
+    vi.useRealTimers();
+  });
+
   const tester = await createHandlerTester();
-  const session = tester.createSession("test");
+  tester.cronRunner.start();
+  onTestFinished(() => {
+    tester.cronRunner.stop();
+  });
+
+  const session = tester.createSession("test", {
+    metadata: { cronDeliveryTarget: { repl: true } },
+  });
   expect(await session.request("/cron status")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    cron runner: stopped
+    cron runner: running
     jobs: 0
     enabled jobs: 0"
   `);

@@ -29,7 +29,7 @@ export interface HandlerContext {
   text: string;
   send: (text: string) => Promise<unknown>;
   metadata?: {
-    timestamp: number;
+    timestamp?: number;
     cronDeliveryTarget?: CronDeliveryTarget;
   };
 }
@@ -70,7 +70,7 @@ export async function createHandler(
     }
 
     let promptText = "";
-    if (metadata) {
+    if (metadata?.timestamp) {
       promptText = buildMessageMetadataPrompt({
         timestamp: metadata.timestamp,
         timezone: config.timezone,
