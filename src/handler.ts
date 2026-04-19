@@ -1,4 +1,4 @@
-import { startAcpManager } from "./acp/index.ts";
+import { AgentManager } from "./acp/index.ts";
 import type { AgentSessionProcess } from "./acp/index.ts";
 import type { AppConfig } from "./config.ts";
 import { createCommandHandler } from "./lib/command.ts";
@@ -6,7 +6,7 @@ import type { CommandTree } from "./lib/command.ts";
 import { buildFirstPrompt, buildMessageMetadataPrompt } from "./lib/prompt.ts";
 import { createReply, MESSAGE_SPLIT_BUDGET } from "./lib/reply.ts";
 import type { Reply } from "./lib/reply.ts";
-import { createSessionStateStore, parseAgentSessionKey, toAgentSessionKey } from "./state.ts";
+import { parseAgentSessionKey, SessionStateStore, toAgentSessionKey } from "./state.ts";
 import type { StateAgentSession } from "./state.ts";
 
 export interface Handler {
@@ -36,7 +36,7 @@ export async function createHandler(
     onServiceExit: () => void;
   },
 ): Promise<Handler> {
-  const stateStore = createSessionStateStore(config);
+  const stateStore = new SessionStateStore(config.stateFile);
   const activeSessions = new Map<string, AgentSessionProcess>();
   const cancelledSessions = new WeakSet<AgentSessionProcess>();
 
@@ -45,7 +45,7 @@ export async function createHandler(
     if (!agent) {
       throw new Error(`Unknown agent: ${agentKey}`);
     }
-    return startAcpManager({ command: agent.command, cwd: config.home });
+    return new AgentManager({ command: agent.command, cwd: config.home });
   }
 
   async function handlePrompt(context: HandlerExtraContext): Promise<void> {

@@ -15,43 +15,58 @@ import { objectPickBy } from "../lib/utils.ts";
 // we spawn a process per session instead of per acp command for simplicity.
 // this is likey more robust without acp agent capability assumption
 // and process startup time is negligible compared to LLM interaction itself
-export async function startAcpManager(acpOptions: { command: string; cwd: string }) {
-  return {
-    async newSession(sessionOptions: { sessionCwd: string }) {
-      const agent = await spawnAgent(acpOptions);
-      const response = await agent.connection.newSession({
-        cwd: sessionOptions.sessionCwd,
-        mcpServers: [],
-      });
-      return toSessionProcess(agent, response.sessionId);
-    },
-    async loadSession(sessionOptions: { sessionCwd: string; sessionId: string }) {
-      const agent = await spawnAgent(acpOptions);
-      const { sessionId } = sessionOptions;
-      await agent.connection.loadSession({
-        sessionId,
-        cwd: sessionOptions.sessionCwd,
-        mcpServers: [],
-      });
-      return toSessionProcess(agent, sessionId);
-    },
-    async closeSession({ sessionId }: { sessionId: string }): Promise<void> {
-      const agent = await spawnAgent(acpOptions);
-      try {
-        await agent.connection.unstable_closeSession({ sessionId });
-      } finally {
-        agent.stop();
-      }
-    },
-    async listSessions(): Promise<ListSessionsResponse> {
-      const agent = await spawnAgent(acpOptions);
-      try {
-        return await agent.connection.listSessions({ cwd: acpOptions.cwd });
-      } finally {
-        agent.stop();
-      }
-    },
-  };
+
+type AgentManagerOptions = {
+  command: string;
+  cwd: string;
+};
+
+export class AgentManager {
+  option: AgentManagerOptions;
+
+  constructor(options: AgentManagerOptions) {
+    this.option = options;
+  }
+
+  // TODO:
+  // cwd and sessionCwd are always same
+  // but they are explicitly specified for now
+  async newSession({ sessionCwd }: { sessionCwd: string }) {
+    const agent = await spawnAgent(this.option);
+    const response = await agent.connection.newSession({
+      cwd: sessionCwd,
+      mcpServers: [],
+    });
+    return toSessionProcess(agent, response.sessionId);
+  }
+
+  async loadSession({ sessionCwd, sessionId }: { sessionCwd: string; sessionId: string }) {
+    const agent = await spawnAgent(this.option);
+    await agent.connection.loadSession({
+      sessionId,
+      cwd: sessionCwd,
+      mcpServers: [],
+    });
+    return toSessionProcess(agent, sessionId);
+  }
+
+  async closeSession({ sessionId }: { sessionId: string }): Promise<void> {
+    const agent = await spawnAgent(this.option);
+    try {
+      await agent.connection.unstable_closeSession({ sessionId });
+    } finally {
+      agent.stop();
+    }
+  }
+
+  async listSessions(): Promise<ListSessionsResponse> {
+    const agent = await spawnAgent(this.option);
+    try {
+      return await agent.connection.listSessions({ cwd: this.option.cwd });
+    } finally {
+      agent.stop();
+    }
+  }
 }
 
 export type AgentProcess = Awaited<ReturnType<typeof spawnAgent>>;
@@ -157,7 +172,7 @@ async function toSessionProcess(agent: AgentProcess, sessionId: string) {
     ...agent,
     sessionId,
     prompt(text: string) {
-      return promptAgent(agent, {
+      return promptStream(agent, {
         sessionId,
         prompt: [{ type: "text", text }],
       });
@@ -168,7 +183,7 @@ async function toSessionProcess(agent: AgentProcess, sessionId: string) {
   };
 }
 
-function promptAgent(agent: AgentProcess, request: PromptRequest) {
+function promptStream(agent: AgentProcess, request: PromptRequest) {
   const queue = new AsyncQueue<SessionUpdate>();
   const unsubscribe = agent.subscribe((u) => queue.push(u));
   const promise = agent.connection.prompt(request);

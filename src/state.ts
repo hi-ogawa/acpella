@@ -1,7 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
-import type { AppConfig } from "./config.ts";
 
 const agentSchema = z.object({
   command: z.string().min(1),
@@ -53,86 +52,87 @@ const stateSchema = z
 
 export type State = z.infer<typeof stateSchema>;
 export type StateSession = State["sessions"][string];
-export type SessionStateStore = ReturnType<typeof createSessionStateStore>;
-
 export interface StateAgentSession {
   agentKey: string;
   agentSessionId: string;
 }
 
-export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
-  // TODO: add a custom command to reload state from disk if manual edits become a supported workflow.
-  let state = readState();
+export class SessionStateStore {
+  file: string;
+  state: State;
 
-  function readState(): State {
-    if (fs.existsSync(config.stateFile)) {
-      try {
-        const data = fs.readFileSync(config.stateFile, "utf8");
-        return parseState(JSON.parse(data));
-      } catch (e) {
-        console.error("[state] readState failed:", e);
-      }
-    }
-    return getInitialState();
+  constructor(file: string) {
+    this.file = file;
+    this.state = readState(file);
   }
 
-  function parseState(value: unknown): State {
-    const version =
-      value && typeof value === "object" && "version" in value ? value.version : undefined;
-    if (version === 1) {
-      throw new Error("version 1 state is ignored. creating new fresh state.");
-    }
-    return stateSchema.parse(value);
+  get(): State {
+    return this.state;
   }
 
-  function writeState(nextState: State): void {
-    fs.mkdirSync(path.dirname(config.stateFile), { recursive: true });
-    fs.writeFileSync(config.stateFile, JSON.stringify(nextState, null, 2));
-  }
-
-  function updateState(updater: (state: State) => void): void {
+  set(updater: (state: State) => void): void {
     // Mutate a draft so validation failures do not leave the in-memory cache
     // ahead of the persisted state.
-    const nextState = structuredClone(state);
+    const nextState = structuredClone(this.state);
     updater(nextState);
-    state = stateSchema.parse(nextState);
-    writeState(state);
+    this.state = stateSchema.parse(nextState);
+    writeFileData(this.file, this.state);
   }
 
-  const store = {
-    get: () => state,
-    set: updateState,
-    getSession(sessionName: string): StateSession {
-      const session = state.sessions[sessionName];
-      return {
-        ...session,
-        agentKey: session?.agentKey ?? state.defaultAgent,
-        verbose: session?.verbose ?? false,
-      };
-    },
-    setSession(sessionName: string, patch: Partial<StateSession>) {
-      updateState((state) => {
-        state.sessions[sessionName] = {
-          ...store.getSession(sessionName),
-          ...patch,
-        };
-      });
-    },
-    deleteSession(target: StateAgentSession) {
-      updateState((state) => {
-        for (const [name, session] of Object.entries(state.sessions)) {
-          if (
-            session.agentKey === target.agentKey &&
-            session.agentSessionId === target.agentSessionId
-          ) {
-            delete state.sessions[name];
-          }
-        }
-      });
-    },
-  };
+  // TODO: not used yet.
+  // add a custom command to reload state from disk
+  // if external edits become a supported workflow
+  reload() {
+    this.state = readState(this.file);
+  }
 
-  return store;
+  getSession(sessionName: string): StateSession {
+    const session = this.state.sessions[sessionName];
+    return {
+      ...session,
+      agentKey: session?.agentKey ?? this.state.defaultAgent,
+      verbose: session?.verbose ?? false,
+    };
+  }
+
+  setSession(sessionName: string, patch: Partial<StateSession>): void {
+    this.set((state) => {
+      state.sessions[sessionName] = {
+        ...this.getSession(sessionName),
+        ...patch,
+      };
+    });
+  }
+
+  deleteSession(target: StateAgentSession): void {
+    this.set((state) => {
+      for (const [name, session] of Object.entries(state.sessions)) {
+        if (
+          session.agentKey === target.agentKey &&
+          session.agentSessionId === target.agentSessionId
+        ) {
+          delete state.sessions[name];
+        }
+      }
+    });
+  }
+}
+
+function readState(file: string) {
+  if (fs.existsSync(file)) {
+    try {
+      const data = fs.readFileSync(file, "utf8");
+      return stateSchema.parse(JSON.parse(data));
+    } catch (e) {
+      console.error("[state] readState failed:", e);
+    }
+  }
+  return getInitialState();
+}
+
+function writeFileData(file: string, data: unknown): void {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify(data, null, 2));
 }
 
 export const TEST_AGENT_COMMAND = `node ${path.join(import.meta.dirname, "lib/test-agent.ts")}`;
