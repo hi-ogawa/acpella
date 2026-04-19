@@ -96,6 +96,7 @@ async function createHandlerTester() {
   const { root } = useFs({ prefix: "handler" });
   const config = loadConfig({
     ACPELLA_HOME: root,
+    TEST_ACPELLA_TIMEZONE: "Asia/Jakarta",
   });
 
   const cronStore = new CronStore({
@@ -571,10 +572,10 @@ test("cron command", async ({ onTestFinished }) => {
     "[⚙️ System]
     - test-job [enabled]
       schedule: * * * * *
-      timezone: Asia/Tokyo
+      timezone: Asia/Jakarta
       target session: test
       delivery target: repl
-      next: 2024-01-02T12:05:00+09:00
+      next: 2024-01-02T10:05:00+07:00
       last: none"
   `);
   expect(await session.request("/cron show test-job")).toMatchInlineSnapshot(`
@@ -582,10 +583,10 @@ test("cron command", async ({ onTestFinished }) => {
     id: test-job
     enabled: yes
     schedule: * * * * *
-    timezone: Asia/Tokyo
+    timezone: Asia/Jakarta
     target session: test
     delivery target: repl
-    next: 2024-01-02T12:05:00+09:00
+    next: 2024-01-02T10:05:00+07:00
     last: none
     prompt: hello-cron"
   `);
