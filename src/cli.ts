@@ -168,10 +168,11 @@ Options:
       label,
       sendChatAction: () => ctx.replyWithChatAction("typing"),
     });
+    chatActionManager.start();
 
     const replyAndResetChatAction = async (...args: Parameters<typeof ctx.reply>) => {
       const result = await replyWithRetry(...args);
-      chatActionManager.reset();
+      chatActionManager.schedule();
       return result;
     };
 

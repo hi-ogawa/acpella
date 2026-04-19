@@ -37,19 +37,18 @@ export function createTelegramChatActionManager(options: {
   sendChatAction: () => Promise<unknown>;
   label: string;
 }) {
-  const intervalMs = 4000;
-
-  let stopped = false;
-  const timer = new TimeoutManager();
+  const CHAT_ACTION_INTERVAL_MS = 4000;
+  const timeout = new TimeoutManager();
   const promiseLimit = new PromiseLimit();
+  let stopped = true;
   let retryAfterUntil = 0;
 
   function schedule() {
     if (stopped) {
       return;
     }
-    const delay = Math.max(intervalMs, retryAfterUntil - Date.now(), 0);
-    timer.set(() => promiseLimit.run(pulse), delay);
+    const delay = Math.max(CHAT_ACTION_INTERVAL_MS, retryAfterUntil - Date.now(), 0);
+    timeout.set(() => promiseLimit.run(pulse), delay);
   }
 
   async function pulse() {
@@ -75,11 +74,14 @@ export function createTelegramChatActionManager(options: {
   }
 
   return {
-    start: () => schedule(),
-    reset: () => schedule(),
+    start: () => {
+      stopped = false;
+      schedule();
+    },
+    schedule,
     stop: () => {
       stopped = true;
-      timer.clear();
+      timeout.clear();
     },
   };
 }
