@@ -2,6 +2,30 @@ import { formatTime } from "../lib/utils.ts";
 import type { CronJob, CronRun, CronStore } from "./store.ts";
 import { getNextOccurrence } from "./timer.ts";
 
+export function parseCronAddArgs(args: string[]):
+  | {
+      id: string;
+      schedule: string;
+      timezone: string;
+      prompt: string;
+    }
+  | undefined {
+  if (args.length < 8) {
+    return;
+  }
+  const [id, minute, hour, dayOfMonth, month, dayOfWeek, timezone, ...promptParts] = args;
+  const prompt = promptParts.join(" ");
+  if (!id || !minute || !hour || !dayOfMonth || !month || !dayOfWeek || !timezone || !prompt) {
+    return;
+  }
+  return {
+    id,
+    schedule: [minute, hour, dayOfMonth, month, dayOfWeek].join(" "),
+    timezone,
+    prompt,
+  };
+}
+
 export function renderCronList(cronStore: CronStore): string {
   const jobs = cronStore.listJobs();
   if (jobs.length === 0) {

@@ -1,14 +1,16 @@
 import { AgentManager } from "./acp/index.ts";
 import type { AgentSessionProcess } from "./acp/index.ts";
 import type { AppConfig } from "./config.ts";
-import { renderCronList } from "./cron/format.ts";
+import { parseCronAddArgs, renderCronList } from "./cron/format.ts";
 import type { CronRunner } from "./cron/runner.ts";
-import type { CronStore } from "./cron/store.ts";
+import type { CronStore, CronTelegramTarget } from "./cron/store.ts";
+import { validateCronSchedule } from "./cron/timer.ts";
 import { createCommandHandler } from "./lib/command.ts";
 import type { CommandTree } from "./lib/command.ts";
 import { buildFirstPrompt, buildMessageMetadataPrompt } from "./lib/prompt.ts";
 import { createReply, MESSAGE_SPLIT_BUDGET } from "./lib/reply.ts";
 import type { Reply } from "./lib/reply.ts";
+import { formatError } from "./lib/utils.ts";
 import { parseAgentSessionKey, SessionStateStore, toAgentSessionKey } from "./state.ts";
 import type { StateAgentSession, StateSession } from "./state.ts";
 
@@ -23,6 +25,8 @@ export interface HandlerContext {
   sessionName: string;
   text: string;
   send: (text: string) => Promise<unknown>;
+  // TODO: move inside metadata
+  telegramTarget?: CronTelegramTarget;
   metadata?: {
     timestamp: number;
   };
@@ -385,8 +389,43 @@ ${referencedSessions.length} session(s) still reference it.
       tokens: ["add"],
       help: "/cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> <timezone> <prompt...> - Add a cron job.",
       withArgs: true,
-      run: async ({ reply }) => {
-        await reply.system("todo");
+      run: async ({ args, reply, sessionName, telegramTarget }) => {
+        const parsed = parseCronAddArgs(args);
+        if (!parsed) {
+          await reply.system(
+            "Usage: /cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> <timezone> <prompt...>",
+          );
+          return;
+        }
+        if (!/^[a-zA-Z0-9_-]+$/.test(parsed.id)) {
+          await reply.system("Invalid cron id. Use letters, numbers, underscores, or hyphens.");
+          return;
+        }
+        if (!telegramTarget) {
+          await reply.system("Cannot add cron job: Telegram delivery target is unavailable.");
+          return;
+        }
+        try {
+          validateCronSchedule({
+            schedule: parsed.schedule,
+            timezone: parsed.timezone,
+          });
+          cronStore.addJob({
+            id: parsed.id,
+            enabled: true,
+            schedule: parsed.schedule,
+            timezone: parsed.timezone,
+            prompt: parsed.prompt,
+            target: {
+              sessionName,
+              telegram: telegramTarget,
+            },
+          });
+          handlerOptions.getCronRunner?.().refresh();
+          await reply.system(`Added cron job: ${parsed.id}`);
+        } catch (error) {
+          await reply.system(`Failed to add cron job: ${formatError(error)}`);
+        }
       },
     },
     {

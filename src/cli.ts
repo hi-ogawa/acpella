@@ -195,6 +195,10 @@ Options:
           text: ctx.message.text,
           username: botUsername,
         }),
+        telegramTarget: {
+          chatId,
+          messageThreadId: ctx.message.message_thread_id,
+        },
         metadata: {
           timestamp: ctx.message.date * 1000,
         },

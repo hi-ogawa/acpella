@@ -19,6 +19,7 @@ const telegramTargetSchema = z.object({
 
 const cronTargetSchema = z.object({
   sessionName: z.string().min(1),
+  // TODO: rename to delivery?
   telegram: telegramTargetSchema,
 });
 
