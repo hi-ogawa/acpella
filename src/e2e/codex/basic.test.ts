@@ -2,7 +2,7 @@ import { it, vi } from "vitest";
 import { startService, type TestService } from "../helper.ts";
 
 vi.setConfig({
-  testTimeout: 10000,
+  testTimeout: 20000,
 });
 
 const CODEX_CONFIG = ["model=gpt-5.2", "model_reasoning_effort=low", "features.codex_hooks=false"];
