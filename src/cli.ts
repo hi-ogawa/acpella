@@ -8,6 +8,7 @@ import { createHandler, type Handler } from "./handler.ts";
 import { handleSetupSystemd } from "./lib/systemd.ts";
 import { markdownToTelegramHtml } from "./lib/telegram/format-html.ts";
 import {
+  createTelegramChatActionLoop,
   formatTelegramSessionName,
   getTelegramRetryAfter,
   normalizeUserMention,
@@ -163,6 +164,17 @@ Options:
       }
     };
 
+    const chatActionLoop = createTelegramChatActionLoop({
+      label,
+      sendChatAction: () => ctx.replyWithChatAction("typing"),
+    });
+
+    const replyAndResetChatAction = async (...args: Parameters<typeof ctx.reply>) => {
+      const result = await replyWithRetry(...args);
+      chatActionLoop.reset();
+      return result;
+    };
+
     try {
       await handler.handle({
         sessionName,
@@ -176,7 +188,7 @@ Options:
         send: async (replyText) => {
           const html = markdownToTelegramHtml(replyText);
           try {
-            return await replyWithRetry(html, {
+            return await replyAndResetChatAction(html, {
               parse_mode: "HTML",
             });
           } catch (error) {
@@ -185,7 +197,7 @@ Options:
               throw error;
             }
             console.error(`${label} formatted reply failed; falling back to raw text:`, error);
-            return await replyWithRetry(replyText);
+            return await replyAndResetChatAction(replyText);
           }
         },
       });
@@ -197,7 +209,9 @@ Options:
       }
       console.error(`${label} (response error)`, error);
       const message = error instanceof Error ? error.message : String(error);
-      await replyWithRetry(`Error: ${truncateString(message, 200)}`);
+      await replyAndResetChatAction(`Error: ${truncateString(message, 200)}`);
+    } finally {
+      chatActionLoop.stop();
     }
   });
 
