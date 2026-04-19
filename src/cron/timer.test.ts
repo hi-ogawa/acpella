@@ -1,5 +1,5 @@
-import { expect, test } from "vitest";
-import { getNextOccurrence, validateCronSchedule } from "./timer.ts";
+import { expect, test, vi } from "vitest";
+import { CronTimer, getNextOccurrence, validateCronSchedule, type CronDueEvent } from "./timer.ts";
 
 test(validateCronSchedule, () => {
   expect(() => {
@@ -25,14 +25,47 @@ test(getNextOccurrence, () => {
     getNextOccurrence({
       schedule: "0 8 * * 1-5",
       timezone: "Asia/Tokyo",
-      after: Temporal.Instant.from("2026-04-18T00:00:00Z"),
+      after: Date.parse("2026-04-18T00:00:00Z"),
     }),
-  ).toMatchInlineSnapshot(`"2026-04-19T23:00:00Z"`);
+  ).toMatchInlineSnapshot(`1776639600000`);
   expect(
     getNextOccurrence({
       schedule: "* * * * *",
       timezone: "UTC",
-      after: Temporal.Instant.from("2026-04-18T00:00:00Z"),
+      after: Date.parse("2026-04-18T00:00:00Z"),
     }),
-  ).toMatchInlineSnapshot(`"2026-04-18T00:01:00Z"`);
+  ).toMatchInlineSnapshot(`1776470460000`);
+});
+
+test(CronTimer, ({ onTestFinished }) => {
+  vi.useFakeTimers({
+    now: Date.parse("2026-04-18T00:03:00Z"),
+  });
+  onTestFinished(() => {
+    vi.useRealTimers();
+  });
+
+  const events: CronDueEvent[] = [];
+  const timer = new CronTimer({
+    entry: {
+      id: "test",
+      schedule: "* * * * *",
+      timezone: "UTC",
+    },
+    onDue: (event) => events.push(event),
+  });
+  onTestFinished(() => {
+    timer.stop();
+  });
+  timer.scheduledAt = Date.parse("2026-04-18T00:01:00Z");
+
+  timer.handleTimeout();
+
+  expect(events).toEqual([
+    {
+      id: "test",
+      scheduledAt: Date.parse("2026-04-18T00:01:00Z"),
+    },
+  ]);
+  expect(timer.scheduledAt).toBe(Date.parse("2026-04-18T00:02:00Z"));
 });

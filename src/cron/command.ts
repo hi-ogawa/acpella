@@ -101,7 +101,7 @@ function formatCronNext(job: CronJob): string {
       getNextOccurrence({
         schedule: job.schedule,
         timezone: job.timezone,
-        after: Temporal.Now.instant(),
+        after: Date.now(),
       }),
       job.timezone,
     );

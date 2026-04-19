@@ -11,9 +11,11 @@ export interface CronDueEvent {
   scheduledAt: number;
 }
 
+const MAX_TIMER_DELAY_MS = 60_000;
+
 interface ScheduledEntry {
   entry: CronTimerEntry;
-  next: Temporal.Instant;
+  next: number;
 }
 
 export interface CronSchedulerOptions {
@@ -22,7 +24,7 @@ export interface CronSchedulerOptions {
 }
 
 export class CronScheduler {
-  now = () => Temporal.Now.instant();
+  now = Date.now;
   scheduledEntries = new Map<string, ScheduledEntry>();
   options: CronSchedulerOptions;
   timeout?: ReturnType<typeof setTimeout>;
@@ -71,18 +73,18 @@ export class CronScheduler {
     }
 
     const current = this.now();
-    let nextInstant: Temporal.Instant | undefined;
+    let nextInstant: number | undefined;
     for (const scheduledEntry of this.scheduledEntries.values()) {
-      if (!nextInstant || Temporal.Instant.compare(scheduledEntry.next, nextInstant) < 0) {
+      if (nextInstant === undefined || scheduledEntry.next < nextInstant) {
         nextInstant = scheduledEntry.next;
       }
     }
-    if (!nextInstant) {
+    if (nextInstant === undefined) {
       return;
     }
 
-    const delay = Math.max(0, nextInstant.epochMilliseconds - current.epochMilliseconds);
-    this.timeout = setTimeout(() => this.runDueEntries(), Math.min(delay, 60_000));
+    const delay = Math.max(0, nextInstant - current);
+    this.timeout = setTimeout(() => this.runDueEntries(), Math.min(delay, MAX_TIMER_DELAY_MS));
   }
 
   runDueEntries(): void {
@@ -93,13 +95,13 @@ export class CronScheduler {
 
     const current = this.now();
     for (const scheduledEntry of this.scheduledEntries.values()) {
-      if (Temporal.Instant.compare(scheduledEntry.next, current) > 0) {
+      if (scheduledEntry.next > current) {
         continue;
       }
       const due = scheduledEntry.next;
       this.options.onDue({
         id: scheduledEntry.entry.id,
-        scheduledAt: due.epochMilliseconds,
+        scheduledAt: due,
       });
       scheduledEntry.next = getNextOccurrence({
         ...scheduledEntry.entry,
@@ -107,6 +109,76 @@ export class CronScheduler {
       });
     }
     this.scheduleWakeup();
+  }
+}
+
+export interface CronTimerOptions {
+  entry: CronTimerEntry;
+  onDue: (event: CronDueEvent) => void;
+}
+
+export class CronTimer {
+  options: CronTimerOptions;
+  timeout?: ReturnType<typeof setTimeout>;
+  scheduledAt?: number;
+
+  constructor(options: CronTimerOptions) {
+    this.options = { ...options };
+  }
+
+  start(): void {
+    this.stop();
+    this.scheduledAt = getNextOccurrence({
+      ...this.options.entry,
+      after: Date.now(),
+    });
+    this.armTimeout();
+  }
+
+  stop(): void {
+    this.scheduledAt = undefined;
+    if (this.timeout) {
+      clearTimeout(this.timeout);
+      this.timeout = undefined;
+    }
+  }
+
+  armTimeout(): void {
+    if (this.scheduledAt === undefined) {
+      return;
+    }
+    if (this.timeout) {
+      clearTimeout(this.timeout);
+      this.timeout = undefined;
+    }
+
+    // sleep at most MAX_TIMER_DELAY_MS to avoid clock drift.
+    // early wakeup is ignored by checking due time again in handleTimeout.
+    const delay = Math.min(Math.max(0, this.scheduledAt - Date.now()), MAX_TIMER_DELAY_MS);
+    this.timeout = setTimeout(() => this.handleTimeout(), delay);
+  }
+
+  handleTimeout(): void {
+    this.timeout = undefined;
+    if (this.scheduledAt === undefined) {
+      return;
+    }
+
+    const scheduledAt = this.scheduledAt;
+    if (Date.now() < scheduledAt) {
+      this.armTimeout();
+      return;
+    }
+
+    this.options.onDue({
+      id: this.options.entry.id,
+      scheduledAt: scheduledAt,
+    });
+    this.scheduledAt = getNextOccurrence({
+      ...this.options.entry,
+      after: scheduledAt,
+    });
+    this.armTimeout();
   }
 }
 
@@ -124,15 +196,15 @@ export function validateCronSchedule(options: { schedule: string; timezone: stri
 export function getNextOccurrence(options: {
   schedule: string;
   timezone: string;
-  after: Temporal.Instant;
-}): Temporal.Instant {
+  after: number;
+}): number {
   const cron = createPausedCron(options);
   try {
-    const nextRun = cron.nextRun(new Date(options.after.epochMilliseconds));
+    const nextRun = cron.nextRun(new Date(options.after));
     if (!nextRun) {
       throw new Error(`No cron occurrence found: ${options.schedule}`);
     }
-    return Temporal.Instant.fromEpochMilliseconds(nextRun.getTime());
+    return nextRun.getTime();
   } finally {
     cron.stop();
   }
