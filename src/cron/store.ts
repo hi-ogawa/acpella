@@ -75,7 +75,7 @@ const cronStateFileSchema = z.object({
 });
 
 export type CronJobFile = z.infer<typeof cronJobFileSchema>;
-export type CronStateFile = z.infer<typeof cronStateFileSchema>;
+export type CronRunFile = z.infer<typeof cronStateFileSchema>;
 export type CronJob = z.infer<typeof cronJobSchema>;
 export type CronTarget = z.infer<typeof cronTargetSchema>;
 export type CronTelegramTarget = z.infer<typeof telegramTargetSchema>;
@@ -83,18 +83,23 @@ export type CronRun = z.infer<typeof cronRunSchema>;
 
 interface CronStoreOptions {
   cronFile: string;
-  cronStateFile: string;
+  cronRunFile: string;
 }
 
 export class CronStore {
   options: CronStoreOptions;
   jobFile: CronJobFile;
-  runFile: CronStateFile;
+  runFile: CronRunFile;
 
   constructor(options: CronStoreOptions) {
     this.options = { ...options };
     this.jobFile = readCronFile(options.cronFile);
-    this.runFile = readCronStateFile(options.cronStateFile);
+    this.runFile = readCronRunFile(options.cronRunFile);
+  }
+
+  reload() {
+    this.jobFile = readCronFile(this.options.cronFile);
+    this.runFile = readCronRunFile(this.options.cronRunFile);
   }
 
   setJobFile(updater: (file: CronJobFile) => void): void {
@@ -104,11 +109,11 @@ export class CronStore {
     writeJsonFile(this.options.cronFile, this.jobFile);
   }
 
-  setRunFile(updater: (file: CronStateFile) => void): void {
+  setRunFile(updater: (file: CronRunFile) => void): void {
     const clone = structuredClone(this.runFile);
     updater(clone);
     this.runFile = cronStateFileSchema.parse(clone);
-    writeJsonFile(this.options.cronStateFile, this.runFile);
+    writeJsonFile(this.options.cronRunFile, this.runFile);
   }
 
   listJobs(): CronJob[] {
@@ -219,27 +224,27 @@ export class CronStore {
 }
 
 function readCronFile(file: string): CronJobFile {
-  if (!fs.existsSync(file)) {
-    return getInitialCronFile();
+  if (fs.existsSync(file)) {
+    try {
+      return cronJobFileSchema.parse(JSON.parse(fs.readFileSync(file, "utf8")));
+    } catch (e) {
+      console.error("[cron] readCronFile failed:", e);
+    }
   }
-  return cronJobFileSchema.parse(JSON.parse(fs.readFileSync(file, "utf8")));
-}
-
-function readCronStateFile(file: string): CronStateFile {
-  if (!fs.existsSync(file)) {
-    return getInitialCronStateFile();
-  }
-  return cronStateFileSchema.parse(JSON.parse(fs.readFileSync(file, "utf8")));
-}
-
-function getInitialCronFile(): CronJobFile {
   return {
     version: CRON_FILE_VERSION,
     jobs: {},
   };
 }
 
-function getInitialCronStateFile(): CronStateFile {
+function readCronRunFile(file: string): CronRunFile {
+  if (fs.existsSync(file)) {
+    try {
+      return cronStateFileSchema.parse(JSON.parse(fs.readFileSync(file, "utf8")));
+    } catch (e) {
+      console.error("[cron] readCronRunFile failed:", e);
+    }
+  }
   return {
     version: CRON_STATE_FILE_VERSION,
     runs: {},
