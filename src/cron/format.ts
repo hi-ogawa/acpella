@@ -40,13 +40,13 @@ function renderCronListItem(job: CronJob, latestRun: CronRun | undefined): strin
   schedule: ${job.schedule}
   timezone: ${job.timezone}
   target session: ${job.target.sessionName}
-  telegram target: ${formatTelegramTarget(job.target.telegram)}
+  delivery target: ${formatDeliveryTarget(job.target.delivery)}
   next: ${formatCronNext(job)}
   last: ${formatCronLastRun(latestRun)}
 `;
 }
 
-function formatTelegramTarget(target: CronJob["target"]["telegram"]): string {
+function formatDeliveryTarget(target: CronJob["target"]["delivery"]): string {
   let output = String(target.chatId);
   if (target.messageThreadId !== undefined) {
     output += `/${target.messageThreadId}`;

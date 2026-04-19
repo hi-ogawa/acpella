@@ -1,5 +1,5 @@
 import { formatError, formatTime } from "../lib/utils.ts";
-import type { CronJob, CronStore, CronTelegramTarget } from "./store.ts";
+import type { CronJob, CronStore, CronDeliveryTarget } from "./store.ts";
 import { CronScheduler, type CronDueEvent } from "./timer.ts";
 
 export interface CronRunnerOptions {
@@ -8,7 +8,7 @@ export interface CronRunnerOptions {
     promptSession: (options: { sessionName: string; prompt: string }) => Promise<string>;
   };
   delivery: {
-    sendTelegram: (target: CronTelegramTarget, text: string) => Promise<void>;
+    send: (target: CronDeliveryTarget, text: string) => Promise<void>;
   };
 }
 
@@ -75,7 +75,7 @@ export class CronRunner {
         sessionName: job.target.sessionName,
         prompt,
       });
-      await this.options.delivery.sendTelegram(job.target.telegram, response);
+      await this.options.delivery.send(job.target.delivery, response);
       store.updateRun(run.id, {
         finishedAt: formatTime(Date.now()),
         status: "succeeded",

@@ -12,15 +12,16 @@ const cronIdSchema = z
   .min(1)
   .regex(/^[a-zA-Z0-9_-]+$/);
 
-const telegramTargetSchema = z.object({
+const CronDeliveryTargetSchema = z.object({
   chatId: z.number().int(),
   messageThreadId: z.number().int().optional(),
 });
 
 const cronTargetSchema = z.object({
+  // how to route cron prompt to agent
   sessionName: z.string().min(1),
-  // TODO: rename to delivery?
-  telegram: telegramTargetSchema,
+  // how to route agent response to chat
+  delivery: CronDeliveryTargetSchema,
 });
 
 const cronJobSchema = z
@@ -80,7 +81,7 @@ type CronStateFile = z.infer<typeof cronStateFileSchema>;
 
 export type CronJob = z.infer<typeof cronJobSchema>;
 export type CronTarget = z.infer<typeof cronTargetSchema>;
-export type CronTelegramTarget = z.infer<typeof telegramTargetSchema>;
+export type CronDeliveryTarget = z.infer<typeof CronDeliveryTargetSchema>;
 export type CronRun = z.infer<typeof cronRunSchema>;
 type CronRunExtra = CronRun & { cronId: string };
 

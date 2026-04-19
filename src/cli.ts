@@ -105,7 +105,7 @@ Options:
       promptSession: handler.promptSession,
     },
     delivery: {
-      sendTelegram: async (target, text) => {
+      send: async (target, text) => {
         await bot.api.sendMessage(target.chatId, markdownToTelegramHtml(text), {
           parse_mode: "HTML",
           message_thread_id: target.messageThreadId,
@@ -195,12 +195,12 @@ Options:
           text: ctx.message.text,
           username: botUsername,
         }),
-        telegramTarget: {
-          chatId,
-          messageThreadId: ctx.message.message_thread_id,
-        },
         metadata: {
           timestamp: ctx.message.date * 1000,
+          cronDeliveryTarget: {
+            chatId,
+            messageThreadId: ctx.message.message_thread_id,
+          },
         },
         send: async (replyText) => {
           const html = markdownToTelegramHtml(replyText);
