@@ -382,10 +382,50 @@ ${referencedSessions.length} session(s) still reference it.
 
   const systemCronCommands: SystemCommandTree[string] = [
     {
+      tokens: ["add"],
+      help: "/cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> <timezone> <prompt...> - Add a cron job.",
+      withArgs: true,
+      run: async ({ reply }) => {
+        await reply.system("todo");
+      },
+    },
+    {
       tokens: ["list"],
       help: "/cron list - List cron jobs.",
       run: async ({ reply }) => {
         await reply.system(renderCronList(cronStore));
+      },
+    },
+    {
+      tokens: ["show"],
+      help: "/cron show <id> - Show a cron job.",
+      withArgs: true,
+      run: async ({ reply }) => {
+        await reply.system("todo");
+      },
+    },
+    {
+      tokens: ["enable"],
+      help: "/cron enable <id> - Enable a cron job.",
+      withArgs: true,
+      run: async ({ reply }) => {
+        await reply.system("todo");
+      },
+    },
+    {
+      tokens: ["disable"],
+      help: "/cron disable <id> - Disable a cron job.",
+      withArgs: true,
+      run: async ({ reply }) => {
+        await reply.system("todo");
+      },
+    },
+    {
+      tokens: ["delete"],
+      help: "/cron delete <id> - Delete a cron job.",
+      withArgs: true,
+      run: async ({ reply }) => {
+        await reply.system("todo");
       },
     },
   ];

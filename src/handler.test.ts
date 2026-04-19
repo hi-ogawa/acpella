@@ -149,6 +149,14 @@ test("basic", async () => {
       /agent remove <name> - Remove an agent.
       /agent default [name] - Show or set the default agent.
 
+    /cron
+      /cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> <timezone> <prompt...> - Add a cron job.
+      /cron list - List cron jobs.
+      /cron show <id> - Show a cron job.
+      /cron enable <id> - Enable a cron job.
+      /cron disable <id> - Disable a cron job.
+      /cron delete <id> - Delete a cron job.
+
     /verbose
       /verbose current - Show tool-call output setting.
       /verbose on - Show tool-call updates.
