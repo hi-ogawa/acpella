@@ -96,6 +96,9 @@ function formatDeliveryTarget(target: CronJob["target"]["delivery"]): string {
 }
 
 function formatCronNext(job: CronJob): string {
+  if (!job.enabled) {
+    return "none";
+  }
   try {
     return formatTime(
       getNextCronSchedule({

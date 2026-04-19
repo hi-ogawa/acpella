@@ -135,7 +135,7 @@ export class CronStore {
   }
 
   listJobs(): CronJob[] {
-    return Object.values(this.jobFile.jobs).sort((a, b) => a.id.localeCompare(b.id));
+    return Object.values(this.jobFile.jobs);
   }
 
   getJob(id: string): CronJob | undefined {

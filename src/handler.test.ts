@@ -656,21 +656,21 @@ test("cron command", async ({ onTestFinished }) => {
   `);
   expect(await session.request("/cron list")).toMatchInlineSnapshot(`
     "[⚙️ System]
+    - test-job [disabled]
+      schedule: * * * * *
+      timezone: Asia/Jakarta
+      target session: test
+      delivery target: repl
+      next: none
+      last: succeeded, scheduled 2026-04-18T00:01:00Z, finished 2026-04-18T00:01:00Z
+
     - other-job [enabled]
       schedule: 3 * * * *
       timezone: Asia/Jakarta
       target session: test
       delivery target: repl
       next: 2026-04-18T07:03:00+07:00
-      last: none
-
-    - test-job [disabled]
-      schedule: * * * * *
-      timezone: Asia/Jakarta
-      target session: test
-      delivery target: repl
-      next: 2026-04-18T07:02:00+07:00
-      last: succeeded, scheduled 2026-04-18T00:01:00Z, finished 2026-04-18T00:01:00Z"
+      last: none"
   `);
 
   vi.advanceTimersToNextTimer();
@@ -710,21 +710,21 @@ test("cron command", async ({ onTestFinished }) => {
   `);
   expect(await session.request("/cron list")).toMatchInlineSnapshot(`
     "[⚙️ System]
+    - test-job [disabled]
+      schedule: * * * * *
+      timezone: Asia/Jakarta
+      target session: test
+      delivery target: repl
+      next: none
+      last: succeeded, scheduled 2026-04-18T00:01:00Z, finished 2026-04-18T00:01:00Z
+
     - other-job [enabled]
       schedule: 3 * * * *
       timezone: Asia/Jakarta
       target session: test
       delivery target: repl
       next: 2026-04-18T08:03:00+07:00
-      last: succeeded, scheduled 2026-04-18T00:03:00Z, finished 2026-04-18T00:03:00Z
-
-    - test-job [disabled]
-      schedule: * * * * *
-      timezone: Asia/Jakarta
-      target session: test
-      delivery target: repl
-      next: 2026-04-18T07:04:00+07:00
-      last: succeeded, scheduled 2026-04-18T00:01:00Z, finished 2026-04-18T00:01:00Z"
+      last: succeeded, scheduled 2026-04-18T00:03:00Z, finished 2026-04-18T00:03:00Z"
   `);
 
   expect(await session.request("/cron enable test-job")).toMatchInlineSnapshot(`
