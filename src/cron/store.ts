@@ -1,7 +1,5 @@
-import { randomUUID } from "node:crypto";
-import fs from "node:fs";
 import { z } from "zod";
-import { readJsonFile, StateFileManager, writeJsonFile } from "../lib/utils-node.ts";
+import { StateFileManager } from "../lib/utils-node.ts";
 import { validateCronSchedule } from "./timer.ts";
 
 const CRON_FILE_VERSION = 1;
@@ -117,30 +115,27 @@ interface CronStoreOptions {
 export class CronStore {
   options: CronStoreOptions;
   jobFile: StateFileManager<CronJobFile>;
-  stateFile: CronStateFile;
+  stateFile: StateFileManager<CronStateFile>;
 
   constructor(options: CronStoreOptions) {
     this.options = { ...options };
-    this.jobFile = new StateFileManager<CronJobFile>({
+    this.jobFile = new StateFileManager({
       file: options.cronFile,
       parse: (data) => cronJobFileSchema.parse(data),
       defaultValue: getCronJobFileDefault,
     });
-    this.stateFile = readCronStateFile(options.cronStateFile);
+    this.stateFile = new StateFileManager({
+      file: options.cronStateFile,
+      parse: (data) => cronStateFileSchema.parse(data),
+      defaultValue: getCronStateFileDefault,
+    });
   }
 
   reload() {
     const jobFile = this.jobFile.read({ strict: true });
-    const stateFile = readCronStateFileStrict(this.options.cronStateFile);
+    const stateFile = this.stateFile.read({ strict: true });
     this.jobFile.state = jobFile;
-    this.stateFile = stateFile;
-  }
-
-  setStateFile(updater: (file: CronStateFile) => void): void {
-    const clone = structuredClone(this.stateFile);
-    updater(clone);
-    this.stateFile = cronStateFileSchema.parse(clone);
-    writeJsonFile(this.options.cronStateFile, this.stateFile);
+    this.stateFile.state = stateFile;
   }
 
   listJobs(): CronJob[] {
@@ -179,17 +174,17 @@ export class CronStore {
       }
       delete file.jobs[id];
     });
-    this.setStateFile((file) => {
+    this.stateFile.set((file) => {
       delete file.runs[id];
     });
   }
 
   getScheduledRun(options: { cronId: string; scheduledAt: string }): CronRun | undefined {
-    return this.stateFile.runs[options.cronId]?.[options.scheduledAt];
+    return this.stateFile.state.runs[options.cronId]?.[options.scheduledAt];
   }
 
   getRun(id: string): CronRunExtra | undefined {
-    for (const [cronId, runs] of Object.entries(this.stateFile.runs)) {
+    for (const [cronId, runs] of Object.entries(this.stateFile.state.runs)) {
       for (const run of Object.values(runs)) {
         if (run.id === id) {
           return { ...run, cronId };
@@ -199,14 +194,14 @@ export class CronStore {
   }
 
   getLatestRun({ cronId }: { cronId: string }): CronRun | undefined {
-    const runs = Object.values(this.stateFile.runs[cronId] ?? {});
+    const runs = Object.values(this.stateFile.state.runs[cronId] ?? {});
     runs.sort((a, b) => b.scheduledAt.localeCompare(a.scheduledAt));
     return runs[0];
   }
 
   startRun(options: { cronId: string; scheduledAt: string; startedAt: string }): CronRun {
     let run: CronRun;
-    this.setStateFile((file) => {
+    this.stateFile.set((file) => {
       file.runs[options.cronId] ??= {};
       if (file.runs[options.cronId][options.scheduledAt]) {
         throw new Error("Cron run already exists for this schedule", {
@@ -214,7 +209,7 @@ export class CronStore {
         });
       }
       run = {
-        id: randomUUID(),
+        id: crypto.randomUUID(),
         scheduledAt: options.scheduledAt,
         startedAt: options.startedAt,
         status: "running",
@@ -229,23 +224,8 @@ export class CronStore {
     if (!run) {
       throw new Error(`Cannot update missing cron run: ${id}`);
     }
-    this.setStateFile((file) => {
+    this.stateFile.set((file) => {
       Object.assign(file.runs[run.cronId][run.scheduledAt], patch);
     });
   }
-}
-
-function readCronStateFile(file: string): CronStateFile {
-  if (fs.existsSync(file)) {
-    try {
-      return readCronStateFileStrict(file);
-    } catch (e) {
-      console.error("[cron] readCronStateFile failed:", e);
-    }
-  }
-  return getCronStateFileDefault();
-}
-
-function readCronStateFileStrict(file: string): CronStateFile {
-  return cronStateFileSchema.parse(readJsonFile(file, getCronStateFileDefault));
 }

@@ -585,7 +585,10 @@ test("cron reload command", async ({ onTestFinished }) => {
       last: none"
   `);
 
-  fs.writeFileSync(tester.config.cronFile, "{");
+  writeJsonFile(tester.config.cronFile, {
+    version: 12.34,
+    jobs: {},
+  });
   expect(await session.request("/cron reload")).toContain(
     "[⚙️ System]\nFailed to reload cron jobs:",
   );
