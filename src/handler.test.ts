@@ -72,11 +72,11 @@ Coverage checklist:
   - [x] list
   - [x] show
   - [ ] show unknown id
-  - [ ] enable
+  - [x] enable
   - [ ] enable unknown id
-  - [ ] disable
+  - [x] disable
   - [ ] disable unknown id
-  - [ ] delete
+  - [x] delete
   - [ ] delete unknown id
   - [x] runner executes repl cron job through handler prompt
   - [ ] runner records failed delivery
@@ -596,6 +596,7 @@ test("cron command", async ({ onTestFinished }) => {
     enabled jobs: 1"
   `);
   expect(tester.cronDeliveries).toMatchInlineSnapshot(`[]`);
+
   vi.advanceTimersToNextTimer();
   expect(formatTime(Date.now(), tester.config.timezone)).toMatchInlineSnapshot(
     `"2026-04-18T07:01:00+07:00"`,
@@ -613,6 +614,7 @@ test("cron command", async ({ onTestFinished }) => {
     last: running, scheduled 2026-04-18T00:01:00Z
     prompt: hello-cron"
   `);
+
   await vi.waitUntil(() => tester.cronDeliveries.length > 0);
   expect(tester.cronDeliveries).toMatchInlineSnapshot(`
     [
@@ -640,5 +642,119 @@ test("cron command", async ({ onTestFinished }) => {
     next: 2026-04-18T07:02:00+07:00
     last: succeeded, scheduled 2026-04-18T00:01:00Z, finished 2026-04-18T00:01:00Z
     prompt: hello-cron"
+  `);
+  tester.cronDeliveries.length = 0;
+
+  expect(await session.request("/cron add other-job 3 * * * * hello-other")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Added cron job: other-job"
+  `);
+
+  expect(await session.request("/cron disable test-job")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Disabled cron job: test-job"
+  `);
+  expect(await session.request("/cron list")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    - other-job [enabled]
+      schedule: 3 * * * *
+      timezone: Asia/Jakarta
+      target session: test
+      delivery target: repl
+      next: 2026-04-18T07:03:00+07:00
+      last: none
+
+    - test-job [disabled]
+      schedule: * * * * *
+      timezone: Asia/Jakarta
+      target session: test
+      delivery target: repl
+      next: 2026-04-18T07:02:00+07:00
+      last: succeeded, scheduled 2026-04-18T00:01:00Z, finished 2026-04-18T00:01:00Z"
+  `);
+
+  vi.advanceTimersToNextTimer();
+  vi.advanceTimersToNextTimer();
+  expect(formatTime(Date.now(), tester.config.timezone)).toMatchInlineSnapshot(
+    `"2026-04-18T07:03:00+07:00"`,
+  );
+  expect(tester.cronDeliveries).toMatchInlineSnapshot(`[]`);
+  expect(await session.request("/cron show other-job")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    id: other-job
+    enabled: yes
+    schedule: 3 * * * *
+    timezone: Asia/Jakarta
+    target session: test
+    delivery target: repl
+    next: 2026-04-18T08:03:00+07:00
+    last: running, scheduled 2026-04-18T00:03:00Z
+    prompt: hello-other"
+  `);
+
+  await vi.waitUntil(() => tester.cronDeliveries.length > 0);
+  expect(tester.cronDeliveries).toMatchInlineSnapshot(`
+    [
+      "echo: <trigger_metadata>
+    trigger: cron
+    cron_id: other-job
+    scheduled_at: 2026-04-18T07:03:00+07:00
+    started_at: 2026-04-18T07:03:00+07:00
+    timezone: Asia/Jakarta
+    session_name: test
+    </trigger_metadata>
+
+    hello-other
+    ",
+    ]
+  `);
+  expect(await session.request("/cron list")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    - other-job [enabled]
+      schedule: 3 * * * *
+      timezone: Asia/Jakarta
+      target session: test
+      delivery target: repl
+      next: 2026-04-18T08:03:00+07:00
+      last: succeeded, scheduled 2026-04-18T00:03:00Z, finished 2026-04-18T00:03:00Z
+
+    - test-job [disabled]
+      schedule: * * * * *
+      timezone: Asia/Jakarta
+      target session: test
+      delivery target: repl
+      next: 2026-04-18T07:04:00+07:00
+      last: succeeded, scheduled 2026-04-18T00:01:00Z, finished 2026-04-18T00:01:00Z"
+  `);
+
+  expect(await session.request("/cron enable test-job")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Enabled cron job: test-job"
+  `);
+  expect(await session.request("/cron status")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    cron runner: running
+    jobs: 2
+    enabled jobs: 2"
+  `);
+  expect(await session.request("/cron delete test-job")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Deleted cron job: test-job"
+  `);
+  expect(await session.request("/cron list")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    - other-job [enabled]
+      schedule: 3 * * * *
+      timezone: Asia/Jakarta
+      target session: test
+      delivery target: repl
+      next: 2026-04-18T08:03:00+07:00
+      last: succeeded, scheduled 2026-04-18T00:03:00Z, finished 2026-04-18T00:03:00Z"
+  `);
+  expect(await session.request("/cron status")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    cron runner: running
+    jobs: 1
+    enabled jobs: 1"
   `);
 });
