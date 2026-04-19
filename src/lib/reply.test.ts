@@ -1,16 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { createReply } from "./reply.ts";
+import { ReplyManager } from "./reply.ts";
 
 function createReplyTest(options: { limit: number }) {
   const messages: string[] = [];
-  const reply = createReply({
+  const reply = new ReplyManager({
     send: async (t) => messages.push(t),
     limit: options.limit,
   });
   return { reply, messages };
 }
 
-describe(createReply, () => {
+describe(ReplyManager, () => {
   it("sends short text as-is", async () => {
     const { reply, messages } = createReplyTest({ limit: 100 });
     await reply.send("hello");
