@@ -1,6 +1,6 @@
 import path from "node:path";
 import { z } from "zod";
-import { StateFileManager } from "./lib/utils-node.ts";
+import { FileStateManager } from "./lib/utils-node.ts";
 
 const agentSchema = z.object({
   command: z.string().min(1),
@@ -58,10 +58,10 @@ export interface StateAgentSession {
 }
 
 export class SessionStateStore {
-  file: StateFileManager<State>;
+  file: FileStateManager<State>;
 
   constructor(file: string) {
-    this.file = new StateFileManager<State>({
+    this.file = new FileStateManager<State>({
       file,
       parse: stateSchema.parse.bind(stateSchema),
       defaultValue: getInitialState,

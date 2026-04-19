@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { StateFileManager } from "../lib/utils-node.ts";
+import { FileStateManager } from "../lib/utils-node.ts";
 import { validateCronSchedule } from "./timer.ts";
 
 const CRON_FILE_VERSION = 1;
@@ -114,17 +114,17 @@ interface CronStoreOptions {
 
 export class CronStore {
   options: CronStoreOptions;
-  jobFile: StateFileManager<CronJobFile>;
-  stateFile: StateFileManager<CronStateFile>;
+  jobFile: FileStateManager<CronJobFile>;
+  stateFile: FileStateManager<CronStateFile>;
 
   constructor(options: CronStoreOptions) {
     this.options = { ...options };
-    this.jobFile = new StateFileManager({
+    this.jobFile = new FileStateManager({
       file: options.cronFile,
       parse: (data) => cronJobFileSchema.parse(data),
       defaultValue: getCronJobFileDefault,
     });
-    this.stateFile = new StateFileManager({
+    this.stateFile = new FileStateManager({
       file: options.cronStateFile,
       parse: (data) => cronStateFileSchema.parse(data),
       defaultValue: getCronStateFileDefault,
