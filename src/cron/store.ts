@@ -167,8 +167,7 @@ export class CronStore {
     return runs[0];
   }
 
-  startRun(options: { cronId: string; scheduledAt: string; startedAt: string }): CronRun {
-    let run!: CronRun;
+  startRun(options: { cronId: string; scheduledAt: string; startedAt: string }) {
     this.setStateFile((file) => {
       file.runs[options.cronId] ??= {};
       if (file.runs[options.cronId][options.scheduledAt]) {
@@ -176,7 +175,7 @@ export class CronStore {
           cause: options,
         });
       }
-      run = {
+      const run: CronRun = {
         id: randomUUID(),
         scheduledAt: options.scheduledAt,
         startedAt: options.startedAt,
@@ -184,7 +183,6 @@ export class CronStore {
       };
       file.runs[options.cronId][options.scheduledAt] = run;
     });
-    return run;
   }
 
   finishRun(options: {
@@ -193,8 +191,7 @@ export class CronStore {
     finishedAt: string;
     status: "succeeded" | "failed";
     error?: string;
-  }): CronRun {
-    let nextRun: CronRun | undefined;
+  }) {
     this.setStateFile((file) => {
       const run = file.runs[options.cronId]?.[options.scheduledAt];
       if (!run) {
@@ -203,9 +200,7 @@ export class CronStore {
       run.finishedAt = options.finishedAt;
       run.status = options.status;
       run.error = options.error;
-      nextRun = run;
     });
-    return nextRun!;
   }
 }
 
