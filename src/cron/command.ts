@@ -1,4 +1,4 @@
-import { formatError, formatTime, type Result } from "../lib/utils.ts";
+import { formatError, formatTime, resultErr, resultOk, type Result } from "../lib/utils.ts";
 import { type CronJob, type CronRun, type CronStore, cronIdSchema } from "./store.ts";
 import { getNextCronSchedule, validateCronSchedule } from "./timer.ts";
 
@@ -19,31 +19,31 @@ export function parseCronAddArgs(
   const [id, minute, hour, dayOfMonth, month, dayOfWeek, ...promptParts] = args;
   const prompt = promptParts.join(" ");
   if (!id || !minute || !hour || !dayOfMonth || !month || !dayOfWeek || !prompt) {
-    return { ok: false, value: "Invalid input" };
+    return resultErr("Invalid input");
   }
   const cronIdResult = cronIdSchema.safeParse(id);
   if (!cronIdResult.success) {
-    return { ok: false, value: "Invalid cron id. Use letters, numbers, underscores, or hyphens." };
+    return resultErr("Invalid cron id. Use letters, numbers, underscores, or hyphens.");
   }
   const schedule = [minute, hour, dayOfMonth, month, dayOfWeek].join(" ");
   try {
     validateCronSchedule({ schedule, timezone });
   } catch (error) {
-    return { ok: false, value: `Invalid cron schedule: ${formatError(error)}` };
+    return resultErr(`Invalid cron schedule: ${formatError(error)}`);
   }
-  return { ok: true, value: { id, schedule, prompt } };
+  return resultOk({ id, schedule, prompt });
 }
 
 export function parseCronIdArg(args: string[], usage: string): Result<{ id: string }, string> {
   const id = args[0];
   if (!id || args.length !== 1) {
-    return { ok: false, value: usage };
+    return resultErr(usage);
   }
   const cronIdResult = cronIdSchema.safeParse(id);
   if (!cronIdResult.success) {
-    return { ok: false, value: "Invalid cron id. Use letters, numbers, underscores, or hyphens." };
+    return resultErr("Invalid cron id. Use letters, numbers, underscores, or hyphens.");
   }
-  return { ok: true, value: { id } };
+  return resultOk({ id });
 }
 
 export function renderCronList(cronStore: CronStore): string {
