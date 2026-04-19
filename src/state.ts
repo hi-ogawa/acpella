@@ -68,6 +68,7 @@ export class SessionStateStore {
     });
   }
 
+  // TODO(refactor): remove thin wrappers
   get state(): State {
     return this.file.state;
   }
