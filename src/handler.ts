@@ -2,6 +2,7 @@ import { AgentManager } from "./acp/index.ts";
 import type { AgentSessionProcess } from "./acp/index.ts";
 import type { AppConfig } from "./config.ts";
 import { renderCronList } from "./cron/format.ts";
+import type { CronRunner } from "./cron/runner.ts";
 import type { CronStore } from "./cron/store.ts";
 import { createCommandHandler } from "./lib/command.ts";
 import type { CommandTree } from "./lib/command.ts";
@@ -39,9 +40,7 @@ export async function createHandler(
     version?: string;
     onServiceExit: () => void;
     cronStore: CronStore;
-    cronRunner?: {
-      refresh: () => void;
-    };
+    getCronRunner?: () => CronRunner;
   },
 ): Promise<Handler> {
   const stateStore = new SessionStateStore(config.stateFile);

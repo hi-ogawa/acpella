@@ -62,7 +62,6 @@ Options:
     cronFile: config.cronFile,
     cronStateFile: config.cronStateFile,
   });
-  let cronRunner: CronRunner | undefined;
 
   const handler = await createHandler(config, {
     version,
@@ -73,10 +72,9 @@ Options:
       });
     },
     cronStore,
-    // TODO: ugly
-    cronRunner: {
-      refresh: () => cronRunner?.refresh(),
-    },
+    // TODO: break handler <-> cronRunner cycle
+    // docs/tasks/2026-04-19-agent-session-service-architecture.md
+    getCronRunner: cli.repl ? undefined : () => cronRunner,
   });
 
   if (cli.repl) {
@@ -101,7 +99,7 @@ Options:
   const bot = new Bot(config.telegram.token);
   const botInfo = await bot.api.getMe();
   const botUsername = botInfo.username;
-  cronRunner = new CronRunner({
+  const cronRunner = new CronRunner({
     store: cronStore,
     agent: {
       promptSession: handler.promptSession,
