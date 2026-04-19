@@ -39,7 +39,7 @@ export class TelegramChatActionManager {
     send: () => Promise<unknown>;
     logLabel: string;
   };
-  interval: ReturnType<typeof setInterval> | undefined = undefined;
+  interval?: ReturnType<typeof setInterval>;
   inFlight = false;
   stopped = true;
   retryAfterUntil = 0;
