@@ -394,24 +394,25 @@ ${referencedSessions.length} session(s) still reference it.
           return;
         }
         const parsed = parseCronAddArgs(args, config.timezone);
-        if ("error" in parsed) {
-          await reply.system(`${parsed.error}\nUsage: ${cronAddCommand}`);
+        if (!parsed.ok) {
+          await reply.system(`${parsed.value}\nUsage: ${cronAddCommand}`);
           return;
         }
+        const cron = parsed.value;
         try {
           cronStore.addJob({
-            id: parsed.id,
+            id: cron.id,
             enabled: true,
-            schedule: parsed.schedule,
+            schedule: cron.schedule,
             timezone: config.timezone,
-            prompt: parsed.prompt,
+            prompt: cron.prompt,
             target: {
               sessionName,
               delivery: metadata.cronDeliveryTarget,
             },
           });
           cronRunnerRefresh();
-          await reply.system(`Added cron job: ${parsed.id}`);
+          await reply.system(`Added cron job: ${cron.id}`);
         } catch (error) {
           await reply.system(`Failed to add cron job: ${formatError(error)}`);
         }
@@ -430,16 +431,17 @@ ${referencedSessions.length} session(s) still reference it.
       withArgs: true,
       run: async ({ args, reply }) => {
         const parsed = parseCronIdArg(args, "Usage: /cron show <id>");
-        if ("error" in parsed) {
-          await reply.system(parsed.error);
+        if (!parsed.ok) {
+          await reply.system(parsed.value);
           return;
         }
-        const job = cronStore.getJob(parsed.id);
+        const { id } = parsed.value;
+        const job = cronStore.getJob(id);
         if (!job) {
-          await reply.system(`Unknown cron job: ${parsed.id}`);
+          await reply.system(`Unknown cron job: ${id}`);
           return;
         }
-        await reply.system(renderCronShow(job, cronStore.getLatestRun(parsed.id)));
+        await reply.system(renderCronShow(job, cronStore.getLatestRun(id)));
       },
     },
     {
@@ -448,18 +450,19 @@ ${referencedSessions.length} session(s) still reference it.
       withArgs: true,
       run: async ({ args, reply }) => {
         const parsed = parseCronIdArg(args, "Usage: /cron enable <id>");
-        if ("error" in parsed) {
-          await reply.system(parsed.error);
+        if (!parsed.ok) {
+          await reply.system(parsed.value);
           return;
         }
-        if (!cronStore.getJob(parsed.id)) {
-          await reply.system(`Unknown cron job: ${parsed.id}`);
+        const { id } = parsed.value;
+        if (!cronStore.getJob(id)) {
+          await reply.system(`Unknown cron job: ${id}`);
           return;
         }
         try {
-          cronStore.updateJob(parsed.id, { enabled: true });
+          cronStore.updateJob(id, { enabled: true });
           cronRunnerRefresh();
-          await reply.system(`Enabled cron job: ${parsed.id}`);
+          await reply.system(`Enabled cron job: ${id}`);
         } catch (error) {
           await reply.system(`Failed to enable cron job: ${formatError(error)}`);
         }
@@ -471,18 +474,19 @@ ${referencedSessions.length} session(s) still reference it.
       withArgs: true,
       run: async ({ args, reply }) => {
         const parsed = parseCronIdArg(args, "Usage: /cron disable <id>");
-        if ("error" in parsed) {
-          await reply.system(parsed.error);
+        if (!parsed.ok) {
+          await reply.system(parsed.value);
           return;
         }
-        if (!cronStore.getJob(parsed.id)) {
-          await reply.system(`Unknown cron job: ${parsed.id}`);
+        const { id } = parsed.value;
+        if (!cronStore.getJob(id)) {
+          await reply.system(`Unknown cron job: ${id}`);
           return;
         }
         try {
-          cronStore.updateJob(parsed.id, { enabled: false });
+          cronStore.updateJob(id, { enabled: false });
           cronRunnerRefresh();
-          await reply.system(`Disabled cron job: ${parsed.id}`);
+          await reply.system(`Disabled cron job: ${id}`);
         } catch (error) {
           await reply.system(`Failed to disable cron job: ${formatError(error)}`);
         }
@@ -494,18 +498,19 @@ ${referencedSessions.length} session(s) still reference it.
       withArgs: true,
       run: async ({ args, reply }) => {
         const parsed = parseCronIdArg(args, "Usage: /cron delete <id>");
-        if ("error" in parsed) {
-          await reply.system(parsed.error);
+        if (!parsed.ok) {
+          await reply.system(parsed.value);
           return;
         }
-        if (!cronStore.getJob(parsed.id)) {
-          await reply.system(`Unknown cron job: ${parsed.id}`);
+        const { id } = parsed.value;
+        if (!cronStore.getJob(id)) {
+          await reply.system(`Unknown cron job: ${id}`);
           return;
         }
         try {
-          cronStore.deleteJob(parsed.id);
+          cronStore.deleteJob(id);
           cronRunnerRefresh();
-          await reply.system(`Deleted cron job: ${parsed.id}`);
+          await reply.system(`Deleted cron job: ${id}`);
         } catch (error) {
           await reply.system(`Failed to delete cron job: ${formatError(error)}`);
         }

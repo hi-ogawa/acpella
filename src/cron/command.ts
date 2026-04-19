@@ -1,52 +1,49 @@
-import { formatError, formatTime } from "../lib/utils.ts";
+import { formatError, formatTime, type Result } from "../lib/utils.ts";
 import { type CronJob, type CronRun, type CronStore, cronIdSchema } from "./store.ts";
 import { getNextOccurrence, validateCronSchedule } from "./timer.ts";
 
 export function parseCronAddArgs(
   args: string[],
   timezone: string,
-):
-  | {
-      id: string;
-      schedule: string;
-      prompt: string;
-    }
-  | { error: string } {
+): Result<
+  {
+    id: string;
+    schedule: string;
+    prompt: string;
+  },
+  string
+> {
   if (args.length < 7) {
-    return { error: "Invalid input" };
+    return { ok: false, value: "Invalid input" };
   }
   const [id, minute, hour, dayOfMonth, month, dayOfWeek, ...promptParts] = args;
   const prompt = promptParts.join(" ");
   if (!id || !minute || !hour || !dayOfMonth || !month || !dayOfWeek || !prompt) {
-    return { error: "Invalid input" };
+    return { ok: false, value: "Invalid input" };
   }
   const cronIdResult = cronIdSchema.safeParse(id);
   if (!cronIdResult.success) {
-    return { error: "Invalid cron id. Use letters, numbers, underscores, or hyphens." };
+    return { ok: false, value: "Invalid cron id. Use letters, numbers, underscores, or hyphens." };
   }
   const schedule = [minute, hour, dayOfMonth, month, dayOfWeek].join(" ");
   try {
     validateCronSchedule({ schedule, timezone });
   } catch (error) {
-    return { error: `Invalid cron schedule: ${formatError(error)}` };
+    return { ok: false, value: `Invalid cron schedule: ${formatError(error)}` };
   }
-  return {
-    id,
-    schedule,
-    prompt,
-  };
+  return { ok: true, value: { id, schedule, prompt } };
 }
 
-export function parseCronIdArg(args: string[], usage: string): { id: string } | { error: string } {
+export function parseCronIdArg(args: string[], usage: string): Result<{ id: string }, string> {
   const id = args[0];
   if (!id || args.length !== 1) {
-    return { error: usage };
+    return { ok: false, value: usage };
   }
   const cronIdResult = cronIdSchema.safeParse(id);
   if (!cronIdResult.success) {
-    return { error: "Invalid cron id. Use letters, numbers, underscores, or hyphens." };
+    return { ok: false, value: "Invalid cron id. Use letters, numbers, underscores, or hyphens." };
   }
-  return { id };
+  return { ok: true, value: { id } };
 }
 
 export function renderCronList(cronStore: CronStore): string {
