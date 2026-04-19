@@ -36,7 +36,6 @@ export async function createHandler(
     onServiceExit: () => void;
   },
 ): Promise<Handler> {
-  // const stateStore = createSessionStateStore(config);
   const stateStore = new SessionStateStore(config.stateFile);
   const activeSessions = new Map<string, AgentSessionProcess>();
   const cancelledSessions = new WeakSet<AgentSessionProcess>();
