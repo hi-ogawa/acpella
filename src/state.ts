@@ -63,7 +63,7 @@ export class SessionStateStore {
 
   constructor(file: string) {
     this.file = file;
-    this.state = this.readState();
+    this.state = readState(file);
   }
 
   get(): State {
@@ -76,7 +76,14 @@ export class SessionStateStore {
     const nextState = structuredClone(this.state);
     updater(nextState);
     this.state = stateSchema.parse(nextState);
-    this.writeState(this.state);
+    writeFileData(this.file, this.state);
+  }
+
+  // TODO: not used yet.
+  // add a custom command to reload state from disk
+  // if external edits become a supported workflow
+  reload() {
+    this.state = readState(this.file);
   }
 
   getSession(sessionName: string): StateSession {
@@ -109,41 +116,24 @@ export class SessionStateStore {
       }
     });
   }
-
-  private readState(): State {
-    if (fs.existsSync(this.file)) {
-      try {
-        const data = fs.readFileSync(this.file, "utf8");
-        return this.parseState(JSON.parse(data));
-      } catch (e) {
-        console.error("[state] readState failed:", e);
-      }
-    }
-    return getInitialState();
-  }
-
-  private parseState(value: unknown): State {
-    const version =
-      value && typeof value === "object" && "version" in value ? value.version : undefined;
-    if (version === 1) {
-      throw new Error("version 1 state is ignored. creating new fresh state.");
-    }
-    return stateSchema.parse(value);
-  }
-
-  private writeState(nextState: State): void {
-    fs.mkdirSync(path.dirname(this.file), { recursive: true });
-    fs.writeFileSync(this.file, JSON.stringify(nextState, null, 2));
-  }
 }
 
-// function readFileAndParse<T>(file: string, parser: (data: string) => T): T {
-// }
+function readState(file: string) {
+  if (fs.existsSync(file)) {
+    try {
+      const data = fs.readFileSync(file, "utf8");
+      return stateSchema.parse(JSON.parse(data));
+    } catch (e) {
+      console.error("[state] readState failed:", e);
+    }
+  }
+  return getInitialState();
+}
 
-// function writeFileJson(file: string, data: unknown): void {
-//   fs.mkdirSync(path.dirname(file), { recursive: true });
-//   fs.writeFileSync(file, JSON.stringify(data, null, 2));
-// }
+function writeFileData(file: string, data: unknown): void {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify(data, null, 2));
+}
 
 export const TEST_AGENT_COMMAND = `node ${path.join(import.meta.dirname, "lib/test-agent.ts")}`;
 
