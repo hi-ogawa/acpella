@@ -6,15 +6,20 @@ export class ReplyManager {
   options: {
     send: (text: string) => Promise<unknown>;
     limit: number;
+    idleFlushMs?: number;
   };
   buffer = "";
   sent = false;
+  idleFlushTimer?: ReturnType<typeof setTimeout>;
+  flushInFlight?: Promise<void>;
+  flushError?: unknown;
 
   constructor(options: ReplyManager["options"]) {
     this.options = options;
   }
 
   async send(text: string): Promise<void> {
+    this.throwFlushError();
     const parts = splitMessageText(text, this.options.limit);
     for (const part of parts) {
       await this.options.send(part);
@@ -27,6 +32,7 @@ export class ReplyManager {
   }
 
   async write(text: string): Promise<void> {
+    this.throwFlushError();
     this.buffer += text;
     while (this.buffer.length > this.options.limit) {
       const result = splitHead(this.buffer, this.options.limit);
@@ -36,15 +42,24 @@ export class ReplyManager {
         await this.send(part);
       }
     }
+    this.scheduleIdleFlush();
   }
 
   async flush(): Promise<void> {
+    this.clearIdleFlush();
+    await this.flushInFlight;
+    this.throwFlushError();
+    await this.flushBuffer();
+  }
+
+  async flushBuffer(): Promise<void> {
     if (!this.buffer.trim()) {
       this.buffer = "";
       return;
     }
-    await this.send(this.buffer);
+    const text = this.buffer;
     this.buffer = "";
+    await this.send(text);
   }
 
   async finish(): Promise<void> {
@@ -52,6 +67,36 @@ export class ReplyManager {
     if (!this.sent) {
       await this.send("(no response)");
     }
+  }
+
+  scheduleIdleFlush(): void {
+    this.clearIdleFlush();
+    if (!this.options.idleFlushMs || !this.buffer.trim()) {
+      return;
+    }
+    this.idleFlushTimer = setTimeout(() => {
+      this.idleFlushTimer = undefined;
+      this.flushInFlight = this.flushBuffer().catch((error: unknown) => {
+        this.flushError = error;
+      });
+    }, this.options.idleFlushMs);
+  }
+
+  clearIdleFlush(): void {
+    if (!this.idleFlushTimer) {
+      return;
+    }
+    clearTimeout(this.idleFlushTimer);
+    this.idleFlushTimer = undefined;
+  }
+
+  throwFlushError(): void {
+    if (this.flushError === undefined) {
+      return;
+    }
+    const error = this.flushError;
+    this.flushError = undefined;
+    throw error;
   }
 }
 
