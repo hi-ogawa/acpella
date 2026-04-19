@@ -145,9 +145,17 @@ Options:
       }),
     );
 
+    const chatActionManager = new TelegramChatActionManager({
+      send: () => ctx.replyWithChatAction("typing"),
+      logLabel: label,
+    });
+    chatActionManager.start();
+
     const replyWithRetry = async (...args: Parameters<typeof ctx.reply>) => {
       try {
-        return await ctx.reply(...args);
+        const result = await ctx.reply(...args);
+        chatActionManager.schedule();
+        return result;
       } catch (error) {
         // rethrow non rate limit errors
         const retryAfter = getTelegramRetryAfter(error);
@@ -164,18 +172,6 @@ Options:
       }
     };
 
-    const chatActionManager = new TelegramChatActionManager({
-      send: () => ctx.replyWithChatAction("typing"),
-      logLabel: label,
-    });
-    chatActionManager.start();
-
-    const replyAndResetChatAction = async (...args: Parameters<typeof ctx.reply>) => {
-      const result = await replyWithRetry(...args);
-      chatActionManager.schedule();
-      return result;
-    };
-
     try {
       await handler.handle({
         sessionName,
@@ -189,7 +185,7 @@ Options:
         send: async (replyText) => {
           const html = markdownToTelegramHtml(replyText);
           try {
-            return await replyAndResetChatAction(html, {
+            return await replyWithRetry(html, {
               parse_mode: "HTML",
             });
           } catch (error) {
@@ -198,7 +194,7 @@ Options:
               throw error;
             }
             console.error(`${label} formatted reply failed; falling back to raw text:`, error);
-            return await replyAndResetChatAction(replyText);
+            return await replyWithRetry(replyText);
           }
         },
       });
@@ -210,7 +206,7 @@ Options:
       }
       console.error(`${label} (response error)`, error);
       const message = error instanceof Error ? error.message : String(error);
-      await replyAndResetChatAction(`Error: ${truncateString(message, 200)}`);
+      await replyWithRetry(`Error: ${truncateString(message, 200)}`);
     } finally {
       chatActionManager.stop();
     }
