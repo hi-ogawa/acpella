@@ -63,6 +63,7 @@ Coverage checklist:
 import fs from "node:fs";
 import { expect, test, vi } from "vitest";
 import { loadConfig, type AppConfig } from "./config";
+import { CronRunner } from "./cron/runner.ts";
 import { CronStore } from "./cron/store.ts";
 import { createHandler, type HandlerContext } from "./handler";
 import { TEST_AGENT_COMMAND } from "./state";
@@ -74,14 +75,29 @@ async function createHandlerTester() {
     ACPELLA_HOME: root,
   });
 
+  const cronStore = new CronStore({
+    cronFile: config.cronFile,
+    cronStateFile: config.cronStateFile,
+  });
+  const cronDeliveries: string[] = [];
+  const cronRunner = new CronRunner({
+    store: cronStore,
+    agent: {
+      prompt: (options) => handler.prompt(options),
+    },
+    delivery: {
+      send: async ({ text }) => {
+        cronDeliveries.push(text);
+      },
+    },
+  });
+
   const onServiceExit = vi.fn();
   const handler = await createHandler(config, {
     version: "v1.0.0-test",
     onServiceExit,
-    cronStore: new CronStore({
-      cronFile: config.cronFile,
-      cronStateFile: config.cronStateFile,
-    }),
+    cronStore,
+    getCronRunner: () => cronRunner,
   });
 
   async function request(context: Omit<HandlerContext, "send">) {
@@ -104,6 +120,9 @@ async function createHandlerTester() {
     request,
     createSession,
     onServiceExit,
+    cronStore,
+    cronRunner,
+    cronDeliveries,
   };
 }
 
@@ -474,5 +493,17 @@ test("message metadata", async () => {
     session_name: test
     </message_metadata>
     __keep_metadata: ok"
+  `);
+});
+
+// TODO
+test("cron command", async () => {
+  const tester = await createHandlerTester();
+  const session = tester.createSession("test");
+  expect(await session.request("/cron status")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    cron runner: stopped
+    jobs: 0
+    enabled jobs: 0"
   `);
 });
