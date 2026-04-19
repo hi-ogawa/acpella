@@ -1,7 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
-import type { AppConfig } from "./config.ts";
 
 const agentSchema = z.object({
   command: z.string().min(1),
@@ -53,22 +52,69 @@ const stateSchema = z
 
 export type State = z.infer<typeof stateSchema>;
 export type StateSession = State["sessions"][string];
-export type SessionStateStore = ReturnType<typeof createSessionStateStore>;
-
 export interface StateAgentSession {
   agentKey: string;
   agentSessionId: string;
 }
 
-export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
-  // TODO: add a custom command to reload state from disk if manual edits become a supported workflow.
-  let state = readState();
+export class SessionStateStore {
+  file: string;
+  state: State;
 
-  function readState(): State {
-    if (fs.existsSync(config.stateFile)) {
+  constructor(file: string) {
+    this.file = file;
+    this.state = this.readState();
+  }
+
+  get(): State {
+    return this.state;
+  }
+
+  set(updater: (state: State) => void): void {
+    // Mutate a draft so validation failures do not leave the in-memory cache
+    // ahead of the persisted state.
+    const nextState = structuredClone(this.state);
+    updater(nextState);
+    this.state = stateSchema.parse(nextState);
+    this.writeState(this.state);
+  }
+
+  getSession(sessionName: string): StateSession {
+    const session = this.state.sessions[sessionName];
+    return {
+      ...session,
+      agentKey: session?.agentKey ?? this.state.defaultAgent,
+      verbose: session?.verbose ?? false,
+    };
+  }
+
+  setSession(sessionName: string, patch: Partial<StateSession>): void {
+    this.set((state) => {
+      state.sessions[sessionName] = {
+        ...this.getSession(sessionName),
+        ...patch,
+      };
+    });
+  }
+
+  deleteSession(target: StateAgentSession): void {
+    this.set((state) => {
+      for (const [name, session] of Object.entries(state.sessions)) {
+        if (
+          session.agentKey === target.agentKey &&
+          session.agentSessionId === target.agentSessionId
+        ) {
+          delete state.sessions[name];
+        }
+      }
+    });
+  }
+
+  private readState(): State {
+    if (fs.existsSync(this.file)) {
       try {
-        const data = fs.readFileSync(config.stateFile, "utf8");
-        return parseState(JSON.parse(data));
+        const data = fs.readFileSync(this.file, "utf8");
+        return this.parseState(JSON.parse(data));
       } catch (e) {
         console.error("[state] readState failed:", e);
       }
@@ -76,7 +122,7 @@ export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
     return getInitialState();
   }
 
-  function parseState(value: unknown): State {
+  private parseState(value: unknown): State {
     const version =
       value && typeof value === "object" && "version" in value ? value.version : undefined;
     if (version === 1) {
@@ -85,55 +131,19 @@ export function createSessionStateStore(config: Pick<AppConfig, "stateFile">) {
     return stateSchema.parse(value);
   }
 
-  function writeState(nextState: State): void {
-    fs.mkdirSync(path.dirname(config.stateFile), { recursive: true });
-    fs.writeFileSync(config.stateFile, JSON.stringify(nextState, null, 2));
+  private writeState(nextState: State): void {
+    fs.mkdirSync(path.dirname(this.file), { recursive: true });
+    fs.writeFileSync(this.file, JSON.stringify(nextState, null, 2));
   }
-
-  function updateState(updater: (state: State) => void): void {
-    // Mutate a draft so validation failures do not leave the in-memory cache
-    // ahead of the persisted state.
-    const nextState = structuredClone(state);
-    updater(nextState);
-    state = stateSchema.parse(nextState);
-    writeState(state);
-  }
-
-  const store = {
-    get: () => state,
-    set: updateState,
-    getSession(sessionName: string): StateSession {
-      const session = state.sessions[sessionName];
-      return {
-        ...session,
-        agentKey: session?.agentKey ?? state.defaultAgent,
-        verbose: session?.verbose ?? false,
-      };
-    },
-    setSession(sessionName: string, patch: Partial<StateSession>) {
-      updateState((state) => {
-        state.sessions[sessionName] = {
-          ...store.getSession(sessionName),
-          ...patch,
-        };
-      });
-    },
-    deleteSession(target: StateAgentSession) {
-      updateState((state) => {
-        for (const [name, session] of Object.entries(state.sessions)) {
-          if (
-            session.agentKey === target.agentKey &&
-            session.agentSessionId === target.agentSessionId
-          ) {
-            delete state.sessions[name];
-          }
-        }
-      });
-    },
-  };
-
-  return store;
 }
+
+// function readFileAndParse<T>(file: string, parser: (data: string) => T): T {
+// }
+
+// function writeFileJson(file: string, data: unknown): void {
+//   fs.mkdirSync(path.dirname(file), { recursive: true });
+//   fs.writeFileSync(file, JSON.stringify(data, null, 2));
+// }
 
 export const TEST_AGENT_COMMAND = `node ${path.join(import.meta.dirname, "lib/test-agent.ts")}`;
 
