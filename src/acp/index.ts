@@ -15,7 +15,7 @@ import { objectPickBy } from "../lib/utils.ts";
 // we spawn a process per session instead of per acp command for simplicity.
 // this is likey more robust without acp agent capability assumption
 // and process startup time is negligible compared to LLM interaction itself
-export async function startAcpManager(acpOptions: { command: string; cwd: string }) {
+export async function createAgentManager(acpOptions: { command: string; cwd: string }) {
   return {
     async newSession(sessionOptions: { sessionCwd: string }) {
       const agent = await spawnAgent(acpOptions);

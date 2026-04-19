@@ -1,12 +1,12 @@
 import { describe, it, expect, onTestFinished } from "vitest";
 import { TEST_AGENT_COMMAND } from "../state.ts";
 import { useFs } from "../test/helper.ts";
-import { startAcpManager } from "./index.ts";
+import { createAgentManager } from "./index.ts";
 
-describe(startAcpManager, () => {
+describe(createAgentManager, () => {
   it("basic", async () => {
     const { root } = useFs({ prefix: "acp" });
-    const manager = await startAcpManager({
+    const manager = await createAgentManager({
       command: TEST_AGENT_COMMAND,
       cwd: root,
     });
@@ -32,7 +32,7 @@ describe(startAcpManager, () => {
 
   it("loadSession", async () => {
     const { root } = useFs({ prefix: "acp" });
-    const manager = await startAcpManager({
+    const manager = await createAgentManager({
       command: TEST_AGENT_COMMAND,
       cwd: root,
     });

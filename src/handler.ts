@@ -1,4 +1,4 @@
-import { startAcpManager } from "./acp/index.ts";
+import { createAgentManager } from "./acp/index.ts";
 import type { AgentSessionProcess } from "./acp/index.ts";
 import type { AppConfig } from "./config.ts";
 import { createCommandHandler } from "./lib/command.ts";
@@ -45,7 +45,7 @@ export async function createHandler(
     if (!agent) {
       throw new Error(`Unknown agent: ${agentKey}`);
     }
-    return startAcpManager({ command: agent.command, cwd: config.home });
+    return createAgentManager({ command: agent.command, cwd: config.home });
   }
 
   async function handlePrompt(context: HandlerExtraContext): Promise<void> {
