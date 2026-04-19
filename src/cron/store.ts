@@ -81,6 +81,7 @@ export type CronJob = z.infer<typeof cronJobSchema>;
 export type CronTarget = z.infer<typeof cronTargetSchema>;
 export type CronTelegramTarget = z.infer<typeof telegramTargetSchema>;
 export type CronRun = z.infer<typeof cronRunSchema>;
+type CronRunExtra = CronRun & { cronId: string };
 
 interface CronStoreOptions {
   cronFile: string;
@@ -162,11 +163,11 @@ export class CronStore {
     return this.stateFile.runs[options.cronId]?.[options.scheduledAt];
   }
 
-  getRun(id: string): (CronRun & { cronId: string }) | undefined {
+  getRun(id: string): CronRunExtra | undefined {
     for (const [cronId, runs] of Object.entries(this.stateFile.runs)) {
       for (const run of Object.values(runs)) {
         if (run.id === id) {
-          return { cronId, ...run };
+          return { ...run, cronId };
         }
       }
     }
