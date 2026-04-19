@@ -1,25 +1,38 @@
-import { formatTime } from "../lib/utils.ts";
+import { formatError, formatTime } from "../lib/utils.ts";
 import { type CronJob, type CronRun, type CronStore, cronIdSchema } from "./store.ts";
-import { getNextOccurrence } from "./timer.ts";
+import { getNextOccurrence, validateCronSchedule } from "./timer.ts";
 
-export function parseCronAddArgs(args: string[]):
+export function parseCronAddArgs(
+  args: string[],
+  timezone: string,
+):
   | {
       id: string;
       schedule: string;
       prompt: string;
     }
-  | undefined {
+  | { error: string } {
   if (args.length < 7) {
-    return;
+    return { error: "Invalid input" };
   }
   const [id, minute, hour, dayOfMonth, month, dayOfWeek, ...promptParts] = args;
   const prompt = promptParts.join(" ");
   if (!id || !minute || !hour || !dayOfMonth || !month || !dayOfWeek || !prompt) {
-    return;
+    return { error: "Invalid input" };
+  }
+  const cronIdResult = cronIdSchema.safeParse(id);
+  if (!cronIdResult.success) {
+    return { error: "Invalid cron id. Use letters, numbers, underscores, or hyphens." };
+  }
+  const schedule = [minute, hour, dayOfMonth, month, dayOfWeek].join(" ");
+  try {
+    validateCronSchedule({ schedule, timezone });
+  } catch (error) {
+    return { error: `Invalid cron schedule: ${formatError(error)}` };
   }
   return {
     id,
-    schedule: [minute, hour, dayOfMonth, month, dayOfWeek].join(" "),
+    schedule,
     prompt,
   };
 }

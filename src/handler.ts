@@ -8,8 +8,7 @@ import {
   renderCronShow,
 } from "./cron/command.ts";
 import type { CronRunner, CronRunnerAgentOptions } from "./cron/runner.ts";
-import { type CronStore, type CronDeliveryTarget, cronIdSchema } from "./cron/store.ts";
-import { validateCronSchedule } from "./cron/timer.ts";
+import type { CronDeliveryTarget, CronStore } from "./cron/store.ts";
 import { createCommandHandler } from "./lib/command.ts";
 import type { CommandTree } from "./lib/command.ts";
 import { buildFirstPrompt, buildMessageMetadataPrompt } from "./lib/prompt.ts";
@@ -394,22 +393,12 @@ ${referencedSessions.length} session(s) still reference it.
           await reply.system("Cannot add cron job: delivery target is unavailable.");
           return;
         }
-        const parsed = parseCronAddArgs(args);
-        if (!parsed) {
-          await reply.system(`Invalid input\nUsage: ${cronAddCommand}`);
-          return;
-        }
-        const cronIdResult = cronIdSchema.safeParse(parsed.id);
-        if (!cronIdResult.success) {
-          await reply.system("Invalid cron id. Use letters, numbers, underscores, or hyphens.");
+        const parsed = parseCronAddArgs(args, config.timezone);
+        if ("error" in parsed) {
+          await reply.system(`${parsed.error}\nUsage: ${cronAddCommand}`);
           return;
         }
         try {
-          // TODO: validate during parseCronAddArgs
-          validateCronSchedule({
-            schedule: parsed.schedule,
-            timezone: config.timezone,
-          });
           cronStore.addJob({
             id: parsed.id,
             enabled: true,
