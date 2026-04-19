@@ -383,7 +383,6 @@ ${referencedSessions.length} session(s) still reference it.
 
   const cronAddCommand = `/cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> <prompt...>`;
   const getCronRunner = () => handlerOptions.getCronRunner?.();
-  const cronRunnerRefresh = () => getCronRunner()?.refresh();
   const systemCronCommands: SystemCommandTree[string] = [
     {
       tokens: ["status"],
@@ -431,7 +430,7 @@ enabled jobs: ${enabledJobs.length}
       run: async ({ reply }) => {
         try {
           cronStore.reload();
-          cronRunnerRefresh();
+          getCronRunner()?.refresh();
           await reply.system("Reloaded cron jobs.");
         } catch (error) {
           await reply.system(`Failed to reload cron jobs: ${formatError(error)}`);
@@ -465,7 +464,7 @@ enabled jobs: ${enabledJobs.length}
               delivery: metadata.cronDeliveryTarget,
             },
           });
-          cronRunnerRefresh();
+          getCronRunner()?.refresh();
           await reply.system(`Added cron job: ${cron.id}`);
         } catch (error) {
           await reply.system(`Failed to add cron job: ${formatError(error)}`);
@@ -515,7 +514,7 @@ enabled jobs: ${enabledJobs.length}
         }
         try {
           cronStore.updateJob(id, { enabled: true });
-          cronRunnerRefresh();
+          getCronRunner()?.refresh();
           await reply.system(`Enabled cron job: ${id}`);
         } catch (error) {
           await reply.system(`Failed to enable cron job: ${formatError(error)}`);
@@ -539,7 +538,7 @@ enabled jobs: ${enabledJobs.length}
         }
         try {
           cronStore.updateJob(id, { enabled: false });
-          cronRunnerRefresh();
+          getCronRunner()?.refresh();
           await reply.system(`Disabled cron job: ${id}`);
         } catch (error) {
           await reply.system(`Failed to disable cron job: ${formatError(error)}`);
@@ -563,7 +562,7 @@ enabled jobs: ${enabledJobs.length}
         }
         try {
           cronStore.deleteJob(id);
-          cronRunnerRefresh();
+          getCronRunner()?.refresh();
           await reply.system(`Deleted cron job: ${id}`);
         } catch (error) {
           await reply.system(`Failed to delete cron job: ${formatError(error)}`);
