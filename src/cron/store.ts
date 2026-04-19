@@ -33,7 +33,7 @@ const cronJobSchema = z
   })
   .superRefine((job, ctx) => {
     try {
-      validateCronSchedule({ schedule: job.schedule, timezone: job.timezone });
+      validateCronSchedule(job);
     } catch (error) {
       ctx.addIssue({
         code: "custom",
