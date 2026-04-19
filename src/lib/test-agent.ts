@@ -139,6 +139,10 @@ class EchoAgent implements Agent {
       text = text.replace(/^<message_metadata>[\s\S]*?<\/message_metadata>/, "").trim();
     }
 
+    if (text.includes("__throw_error__")) {
+      throw new Error("simulated error");
+    }
+
     let reportText: string;
     if (text.startsWith("__env:")) {
       const key = text.slice(6);
@@ -175,9 +179,6 @@ class EchoAgent implements Agent {
         },
       });
       reportText = `echo: ${text}`;
-    } else if (text.startsWith("__error:")) {
-      const message = text.slice(8);
-      throw new Error(message);
     } else {
       reportText = `echo: ${text}`;
     }

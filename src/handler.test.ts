@@ -239,7 +239,7 @@ test("basic", async () => {
 test("agent error", async () => {
   const tester = await createHandlerTester();
   const session = tester.createSession("test");
-  await expect(session.request("__error:Test error")).rejects.toMatchInlineSnapshot(
+  await expect(session.request("__throw_error__")).rejects.toMatchInlineSnapshot(
     `[RequestError: Internal error]`,
   );
 });
@@ -764,5 +764,88 @@ test("cron command", async ({ onTestFinished }) => {
     cron runner: running
     jobs: 1
     enabled jobs: 1"
+  `);
+});
+
+test("cron error delivery", async ({ onTestFinished }) => {
+  vi.useFakeTimers({
+    now: Date.parse("2026-04-18T00:00:00Z"),
+  });
+  onTestFinished(() => {
+    vi.useRealTimers();
+  });
+
+  const tester = await createHandlerTester();
+  tester.cronRunner.start();
+  onTestFinished(() => {
+    tester.cronRunner.stop();
+  });
+
+  const session = tester.createSession("test", {
+    metadata: { cronDeliveryTarget: { repl: true } },
+  });
+  expect(await session.request("/cron add test-job * * * * * __throw_error__"))
+    .toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Added cron job: test-job"
+  `);
+  expect(await session.request("/cron show test-job")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    id: test-job
+    enabled: yes
+    schedule: * * * * *
+    timezone: Asia/Jakarta
+    target session: test
+    delivery target: repl
+    next: 2026-04-18T07:01:00+07:00
+    last: none
+    prompt: __throw_error__"
+  `);
+  expect(tester.cronDeliveries).toMatchInlineSnapshot(`[]`);
+
+  vi.advanceTimersToNextTimer();
+  expect(formatTime(Date.now(), tester.config.timezone)).toMatchInlineSnapshot(
+    `"2026-04-18T07:01:00+07:00"`,
+  );
+  expect(tester.cronDeliveries).toMatchInlineSnapshot(`[]`);
+  expect(await session.request("/cron show test-job")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    id: test-job
+    enabled: yes
+    schedule: * * * * *
+    timezone: Asia/Jakarta
+    target session: test
+    delivery target: repl
+    next: 2026-04-18T07:02:00+07:00
+    last: running, scheduled 2026-04-18T00:01:00Z
+    prompt: __throw_error__"
+  `);
+
+  await vi.waitUntil(() => tester.cronDeliveries.length > 0);
+  expect(tester.cronDeliveries).toMatchInlineSnapshot(`
+    [
+      "[cron] test-job failed
+
+    scheduled_at: 2026-04-18T07:01:00+07:00
+    started_at: 2026-04-18T07:01:00+07:00
+    timezone: Asia/Jakarta
+    session_name: test
+
+    Error:
+    Internal error
+    ",
+    ]
+  `);
+  expect(await session.request("/cron show test-job")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    id: test-job
+    enabled: yes
+    schedule: * * * * *
+    timezone: Asia/Jakarta
+    target session: test
+    delivery target: repl
+    next: 2026-04-18T07:02:00+07:00
+    last: failed, scheduled 2026-04-18T00:01:00Z, finished 2026-04-18T00:01:00Z, error: Internal error
+    prompt: __throw_error__"
   `);
 });
