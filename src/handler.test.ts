@@ -236,6 +236,14 @@ test("basic", async () => {
     `);
 });
 
+test("agent error", async () => {
+  const tester = await createHandlerTester();
+  const session = tester.createSession("test");
+  await expect(session.request("__error:Test error")).rejects.toMatchInlineSnapshot(
+    `[RequestError: Internal error]`,
+  );
+});
+
 test("service commands", async () => {
   const tester = await createHandlerTester();
   const session = tester.createSession("test");

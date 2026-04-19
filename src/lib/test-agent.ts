@@ -175,6 +175,9 @@ class EchoAgent implements Agent {
         },
       });
       reportText = `echo: ${text}`;
+    } else if (text.startsWith("__error:")) {
+      const message = text.slice(8);
+      throw new Error(message);
     } else {
       reportText = `echo: ${text}`;
     }
