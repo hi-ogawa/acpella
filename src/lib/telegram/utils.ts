@@ -1,5 +1,4 @@
 import { GrammyError, type Context } from "grammy";
-import { PromiseLimit, TimeoutManager } from "../utils.ts";
 
 export function normalizeUserMention({
   text,
@@ -40,8 +39,8 @@ export class TelegramChatActionManager {
     send: () => Promise<unknown>;
     logLabel: string;
   };
-  timeout = new TimeoutManager();
-  promiseLimit = new PromiseLimit();
+  interval: ReturnType<typeof setInterval> | undefined = undefined;
+  inFlight = false;
   stopped = true;
   retryAfterUntil = 0;
 
@@ -50,41 +49,34 @@ export class TelegramChatActionManager {
   }
 
   start(): void {
+    if (!this.stopped) {
+      return;
+    }
     this.stopped = false;
-    this.touch();
-  }
-
-  touch(): void {
-    if (this.stopped) {
-      return;
-    }
-    void this.promiseLimit.run(() => this.trySend());
-  }
-
-  schedule(): void {
-    if (this.stopped) {
-      return;
-    }
-    const delay = Math.max(3000, this.retryAfterUntil - Date.now(), 0);
-    this.timeout.set(() => void this.promiseLimit.run(() => this.trySend()), delay);
+    void this.trySend();
+    this.interval = setInterval(() => void this.trySend(), 3000);
   }
 
   stop(): void {
     this.stopped = true;
-    this.timeout.clear();
+    if (this.interval) {
+      clearInterval(this.interval);
+      this.interval = undefined;
+    }
   }
 
   async trySend(): Promise<void> {
-    if (this.stopped) {
+    if (this.stopped || this.inFlight || Date.now() < this.retryAfterUntil) {
       return;
     }
+    this.inFlight = true;
     try {
       await this.options.send();
-      this.schedule();
     } catch (error) {
       const retryAfter = getTelegramRetryAfter(error);
       if (!retryAfter) {
         console.error(`${this.options.logLabel} typing indicator failed:`, error);
+        this.stop();
         return;
       }
       console.error(
@@ -92,7 +84,8 @@ export class TelegramChatActionManager {
         error,
       );
       this.retryAfterUntil = Date.now() + (retryAfter + 1) * 1000;
-      this.schedule();
+    } finally {
+      this.inFlight = false;
     }
   }
 }

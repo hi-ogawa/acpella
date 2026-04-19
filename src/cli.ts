@@ -153,9 +153,7 @@ Options:
 
     const replyWithRetry = async (...args: Parameters<typeof ctx.reply>) => {
       try {
-        const result = await ctx.reply(...args);
-        chatActionManager.touch();
-        return result;
+        return await ctx.reply(...args);
       } catch (error) {
         // rethrow non rate limit errors
         const retryAfter = getTelegramRetryAfter(error);
