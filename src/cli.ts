@@ -154,7 +154,7 @@ Options:
     const replyWithRetry = async (...args: Parameters<typeof ctx.reply>) => {
       try {
         const result = await ctx.reply(...args);
-        chatActionManager.schedule();
+        chatActionManager.touch();
         return result;
       } catch (error) {
         // rethrow non rate limit errors

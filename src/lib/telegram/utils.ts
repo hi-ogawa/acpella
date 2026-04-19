@@ -51,6 +51,13 @@ export class TelegramChatActionManager {
 
   start(): void {
     this.stopped = false;
+    this.touch();
+  }
+
+  touch(): void {
+    if (this.stopped) {
+      return;
+    }
     void this.promiseLimit.run(() => this.trySend());
   }
 
