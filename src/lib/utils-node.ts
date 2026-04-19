@@ -13,6 +13,7 @@ export function readJsonFile<T>(file: string, defaultValue?: () => T): T {
   return defaultValue();
 }
 
+// TODO
 type StateFileManagerOptions<T> = {
   file: string;
   parse: (data: unknown) => T;
