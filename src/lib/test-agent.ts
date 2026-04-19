@@ -30,6 +30,7 @@ import {
   type CancelNotification,
 } from "@agentclientprotocol/sdk";
 import { z } from "zod";
+import { readJsonFile } from "./utils-node.ts";
 
 const testAgentStateSchema = z.object({
   nextSessionNumber: z.number().int().min(1),
@@ -51,8 +52,7 @@ function readState(cwd: string): TestAgentState {
   const stateFile = getStateFile(cwd);
   if (fs.existsSync(stateFile)) {
     try {
-      const parsed: unknown = JSON.parse(fs.readFileSync(stateFile, "utf8"));
-      return testAgentStateSchema.parse(parsed);
+      return testAgentStateSchema.parse(readJsonFile(stateFile));
     } catch (e) {
       console.error(`[test-agent] Failed to read state file: ${stateFile}`, e);
     }

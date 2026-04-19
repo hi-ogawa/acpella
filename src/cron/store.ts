@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import { z } from "zod";
-import { writeJsonFile } from "../lib/utils-node.ts";
+import { readJsonFile, writeJsonFile } from "../lib/utils-node.ts";
 import { validateCronSchedule } from "./timer.ts";
 
 const CRON_FILE_VERSION = 1;
@@ -249,7 +249,7 @@ function readCronFileStrict(file: string): CronJobFile {
       jobs: {},
     };
   }
-  return cronJobFileSchema.parse(JSON.parse(fs.readFileSync(file, "utf8")));
+  return cronJobFileSchema.parse(readJsonFile(file));
 }
 
 function readCronStateFile(file: string): CronStateFile {
@@ -273,5 +273,5 @@ function readCronStateFileStrict(file: string): CronStateFile {
       runs: {},
     };
   }
-  return cronStateFileSchema.parse(JSON.parse(fs.readFileSync(file, "utf8")));
+  return cronStateFileSchema.parse(readJsonFile(file));
 }

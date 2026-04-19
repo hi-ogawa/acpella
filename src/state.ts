@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
-import { readJsonFile, writeJsonFile } from "./lib/utils-node";
+import { readJsonFile, writeJsonFile } from "./lib/utils-node.ts";
 
 const agentSchema = z.object({
   command: z.string().min(1),
