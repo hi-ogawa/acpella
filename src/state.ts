@@ -1,7 +1,6 @@
-import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
-import { readJsonFile, writeJsonFile } from "./lib/utils-node.ts";
+import { StateFileManager } from "./lib/utils-node.ts";
 
 const agentSchema = z.object({
   command: z.string().min(1),
@@ -59,32 +58,26 @@ export interface StateAgentSession {
 }
 
 export class SessionStateStore {
-  file: string;
-  state: State;
+  file: StateFileManager<State>;
 
   constructor(file: string) {
-    this.file = file;
-    this.state = readState(file);
+    this.file = new StateFileManager<State>({
+      file,
+      parse: stateSchema.parse.bind(stateSchema),
+      defaultValue: getInitialState,
+    });
+  }
+
+  get state(): State {
+    return this.file.state;
   }
 
   get(): State {
-    return this.state;
+    return this.file.state;
   }
 
   set(updater: (state: State) => void): void {
-    // Mutate a draft so validation failures do not leave the in-memory cache
-    // ahead of the persisted state.
-    const nextState = structuredClone(this.state);
-    updater(nextState);
-    this.state = stateSchema.parse(nextState);
-    writeJsonFile(this.file, this.state);
-  }
-
-  // TODO: not used yet.
-  // add a custom command to reload state from disk
-  // if external edits become a supported workflow
-  reload() {
-    this.state = readState(this.file);
+    this.file.set(updater);
   }
 
   getSession(sessionName: string): StateSession {
@@ -117,18 +110,6 @@ export class SessionStateStore {
       }
     });
   }
-}
-
-function readState(file: string): State {
-  if (fs.existsSync(file)) {
-    try {
-      const data = readJsonFile(file);
-      return stateSchema.parse(data);
-    } catch (e) {
-      console.error("[state] readState failed:", e);
-    }
-  }
-  return getInitialState();
 }
 
 export const TEST_AGENT_COMMAND = `node ${path.join(import.meta.dirname, "lib/test-agent.ts")}`;

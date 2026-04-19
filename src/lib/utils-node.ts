@@ -13,7 +13,6 @@ export function readJsonFile<T>(file: string, defaultValue?: () => T): T {
   return defaultValue();
 }
 
-// TODO
 type StateFileManagerOptions<T> = {
   file: string;
   parse: (data: unknown) => T;
@@ -22,18 +21,21 @@ type StateFileManagerOptions<T> = {
 
 export class StateFileManager<T> {
   options: StateFileManagerOptions<T>;
-  data: T;
+  state: T;
 
   constructor(options: StateFileManagerOptions<T>) {
     this.options = options;
-    this.data = this.readState();
+    this.state = this.read();
   }
 
-  private readState() {
+  read(options?: { strict: boolean }): T {
     const { file, defaultValue } = this.options;
     try {
       return this.options.parse(readJsonFile(file, defaultValue));
     } catch (e) {
+      if (options?.strict) {
+        throw e;
+      }
       console.error(`[StateFileManager] failed to read ${file}:`, e);
       return defaultValue();
     }
@@ -42,15 +44,15 @@ export class StateFileManager<T> {
   reload() {
     const { file, defaultValue } = this.options;
     const newData = readJsonFile(file, defaultValue);
-    this.options.parse(newData);
-    this.data = newData;
+    this.state = this.options.parse(newData);
   }
 
   set(updater: (data: T) => void): void {
-    const clone = structuredClone(this.data);
+    // mutate a clone so invalid data won't become in-memory state
+    // nor be written to a file.
+    const clone = structuredClone(this.state);
     updater(clone);
-    this.options.parse(clone);
-    this.data = clone;
-    writeJsonFile(this.options.file, this.data);
+    this.state = this.options.parse(clone);
+    writeJsonFile(this.options.file, this.state);
   }
 }
