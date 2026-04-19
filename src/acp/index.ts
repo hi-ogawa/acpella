@@ -28,21 +28,23 @@ export class AgentManager {
     this.option = options;
   }
 
-  async newSession(sessionOptions: { sessionCwd: string }) {
+  // TODO:
+  // cwd and sessionCwd are always same
+  // but they are explicitly specified for now
+  async newSession({ sessionCwd }: { sessionCwd: string }) {
     const agent = await spawnAgent(this.option);
     const response = await agent.connection.newSession({
-      cwd: sessionOptions.sessionCwd,
+      cwd: sessionCwd,
       mcpServers: [],
     });
     return toSessionProcess(agent, response.sessionId);
   }
 
-  async loadSession(sessionOptions: { sessionCwd: string; sessionId: string }) {
+  async loadSession({ sessionCwd, sessionId }: { sessionCwd: string; sessionId: string }) {
     const agent = await spawnAgent(this.option);
-    const { sessionId } = sessionOptions;
     await agent.connection.loadSession({
       sessionId,
-      cwd: sessionOptions.sessionCwd,
+      cwd: sessionCwd,
       mcpServers: [],
     });
     return toSessionProcess(agent, sessionId);
