@@ -172,7 +172,7 @@ async function toSessionProcess(agent: AgentProcess, sessionId: string) {
     ...agent,
     sessionId,
     prompt(text: string) {
-      return promptAgent(agent, {
+      return promptStream(agent, {
         sessionId,
         prompt: [{ type: "text", text }],
       });
@@ -183,7 +183,7 @@ async function toSessionProcess(agent: AgentProcess, sessionId: string) {
   };
 }
 
-function promptAgent(agent: AgentProcess, request: PromptRequest) {
+function promptStream(agent: AgentProcess, request: PromptRequest) {
   const queue = new AsyncQueue<SessionUpdate>();
   const unsubscribe = agent.subscribe((u) => queue.push(u));
   const promise = agent.connection.prompt(request);
