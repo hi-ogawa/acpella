@@ -51,7 +51,9 @@ export function renderCronList(cronStore: CronStore): string {
   if (jobs.length === 0) {
     return "No cron jobs.";
   }
-  return jobs.map((job) => renderCronListItem(job, cronStore.getLatestRun(job.id))).join("\n");
+  return jobs
+    .map((job) => renderCronListItem(job, cronStore.getLatestRun({ cronId: job.id })))
+    .join("\n");
 }
 
 export function renderCronShow(job: CronJob, latestRun: CronRun | undefined): string {

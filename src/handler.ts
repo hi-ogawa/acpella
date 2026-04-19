@@ -482,7 +482,7 @@ enabled jobs: ${enabledJobs.length}
           await reply.system(`Unknown cron job: ${id}`);
           return;
         }
-        await reply.system(renderCronShow(job, cronStore.getLatestRun(id)));
+        await reply.system(renderCronShow(job, cronStore.getLatestRun({ cronId: id })));
       },
     },
     {

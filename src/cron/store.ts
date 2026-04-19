@@ -189,7 +189,7 @@ export class CronStore {
     }
   }
 
-  getLatestRun(cronId: string): CronRun | undefined {
+  getLatestRun({ cronId }: { cronId: string }): CronRun | undefined {
     const runs = Object.values(this.stateFile.runs[cronId] ?? {});
     runs.sort((a, b) => b.scheduledAt.localeCompare(a.scheduledAt));
     return runs[0];
