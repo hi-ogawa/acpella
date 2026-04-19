@@ -63,6 +63,7 @@ Coverage checklist:
 import fs from "node:fs";
 import { expect, test, vi } from "vitest";
 import { loadConfig, type AppConfig } from "./config";
+import { CronStore } from "./cron/store.ts";
 import { createHandler, type HandlerContext } from "./handler";
 import { TEST_AGENT_COMMAND } from "./state";
 import { useFs } from "./test/helper.ts";
@@ -77,6 +78,10 @@ async function createHandlerTester() {
   const handler = await createHandler(config, {
     version: "v1.0.0-test",
     onServiceExit,
+    cronStore: new CronStore({
+      cronFile: config.cronFile,
+      cronStateFile: config.cronStateFile,
+    }),
   });
 
   async function request(context: Omit<HandlerContext, "send">) {

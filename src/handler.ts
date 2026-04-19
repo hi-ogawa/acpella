@@ -1,16 +1,20 @@
 import { AgentManager } from "./acp/index.ts";
 import type { AgentSessionProcess } from "./acp/index.ts";
 import type { AppConfig } from "./config.ts";
+import { renderCronList } from "./cron/format.ts";
+import type { CronStore } from "./cron/store.ts";
 import { createCommandHandler } from "./lib/command.ts";
 import type { CommandTree } from "./lib/command.ts";
 import { buildFirstPrompt, buildMessageMetadataPrompt } from "./lib/prompt.ts";
 import { createReply, MESSAGE_SPLIT_BUDGET } from "./lib/reply.ts";
 import type { Reply } from "./lib/reply.ts";
 import { parseAgentSessionKey, SessionStateStore, toAgentSessionKey } from "./state.ts";
-import type { StateAgentSession } from "./state.ts";
+import type { StateAgentSession, StateSession } from "./state.ts";
 
 export interface Handler {
   handle: (context: HandlerContext) => Promise<void>;
+  // TODO: rename?
+  promptSession: (options: { sessionName: string; prompt: string }) => Promise<string>;
   commands: Record<string, string>;
 }
 
@@ -34,9 +38,14 @@ export async function createHandler(
   handlerOptions: {
     version?: string;
     onServiceExit: () => void;
+    cronStore: CronStore;
+    cronRunner?: {
+      refresh: () => void;
+    };
   },
 ): Promise<Handler> {
   const stateStore = new SessionStateStore(config.stateFile);
+  const cronStore = handlerOptions.cronStore;
   const activeSessions = new Map<string, AgentSessionProcess>();
   const cancelledSessions = new WeakSet<AgentSessionProcess>();
 
@@ -53,6 +62,44 @@ export async function createHandler(
     if (activeSessions.has(sessionName)) {
       await reply.system("Agent turn already in progress. Send /cancel to stop it.");
       return;
+    }
+
+    const result = await promptAgentSession({
+      sessionName,
+      text,
+      metadata,
+      onText: async (chunk) => {
+        await reply.write(chunk);
+      },
+      onToolCall: async (title, stateSession) => {
+        await reply.flush();
+        if (stateSession.verbose) {
+          await reply.write(`Tool: ${title}`);
+          await reply.flush();
+        }
+      },
+    });
+
+    if (result.cancelled) {
+      await reply.flush();
+      await reply.system("Agent turn cancelled.");
+      return;
+    }
+    await reply.finish();
+  }
+
+  async function promptAgentSession(options: {
+    sessionName: string;
+    text: string;
+    // TODO: move up?
+    metadata?: HandlerContext["metadata"];
+    onText: (text: string) => Promise<void> | void;
+    onToolCall?: (title: string, stateSession: StateSession) => Promise<void> | void;
+  }): Promise<{ cancelled: boolean }> {
+    const { sessionName, text, metadata } = options;
+    // TODO: move to promptSession?
+    if (activeSessions.has(sessionName)) {
+      throw new Error("Agent turn already in progress. Send /cancel to stop it.");
     }
 
     const stateSession = stateStore.getSession(sessionName);
@@ -88,24 +135,15 @@ export async function createHandler(
 
       for await (const update of result.consume()) {
         if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
-          await reply.write(update.content.text);
+          await options.onText(update.content.text);
         } else if (update.sessionUpdate === "tool_call") {
           console.log(`[acp:update] tool_call: ${update.title}`);
-          await reply.flush();
-          if (stateSession.verbose) {
-            await reply.write(`Tool: ${update.title}`);
-            await reply.flush();
-          }
+          await options.onToolCall?.(update.title, stateSession);
         } else {
           console.log(`[acp:update] ${update.sessionUpdate}`);
         }
       }
-      if (cancelledSessions.has(session)) {
-        await reply.flush();
-        await reply.system("Agent turn cancelled.");
-        return;
-      }
-      await reply.finish();
+      return { cancelled: cancelledSessions.has(session) };
     } finally {
       if (activeSessions.get(sessionName) === session) {
         activeSessions.delete(sessionName);
@@ -343,6 +381,16 @@ ${referencedSessions.length} session(s) still reference it.
     },
   ];
 
+  const systemCronCommands: SystemCommandTree[string] = [
+    {
+      tokens: ["list"],
+      help: "/cron list - List cron jobs.",
+      run: async ({ reply }) => {
+        await reply.system(renderCronList(cronStore));
+      },
+    },
+  ];
+
   const systemCommands: SystemCommandTree = {
     status: [
       {
@@ -393,6 +441,7 @@ home: ${config.home}
     ],
     session: systemSessionCommands,
     agent: systemAgentCommands,
+    cron: systemCronCommands,
     verbose: [
       {
         tokens: ["current"],
@@ -432,6 +481,7 @@ home: ${config.home}
     cancel: "Cancel currently active agent turn",
     session: "Manage sessions",
     agent: "Manage agents",
+    cron: "Manage cron jobs",
     verbose: "Configure tool output",
   };
 
@@ -460,5 +510,21 @@ home: ${config.home}
     await handlePrompt(extraContext);
   };
 
-  return { handle, commands: systemCommandsMetadata };
+  // TODO: how to serialize prompt for cron and normal messages?
+  const promptSession: Handler["promptSession"] = async ({ sessionName, prompt }) => {
+    const chunks: string[] = [];
+    const result = await promptAgentSession({
+      sessionName,
+      text: prompt,
+      onText: (chunk) => {
+        chunks.push(chunk);
+      },
+    });
+    if (result.cancelled) {
+      throw new Error("Agent turn cancelled.");
+    }
+    return chunks.join("");
+  };
+
+  return { handle, promptSession, commands: systemCommandsMetadata };
 }

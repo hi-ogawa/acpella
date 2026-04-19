@@ -5,6 +5,8 @@ import { parseArgs } from "node:util";
 import { run, sequentialize } from "@grammyjs/runner";
 import { Bot } from "grammy";
 import { loadConfig, type AppConfig } from "./config.ts";
+import { CronRunner } from "./cron/runner.ts";
+import { CronStore } from "./cron/store.ts";
 import { createHandler, type Handler } from "./handler.ts";
 import { handleSetupSystemd } from "./lib/systemd.ts";
 import { markdownToTelegramHtml } from "./lib/telegram/format-html.ts";
@@ -56,6 +58,11 @@ Options:
 
   const config = loadConfig();
   const version = await getVersion({ cwd: path.join(import.meta.dirname, "..") });
+  const cronStore = new CronStore({
+    cronFile: config.cronFile,
+    cronStateFile: config.cronStateFile,
+  });
+  let cronRunner: CronRunner | undefined;
 
   const handler = await createHandler(config, {
     version,
@@ -64,6 +71,11 @@ Options:
         console.log("Exiting by /service exit");
         process.exit(0);
       });
+    },
+    cronStore,
+    // TODO: ugly
+    cronRunner: {
+      refresh: () => cronRunner?.refresh(),
     },
   });
 
@@ -89,6 +101,20 @@ Options:
   const bot = new Bot(config.telegram.token);
   const botInfo = await bot.api.getMe();
   const botUsername = botInfo.username;
+  cronRunner = new CronRunner({
+    store: cronStore,
+    agent: {
+      promptSession: handler.promptSession,
+    },
+    delivery: {
+      sendTelegram: async (target, text) => {
+        await bot.api.sendMessage(target.chatId, markdownToTelegramHtml(text), {
+          parse_mode: "HTML",
+          message_thread_id: target.messageThreadId,
+        });
+      },
+    },
+  });
 
   try {
     const commands = Object.entries(handler.commands).map(([command, description]) => ({
@@ -204,13 +230,18 @@ Options:
 
   console.log(`Starting service (version: ${version}, home: ${config.home})`);
 
+  cronRunner.start();
   const runner = run(bot, {
     sink: {
       // @grammyjs/runner defaults to 500; keep acpella conservative because prompts spawn child agents.
       concurrency: 5,
     },
   });
-  await runner.task();
+  try {
+    await runner.task();
+  } finally {
+    cronRunner.stop();
+  }
 }
 
 async function startRepl(config: AppConfig, handler: Handler, version: string) {
