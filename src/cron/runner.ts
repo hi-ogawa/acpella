@@ -50,7 +50,10 @@ export class CronRunner {
     const { store } = this.options;
     const scheduledAt = formatInstant(event.scheduledAt);
     if (store.getRun({ cronId: job.id, scheduledAt })) {
-      // TODO: warn?
+      console.error("Cron run already exists for this schedule", {
+        cronId: job.id,
+        scheduledAt,
+      });
       return;
     }
     const startedAt = Temporal.Now.instant();
