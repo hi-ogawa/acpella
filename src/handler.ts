@@ -105,11 +105,6 @@ export async function createHandler(
     onToolCall?: (title: string, stateSession: StateSession) => Promise<void> | void;
   }): Promise<{ cancelled: boolean }> {
     const { sessionName, text } = options;
-    // TODO: move to promptSession?
-    if (activeSessions.has(sessionName)) {
-      throw new Error("Agent turn already in progress. Send /cancel to stop it.");
-    }
-
     const stateSession = stateStore.getSession(sessionName);
     const manager = await getAgentManager(stateSession.agentKey);
 
