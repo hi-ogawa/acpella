@@ -65,7 +65,7 @@ export class TelegramChatActionManager {
     }
   }
 
-  async trySend(): Promise<void> {
+  private async trySend(): Promise<void> {
     if (this.stopped || this.inFlight || Date.now() < this.retryAfterUntil) {
       return;
     }
