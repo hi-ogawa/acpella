@@ -1,7 +1,12 @@
 import { AgentManager } from "./acp/index.ts";
 import type { AgentSessionProcess } from "./acp/index.ts";
 import type { AppConfig } from "./config.ts";
-import { parseCronAddArgs, renderCronList } from "./cron/command.ts";
+import {
+  parseCronAddArgs,
+  parseCronIdArg,
+  renderCronList,
+  renderCronShow,
+} from "./cron/command.ts";
 import type { CronRunner, CronRunnerAgentOptions } from "./cron/runner.ts";
 import { type CronStore, type CronDeliveryTarget, cronIdSchema } from "./cron/store.ts";
 import { validateCronSchedule } from "./cron/timer.ts";
@@ -377,11 +382,13 @@ ${referencedSessions.length} session(s) still reference it.
     },
   ];
 
-  const cronAddUsage = `Usage: /cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> <timezone> <prompt...>`;
+  // TODO: infer timezone from config.timezone
+  const cronAddCommand = `/cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> <timezone> <prompt...>`;
+  const cronRunnerRefresh = () => handlerOptions.getCronRunner?.().refresh();
   const systemCronCommands: SystemCommandTree[string] = [
     {
       tokens: ["add"],
-      help: `${cronAddUsage} - Add a cron job.`,
+      help: `${cronAddCommand} - Add a cron job.`,
       withArgs: true,
       run: async ({ args, reply, sessionName, metadata }) => {
         if (!metadata?.cronDeliveryTarget) {
@@ -390,7 +397,7 @@ ${referencedSessions.length} session(s) still reference it.
         }
         const parsed = parseCronAddArgs(args);
         if (!parsed) {
-          await reply.system("Invalid input\n" + cronAddUsage);
+          await reply.system(`Invalid input\nUsage: ${cronAddCommand}`);
           return;
         }
         const cronIdResult = cronIdSchema.safeParse(parsed.id);
@@ -399,6 +406,7 @@ ${referencedSessions.length} session(s) still reference it.
           return;
         }
         try {
+          // TODO: validate during parseCronAddArgs
           validateCronSchedule({
             schedule: parsed.schedule,
             timezone: parsed.timezone,
@@ -414,7 +422,7 @@ ${referencedSessions.length} session(s) still reference it.
               delivery: metadata.cronDeliveryTarget,
             },
           });
-          handlerOptions.getCronRunner?.().refresh();
+          cronRunnerRefresh();
           await reply.system(`Added cron job: ${parsed.id}`);
         } catch (error) {
           await reply.system(`Failed to add cron job: ${formatError(error)}`);
@@ -432,32 +440,87 @@ ${referencedSessions.length} session(s) still reference it.
       tokens: ["show"],
       help: "/cron show <id> - Show a cron job.",
       withArgs: true,
-      run: async ({ reply }) => {
-        await reply.system("todo");
+      run: async ({ args, reply }) => {
+        const parsed = parseCronIdArg(args, "Usage: /cron show <id>");
+        if ("error" in parsed) {
+          await reply.system(parsed.error);
+          return;
+        }
+        const job = cronStore.getJob(parsed.id);
+        if (!job) {
+          await reply.system(`Unknown cron job: ${parsed.id}`);
+          return;
+        }
+        await reply.system(renderCronShow(job, cronStore.getLatestRun(parsed.id)));
       },
     },
     {
       tokens: ["enable"],
       help: "/cron enable <id> - Enable a cron job.",
       withArgs: true,
-      run: async ({ reply }) => {
-        await reply.system("todo");
+      run: async ({ args, reply }) => {
+        const parsed = parseCronIdArg(args, "Usage: /cron enable <id>");
+        if ("error" in parsed) {
+          await reply.system(parsed.error);
+          return;
+        }
+        if (!cronStore.getJob(parsed.id)) {
+          await reply.system(`Unknown cron job: ${parsed.id}`);
+          return;
+        }
+        try {
+          cronStore.updateJob(parsed.id, { enabled: true });
+          cronRunnerRefresh();
+          await reply.system(`Enabled cron job: ${parsed.id}`);
+        } catch (error) {
+          await reply.system(`Failed to enable cron job: ${formatError(error)}`);
+        }
       },
     },
     {
       tokens: ["disable"],
       help: "/cron disable <id> - Disable a cron job.",
       withArgs: true,
-      run: async ({ reply }) => {
-        await reply.system("todo");
+      run: async ({ args, reply }) => {
+        const parsed = parseCronIdArg(args, "Usage: /cron disable <id>");
+        if ("error" in parsed) {
+          await reply.system(parsed.error);
+          return;
+        }
+        if (!cronStore.getJob(parsed.id)) {
+          await reply.system(`Unknown cron job: ${parsed.id}`);
+          return;
+        }
+        try {
+          cronStore.updateJob(parsed.id, { enabled: false });
+          cronRunnerRefresh();
+          await reply.system(`Disabled cron job: ${parsed.id}`);
+        } catch (error) {
+          await reply.system(`Failed to disable cron job: ${formatError(error)}`);
+        }
       },
     },
     {
       tokens: ["delete"],
       help: "/cron delete <id> - Delete a cron job.",
       withArgs: true,
-      run: async ({ reply }) => {
-        await reply.system("todo");
+      run: async ({ args, reply }) => {
+        const parsed = parseCronIdArg(args, "Usage: /cron delete <id>");
+        if ("error" in parsed) {
+          await reply.system(parsed.error);
+          return;
+        }
+        if (!cronStore.getJob(parsed.id)) {
+          await reply.system(`Unknown cron job: ${parsed.id}`);
+          return;
+        }
+        try {
+          cronStore.deleteJob(parsed.id);
+          cronRunnerRefresh();
+          await reply.system(`Deleted cron job: ${parsed.id}`);
+        } catch (error) {
+          await reply.system(`Failed to delete cron job: ${formatError(error)}`);
+        }
       },
     },
   ];

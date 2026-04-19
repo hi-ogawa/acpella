@@ -1,5 +1,5 @@
 import { formatTime } from "../lib/utils.ts";
-import type { CronJob, CronRun, CronStore } from "./store.ts";
+import { type CronJob, type CronRun, type CronStore, cronIdSchema } from "./store.ts";
 import { getNextOccurrence } from "./timer.ts";
 
 export function parseCronAddArgs(args: string[]):
@@ -26,12 +26,38 @@ export function parseCronAddArgs(args: string[]):
   };
 }
 
+export function parseCronIdArg(args: string[], usage: string): { id: string } | { error: string } {
+  const id = args[0];
+  if (!id || args.length !== 1) {
+    return { error: usage };
+  }
+  const cronIdResult = cronIdSchema.safeParse(id);
+  if (!cronIdResult.success) {
+    return { error: "Invalid cron id. Use letters, numbers, underscores, or hyphens." };
+  }
+  return { id };
+}
+
 export function renderCronList(cronStore: CronStore): string {
   const jobs = cronStore.listJobs();
   if (jobs.length === 0) {
     return "No cron jobs.";
   }
   return jobs.map((job) => renderCronListItem(job, cronStore.getLatestRun(job.id))).join("\n");
+}
+
+export function renderCronShow(job: CronJob, latestRun: CronRun | undefined): string {
+  return `\
+id: ${job.id}
+enabled: ${job.enabled ? "yes" : "no"}
+schedule: ${job.schedule}
+timezone: ${job.timezone}
+target session: ${job.target.sessionName}
+delivery target: ${formatDeliveryTarget(job.target.delivery)}
+next: ${formatCronNext(job)}
+last: ${formatCronLastRun(latestRun)}
+prompt: ${job.prompt}
+`;
 }
 
 function renderCronListItem(job: CronJob, latestRun: CronRun | undefined): string {
