@@ -68,11 +68,13 @@ export class CronRunner {
       scheduledAt,
       startedAt: formatTime(startedAt),
     });
+    const scheduledAtTz = formatTime(event.scheduledAt, job.timezone);
+    const startedAtTz = formatTime(startedAt, job.timezone);
     try {
       const prompt = buildCronPrompt({
         cronId: job.id,
-        scheduledAt: formatTime(event.scheduledAt, job.timezone),
-        startedAt: formatTime(startedAt, job.timezone),
+        scheduledAt: scheduledAtTz,
+        startedAt: startedAtTz,
         timezone: job.timezone,
         sessionName: job.target.sessionName,
         prompt: job.prompt,
@@ -87,11 +89,27 @@ export class CronRunner {
         status: "succeeded",
       });
     } catch (error) {
+      const errorMessage = formatError(error);
       store.updateRun(run.id, {
         finishedAt: formatTime(Date.now()),
         status: "failed",
-        error: formatError(error),
+        error: errorMessage,
       });
+      try {
+        await this.options.delivery.send({
+          target: job.target.delivery,
+          text: buildCronFailureMessage({
+            cronId: job.id,
+            scheduledAt: scheduledAtTz,
+            startedAt: startedAtTz,
+            timezone: job.timezone,
+            sessionName: job.target.sessionName,
+            error: errorMessage,
+          }),
+        });
+      } catch (deliveryError) {
+        console.error("[cron] Failed to deliver cron failure notification:", deliveryError);
+      }
     }
   }
 }
@@ -115,5 +133,26 @@ session_name: ${options.sessionName}
 </trigger_metadata>
 
 ${options.prompt}
+`;
+}
+
+function buildCronFailureMessage(options: {
+  cronId: string;
+  scheduledAt: string;
+  startedAt: string;
+  timezone: string;
+  sessionName: string;
+  error: string;
+}): string {
+  return `\
+[cron] ${options.cronId} failed
+
+scheduled_at: ${options.scheduledAt}
+started_at: ${options.startedAt}
+timezone: ${options.timezone}
+session_name: ${options.sessionName}
+
+Error:
+${options.error}
 `;
 }
