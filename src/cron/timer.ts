@@ -8,8 +8,7 @@ export interface CronTimerEntry {
 
 export interface CronDueEvent {
   id: string;
-  // TODO: consolidate to unix timestamp number
-  scheduledAt: Temporal.Instant;
+  scheduledAt: number;
 }
 
 interface ScheduledEntry {
@@ -98,7 +97,10 @@ export class CronScheduler {
         continue;
       }
       const due = scheduledEntry.next;
-      this.options.onDue({ id: scheduledEntry.entry.id, scheduledAt: due });
+      this.options.onDue({
+        id: scheduledEntry.entry.id,
+        scheduledAt: due.epochMilliseconds,
+      });
       scheduledEntry.next = getNextOccurrence({
         ...scheduledEntry.entry,
         after: due,
