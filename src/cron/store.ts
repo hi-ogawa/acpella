@@ -74,8 +74,9 @@ const cronStateFileSchema = z.object({
   runs: z.record(cronIdSchema, z.record(z.string().min(1), cronRunSchema)),
 });
 
-export type CronJobFile = z.infer<typeof cronJobFileSchema>;
-export type CronStateFile = z.infer<typeof cronStateFileSchema>;
+type CronJobFile = z.infer<typeof cronJobFileSchema>;
+type CronStateFile = z.infer<typeof cronStateFileSchema>;
+
 export type CronJob = z.infer<typeof cronJobSchema>;
 export type CronTarget = z.infer<typeof cronTargetSchema>;
 export type CronTelegramTarget = z.infer<typeof telegramTargetSchema>;
@@ -157,8 +158,18 @@ export class CronStore {
     });
   }
 
-  getRun(options: { cronId: string; scheduledAt: string }): CronRun | undefined {
+  getScheduledRun(options: { cronId: string; scheduledAt: string }): CronRun | undefined {
     return this.stateFile.runs[options.cronId]?.[options.scheduledAt];
+  }
+
+  getRun(id: string): (CronRun & { cronId: string }) | undefined {
+    for (const [cronId, runs] of Object.entries(this.stateFile.runs)) {
+      for (const run of Object.values(runs)) {
+        if (run.id === id) {
+          return { cronId, ...run };
+        }
+      }
+    }
   }
 
   getLatestRun(cronId: string): CronRun | undefined {
@@ -167,7 +178,8 @@ export class CronStore {
     return runs[0];
   }
 
-  startRun(options: { cronId: string; scheduledAt: string; startedAt: string }) {
+  startRun(options: { cronId: string; scheduledAt: string; startedAt: string }): CronRun {
+    let run: CronRun;
     this.setStateFile((file) => {
       file.runs[options.cronId] ??= {};
       if (file.runs[options.cronId][options.scheduledAt]) {
@@ -175,7 +187,7 @@ export class CronStore {
           cause: options,
         });
       }
-      const run: CronRun = {
+      run = {
         id: randomUUID(),
         scheduledAt: options.scheduledAt,
         startedAt: options.startedAt,
@@ -183,23 +195,16 @@ export class CronStore {
       };
       file.runs[options.cronId][options.scheduledAt] = run;
     });
+    return run!;
   }
 
-  finishRun(options: {
-    cronId: string;
-    scheduledAt: string;
-    finishedAt: string;
-    status: "succeeded" | "failed";
-    error?: string;
-  }) {
+  updateRun(id: string, patch: Partial<Omit<CronRun, "id" | "scheduledAt">>) {
+    const run = this.getRun(id);
+    if (!run) {
+      throw new Error(`Cannot update missing cron run: ${id}`);
+    }
     this.setStateFile((file) => {
-      const run = file.runs[options.cronId]?.[options.scheduledAt];
-      if (!run) {
-        throw new Error(`Cannot finish missing cron run: ${options.cronId} ${options.scheduledAt}`);
-      }
-      run.finishedAt = options.finishedAt;
-      run.status = options.status;
-      run.error = options.error;
+      Object.assign(file.runs[run.cronId][run.scheduledAt], patch);
     });
   }
 }

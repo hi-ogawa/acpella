@@ -49,7 +49,7 @@ export class CronRunner {
   async executeCronJob(job: CronJob, event: CronDueEvent) {
     const { store } = this.options;
     const scheduledAt = formatTime(event.scheduledAt);
-    if (store.getRun({ cronId: job.id, scheduledAt })) {
+    if (store.getScheduledRun({ cronId: job.id, scheduledAt })) {
       console.error("[cron] Cron run already exists for this schedule", {
         cronId: job.id,
         scheduledAt,
@@ -57,7 +57,7 @@ export class CronRunner {
       return;
     }
     const startedAt = Date.now();
-    store.startRun({
+    const run = store.startRun({
       cronId: job.id,
       scheduledAt,
       startedAt: formatTime(startedAt),
@@ -76,16 +76,12 @@ export class CronRunner {
         prompt,
       });
       await this.options.delivery.sendTelegram(job.target.telegram, response);
-      store.finishRun({
-        cronId: job.id,
-        scheduledAt,
+      store.updateRun(run.id, {
         finishedAt: formatTime(Date.now()),
         status: "succeeded",
       });
     } catch (error) {
-      store.finishRun({
-        cronId: job.id,
-        scheduledAt,
+      store.updateRun(run.id, {
         finishedAt: formatTime(Date.now()),
         status: "failed",
         error: formatError(error),
