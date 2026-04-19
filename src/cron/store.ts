@@ -75,7 +75,7 @@ const cronStateFileSchema = z.object({
 });
 
 export type CronJobFile = z.infer<typeof cronJobFileSchema>;
-export type CronRunFile = z.infer<typeof cronStateFileSchema>;
+export type CronStateFile = z.infer<typeof cronStateFileSchema>;
 export type CronJob = z.infer<typeof cronJobSchema>;
 export type CronTarget = z.infer<typeof cronTargetSchema>;
 export type CronTelegramTarget = z.infer<typeof telegramTargetSchema>;
@@ -83,23 +83,23 @@ export type CronRun = z.infer<typeof cronRunSchema>;
 
 interface CronStoreOptions {
   cronFile: string;
-  cronRunFile: string;
+  cronStateFile: string;
 }
 
 export class CronStore {
   options: CronStoreOptions;
   jobFile: CronJobFile;
-  runFile: CronRunFile;
+  stateFile: CronStateFile;
 
   constructor(options: CronStoreOptions) {
     this.options = { ...options };
     this.jobFile = readCronFile(options.cronFile);
-    this.runFile = readCronRunFile(options.cronRunFile);
+    this.stateFile = readCronStateFile(options.cronStateFile);
   }
 
   reload() {
     this.jobFile = readCronFile(this.options.cronFile);
-    this.runFile = readCronRunFile(this.options.cronRunFile);
+    this.stateFile = readCronStateFile(this.options.cronStateFile);
   }
 
   setJobFile(updater: (file: CronJobFile) => void): void {
@@ -109,11 +109,11 @@ export class CronStore {
     writeJsonFile(this.options.cronFile, this.jobFile);
   }
 
-  setRunFile(updater: (file: CronRunFile) => void): void {
-    const clone = structuredClone(this.runFile);
+  setStateFile(updater: (file: CronStateFile) => void): void {
+    const clone = structuredClone(this.stateFile);
     updater(clone);
-    this.runFile = cronStateFileSchema.parse(clone);
-    writeJsonFile(this.options.cronRunFile, this.runFile);
+    this.stateFile = cronStateFileSchema.parse(clone);
+    writeJsonFile(this.options.cronStateFile, this.stateFile);
   }
 
   listJobs(): CronJob[] {
@@ -164,17 +164,17 @@ export class CronStore {
       }
       delete file.jobs[id];
     });
-    this.setRunFile((file) => {
+    this.setStateFile((file) => {
       delete file.runs[id];
     });
   }
 
   getRun(options: { cronId: string; scheduledAt: string }): CronRun | undefined {
-    return this.runFile.runs[options.cronId]?.[options.scheduledAt];
+    return this.stateFile.runs[options.cronId]?.[options.scheduledAt];
   }
 
   getLatestRun(cronId: string): CronRun | undefined {
-    const runs = Object.values(this.runFile.runs[cronId] ?? {});
+    const runs = Object.values(this.stateFile.runs[cronId] ?? {});
     runs.sort((a, b) => b.scheduledAt.localeCompare(a.scheduledAt));
     return runs[0];
   }
@@ -185,7 +185,7 @@ export class CronStore {
     startedAt: string;
   }): CronRun | undefined {
     let run: CronRun | undefined;
-    this.setRunFile((file) => {
+    this.setStateFile((file) => {
       file.runs[options.cronId] ??= {};
       if (file.runs[options.cronId][options.scheduledAt]) {
         return;
@@ -209,7 +209,7 @@ export class CronStore {
     error?: string;
   }): CronRun {
     let nextRun: CronRun | undefined;
-    this.setRunFile((file) => {
+    this.setStateFile((file) => {
       const run = file.runs[options.cronId]?.[options.scheduledAt];
       if (!run) {
         throw new Error(`Cannot finish missing cron run: ${options.cronId} ${options.scheduledAt}`);
@@ -237,12 +237,12 @@ function readCronFile(file: string): CronJobFile {
   };
 }
 
-function readCronRunFile(file: string): CronRunFile {
+function readCronStateFile(file: string): CronStateFile {
   if (fs.existsSync(file)) {
     try {
       return cronStateFileSchema.parse(JSON.parse(fs.readFileSync(file, "utf8")));
     } catch (e) {
-      console.error("[cron] readCronRunFile failed:", e);
+      console.error("[cron] readCronStateFile failed:", e);
     }
   }
   return {
