@@ -58,6 +58,29 @@ Coverage checklist:
   - [ ] default query form
   - [ ] default unknown agent
   - [ ] default affects later session creation
+- /cron
+  - [x] bare help output
+  - [x] status
+  - [x] start
+  - [x] stop
+  - [ ] add persists repl delivery target
+  - [ ] add rejects missing delivery target
+  - [ ] add rejects invalid args
+  - [ ] add rejects invalid id
+  - [ ] add rejects invalid schedule
+  - [ ] add refreshes runner
+  - [ ] list empty
+  - [ ] list with jobs
+  - [ ] show
+  - [ ] show unknown id
+  - [ ] enable
+  - [ ] enable unknown id
+  - [ ] disable
+  - [ ] disable unknown id
+  - [ ] delete
+  - [ ] delete unknown id
+  - [ ] runner executes repl cron job through handler prompt
+  - [ ] runner records failed delivery
 */
 
 import fs from "node:fs";
@@ -498,7 +521,9 @@ test("message metadata", async () => {
 
 // TODO
 test("cron command", async ({ onTestFinished }) => {
-  vi.useFakeTimers();
+  vi.useFakeTimers({
+    now: Date.UTC(2024, 0, 2, 3, 4, 0),
+  });
   onTestFinished(() => {
     vi.useRealTimers();
   });
@@ -517,5 +542,52 @@ test("cron command", async ({ onTestFinished }) => {
     cron runner: running
     jobs: 0
     enabled jobs: 0"
+  `);
+  expect(await session.request("/cron stop")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Cron runner stopped."
+  `);
+  expect(await session.request("/cron status")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    cron runner: stopped
+    jobs: 0
+    enabled jobs: 0"
+  `);
+  expect(await session.request("/cron start")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Cron runner started."
+  `);
+  expect(await session.request("/cron status")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    cron runner: running
+    jobs: 0
+    enabled jobs: 0"
+  `);
+  expect(await session.request("/cron add test-job * * * * * echo: cron job"))
+    .toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Added cron job: test-job"
+  `);
+  expect(await session.request("/cron list")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    - test-job [enabled]
+      schedule: * * * * *
+      timezone: Asia/Tokyo
+      target session: test
+      delivery target: repl
+      next: 2024-01-02T12:05:00+09:00
+      last: none"
+  `);
+  expect(await session.request("/cron show test-job")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    id: test-job
+    enabled: yes
+    schedule: * * * * *
+    timezone: Asia/Tokyo
+    target session: test
+    delivery target: repl
+    next: 2024-01-02T12:05:00+09:00
+    last: none
+    prompt: echo: cron job"
   `);
 });
