@@ -105,7 +105,7 @@ Options:
       prompt: handler.prompt,
     },
     delivery: {
-      send: async (target, text) => {
+      send: async ({ target, text }) => {
         await bot.api.sendMessage(target.chatId, markdownToTelegramHtml(text), {
           parse_mode: "HTML",
           message_thread_id: target.messageThreadId,

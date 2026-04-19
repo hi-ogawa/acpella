@@ -6,7 +6,7 @@ export interface CronRunnerOptions {
   store: CronStore;
   agent: CronRunnerAgentOptions;
   delivery: {
-    send: (target: CronDeliveryTarget, text: string) => Promise<void>;
+    send: (options: { target: CronDeliveryTarget; text: string }) => Promise<void>;
   };
 }
 
@@ -77,7 +77,7 @@ export class CronRunner {
         sessionName: job.target.sessionName,
         text: prompt,
       });
-      await this.options.delivery.send(job.target.delivery, response);
+      await this.options.delivery.send({ target: job.target.delivery, text: response });
       store.updateRun(run.id, {
         finishedAt: formatTime(Date.now()),
         status: "succeeded",
