@@ -2,7 +2,7 @@ import { AgentManager } from "./acp/index.ts";
 import type { AgentSessionProcess } from "./acp/index.ts";
 import type { AppConfig } from "./config.ts";
 import { parseCronAddArgs, renderCronList } from "./cron/format.ts";
-import type { CronRunner } from "./cron/runner.ts";
+import type { CronRunner, CronRunnerAgentOptions } from "./cron/runner.ts";
 import type { CronStore, CronDeliveryTarget } from "./cron/store.ts";
 import { validateCronSchedule } from "./cron/timer.ts";
 import { createCommandHandler } from "./lib/command.ts";
@@ -16,8 +16,7 @@ import type { StateAgentSession, StateSession } from "./state.ts";
 
 export interface Handler {
   handle: (context: HandlerContext) => Promise<void>;
-  // TODO: rename?
-  promptSession: (options: { sessionName: string; prompt: string }) => Promise<string>;
+  prompt: CronRunnerAgentOptions["prompt"];
   commands: Record<string, string>;
 }
 
@@ -60,16 +59,25 @@ export async function createHandler(
   }
 
   async function handlePrompt(context: HandlerExtraContext): Promise<void> {
-    const { reply, sessionName, text, metadata } = context;
+    let { reply, sessionName, metadata } = context;
     if (activeSessions.has(sessionName)) {
       await reply.system("Agent turn already in progress. Send /cancel to stop it.");
       return;
     }
 
-    const result = await promptAgentSession({
+    let promptText = "";
+    if (metadata) {
+      promptText = buildMessageMetadataPrompt({
+        timestamp: metadata.timestamp,
+        timezone: config.timezone,
+        sessionName,
+      });
+    }
+    promptText += context.text;
+
+    const result = await handlePromptImpl({
       sessionName,
-      text,
-      metadata,
+      text: promptText,
       onText: async (chunk) => {
         await reply.write(chunk);
       },
@@ -90,15 +98,13 @@ export async function createHandler(
     await reply.finish();
   }
 
-  async function promptAgentSession(options: {
+  async function handlePromptImpl(options: {
     sessionName: string;
     text: string;
-    // TODO: move up?
-    metadata?: HandlerContext["metadata"];
     onText: (text: string) => Promise<void> | void;
     onToolCall?: (title: string, stateSession: StateSession) => Promise<void> | void;
   }): Promise<{ cancelled: boolean }> {
-    const { sessionName, text, metadata } = options;
+    const { sessionName, text } = options;
     // TODO: move to promptSession?
     if (activeSessions.has(sessionName)) {
       throw new Error("Agent turn already in progress. Send /cancel to stop it.");
@@ -121,13 +127,6 @@ export async function createHandler(
         agentSessionId: session.sessionId,
       });
       promptText += buildFirstPrompt(config.prompt.file);
-    }
-    if (metadata) {
-      promptText += buildMessageMetadataPrompt({
-        timestamp: metadata.timestamp,
-        timezone: config.timezone,
-        sessionName,
-      });
     }
     promptText += text;
 
@@ -587,12 +586,15 @@ home: ${config.home}
     await handlePrompt(extraContext);
   };
 
-  // TODO: how to serialize prompt for cron and normal messages?
-  const promptSession: Handler["promptSession"] = async ({ sessionName, prompt }) => {
+  const handleCronPrompt: Handler["prompt"] = async ({ sessionName, text }) => {
+    // TODO: how to serialize prompt for cron and normal prompt?
+    if (activeSessions.has(sessionName)) {
+      throw new Error("Agent turn in progress. Cannot run cron prompt.");
+    }
     const chunks: string[] = [];
-    const result = await promptAgentSession({
+    const result = await handlePromptImpl({
       sessionName,
-      text: prompt,
+      text,
       onText: (chunk) => {
         chunks.push(chunk);
       },
@@ -603,5 +605,5 @@ home: ${config.home}
     return chunks.join("");
   };
 
-  return { handle, promptSession, commands: systemCommandsMetadata };
+  return { handle, prompt: handleCronPrompt, commands: systemCommandsMetadata };
 }

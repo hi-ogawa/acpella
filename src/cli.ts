@@ -102,7 +102,7 @@ Options:
   const cronRunner = new CronRunner({
     store: cronStore,
     agent: {
-      promptSession: handler.promptSession,
+      prompt: handler.prompt,
     },
     delivery: {
       send: async (target, text) => {

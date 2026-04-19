@@ -4,12 +4,14 @@ import { CronScheduler, type CronDueEvent } from "./timer.ts";
 
 export interface CronRunnerOptions {
   store: CronStore;
-  agent: {
-    promptSession: (options: { sessionName: string; prompt: string }) => Promise<string>;
-  };
+  agent: CronRunnerAgentOptions;
   delivery: {
     send: (target: CronDeliveryTarget, text: string) => Promise<void>;
   };
+}
+
+export interface CronRunnerAgentOptions {
+  prompt: (options: { sessionName: string; text: string }) => Promise<string>;
 }
 
 export class CronRunner {
@@ -71,9 +73,9 @@ export class CronRunner {
         sessionName: job.target.sessionName,
         prompt: job.prompt,
       });
-      const response = await this.options.agent.promptSession({
+      const response = await this.options.agent.prompt({
         sessionName: job.target.sessionName,
-        prompt,
+        text: prompt,
       });
       await this.options.delivery.send(job.target.delivery, response);
       store.updateRun(run.id, {
