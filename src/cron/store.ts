@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
-import path from "node:path";
 import { z } from "zod";
+import { writeJsonFile } from "../lib/utils-node.ts";
 import { validateCronSchedule } from "./timer.ts";
 
 const CRON_FILE_VERSION = 1;
@@ -81,61 +81,53 @@ export type CronTarget = z.infer<typeof cronTargetSchema>;
 export type CronTelegramTarget = z.infer<typeof telegramTargetSchema>;
 export type CronRun = z.infer<typeof cronRunSchema>;
 
-export interface CreateCronStoreOptions {
+interface CronStoreOptions {
   cronFile: string;
   cronStateFile: string;
 }
 
-export interface AddCronJobOptions {
-  id: string;
-  schedule: string;
-  timezone: string;
-  prompt: string;
-  target: CronTarget;
-}
-
 export class CronStore {
+  options: CronStoreOptions;
   cronFilePath: string;
   cronStateFilePath: string;
-  cronFile: CronJobFile;
-  cronStateFile: CronStateFile;
+  jobFile: CronJobFile;
+  runFile: CronStateFile;
 
-  constructor(options: CreateCronStoreOptions) {
+  constructor(options: CronStoreOptions) {
+    this.options = { ...options };
     this.cronFilePath = options.cronFile;
     this.cronStateFilePath = options.cronStateFile;
-    this.cronFile = readCronFile(options.cronFile);
-    this.cronStateFile = readCronStateFile(options.cronStateFile);
-  }
-
-  getFile(): CronJobFile {
-    return this.cronFile;
-  }
-
-  getStateFile(): CronStateFile {
-    return this.cronStateFile;
+    this.jobFile = readCronFile(options.cronFile);
+    this.runFile = readCronStateFile(options.cronStateFile);
   }
 
   updateCronFile(updater: (file: CronJobFile) => void): void {
-    const nextFile = structuredClone(this.cronFile);
-    updater(nextFile);
-    this.writeCronFile(nextFile);
+    const clone = structuredClone(this.jobFile);
+    updater(clone);
+    this.writeCronFile(clone);
   }
 
   updateCronStateFile(updater: (file: CronStateFile) => void): void {
-    const nextFile = structuredClone(this.cronStateFile);
-    updater(nextFile);
-    this.writeCronStateFile(nextFile);
+    const clone = structuredClone(this.runFile);
+    updater(clone);
+    this.writeCronStateFile(clone);
   }
 
   listJobs(): CronJob[] {
-    return Object.values(this.cronFile.jobs).sort((a, b) => a.id.localeCompare(b.id));
+    return Object.values(this.jobFile.jobs).sort((a, b) => a.id.localeCompare(b.id));
   }
 
   getJob(id: string): CronJob | undefined {
-    return this.cronFile.jobs[id];
+    return this.jobFile.jobs[id];
   }
 
-  addJob(job: AddCronJobOptions): CronJob {
+  addJob(job: {
+    id: string;
+    schedule: string;
+    timezone: string;
+    prompt: string;
+    target: CronTarget;
+  }): CronJob {
     const nextJob = cronJobSchema.parse({
       ...job,
       enabled: true,
@@ -175,11 +167,11 @@ export class CronStore {
   }
 
   getRun(options: { cronId: string; scheduledAt: string }): CronRun | undefined {
-    return this.cronStateFile.runs[options.cronId]?.[options.scheduledAt];
+    return this.runFile.runs[options.cronId]?.[options.scheduledAt];
   }
 
   getLatestRun(cronId: string): CronRun | undefined {
-    const runs = Object.values(this.cronStateFile.runs[cronId] ?? {});
+    const runs = Object.values(this.runFile.runs[cronId] ?? {});
     runs.sort((a, b) => b.scheduledAt.localeCompare(a.scheduledAt));
     return runs[0];
   }
@@ -228,18 +220,14 @@ export class CronStore {
   }
 
   writeCronFile(nextFile: CronJobFile): void {
-    this.cronFile = cronJobFileSchema.parse(nextFile);
-    writeJsonFile(this.cronFilePath, this.cronFile);
+    this.jobFile = cronJobFileSchema.parse(nextFile);
+    writeJsonFile(this.cronFilePath, this.jobFile);
   }
 
   writeCronStateFile(nextFile: CronStateFile): void {
-    this.cronStateFile = cronStateFileSchema.parse(nextFile);
-    writeJsonFile(this.cronStateFilePath, this.cronStateFile);
+    this.runFile = cronStateFileSchema.parse(nextFile);
+    writeJsonFile(this.cronStateFilePath, this.runFile);
   }
-}
-
-export function createCronStore(options: CreateCronStoreOptions): CronStore {
-  return new CronStore(options);
 }
 
 function readCronFile(file: string): CronJobFile {
@@ -254,11 +242,6 @@ function readCronStateFile(file: string): CronStateFile {
     return getInitialCronStateFile();
   }
   return cronStateFileSchema.parse(JSON.parse(fs.readFileSync(file, "utf8")));
-}
-
-function writeJsonFile(file: string, value: unknown): void {
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, JSON.stringify(value, null, 2));
 }
 
 function getInitialCronFile(): CronJobFile {
