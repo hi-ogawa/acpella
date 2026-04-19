@@ -39,3 +39,12 @@ export class TimeoutManager {
     }
   }
 }
+
+export class PromiseSequencer {
+  promise = Promise.resolve();
+
+  run(callback: () => Promise<void>): void {
+    this.promise = this.promise.then(callback, callback);
+    this.promise.catch(() => {});
+  }
+}
