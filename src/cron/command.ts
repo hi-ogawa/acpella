@@ -1,6 +1,6 @@
 import { formatError, formatTime, type Result } from "../lib/utils.ts";
 import { type CronJob, type CronRun, type CronStore, cronIdSchema } from "./store.ts";
-import { getNextOccurrence, validateCronSchedule } from "./timer.ts";
+import { getNextCronSchedule, validateCronSchedule } from "./timer.ts";
 
 export function parseCronAddArgs(
   args: string[],
@@ -98,7 +98,7 @@ function formatDeliveryTarget(target: CronJob["target"]["delivery"]): string {
 function formatCronNext(job: CronJob): string {
   try {
     return formatTime(
-      getNextOccurrence({
+      getNextCronSchedule({
         schedule: job.schedule,
         timezone: job.timezone,
         after: Date.now(),

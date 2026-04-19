@@ -1,5 +1,11 @@
 import { expect, test, vi } from "vitest";
-import { CronTimer, getNextOccurrence, validateCronSchedule, type CronDueEvent } from "./timer.ts";
+import { formatTime } from "../lib/utils.ts";
+import {
+  CronTimer,
+  getNextCronSchedule,
+  validateCronSchedule,
+  type CronDueEvent,
+} from "./timer.ts";
 
 test(validateCronSchedule, () => {
   expect(() => {
@@ -20,21 +26,25 @@ test(validateCronSchedule, () => {
   );
 });
 
-test(getNextOccurrence, () => {
+test(getNextCronSchedule, () => {
   expect(
-    getNextOccurrence({
-      schedule: "0 8 * * 1-5",
-      timezone: "Asia/Tokyo",
-      after: Date.parse("2026-04-18T00:00:00Z"),
-    }),
-  ).toMatchInlineSnapshot(`1776639600000`);
+    formatTime(
+      getNextCronSchedule({
+        schedule: "0 8 * * 1-5",
+        timezone: "Asia/Tokyo",
+        after: Date.parse("2026-04-18T00:00:00Z"),
+      }),
+    ),
+  ).toMatchInlineSnapshot(`"2026-04-19T23:00:00Z"`);
   expect(
-    getNextOccurrence({
-      schedule: "* * * * *",
-      timezone: "UTC",
-      after: Date.parse("2026-04-18T00:00:00Z"),
-    }),
-  ).toMatchInlineSnapshot(`1776470460000`);
+    formatTime(
+      getNextCronSchedule({
+        schedule: "* * * * *",
+        timezone: "UTC",
+        after: Date.parse("2026-04-18T00:00:00Z"),
+      }),
+    ),
+  ).toMatchInlineSnapshot(`"2026-04-18T00:01:00Z"`);
 });
 
 test(CronTimer, ({ onTestFinished }) => {

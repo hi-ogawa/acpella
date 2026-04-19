@@ -80,7 +80,7 @@ export class CronTimer {
 
   start(): void {
     this.stop();
-    this.scheduledAt = getNextOccurrence({
+    this.scheduledAt = getNextCronSchedule({
       ...this.options.entry,
       after: Date.now(),
     });
@@ -127,7 +127,7 @@ export class CronTimer {
       id: this.options.entry.id,
       scheduledAt: scheduledAt,
     });
-    this.scheduledAt = getNextOccurrence({
+    this.scheduledAt = getNextCronSchedule({
       ...this.options.entry,
       after: scheduledAt,
     });
@@ -146,7 +146,7 @@ export function validateCronSchedule(options: { schedule: string; timezone: stri
   }
 }
 
-export function getNextOccurrence(options: {
+export function getNextCronSchedule(options: {
   schedule: string;
   timezone: string;
   after: number;
