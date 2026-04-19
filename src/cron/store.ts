@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import { z } from "zod";
-import { readJsonFile, writeJsonFile } from "../lib/utils-node.ts";
+import { readJsonFile, StateFileManager, writeJsonFile } from "../lib/utils-node.ts";
 import { validateCronSchedule } from "./timer.ts";
 
 const CRON_FILE_VERSION = 1;
@@ -116,27 +116,24 @@ interface CronStoreOptions {
 
 export class CronStore {
   options: CronStoreOptions;
-  jobFile: CronJobFile;
+  jobFile: StateFileManager<CronJobFile>;
   stateFile: CronStateFile;
 
   constructor(options: CronStoreOptions) {
     this.options = { ...options };
-    this.jobFile = readCronFile(options.cronFile);
+    this.jobFile = new StateFileManager<CronJobFile>({
+      file: options.cronFile,
+      parse: (data) => cronJobFileSchema.parse(data),
+      defaultValue: getCronJobFileDefault,
+    });
     this.stateFile = readCronStateFile(options.cronStateFile);
   }
 
   reload() {
-    const jobFile = readCronFileStrict(this.options.cronFile);
+    const jobFile = this.jobFile.read({ strict: true });
     const stateFile = readCronStateFileStrict(this.options.cronStateFile);
-    this.jobFile = jobFile;
+    this.jobFile.state = jobFile;
     this.stateFile = stateFile;
-  }
-
-  setJobFile(updater: (file: CronJobFile) => void): void {
-    const clone = structuredClone(this.jobFile);
-    updater(clone);
-    this.jobFile = cronJobFileSchema.parse(clone);
-    writeJsonFile(this.options.cronFile, this.jobFile);
   }
 
   setStateFile(updater: (file: CronStateFile) => void): void {
@@ -147,15 +144,15 @@ export class CronStore {
   }
 
   listJobs(): CronJob[] {
-    return Object.values(this.jobFile.jobs);
+    return Object.values(this.jobFile.state.jobs);
   }
 
   getJob(id: string): CronJob | undefined {
-    return this.jobFile.jobs[id];
+    return this.jobFile.state.jobs[id];
   }
 
   addJob(job: CronJob) {
-    this.setJobFile((file) => {
+    this.jobFile.set((file) => {
       if (file.jobs[job.id]) {
         throw new Error(`Cron job already exists: ${job.id}`);
       }
@@ -164,7 +161,7 @@ export class CronStore {
   }
 
   updateJob(id: string, patch: Partial<CronJob>) {
-    this.setJobFile((file) => {
+    this.jobFile.set((file) => {
       if (!file.jobs[id]) {
         throw new Error(`Unknown cron job: ${id}`);
       }
@@ -176,7 +173,7 @@ export class CronStore {
   }
 
   deleteJob(id: string) {
-    this.setJobFile((file) => {
+    this.jobFile.set((file) => {
       if (!file.jobs[id]) {
         throw new Error(`Unknown cron job: ${id}`);
       }
@@ -236,21 +233,6 @@ export class CronStore {
       Object.assign(file.runs[run.cronId][run.scheduledAt], patch);
     });
   }
-}
-
-function readCronFile(file: string): CronJobFile {
-  if (fs.existsSync(file)) {
-    try {
-      return readCronFileStrict(file);
-    } catch (e) {
-      console.error("[cron] readCronFile failed:", e);
-    }
-  }
-  return getCronJobFileDefault();
-}
-
-function readCronFileStrict(file: string): CronJobFile {
-  return cronJobFileSchema.parse(readJsonFile(file, getCronJobFileDefault));
 }
 
 function readCronStateFile(file: string): CronStateFile {
