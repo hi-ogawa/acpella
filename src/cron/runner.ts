@@ -35,6 +35,10 @@ export class CronRunner {
     this.scheduler.stop();
   }
 
+  isRunning() {
+    return !this.scheduler.stopped;
+  }
+
   refresh() {
     const entries = this.options.store.listJobs().filter((job) => job.enabled);
     this.scheduler.updateEntries(entries);

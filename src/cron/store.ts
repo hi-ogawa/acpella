@@ -12,15 +12,29 @@ export const cronIdSchema = z
   .min(1)
   .regex(/^[a-zA-Z0-9_-]+$/);
 
-const CronDeliveryTargetSchema = z.object({
+const cronTelegramDeliveryTargetSchema = z.object({
   chatId: z.number().int(),
   messageThreadId: z.number().int().optional(),
 });
 
+const CronDeliveryTargetSchema = z
+  .object({
+    telegram: cronTelegramDeliveryTargetSchema.optional(),
+    repl: z.boolean().optional(),
+  })
+  .superRefine((delivery, ctx) => {
+    if (!delivery.telegram && !delivery.repl) {
+      ctx.addIssue({
+        code: "custom",
+        message: "cron delivery target must include at least one surface",
+      });
+    }
+  });
+
 const cronTargetSchema = z.object({
   // how to route cron prompt to agent
   sessionName: z.string().min(1),
-  // how to route agent response to chat
+  // how to route agent response to external surfaces
   delivery: CronDeliveryTargetSchema,
 });
 

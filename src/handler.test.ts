@@ -150,6 +150,9 @@ test("basic", async () => {
       /agent default [name] - Show or set the default agent.
 
     /cron
+      /cron status - Show cron scheduler status.
+      /cron start - Start cron scheduler.
+      /cron stop - Stop cron scheduler.
       /cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> <prompt...> - Add a cron job.
       /cron list - List cron jobs.
       /cron show <id> - Show a cron job.

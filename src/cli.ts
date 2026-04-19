@@ -62,6 +62,28 @@ Options:
     cronFile: config.cronFile,
     cronStateFile: config.cronStateFile,
   });
+  const cronRunner = new CronRunner({
+    store: cronStore,
+    agent: {
+      prompt: (...args) => handler.prompt(...args),
+    },
+    delivery: {
+      send: async ({ target, text }) => {
+        if (target.repl) {
+          console.log("[cron] repl delivery:", text);
+          console.log(text);
+        }
+        if (!cli.repl && target.telegram) {
+          const { chatId, messageThreadId } = target.telegram;
+          // TODO: fallback, retry, and error handling
+          await bot.api.sendMessage(chatId, markdownToTelegramHtml(text), {
+            parse_mode: "HTML",
+            message_thread_id: messageThreadId,
+          });
+        }
+      },
+    },
+  });
 
   const handler = await createHandler(config, {
     version,
@@ -74,11 +96,15 @@ Options:
     cronStore,
     // TODO: break handler <-> cronRunner cycle
     // docs/tasks/2026-04-19-agent-session-service-architecture.md
-    getCronRunner: cli.repl ? undefined : () => cronRunner,
+    getCronRunner: () => cronRunner,
   });
 
   if (cli.repl) {
-    await startRepl(config, handler, version);
+    try {
+      await startRepl(config, handler, version);
+    } finally {
+      cronRunner.stop();
+    }
     return;
   }
 
@@ -99,20 +125,6 @@ Options:
   const bot = new Bot(config.telegram.token);
   const botInfo = await bot.api.getMe();
   const botUsername = botInfo.username;
-  const cronRunner = new CronRunner({
-    store: cronStore,
-    agent: {
-      prompt: handler.prompt,
-    },
-    delivery: {
-      send: async ({ target, text }) => {
-        await bot.api.sendMessage(target.chatId, markdownToTelegramHtml(text), {
-          parse_mode: "HTML",
-          message_thread_id: target.messageThreadId,
-        });
-      },
-    },
-  });
 
   try {
     const commands = Object.entries(handler.commands).map(([command, description]) => ({
@@ -198,8 +210,10 @@ Options:
         metadata: {
           timestamp: ctx.message.date * 1000,
           cronDeliveryTarget: {
-            chatId,
-            messageThreadId: ctx.message.message_thread_id,
+            telegram: {
+              chatId,
+              messageThreadId: ctx.message.message_thread_id,
+            },
           },
         },
         send: async (replyText) => {
@@ -258,6 +272,9 @@ async function startRepl(config: AppConfig, handler: Handler, version: string) {
         text,
         metadata: {
           timestamp: Date.now(),
+          cronDeliveryTarget: {
+            repl: true,
+          },
         },
         send: async (replyText) => console.log(replyText),
       });

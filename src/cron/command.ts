@@ -81,11 +81,18 @@ function renderCronListItem(job: CronJob, latestRun: CronRun | undefined): strin
 }
 
 function formatDeliveryTarget(target: CronJob["target"]["delivery"]): string {
-  let output = String(target.chatId);
-  if (target.messageThreadId !== undefined) {
-    output += `/${target.messageThreadId}`;
+  const surfaces: string[] = [];
+  if (target.telegram) {
+    let output = `telegram:${target.telegram.chatId}`;
+    if (target.telegram.messageThreadId !== undefined) {
+      output += `/${target.telegram.messageThreadId}`;
+    }
+    surfaces.push(output);
   }
-  return output;
+  if (target.repl) {
+    surfaces.push("repl");
+  }
+  return surfaces.join(", ");
 }
 
 function formatCronNext(job: CronJob): string {

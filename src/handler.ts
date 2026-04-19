@@ -382,8 +382,49 @@ ${referencedSessions.length} session(s) still reference it.
   ];
 
   const cronAddCommand = `/cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> <prompt...>`;
-  const cronRunnerRefresh = () => handlerOptions.getCronRunner?.().refresh();
+  const getCronRunner = () => handlerOptions.getCronRunner?.();
+  const cronRunnerRefresh = () => getCronRunner()?.refresh();
   const systemCronCommands: SystemCommandTree[string] = [
+    {
+      tokens: ["status"],
+      help: "/cron status - Show cron scheduler status.",
+      run: async ({ reply }) => {
+        const cronRunner = getCronRunner();
+        const jobs = cronStore.listJobs();
+        const enabledJobs = jobs.filter((job) => job.enabled);
+        await reply.system(`\
+cron runner: ${cronRunner?.isRunning() ? "running" : "stopped"}
+jobs: ${jobs.length}
+enabled jobs: ${enabledJobs.length}
+`);
+      },
+    },
+    {
+      tokens: ["start"],
+      help: "/cron start - Start cron scheduler.",
+      run: async ({ reply }) => {
+        const cronRunner = getCronRunner();
+        if (!cronRunner) {
+          await reply.system("Cron runner is unavailable.");
+          return;
+        }
+        cronRunner.start();
+        await reply.system("Cron runner started.");
+      },
+    },
+    {
+      tokens: ["stop"],
+      help: "/cron stop - Stop cron scheduler.",
+      run: async ({ reply }) => {
+        const cronRunner = getCronRunner();
+        if (!cronRunner) {
+          await reply.system("Cron runner is unavailable.");
+          return;
+        }
+        cronRunner.stop();
+        await reply.system("Cron runner stopped.");
+      },
+    },
     {
       tokens: ["add"],
       help: `${cronAddCommand} - Add a cron job.`,
