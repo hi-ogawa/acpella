@@ -8,10 +8,10 @@ import { createHandler, type Handler } from "./handler.ts";
 import { handleSetupSystemd } from "./lib/systemd.ts";
 import { markdownToTelegramHtml } from "./lib/telegram/format-html.ts";
 import {
-  createTelegramChatActionManager,
   formatTelegramSessionName,
   getTelegramRetryAfter,
   normalizeUserMention,
+  TelegramChatActionManager,
 } from "./lib/telegram/utils.ts";
 import { addIndent, sleep, truncateString } from "./lib/utils.ts";
 import { getVersion } from "./lib/version.ts";
@@ -164,9 +164,9 @@ Options:
       }
     };
 
-    const chatActionManager = createTelegramChatActionManager({
+    const chatActionManager = new TelegramChatActionManager({
       label,
-      sendChatAction: () => ctx.replyWithChatAction("typing"),
+      send: () => ctx.replyWithChatAction("typing"),
     });
     chatActionManager.start();
 

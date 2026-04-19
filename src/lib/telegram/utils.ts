@@ -31,57 +31,59 @@ export function getTelegramRetryAfter(error: unknown): number | undefined {
   }
 }
 
-export type TelegramChatActionManager = ReturnType<typeof createTelegramChatActionManager>;
-
-export function createTelegramChatActionManager(options: {
-  sendChatAction: () => Promise<unknown>;
+type TelegramChatActionManagerOptions = {
+  send: () => Promise<unknown>;
   label: string;
-}) {
-  const CHAT_ACTION_INTERVAL_MS = 4000;
-  const timeout = new TimeoutManager();
-  const promiseLimit = new PromiseLimit();
-  let stopped = true;
-  let retryAfterUntil = 0;
+};
 
-  function schedule() {
-    if (stopped) {
-      return;
-    }
-    const delay = Math.max(CHAT_ACTION_INTERVAL_MS, retryAfterUntil - Date.now(), 0);
-    timeout.set(() => promiseLimit.run(pulse), delay);
+export class TelegramChatActionManager {
+  options: TelegramChatActionManagerOptions;
+  timeout = new TimeoutManager();
+  promiseLimit = new PromiseLimit();
+  stopped = true;
+  retryAfterUntil = 0;
+
+  constructor(options: TelegramChatActionManagerOptions) {
+    this.options = options;
   }
 
-  async function pulse() {
-    if (stopped) {
+  start(): void {
+    this.stopped = false;
+    this.schedule();
+  }
+
+  schedule(): void {
+    if (this.stopped) {
+      return;
+    }
+    const delay = Math.max(4000, this.retryAfterUntil - Date.now(), 0);
+    this.timeout.set(() => void this.promiseLimit.run(() => this.pulse()), delay);
+  }
+
+  stop(): void {
+    this.stopped = true;
+    this.timeout.clear();
+  }
+
+  async pulse(): Promise<void> {
+    if (this.stopped) {
       return;
     }
     try {
-      await options.sendChatAction();
-      schedule();
+      await this.options.send();
+      this.schedule();
     } catch (error) {
       const retryAfter = getTelegramRetryAfter(error);
       if (!retryAfter) {
-        console.error(`${options.label} typing indicator failed:`, error);
+        console.error(`${this.options.label} typing indicator failed:`, error);
         return;
       }
       console.error(
-        `${options.label} typing indicator rate limited; pausing for ${retryAfter}s:`,
+        `${this.options.label} typing indicator rate limited; pausing for ${retryAfter}s:`,
         error,
       );
-      retryAfterUntil = Date.now() + (retryAfter + 1) * 1000;
-      schedule();
+      this.retryAfterUntil = Date.now() + (retryAfter + 1) * 1000;
+      this.schedule();
     }
   }
-
-  return {
-    start: () => {
-      stopped = false;
-      schedule();
-    },
-    schedule,
-    stop: () => {
-      stopped = true;
-      timeout.clear();
-    },
-  };
 }
