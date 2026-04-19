@@ -1,15 +1,42 @@
 import { GrammyError, type Context } from "grammy";
 import { PromiseLimit, TimeoutManager } from "../utils.ts";
 
-export interface TelegramChatActionManager {
-  reset: () => void;
-  stop: () => void;
+export function normalizeUserMention({
+  text,
+  username,
+}: {
+  text: string;
+  username: string;
+}): string {
+  const match = text.match(/^(\/\w+)@(\w+)(?=\s|$)/);
+  if (match) {
+    const [prefix, command, target] = match;
+    if (target.toLowerCase() === username.toLowerCase()) {
+      const rest = text.slice(prefix.length);
+      return `${command}${rest}`;
+    }
+  }
+  return text;
 }
+
+export function formatTelegramSessionName(context: Context): string {
+  return ["tg", context.chat?.id ?? "unknown", context.message?.message_thread_id]
+    .filter(Boolean)
+    .join("-");
+}
+
+export function getTelegramRetryAfter(error: unknown): number | undefined {
+  if (error instanceof GrammyError && error.error_code === 429) {
+    return error.parameters.retry_after;
+  }
+}
+
+export type TelegramChatActionManager = ReturnType<typeof createTelegramChatActionManager>;
 
 export function createTelegramChatActionManager(options: {
   sendChatAction: () => Promise<unknown>;
   label: string;
-}): TelegramChatActionManager {
+}) {
   const intervalMs = 4000;
 
   let stopped = false;
@@ -47,43 +74,12 @@ export function createTelegramChatActionManager(options: {
     }
   }
 
-  schedule();
-
   return {
+    start: () => schedule(),
     reset: () => schedule(),
     stop: () => {
       stopped = true;
       timer.clear();
     },
   };
-}
-
-export function normalizeUserMention({
-  text,
-  username,
-}: {
-  text: string;
-  username: string;
-}): string {
-  const match = text.match(/^(\/\w+)@(\w+)(?=\s|$)/);
-  if (match) {
-    const [prefix, command, target] = match;
-    if (target.toLowerCase() === username.toLowerCase()) {
-      const rest = text.slice(prefix.length);
-      return `${command}${rest}`;
-    }
-  }
-  return text;
-}
-
-export function formatTelegramSessionName(context: Context): string {
-  return ["tg", context.chat?.id ?? "unknown", context.message?.message_thread_id]
-    .filter(Boolean)
-    .join("-");
-}
-
-export function getTelegramRetryAfter(error: unknown): number | undefined {
-  if (error instanceof GrammyError && error.error_code === 429) {
-    return error.parameters.retry_after;
-  }
 }
