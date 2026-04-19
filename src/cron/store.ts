@@ -80,7 +80,6 @@ export type CronJob = z.infer<typeof cronJobSchema>;
 export type CronTarget = z.infer<typeof cronTargetSchema>;
 export type CronTelegramTarget = z.infer<typeof telegramTargetSchema>;
 export type CronRun = z.infer<typeof cronRunSchema>;
-export type CronStore = ReturnType<typeof createCronStore>;
 
 export interface CreateCronStoreOptions {
   cronFile: string;
@@ -95,129 +94,152 @@ export interface AddCronJobOptions {
   target: CronTarget;
 }
 
-export function createCronStore(options: CreateCronStoreOptions) {
-  let cronFile = readCronFile(options.cronFile);
-  let cronStateFile = readCronStateFile(options.cronStateFile);
+export class CronStore {
+  cronFilePath: string;
+  cronStateFilePath: string;
+  cronFile: CronJobFile;
+  cronStateFile: CronStateFile;
 
-  function writeCronFile(nextFile: CronJobFile): void {
-    cronFile = cronJobFileSchema.parse(nextFile);
-    writeJsonFile(options.cronFile, cronFile);
+  constructor(options: CreateCronStoreOptions) {
+    this.cronFilePath = options.cronFile;
+    this.cronStateFilePath = options.cronStateFile;
+    this.cronFile = readCronFile(options.cronFile);
+    this.cronStateFile = readCronStateFile(options.cronStateFile);
   }
 
-  function writeCronStateFile(nextFile: CronStateFile): void {
-    cronStateFile = cronStateFileSchema.parse(nextFile);
-    writeJsonFile(options.cronStateFile, cronStateFile);
+  getFile(): CronJobFile {
+    return this.cronFile;
   }
 
-  function updateCronFile(updater: (file: CronJobFile) => void): void {
-    const nextFile = structuredClone(cronFile);
+  getStateFile(): CronStateFile {
+    return this.cronStateFile;
+  }
+
+  updateCronFile(updater: (file: CronJobFile) => void): void {
+    const nextFile = structuredClone(this.cronFile);
     updater(nextFile);
-    writeCronFile(nextFile);
+    this.writeCronFile(nextFile);
   }
 
-  function updateCronStateFile(updater: (file: CronStateFile) => void): void {
-    const nextFile = structuredClone(cronStateFile);
+  updateCronStateFile(updater: (file: CronStateFile) => void): void {
+    const nextFile = structuredClone(this.cronStateFile);
     updater(nextFile);
-    writeCronStateFile(nextFile);
+    this.writeCronStateFile(nextFile);
   }
 
-  return {
-    getFile: () => cronFile,
-    getStateFile: () => cronStateFile,
-    listJobs(): CronJob[] {
-      return Object.values(cronFile.jobs).sort((a, b) => a.id.localeCompare(b.id));
-    },
-    getJob(id: string): CronJob | undefined {
-      return cronFile.jobs[id];
-    },
-    addJob(job: AddCronJobOptions): CronJob {
-      const nextJob = cronJobSchema.parse({
-        ...job,
-        enabled: true,
-      });
-      updateCronFile((file) => {
-        if (file.jobs[nextJob.id]) {
-          throw new Error(`Cron job already exists: ${nextJob.id}`);
-        }
-        file.jobs[nextJob.id] = nextJob;
-      });
-      return nextJob;
-    },
-    setJobEnabled(id: string, enabled: boolean): CronJob {
-      let nextJob: CronJob | undefined;
-      updateCronFile((file) => {
-        const job = file.jobs[id];
-        if (!job) {
-          throw new Error(`Unknown cron job: ${id}`);
-        }
-        job.enabled = enabled;
-        nextJob = job;
-      });
-      return nextJob!;
-    },
-    deleteJob(id: string): void {
-      updateCronFile((file) => {
-        if (!file.jobs[id]) {
-          throw new Error(`Unknown cron job: ${id}`);
-        }
-        delete file.jobs[id];
-      });
-      updateCronStateFile((file) => {
-        delete file.runs[id];
-      });
-    },
-    getRun(options: { cronId: string; scheduledAt: string }): CronRun | undefined {
-      return cronStateFile.runs[options.cronId]?.[options.scheduledAt];
-    },
-    getLatestRun(cronId: string): CronRun | undefined {
-      const runs = Object.values(cronStateFile.runs[cronId] ?? {});
-      runs.sort((a, b) => b.scheduledAt.localeCompare(a.scheduledAt));
-      return runs[0];
-    },
-    startRun(options: {
-      cronId: string;
-      scheduledAt: string;
-      startedAt: string;
-    }): CronRun | undefined {
-      let run: CronRun | undefined;
-      updateCronStateFile((file) => {
-        file.runs[options.cronId] ??= {};
-        if (file.runs[options.cronId][options.scheduledAt]) {
-          return;
-        }
-        run = {
-          id: randomUUID(),
-          scheduledAt: options.scheduledAt,
-          startedAt: options.startedAt,
-          status: "running",
-        };
-        file.runs[options.cronId][options.scheduledAt] = run;
-      });
-      return run;
-    },
-    finishRun(options: {
-      cronId: string;
-      scheduledAt: string;
-      finishedAt: string;
-      status: "succeeded" | "failed";
-      error?: string;
-    }): CronRun {
-      let nextRun: CronRun | undefined;
-      updateCronStateFile((file) => {
-        const run = file.runs[options.cronId]?.[options.scheduledAt];
-        if (!run) {
-          throw new Error(
-            `Cannot finish missing cron run: ${options.cronId} ${options.scheduledAt}`,
-          );
-        }
-        run.finishedAt = options.finishedAt;
-        run.status = options.status;
-        run.error = options.error;
-        nextRun = run;
-      });
-      return nextRun!;
-    },
-  };
+  listJobs(): CronJob[] {
+    return Object.values(this.cronFile.jobs).sort((a, b) => a.id.localeCompare(b.id));
+  }
+
+  getJob(id: string): CronJob | undefined {
+    return this.cronFile.jobs[id];
+  }
+
+  addJob(job: AddCronJobOptions): CronJob {
+    const nextJob = cronJobSchema.parse({
+      ...job,
+      enabled: true,
+    });
+    this.updateCronFile((file) => {
+      if (file.jobs[nextJob.id]) {
+        throw new Error(`Cron job already exists: ${nextJob.id}`);
+      }
+      file.jobs[nextJob.id] = nextJob;
+    });
+    return nextJob;
+  }
+
+  setJobEnabled(id: string, enabled: boolean): CronJob {
+    let nextJob: CronJob | undefined;
+    this.updateCronFile((file) => {
+      const job = file.jobs[id];
+      if (!job) {
+        throw new Error(`Unknown cron job: ${id}`);
+      }
+      job.enabled = enabled;
+      nextJob = job;
+    });
+    return nextJob!;
+  }
+
+  deleteJob(id: string): void {
+    this.updateCronFile((file) => {
+      if (!file.jobs[id]) {
+        throw new Error(`Unknown cron job: ${id}`);
+      }
+      delete file.jobs[id];
+    });
+    this.updateCronStateFile((file) => {
+      delete file.runs[id];
+    });
+  }
+
+  getRun(options: { cronId: string; scheduledAt: string }): CronRun | undefined {
+    return this.cronStateFile.runs[options.cronId]?.[options.scheduledAt];
+  }
+
+  getLatestRun(cronId: string): CronRun | undefined {
+    const runs = Object.values(this.cronStateFile.runs[cronId] ?? {});
+    runs.sort((a, b) => b.scheduledAt.localeCompare(a.scheduledAt));
+    return runs[0];
+  }
+
+  startRun(options: {
+    cronId: string;
+    scheduledAt: string;
+    startedAt: string;
+  }): CronRun | undefined {
+    let run: CronRun | undefined;
+    this.updateCronStateFile((file) => {
+      file.runs[options.cronId] ??= {};
+      if (file.runs[options.cronId][options.scheduledAt]) {
+        return;
+      }
+      run = {
+        id: randomUUID(),
+        scheduledAt: options.scheduledAt,
+        startedAt: options.startedAt,
+        status: "running",
+      };
+      file.runs[options.cronId][options.scheduledAt] = run;
+    });
+    return run;
+  }
+
+  finishRun(options: {
+    cronId: string;
+    scheduledAt: string;
+    finishedAt: string;
+    status: "succeeded" | "failed";
+    error?: string;
+  }): CronRun {
+    let nextRun: CronRun | undefined;
+    this.updateCronStateFile((file) => {
+      const run = file.runs[options.cronId]?.[options.scheduledAt];
+      if (!run) {
+        throw new Error(`Cannot finish missing cron run: ${options.cronId} ${options.scheduledAt}`);
+      }
+      run.finishedAt = options.finishedAt;
+      run.status = options.status;
+      run.error = options.error;
+      nextRun = run;
+    });
+    return nextRun!;
+  }
+
+  writeCronFile(nextFile: CronJobFile): void {
+    this.cronFile = cronJobFileSchema.parse(nextFile);
+    writeJsonFile(this.cronFilePath, this.cronFile);
+  }
+
+  writeCronStateFile(nextFile: CronStateFile): void {
+    this.cronStateFile = cronStateFileSchema.parse(nextFile);
+    writeJsonFile(this.cronStateFilePath, this.cronStateFile);
+  }
+}
+
+export function createCronStore(options: CreateCronStoreOptions): CronStore {
+  return new CronStore(options);
 }
 
 function readCronFile(file: string): CronJobFile {
