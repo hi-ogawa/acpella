@@ -38,10 +38,17 @@ export class StateFileManager<T> {
     }
   }
 
+  reload() {
+    const { file, defaultValue } = this.options;
+    const newData = readJsonFile(file, defaultValue);
+    this.options.parse(newData);
+    this.data = newData;
+  }
+
   set(updater: (data: T) => void): void {
     const clone = structuredClone(this.data);
     updater(clone);
-    this.options.parse(clone); // validate
+    this.options.parse(clone);
     this.data = clone;
     writeJsonFile(this.options.file, this.data);
   }
