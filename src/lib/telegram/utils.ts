@@ -36,6 +36,8 @@ type TelegramChatActionManagerOptions = {
   label: string;
 };
 
+// Matches OpenClaw's Telegram typing cadence: immediate first cue, then 3s keepalive.
+// See refs/openclaw/src/channels/typing.ts and refs/openclaw/src/channels/typing-lifecycle.ts.
 export class TelegramChatActionManager {
   options: TelegramChatActionManagerOptions;
   timeout = new TimeoutManager();
@@ -49,14 +51,14 @@ export class TelegramChatActionManager {
 
   start(): void {
     this.stopped = false;
-    this.schedule();
+    void this.promiseLimit.run(() => this.pulse());
   }
 
   schedule(): void {
     if (this.stopped) {
       return;
     }
-    const delay = Math.max(4000, this.retryAfterUntil - Date.now(), 0);
+    const delay = Math.max(3000, this.retryAfterUntil - Date.now(), 0);
     this.timeout.set(() => void this.promiseLimit.run(() => this.pulse()), delay);
   }
 
