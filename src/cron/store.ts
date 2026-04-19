@@ -116,8 +116,10 @@ export class CronStore {
   }
 
   reload() {
-    this.jobFile = readCronFile(this.options.cronFile);
-    this.stateFile = readCronStateFile(this.options.cronStateFile);
+    const jobFile = readCronFileStrict(this.options.cronFile);
+    const stateFile = readCronStateFileStrict(this.options.cronStateFile);
+    this.jobFile = jobFile;
+    this.stateFile = stateFile;
   }
 
   setJobFile(updater: (file: CronJobFile) => void): void {
@@ -229,7 +231,7 @@ export class CronStore {
 function readCronFile(file: string): CronJobFile {
   if (fs.existsSync(file)) {
     try {
-      return cronJobFileSchema.parse(JSON.parse(fs.readFileSync(file, "utf8")));
+      return readCronFileStrict(file);
     } catch (e) {
       console.error("[cron] readCronFile failed:", e);
     }
@@ -240,10 +242,20 @@ function readCronFile(file: string): CronJobFile {
   };
 }
 
+function readCronFileStrict(file: string): CronJobFile {
+  if (!fs.existsSync(file)) {
+    return {
+      version: CRON_FILE_VERSION,
+      jobs: {},
+    };
+  }
+  return cronJobFileSchema.parse(JSON.parse(fs.readFileSync(file, "utf8")));
+}
+
 function readCronStateFile(file: string): CronStateFile {
   if (fs.existsSync(file)) {
     try {
-      return cronStateFileSchema.parse(JSON.parse(fs.readFileSync(file, "utf8")));
+      return readCronStateFileStrict(file);
     } catch (e) {
       console.error("[cron] readCronStateFile failed:", e);
     }
@@ -252,4 +264,14 @@ function readCronStateFile(file: string): CronStateFile {
     version: CRON_STATE_FILE_VERSION,
     runs: {},
   };
+}
+
+function readCronStateFileStrict(file: string): CronStateFile {
+  if (!fs.existsSync(file)) {
+    return {
+      version: CRON_STATE_FILE_VERSION,
+      runs: {},
+    };
+  }
+  return cronStateFileSchema.parse(JSON.parse(fs.readFileSync(file, "utf8")));
 }
