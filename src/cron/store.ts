@@ -124,40 +124,28 @@ export class CronStore {
     return this.jobFile.jobs[id];
   }
 
-  addJob(job: {
-    id: string;
-    schedule: string;
-    timezone: string;
-    prompt: string;
-    target: CronTarget;
-  }): CronJob {
-    const nextJob = cronJobSchema.parse({
-      ...job,
-      enabled: true,
-    });
+  addJob(job: CronJob) {
     this.setJobFile((file) => {
-      if (file.jobs[nextJob.id]) {
-        throw new Error(`Cron job already exists: ${nextJob.id}`);
+      if (file.jobs[job.id]) {
+        throw new Error(`Cron job already exists: ${job.id}`);
       }
-      file.jobs[nextJob.id] = nextJob;
+      file.jobs[job.id] = job;
     });
-    return nextJob;
   }
 
-  setJobEnabled(id: string, enabled: boolean): CronJob {
-    let nextJob: CronJob | undefined;
+  updateJob(id: string, patch: Partial<CronJob>) {
     this.setJobFile((file) => {
-      const job = file.jobs[id];
-      if (!job) {
+      if (!file.jobs[id]) {
         throw new Error(`Unknown cron job: ${id}`);
       }
-      job.enabled = enabled;
-      nextJob = job;
+      file.jobs[id] = {
+        ...file.jobs[id],
+        ...patch,
+      };
     });
-    return nextJob!;
   }
 
-  deleteJob(id: string): void {
+  deleteJob(id: string) {
     this.setJobFile((file) => {
       if (!file.jobs[id]) {
         throw new Error(`Unknown cron job: ${id}`);
