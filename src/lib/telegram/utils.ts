@@ -21,7 +21,8 @@ export function createTelegramChatActionManager(options: {
     if (stopped) {
       return;
     }
-    timer.set(() => promiseLimit.run(pulse), Math.max(intervalMs, retryAfterUntil - Date.now(), 0));
+    const delay = Math.max(intervalMs, retryAfterUntil - Date.now(), 0);
+    timer.set(() => promiseLimit.run(pulse), delay);
   }
 
   async function pulse() {
