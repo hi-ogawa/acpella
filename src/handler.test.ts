@@ -89,6 +89,7 @@ import { loadConfig, type AppConfig } from "./config";
 import { CronRunner } from "./cron/runner.ts";
 import { CronStore } from "./cron/store.ts";
 import { createHandler, type HandlerContext } from "./handler";
+import { formatTime } from "./lib/utils.ts";
 import { TEST_AGENT_COMMAND } from "./state";
 import { useFs } from "./test/helper.ts";
 
@@ -520,10 +521,9 @@ test("message metadata", async () => {
   `);
 });
 
-// TODO
 test("cron command", async ({ onTestFinished }) => {
   vi.useFakeTimers({
-    now: Date.UTC(2024, 0, 2, 3, 4, 0),
+    now: Date.parse("2026-04-18T00:00:00Z"),
   });
   onTestFinished(() => {
     vi.useRealTimers();
@@ -575,7 +575,7 @@ test("cron command", async ({ onTestFinished }) => {
       timezone: Asia/Jakarta
       target session: test
       delivery target: repl
-      next: 2024-01-02T10:05:00+07:00
+      next: 2026-04-18T07:01:00+07:00
       last: none"
   `);
   expect(await session.request("/cron show test-job")).toMatchInlineSnapshot(`
@@ -586,8 +586,60 @@ test("cron command", async ({ onTestFinished }) => {
     timezone: Asia/Jakarta
     target session: test
     delivery target: repl
-    next: 2024-01-02T10:05:00+07:00
+    next: 2026-04-18T07:01:00+07:00
     last: none
+    prompt: hello-cron"
+  `);
+  expect(await session.request("/cron status")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    cron runner: running
+    jobs: 1
+    enabled jobs: 1"
+  `);
+  expect(tester.cronDeliveries).toMatchInlineSnapshot(`[]`);
+  vi.advanceTimersToNextTimer();
+  expect(formatTime(Date.now(), tester.config.timezone)).toMatchInlineSnapshot(
+    `"2026-04-18T07:01:00+07:00"`,
+  );
+  expect(tester.cronDeliveries).toMatchInlineSnapshot(`[]`);
+  expect(await session.request("/cron show test-job")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    id: test-job
+    enabled: yes
+    schedule: * * * * *
+    timezone: Asia/Jakarta
+    target session: test
+    delivery target: repl
+    next: 2026-04-18T07:02:00+07:00
+    last: running, scheduled 2026-04-18T00:01:00Z
+    prompt: hello-cron"
+  `);
+  await vi.waitUntil(() => tester.cronDeliveries.length > 0);
+  expect(tester.cronDeliveries).toMatchInlineSnapshot(`
+    [
+      "echo: <trigger_metadata>
+    trigger: cron
+    cron_id: test-job
+    scheduled_at: 2026-04-18T07:01:00+07:00
+    started_at: 2026-04-18T07:01:00+07:00
+    timezone: Asia/Jakarta
+    session_name: test
+    </trigger_metadata>
+
+    hello-cron
+    ",
+    ]
+  `);
+  expect(await session.request("/cron show test-job")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    id: test-job
+    enabled: yes
+    schedule: * * * * *
+    timezone: Asia/Jakarta
+    target session: test
+    delivery target: repl
+    next: 2026-04-18T07:02:00+07:00
+    last: succeeded, scheduled 2026-04-18T00:01:00Z, finished 2026-04-18T00:01:00Z
     prompt: hello-cron"
   `);
 });
