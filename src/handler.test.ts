@@ -563,8 +563,7 @@ test("cron command", async ({ onTestFinished }) => {
     jobs: 0
     enabled jobs: 0"
   `);
-  expect(await session.request("/cron add test-job * * * * * echo: cron job"))
-    .toMatchInlineSnapshot(`
+  expect(await session.request("/cron add test-job * * * * * hello-cron")).toMatchInlineSnapshot(`
     "[⚙️ System]
     Added cron job: test-job"
   `);
@@ -588,6 +587,6 @@ test("cron command", async ({ onTestFinished }) => {
     delivery target: repl
     next: 2024-01-02T12:05:00+09:00
     last: none
-    prompt: echo: cron job"
+    prompt: hello-cron"
   `);
 });
