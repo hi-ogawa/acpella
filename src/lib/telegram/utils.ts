@@ -1,5 +1,5 @@
 import { GrammyError, type Context } from "grammy";
-import { PromiseSequencer, TimeoutManager } from "../utils.ts";
+import { PromiseLimit, TimeoutManager } from "../utils.ts";
 
 export interface TelegramChatActionManager {
   reset: () => void;
@@ -14,14 +14,14 @@ export function createTelegramChatActionManager(options: {
 
   let stopped = false;
   const timer = new TimeoutManager();
-  const sequencer = new PromiseSequencer();
+  const promiseLimit = new PromiseLimit();
   let retryAfterUntil = 0;
 
   function schedule() {
     if (stopped) {
       return;
     }
-    timer.set(() => sequencer.run(pulse), Math.max(intervalMs, retryAfterUntil - Date.now(), 0));
+    timer.set(() => promiseLimit.run(pulse), Math.max(intervalMs, retryAfterUntil - Date.now(), 0));
   }
 
   async function pulse() {

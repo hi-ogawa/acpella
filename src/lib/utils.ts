@@ -40,11 +40,12 @@ export class TimeoutManager {
   }
 }
 
-export class PromiseSequencer {
-  promise = Promise.resolve();
+export class PromiseLimit {
+  promise = Promise.resolve<unknown>(undefined);
 
-  run(callback: () => Promise<void>): void {
-    this.promise = this.promise.then(callback, callback);
-    this.promise.catch(() => {});
+  run<T>(callback: () => Promise<T>): Promise<T> {
+    const result = this.promise.then(callback, callback);
+    this.promise = result.catch(() => undefined);
+    return result;
   }
 }
