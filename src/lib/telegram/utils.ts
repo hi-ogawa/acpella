@@ -36,7 +36,9 @@ type TelegramChatActionManagerOptions = {
   logLabel: string;
 };
 
-// Matches OpenClaw's Telegram typing cadence: immediate first cue, then 3s keepalive.
+// Telegram chat actions last 5 seconds or less, so match OpenClaw's cadence:
+// immediate first cue, then 3s keepalive.
+// https://core.telegram.org/bots/api#sendchataction
 // See refs/openclaw/src/channels/typing.ts and refs/openclaw/src/channels/typing-lifecycle.ts.
 export class TelegramChatActionManager {
   options: TelegramChatActionManagerOptions;
