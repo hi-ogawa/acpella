@@ -88,29 +88,27 @@ interface CronStoreOptions {
 
 export class CronStore {
   options: CronStoreOptions;
-  cronFilePath: string;
-  cronStateFilePath: string;
   jobFile: CronJobFile;
   runFile: CronStateFile;
 
   constructor(options: CronStoreOptions) {
     this.options = { ...options };
-    this.cronFilePath = options.cronFile;
-    this.cronStateFilePath = options.cronStateFile;
     this.jobFile = readCronFile(options.cronFile);
     this.runFile = readCronStateFile(options.cronStateFile);
   }
 
-  updateCronFile(updater: (file: CronJobFile) => void): void {
+  setJobFile(updater: (file: CronJobFile) => void): void {
     const clone = structuredClone(this.jobFile);
     updater(clone);
-    this.writeCronFile(clone);
+    this.jobFile = cronJobFileSchema.parse(clone);
+    writeJsonFile(this.options.cronFile, this.jobFile);
   }
 
-  updateCronStateFile(updater: (file: CronStateFile) => void): void {
+  setRunFile(updater: (file: CronStateFile) => void): void {
     const clone = structuredClone(this.runFile);
     updater(clone);
-    this.writeCronStateFile(clone);
+    this.runFile = cronStateFileSchema.parse(clone);
+    writeJsonFile(this.options.cronStateFile, this.runFile);
   }
 
   listJobs(): CronJob[] {
@@ -132,7 +130,7 @@ export class CronStore {
       ...job,
       enabled: true,
     });
-    this.updateCronFile((file) => {
+    this.setJobFile((file) => {
       if (file.jobs[nextJob.id]) {
         throw new Error(`Cron job already exists: ${nextJob.id}`);
       }
@@ -143,7 +141,7 @@ export class CronStore {
 
   setJobEnabled(id: string, enabled: boolean): CronJob {
     let nextJob: CronJob | undefined;
-    this.updateCronFile((file) => {
+    this.setJobFile((file) => {
       const job = file.jobs[id];
       if (!job) {
         throw new Error(`Unknown cron job: ${id}`);
@@ -155,13 +153,13 @@ export class CronStore {
   }
 
   deleteJob(id: string): void {
-    this.updateCronFile((file) => {
+    this.setJobFile((file) => {
       if (!file.jobs[id]) {
         throw new Error(`Unknown cron job: ${id}`);
       }
       delete file.jobs[id];
     });
-    this.updateCronStateFile((file) => {
+    this.setRunFile((file) => {
       delete file.runs[id];
     });
   }
@@ -182,7 +180,7 @@ export class CronStore {
     startedAt: string;
   }): CronRun | undefined {
     let run: CronRun | undefined;
-    this.updateCronStateFile((file) => {
+    this.setRunFile((file) => {
       file.runs[options.cronId] ??= {};
       if (file.runs[options.cronId][options.scheduledAt]) {
         return;
@@ -206,7 +204,7 @@ export class CronStore {
     error?: string;
   }): CronRun {
     let nextRun: CronRun | undefined;
-    this.updateCronStateFile((file) => {
+    this.setRunFile((file) => {
       const run = file.runs[options.cronId]?.[options.scheduledAt];
       if (!run) {
         throw new Error(`Cannot finish missing cron run: ${options.cronId} ${options.scheduledAt}`);
@@ -217,16 +215,6 @@ export class CronStore {
       nextRun = run;
     });
     return nextRun!;
-  }
-
-  writeCronFile(nextFile: CronJobFile): void {
-    this.jobFile = cronJobFileSchema.parse(nextFile);
-    writeJsonFile(this.cronFilePath, this.jobFile);
-  }
-
-  writeCronStateFile(nextFile: CronStateFile): void {
-    this.runFile = cronStateFileSchema.parse(nextFile);
-    writeJsonFile(this.cronStateFilePath, this.runFile);
   }
 }
 
