@@ -49,7 +49,7 @@ test(getNextCronSchedule, () => {
 
 test(CronTimer, ({ onTestFinished }) => {
   vi.useFakeTimers({
-    now: Date.parse("2026-04-18T00:03:00Z"),
+    now: Date.parse("2026-04-18T00:00:00Z"),
   });
   onTestFinished(() => {
     vi.useRealTimers();
@@ -59,23 +59,48 @@ test(CronTimer, ({ onTestFinished }) => {
   const timer = new CronTimer({
     entry: {
       id: "test",
-      schedule: "* * * * *",
+      schedule: "*/2 * * * *",
       timezone: "UTC",
     },
     onDue: (event) => events.push(event),
   });
+  timer.start();
   onTestFinished(() => {
     timer.stop();
   });
-  timer.scheduledAt = Date.parse("2026-04-18T00:01:00Z");
 
-  timer.handleTimeout();
-
-  expect(events).toEqual([
-    {
-      id: "test",
-      scheduledAt: Date.parse("2026-04-18T00:01:00Z"),
-    },
-  ]);
-  expect(timer.scheduledAt).toBe(Date.parse("2026-04-18T00:02:00Z"));
+  // timer internally set timeout at most 1 minute
+  vi.advanceTimersToNextTimer();
+  expect(events).toMatchInlineSnapshot(`[]`);
+  vi.advanceTimersToNextTimer();
+  expect(events).toMatchInlineSnapshot(`
+    [
+      {
+        "id": "test",
+        "scheduledAt": 1776470520000,
+      },
+    ]
+  `);
+  vi.advanceTimersToNextTimer();
+  expect(events).toMatchInlineSnapshot(`
+    [
+      {
+        "id": "test",
+        "scheduledAt": 1776470520000,
+      },
+    ]
+  `);
+  vi.advanceTimersToNextTimer();
+  expect(events).toMatchInlineSnapshot(`
+    [
+      {
+        "id": "test",
+        "scheduledAt": 1776470520000,
+      },
+      {
+        "id": "test",
+        "scheduledAt": 1776470640000,
+      },
+    ]
+  `);
 });
