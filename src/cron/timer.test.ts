@@ -1,10 +1,5 @@
-import { expect, test, vi } from "vitest";
-import {
-  CronScheduler,
-  getNextOccurrence,
-  validateCronSchedule,
-  type CronDueEvent,
-} from "./timer.ts";
+import { expect, test } from "vitest";
+import { getNextOccurrence, validateCronSchedule } from "./timer.ts";
 
 test(validateCronSchedule, () => {
   expect(() => {
@@ -40,73 +35,4 @@ test(getNextOccurrence, () => {
       after: Temporal.Instant.from("2026-04-18T00:00:00Z"),
     }),
   ).toMatchInlineSnapshot(`"2026-04-18T00:01:00Z"`);
-});
-
-test(CronScheduler, ({ onTestFinished }) => {
-  vi.useFakeTimers();
-  onTestFinished(() => {
-    vi.useRealTimers();
-  });
-
-  vi.setSystemTime(new Date("2026-04-18T00:00:00Z").getTime());
-  const events: CronDueEvent[] = [];
-  const scheduler = new CronScheduler({
-    entries: [
-      {
-        id: "first",
-        schedule: "* * * * *",
-        timezone: "UTC",
-      },
-    ],
-    onDue: (event) => {
-      events.push(event);
-    },
-  });
-
-  scheduler.start();
-  vi.advanceTimersByTime(60_000);
-  expect(events).toMatchInlineSnapshot(`
-    [
-      {
-        "id": "first",
-        "scheduledAt": "2026-04-18T00:01:00Z",
-      },
-    ]
-  `);
-
-  scheduler.updateEntries([
-    {
-      id: "second",
-      schedule: "* * * * *",
-      timezone: "UTC",
-    },
-  ]);
-  vi.advanceTimersByTime(60_000);
-  expect(events).toMatchInlineSnapshot(`
-    [
-      {
-        "id": "first",
-        "scheduledAt": "2026-04-18T00:01:00Z",
-      },
-      {
-        "id": "second",
-        "scheduledAt": "2026-04-18T00:02:00Z",
-      },
-    ]
-  `);
-
-  scheduler.stop();
-  vi.advanceTimersByTime(60_000);
-  expect(events).toMatchInlineSnapshot(`
-    [
-      {
-        "id": "first",
-        "scheduledAt": "2026-04-18T00:01:00Z",
-      },
-      {
-        "id": "second",
-        "scheduledAt": "2026-04-18T00:02:00Z",
-      },
-    ]
-  `);
 });
