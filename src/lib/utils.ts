@@ -21,7 +21,13 @@ export function objectPickBy<K extends PropertyKey, V>(
 
 export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export function formatInstant(instant: Temporal.Instant, timezone?: string): string {
+export function formatTime(time: number | Temporal.Instant, timezone?: string): string {
+  let instant: Temporal.Instant;
+  if (typeof time === "number") {
+    instant = Temporal.Instant.fromEpochMilliseconds(time);
+  } else {
+    instant = time;
+  }
   if (timezone) {
     return instant.toZonedDateTimeISO(timezone).toString({
       calendarName: "never",

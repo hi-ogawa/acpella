@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { addIndent, formatInstant } from "./utils.ts";
+import { addIndent, formatTime } from "./utils.ts";
 
 const INCLUDE_LINE_RE = /^[^\S\r\n]*@(\S+)[^\S\r\n]*$/gm;
 const ACP_DIRECTIVE_LINE_RE = /^[^\S\r\n]*::acpella\s+(\S+)(?:\s+(.+?))?[^\S\r\n]*$/gm;
@@ -27,10 +27,7 @@ export interface MessageMetadata {
 }
 
 export function buildMessageMetadataPrompt(metadata: MessageMetadata): string {
-  const timestamp = formatInstant(
-    Temporal.Instant.fromEpochMilliseconds(metadata.timestamp),
-    metadata.timezone,
-  );
+  const timestamp = formatTime(metadata.timestamp, metadata.timezone);
   return `\
 <message_metadata>
 sender_timestamp: ${timestamp}

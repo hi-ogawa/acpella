@@ -8,6 +8,7 @@ export interface CronTimerEntry {
 
 export interface CronDueEvent {
   id: string;
+  // TODO: consolidate to unix timestamp number
   scheduledAt: Temporal.Instant;
 }
 

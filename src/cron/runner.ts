@@ -1,4 +1,4 @@
-import { formatError, formatInstant } from "../lib/utils.ts";
+import { formatError, formatTime } from "../lib/utils.ts";
 import type { CronJob, CronStore, CronTelegramTarget } from "./store.ts";
 import { CronScheduler, type CronDueEvent } from "./timer.ts";
 
@@ -48,25 +48,25 @@ export class CronRunner {
 
   async executeCronJob(job: CronJob, event: CronDueEvent) {
     const { store } = this.options;
-    const scheduledAt = formatInstant(event.scheduledAt);
+    const scheduledAt = formatTime(event.scheduledAt);
     if (store.getRun({ cronId: job.id, scheduledAt })) {
-      console.error("Cron run already exists for this schedule", {
+      console.error("[cron] Cron run already exists for this schedule", {
         cronId: job.id,
         scheduledAt,
       });
       return;
     }
-    const startedAt = Temporal.Now.instant();
+    const startedAt = Date.now();
     store.startRun({
       cronId: job.id,
       scheduledAt,
-      startedAt: formatInstant(startedAt),
+      startedAt: formatTime(startedAt),
     });
     try {
       const prompt = buildCronPrompt({
         cronId: job.id,
-        scheduledAt: formatInstant(event.scheduledAt, job.timezone),
-        startedAt: formatInstant(startedAt, job.timezone),
+        scheduledAt: formatTime(event.scheduledAt, job.timezone),
+        startedAt: formatTime(startedAt, job.timezone),
         timezone: job.timezone,
         sessionName: job.target.sessionName,
         prompt: job.prompt,
@@ -79,14 +79,14 @@ export class CronRunner {
       store.finishRun({
         cronId: job.id,
         scheduledAt,
-        finishedAt: formatInstant(Temporal.Now.instant()),
+        finishedAt: formatTime(Date.now()),
         status: "succeeded",
       });
     } catch (error) {
       store.finishRun({
         cronId: job.id,
         scheduledAt,
-        finishedAt: formatInstant(Temporal.Now.instant()),
+        finishedAt: formatTime(Date.now()),
         status: "failed",
         error: formatError(error),
       });
