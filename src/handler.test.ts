@@ -150,7 +150,7 @@ test("basic", async () => {
       /agent default [name] - Show or set the default agent.
 
     /cron
-      /cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> <timezone> <prompt...> - Add a cron job.
+      /cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> <prompt...> - Add a cron job.
       /cron list - List cron jobs.
       /cron show <id> - Show a cron job.
       /cron enable <id> - Enable a cron job.

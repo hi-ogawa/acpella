@@ -382,8 +382,7 @@ ${referencedSessions.length} session(s) still reference it.
     },
   ];
 
-  // TODO: infer timezone from config.timezone
-  const cronAddCommand = `/cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> <timezone> <prompt...>`;
+  const cronAddCommand = `/cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> <prompt...>`;
   const cronRunnerRefresh = () => handlerOptions.getCronRunner?.().refresh();
   const systemCronCommands: SystemCommandTree[string] = [
     {
@@ -409,13 +408,13 @@ ${referencedSessions.length} session(s) still reference it.
           // TODO: validate during parseCronAddArgs
           validateCronSchedule({
             schedule: parsed.schedule,
-            timezone: parsed.timezone,
+            timezone: config.timezone,
           });
           cronStore.addJob({
             id: parsed.id,
             enabled: true,
             schedule: parsed.schedule,
-            timezone: parsed.timezone,
+            timezone: config.timezone,
             prompt: parsed.prompt,
             target: {
               sessionName,

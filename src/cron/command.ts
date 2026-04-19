@@ -6,22 +6,20 @@ export function parseCronAddArgs(args: string[]):
   | {
       id: string;
       schedule: string;
-      timezone: string;
       prompt: string;
     }
   | undefined {
-  if (args.length < 8) {
+  if (args.length < 7) {
     return;
   }
-  const [id, minute, hour, dayOfMonth, month, dayOfWeek, timezone, ...promptParts] = args;
+  const [id, minute, hour, dayOfMonth, month, dayOfWeek, ...promptParts] = args;
   const prompt = promptParts.join(" ");
-  if (!id || !minute || !hour || !dayOfMonth || !month || !dayOfWeek || !timezone || !prompt) {
+  if (!id || !minute || !hour || !dayOfMonth || !month || !dayOfWeek || !prompt) {
     return;
   }
   return {
     id,
     schedule: [minute, hour, dayOfMonth, month, dayOfWeek].join(" "),
-    timezone,
     prompt,
   };
 }
