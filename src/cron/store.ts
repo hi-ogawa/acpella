@@ -90,6 +90,16 @@ const cronStateFileSchema = z.object({
   runs: z.record(cronIdSchema, z.record(z.string().min(1), cronRunSchema)),
 });
 
+const getCronJobFileDefault = (): CronJobFile => ({
+  version: CRON_FILE_VERSION,
+  jobs: {},
+});
+
+const getCronStateFileDefault = (): CronStateFile => ({
+  version: CRON_STATE_FILE_VERSION,
+  runs: {},
+});
+
 type CronJobFile = z.infer<typeof cronJobFileSchema>;
 type CronStateFile = z.infer<typeof cronStateFileSchema>;
 
@@ -236,20 +246,11 @@ function readCronFile(file: string): CronJobFile {
       console.error("[cron] readCronFile failed:", e);
     }
   }
-  return {
-    version: CRON_FILE_VERSION,
-    jobs: {},
-  };
+  return getCronJobFileDefault();
 }
 
 function readCronFileStrict(file: string): CronJobFile {
-  if (!fs.existsSync(file)) {
-    return {
-      version: CRON_FILE_VERSION,
-      jobs: {},
-    };
-  }
-  return cronJobFileSchema.parse(readJsonFile(file));
+  return cronJobFileSchema.parse(readJsonFile(file, getCronJobFileDefault));
 }
 
 function readCronStateFile(file: string): CronStateFile {
@@ -260,18 +261,9 @@ function readCronStateFile(file: string): CronStateFile {
       console.error("[cron] readCronStateFile failed:", e);
     }
   }
-  return {
-    version: CRON_STATE_FILE_VERSION,
-    runs: {},
-  };
+  return getCronStateFileDefault();
 }
 
 function readCronStateFileStrict(file: string): CronStateFile {
-  if (!fs.existsSync(file)) {
-    return {
-      version: CRON_STATE_FILE_VERSION,
-      runs: {},
-    };
-  }
-  return cronStateFileSchema.parse(readJsonFile(file));
+  return cronStateFileSchema.parse(readJsonFile(file, getCronStateFileDefault));
 }

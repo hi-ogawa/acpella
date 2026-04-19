@@ -12,3 +12,37 @@ export function readJsonFile<T>(file: string, defaultValue?: () => T): T {
   }
   return defaultValue();
 }
+
+type StateFileManagerOptions<T> = {
+  file: string;
+  parse: (data: unknown) => T;
+  defaultValue: () => T;
+};
+
+export class StateFileManager<T> {
+  options: StateFileManagerOptions<T>;
+  data: T;
+
+  constructor(options: StateFileManagerOptions<T>) {
+    this.options = options;
+    this.data = this.readState();
+  }
+
+  private readState() {
+    const { file, defaultValue } = this.options;
+    try {
+      return this.options.parse(readJsonFile(file, defaultValue));
+    } catch (e) {
+      console.error(`[StateFileManager] failed to read ${file}:`, e);
+      return defaultValue();
+    }
+  }
+
+  set(updater: (data: T) => void): void {
+    const clone = structuredClone(this.data);
+    updater(clone);
+    this.options.parse(clone); // validate
+    this.data = clone;
+    writeJsonFile(this.options.file, this.data);
+  }
+}
