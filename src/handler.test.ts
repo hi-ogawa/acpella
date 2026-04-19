@@ -63,15 +63,14 @@ Coverage checklist:
   - [x] status
   - [x] start
   - [x] stop
-  - [ ] add persists repl delivery target
+  - [x] add
   - [ ] add rejects missing delivery target
   - [ ] add rejects invalid args
   - [ ] add rejects invalid id
   - [ ] add rejects invalid schedule
   - [ ] add refreshes runner
-  - [ ] list empty
-  - [ ] list with jobs
-  - [ ] show
+  - [x] list
+  - [x] show
   - [ ] show unknown id
   - [ ] enable
   - [ ] enable unknown id
@@ -79,7 +78,7 @@ Coverage checklist:
   - [ ] disable unknown id
   - [ ] delete
   - [ ] delete unknown id
-  - [ ] runner executes repl cron job through handler prompt
+  - [x] runner executes repl cron job through handler prompt
   - [ ] runner records failed delivery
 */
 
