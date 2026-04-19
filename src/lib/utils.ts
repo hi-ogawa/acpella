@@ -20,3 +20,22 @@ export function objectPickBy<K extends PropertyKey, V>(
 }
 
 export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+export class TimeoutManager {
+  timer: ReturnType<typeof setTimeout> | undefined = undefined;
+
+  set(callback: () => void, ms: number) {
+    this.clear();
+    this.timer = setTimeout(() => {
+      this.timer = undefined;
+      callback();
+    }, ms);
+  }
+
+  clear() {
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.timer = undefined;
+    }
+  }
+}

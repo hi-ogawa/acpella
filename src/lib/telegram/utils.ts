@@ -1,40 +1,27 @@
 import { GrammyError, type Context } from "grammy";
+import { TimeoutManager } from "../utils.ts";
 
-export interface TelegramChatActionLoop {
+export interface TelegramChatActionManager {
   reset: () => void;
   stop: () => void;
 }
 
-export function createTelegramChatActionLoop(options: {
+export function createTelegramChatActionManager(options: {
   sendChatAction: () => Promise<unknown>;
   label: string;
   intervalMs?: number;
-}): TelegramChatActionLoop {
+}): TelegramChatActionManager {
   const intervalMs = options.intervalMs ?? 4000;
 
   let stopped = false;
-  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timer = new TimeoutManager();
   let retryAfterUntil = 0;
-
-  function clearTimer() {
-    if (timer) {
-      clearTimeout(timer);
-      timer = undefined;
-    }
-  }
 
   function schedule() {
     if (stopped) {
       return;
     }
-    clearTimer();
-    timer = setTimeout(
-      () => {
-        timer = undefined;
-        void pulse();
-      },
-      Math.max(intervalMs, retryAfterUntil - Date.now(), 0),
-    );
+    timer.set(() => void pulse(), Math.max(intervalMs, retryAfterUntil - Date.now(), 0));
   }
 
   async function pulse() {
@@ -43,12 +30,18 @@ export function createTelegramChatActionLoop(options: {
     }
     try {
       await options.sendChatAction();
+      schedule();
     } catch (error) {
       const retryAfter = getTelegramRetryAfter(error);
-      if (retryAfter) {
-        retryAfterUntil = Date.now() + (retryAfter + 1) * 1000;
+      if (!retryAfter) {
+        console.error(`${options.label} typing indicator failed:`, error);
+        return;
       }
-    } finally {
+      console.error(
+        `${options.label} typing indicator rate limited; pausing for ${retryAfter}s:`,
+        error,
+      );
+      retryAfterUntil = Date.now() + (retryAfter + 1) * 1000;
       schedule();
     }
   }
@@ -59,7 +52,7 @@ export function createTelegramChatActionLoop(options: {
     reset: () => schedule(),
     stop: () => {
       stopped = true;
-      clearTimer();
+      timer.clear();
     },
   };
 }

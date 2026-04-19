@@ -8,7 +8,7 @@ import { createHandler, type Handler } from "./handler.ts";
 import { handleSetupSystemd } from "./lib/systemd.ts";
 import { markdownToTelegramHtml } from "./lib/telegram/format-html.ts";
 import {
-  createTelegramChatActionLoop,
+  createTelegramChatActionManager,
   formatTelegramSessionName,
   getTelegramRetryAfter,
   normalizeUserMention,
@@ -164,14 +164,14 @@ Options:
       }
     };
 
-    const chatActionLoop = createTelegramChatActionLoop({
+    const chatActionManager = createTelegramChatActionManager({
       label,
       sendChatAction: () => ctx.replyWithChatAction("typing"),
     });
 
     const replyAndResetChatAction = async (...args: Parameters<typeof ctx.reply>) => {
       const result = await replyWithRetry(...args);
-      chatActionLoop.reset();
+      chatActionManager.reset();
       return result;
     };
 
@@ -211,7 +211,7 @@ Options:
       const message = error instanceof Error ? error.message : String(error);
       await replyAndResetChatAction(`Error: ${truncateString(message, 200)}`);
     } finally {
-      chatActionLoop.stop();
+      chatActionManager.stop();
     }
   });
 
