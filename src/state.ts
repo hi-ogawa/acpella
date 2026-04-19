@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
+import { readJsonFile, writeJsonFile } from "./lib/utils-node";
 
 const agentSchema = z.object({
   command: z.string().min(1),
@@ -76,7 +77,7 @@ export class SessionStateStore {
     const nextState = structuredClone(this.state);
     updater(nextState);
     this.state = stateSchema.parse(nextState);
-    writeFileData(this.file, this.state);
+    writeJsonFile(this.file, this.state);
   }
 
   // TODO: not used yet.
@@ -118,21 +119,16 @@ export class SessionStateStore {
   }
 }
 
-function readState(file: string) {
+function readState(file: string): State {
   if (fs.existsSync(file)) {
     try {
-      const data = fs.readFileSync(file, "utf8");
-      return stateSchema.parse(JSON.parse(data));
+      const data = readJsonFile(file);
+      return stateSchema.parse(data);
     } catch (e) {
       console.error("[state] readState failed:", e);
     }
   }
   return getInitialState();
-}
-
-function writeFileData(file: string, data: unknown): void {
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, JSON.stringify(data, null, 2));
 }
 
 export const TEST_AGENT_COMMAND = `node ${path.join(import.meta.dirname, "lib/test-agent.ts")}`;
