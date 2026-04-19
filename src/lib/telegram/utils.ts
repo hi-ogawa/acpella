@@ -31,23 +31,21 @@ export function getTelegramRetryAfter(error: unknown): number | undefined {
   }
 }
 
-type TelegramChatActionManagerOptions = {
-  send: () => Promise<unknown>;
-  logLabel: string;
-};
-
 // Telegram chat actions last 5 seconds or less, so match OpenClaw's cadence:
 // immediate first cue, then 3s keepalive.
 // https://core.telegram.org/bots/api#sendchataction
 // See refs/openclaw/src/channels/typing.ts and refs/openclaw/src/channels/typing-lifecycle.ts.
 export class TelegramChatActionManager {
-  options: TelegramChatActionManagerOptions;
+  options: {
+    send: () => Promise<unknown>;
+    logLabel: string;
+  };
   timeout = new TimeoutManager();
   promiseLimit = new PromiseLimit();
   stopped = true;
   retryAfterUntil = 0;
 
-  constructor(options: TelegramChatActionManagerOptions) {
+  constructor(options: TelegramChatActionManager["options"]) {
     this.options = options;
   }
 
