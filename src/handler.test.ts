@@ -58,11 +58,36 @@ Coverage checklist:
   - [ ] default query form
   - [ ] default unknown agent
   - [ ] default affects later session creation
+- /cron
+  - [x] bare help output
+  - [x] status
+  - [x] start
+  - [x] stop
+  - [ ] add persists repl delivery target
+  - [ ] add rejects missing delivery target
+  - [ ] add rejects invalid args
+  - [ ] add rejects invalid id
+  - [ ] add rejects invalid schedule
+  - [ ] add refreshes runner
+  - [ ] list empty
+  - [ ] list with jobs
+  - [ ] show
+  - [ ] show unknown id
+  - [ ] enable
+  - [ ] enable unknown id
+  - [ ] disable
+  - [ ] disable unknown id
+  - [ ] delete
+  - [ ] delete unknown id
+  - [ ] runner executes repl cron job through handler prompt
+  - [ ] runner records failed delivery
 */
 
 import fs from "node:fs";
 import { expect, test, vi } from "vitest";
 import { loadConfig, type AppConfig } from "./config";
+import { CronRunner } from "./cron/runner.ts";
+import { CronStore } from "./cron/store.ts";
 import { createHandler, type HandlerContext } from "./handler";
 import { TEST_AGENT_COMMAND } from "./state";
 import { useFs } from "./test/helper.ts";
@@ -71,12 +96,32 @@ async function createHandlerTester() {
   const { root } = useFs({ prefix: "handler" });
   const config = loadConfig({
     ACPELLA_HOME: root,
+    TEST_ACPELLA_TIMEZONE: "Asia/Jakarta",
+  });
+
+  const cronStore = new CronStore({
+    cronFile: config.cronFile,
+    cronStateFile: config.cronStateFile,
+  });
+  const cronDeliveries: string[] = [];
+  const cronRunner = new CronRunner({
+    store: cronStore,
+    agent: {
+      prompt: (options) => handler.prompt(options),
+    },
+    delivery: {
+      send: async ({ text }) => {
+        cronDeliveries.push(text);
+      },
+    },
   });
 
   const onServiceExit = vi.fn();
   const handler = await createHandler(config, {
     version: "v1.0.0-test",
     onServiceExit,
+    cronStore,
+    getCronRunner: () => cronRunner,
   });
 
   async function request(context: Omit<HandlerContext, "send">) {
@@ -88,9 +133,9 @@ async function createHandlerTester() {
     return sanitizeOutput(messages.join("\n"), config);
   }
 
-  function createSession(sessionName: string) {
+  function createSession(sessionName: string, context?: Partial<HandlerContext>) {
     return {
-      request: (text: string) => request({ sessionName, text }),
+      request: (text: string) => request({ ...context, sessionName, text }),
     };
   }
 
@@ -99,6 +144,9 @@ async function createHandlerTester() {
     request,
     createSession,
     onServiceExit,
+    cronStore,
+    cronRunner,
+    cronDeliveries,
   };
 }
 
@@ -143,6 +191,17 @@ test("basic", async () => {
       /agent new <name> <command...> - Save a new agent.
       /agent remove <name> - Remove an agent.
       /agent default [name] - Show or set the default agent.
+
+    /cron
+      /cron status - Show cron scheduler status.
+      /cron start - Start cron scheduler.
+      /cron stop - Stop cron scheduler.
+      /cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> <prompt...> - Add a cron job.
+      /cron list - List cron jobs.
+      /cron show <id> - Show a cron job.
+      /cron enable <id> - Enable a cron job.
+      /cron disable <id> - Disable a cron job.
+      /cron delete <id> - Delete a cron job.
 
     /verbose
       /verbose current - Show tool-call output setting.
@@ -458,5 +517,77 @@ test("message metadata", async () => {
     session_name: test
     </message_metadata>
     __keep_metadata: ok"
+  `);
+});
+
+// TODO
+test("cron command", async ({ onTestFinished }) => {
+  vi.useFakeTimers({
+    now: Date.UTC(2024, 0, 2, 3, 4, 0),
+  });
+  onTestFinished(() => {
+    vi.useRealTimers();
+  });
+
+  const tester = await createHandlerTester();
+  tester.cronRunner.start();
+  onTestFinished(() => {
+    tester.cronRunner.stop();
+  });
+
+  const session = tester.createSession("test", {
+    metadata: { cronDeliveryTarget: { repl: true } },
+  });
+  expect(await session.request("/cron status")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    cron runner: running
+    jobs: 0
+    enabled jobs: 0"
+  `);
+  expect(await session.request("/cron stop")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Cron runner stopped."
+  `);
+  expect(await session.request("/cron status")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    cron runner: stopped
+    jobs: 0
+    enabled jobs: 0"
+  `);
+  expect(await session.request("/cron start")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Cron runner started."
+  `);
+  expect(await session.request("/cron status")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    cron runner: running
+    jobs: 0
+    enabled jobs: 0"
+  `);
+  expect(await session.request("/cron add test-job * * * * * hello-cron")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Added cron job: test-job"
+  `);
+  expect(await session.request("/cron list")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    - test-job [enabled]
+      schedule: * * * * *
+      timezone: Asia/Jakarta
+      target session: test
+      delivery target: repl
+      next: 2024-01-02T10:05:00+07:00
+      last: none"
+  `);
+  expect(await session.request("/cron show test-job")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    id: test-job
+    enabled: yes
+    schedule: * * * * *
+    timezone: Asia/Jakarta
+    target session: test
+    delivery target: repl
+    next: 2024-01-02T10:05:00+07:00
+    last: none
+    prompt: hello-cron"
   `);
 });
