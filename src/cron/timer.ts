@@ -27,7 +27,7 @@ export class CronScheduler {
 
   start(): void {
     this.stopped = false;
-    this.refresh(this.options.entries);
+    this.refresh();
   }
 
   stop(): void {
@@ -35,14 +35,18 @@ export class CronScheduler {
     this.stopTimers();
   }
 
-  refresh(entries: CronTimerEntry[]): void {
+  update(entries: CronTimerEntry[]): void {
     this.options.entries = entries;
+    this.refresh();
+  }
+
+  refresh(): void {
     this.stopTimers();
     if (this.stopped) {
       return;
     }
 
-    for (const entry of entries) {
+    for (const entry of this.options.entries) {
       const timer = new CronTimer({
         entry,
         onDue: this.options.onDue,
