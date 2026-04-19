@@ -11,23 +11,14 @@ export interface CronDueEvent {
   scheduledAt: number;
 }
 
-const MAX_TIMER_DELAY_MS = 60_000;
-
-interface ScheduledEntry {
-  entry: CronTimerEntry;
-  next: number;
-}
-
 export interface CronSchedulerOptions {
   entries: CronTimerEntry[];
   onDue: (event: CronDueEvent) => void;
 }
 
 export class CronScheduler {
-  now = Date.now;
-  scheduledEntries = new Map<string, ScheduledEntry>();
+  timers: Record<string, CronTimer> = {};
   options: CronSchedulerOptions;
-  timeout?: ReturnType<typeof setTimeout>;
   stopped = true;
 
   constructor(options: CronSchedulerOptions) {
@@ -36,79 +27,36 @@ export class CronScheduler {
 
   start(): void {
     this.stopped = false;
-    this.updateEntries(this.options.entries);
+    this.refresh(this.options.entries);
   }
 
   stop(): void {
     this.stopped = true;
-    if (this.timeout) {
-      clearTimeout(this.timeout);
-      this.timeout = undefined;
-    }
+    this.stopTimers();
   }
 
-  updateEntries(entries: CronTimerEntry[]): void {
+  refresh(entries: CronTimerEntry[]): void {
     this.options.entries = entries;
-    this.scheduledEntries.clear();
-    const current = this.now();
+    this.stopTimers();
+    if (this.stopped) {
+      return;
+    }
+
     for (const entry of entries) {
-      this.scheduledEntries.set(entry.id, {
+      const timer = new CronTimer({
         entry,
-        next: getNextOccurrence({ ...entry, after: current }),
+        onDue: this.options.onDue,
       });
+      timer.start();
+      this.timers[entry.id] = timer;
     }
-    this.scheduleWakeup();
   }
 
-  scheduleWakeup(): void {
-    if (this.stopped) {
-      return;
+  stopTimers(): void {
+    for (const timer of Object.values(this.timers)) {
+      timer.stop();
     }
-    if (this.timeout) {
-      clearTimeout(this.timeout);
-      this.timeout = undefined;
-    }
-    if (this.scheduledEntries.size === 0) {
-      return;
-    }
-
-    const current = this.now();
-    let nextInstant: number | undefined;
-    for (const scheduledEntry of this.scheduledEntries.values()) {
-      if (nextInstant === undefined || scheduledEntry.next < nextInstant) {
-        nextInstant = scheduledEntry.next;
-      }
-    }
-    if (nextInstant === undefined) {
-      return;
-    }
-
-    const delay = Math.max(0, nextInstant - current);
-    this.timeout = setTimeout(() => this.runDueEntries(), Math.min(delay, MAX_TIMER_DELAY_MS));
-  }
-
-  runDueEntries(): void {
-    this.timeout = undefined;
-    if (this.stopped) {
-      return;
-    }
-
-    const current = this.now();
-    for (const scheduledEntry of this.scheduledEntries.values()) {
-      if (scheduledEntry.next > current) {
-        continue;
-      }
-      const due = scheduledEntry.next;
-      this.options.onDue({
-        id: scheduledEntry.entry.id,
-        scheduledAt: due,
-      });
-      scheduledEntry.next = getNextOccurrence({
-        ...scheduledEntry.entry,
-        after: due,
-      });
-    }
-    this.scheduleWakeup();
+    this.timers = {};
   }
 }
 
@@ -154,6 +102,7 @@ export class CronTimer {
 
     // sleep at most MAX_TIMER_DELAY_MS to avoid clock drift.
     // early wakeup is ignored by checking due time again in handleTimeout.
+    const MAX_TIMER_DELAY_MS = 60_000;
     const delay = Math.min(Math.max(0, this.scheduledAt - Date.now()), MAX_TIMER_DELAY_MS);
     this.timeout = setTimeout(() => this.handleTimeout(), delay);
   }

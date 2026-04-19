@@ -41,7 +41,7 @@ export class CronRunner {
 
   refresh() {
     const entries = this.options.store.listJobs().filter((job) => job.enabled);
-    this.scheduler.updateEntries(entries);
+    this.scheduler.refresh(entries);
   }
 
   async handleDueEvent(event: CronDueEvent): Promise<void> {
