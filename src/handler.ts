@@ -12,8 +12,7 @@ import type { CronDeliveryTarget, CronStore } from "./cron/store.ts";
 import { createCommandHandler } from "./lib/command.ts";
 import type { CommandTree } from "./lib/command.ts";
 import { buildFirstPrompt, buildMessageMetadataPrompt } from "./lib/prompt.ts";
-import { createReply, MESSAGE_SPLIT_BUDGET } from "./lib/reply.ts";
-import type { Reply } from "./lib/reply.ts";
+import { MESSAGE_SPLIT_BUDGET, ReplyManager } from "./lib/reply.ts";
 import { formatError } from "./lib/utils.ts";
 import { parseAgentSessionKey, SessionStateStore, toAgentSessionKey } from "./state.ts";
 import type { StateAgentSession, StateSession } from "./state.ts";
@@ -35,7 +34,7 @@ export interface HandlerContext {
 }
 
 interface HandlerExtraContext extends HandlerContext {
-  reply: Reply;
+  reply: ReplyManager;
 }
 
 type SystemCommandTree = CommandTree<HandlerExtraContext>;
@@ -673,7 +672,7 @@ home: ${config.home}
   });
 
   const handle: Handler["handle"] = async (context) => {
-    const reply = createReply({
+    const reply = new ReplyManager({
       send: context.send,
       limit: MESSAGE_SPLIT_BUDGET,
     });
