@@ -1,9 +1,5 @@
-import { afterEach, expect, test, vi } from "vitest";
+import { expect, onTestFinished, test, vi } from "vitest";
 import { normalizeUserMention, TelegramChatActionManager } from "./utils.ts";
-
-afterEach(() => {
-  vi.useRealTimers();
-});
 
 test(normalizeUserMention, () => {
   const username = "good_bot";
@@ -20,6 +16,10 @@ test(normalizeUserMention, () => {
 
 test("TelegramChatActionManager delays the first chat action by 1s", async () => {
   vi.useFakeTimers();
+  onTestFinished(() => {
+    vi.useRealTimers();
+  });
+
   const send = vi.fn(async () => undefined);
   const manager = new TelegramChatActionManager({
     send,
@@ -43,6 +43,10 @@ test("TelegramChatActionManager delays the first chat action by 1s", async () =>
 
 test("TelegramChatActionManager clears the delayed chat action on stop", async () => {
   vi.useFakeTimers();
+  onTestFinished(() => {
+    vi.useRealTimers();
+  });
+
   const send = vi.fn(async () => undefined);
   const manager = new TelegramChatActionManager({
     send,
