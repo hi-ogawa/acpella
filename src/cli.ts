@@ -14,6 +14,7 @@ import {
   formatTelegramSessionName,
   getTelegramRetryAfter,
   normalizeUserMention,
+  TelegramChatActionManager,
 } from "./lib/telegram/utils.ts";
 import { addIndent, sleep, truncateString } from "./lib/utils.ts";
 import { getVersion } from "./lib/version.ts";
@@ -181,6 +182,12 @@ Options:
       }),
     );
 
+    const chatActionManager = new TelegramChatActionManager({
+      send: () => ctx.replyWithChatAction("typing"),
+      logLabel: label,
+    });
+    chatActionManager.start();
+
     const replyWithRetry = async (...args: Parameters<typeof ctx.reply>) => {
       try {
         return await ctx.reply(...args);
@@ -241,6 +248,8 @@ Options:
       console.error(`${label} (response error)`, error);
       const message = error instanceof Error ? error.message : String(error);
       await replyWithRetry(`Error: ${truncateString(message, 200)}`);
+    } finally {
+      chatActionManager.stop();
     }
   });
 
