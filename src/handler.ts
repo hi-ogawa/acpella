@@ -578,12 +578,42 @@ enabled jobs: ${enabledJobs.length}
         tokens: [],
         help: "/status - Show service status.",
         run: async ({ reply }) => {
+          const state = stateStore.get();
+          const activeAgentSessions = new Set<string>();
+          for (const [agentKey] of Object.entries(state.agents)) {
+            try {
+              const manager = await getAgentManager(agentKey);
+              const agentSessions = await manager.listSessions();
+              for (const session of agentSessions.sessions) {
+                activeAgentSessions.add(
+                  toAgentSessionKey({ agentKey, agentSessionId: session.sessionId }),
+                );
+              }
+            } catch (e) {
+              console.error(`[acp] listSessions failed for agent ${agentKey}:`, e);
+            }
+          }
+          let sessionsOutput = "";
+          for (const [sessionName, stateSession] of Object.entries(state.sessions)) {
+            if (stateSession.agentKey && stateSession.agentSessionId) {
+              const agentSessionKey = toAgentSessionKey({
+                agentKey: stateSession.agentKey,
+                agentSessionId: stateSession.agentSessionId,
+              });
+              sessionsOutput += `- ${sessionName} -> ${agentSessionKey}`;
+              if (activeAgentSessions.has(agentSessionKey)) {
+                sessionsOutput += " (active)";
+              }
+              sessionsOutput += "\n";
+            }
+          }
           await reply.system(`\
 status: running
 version: ${handlerOptions.version ?? "(unknown)"}
-default agent: ${stateStore.get().defaultAgent}
+default agent: ${state.defaultAgent}
 home: ${config.home}
-`);
+sessions:
+${sessionsOutput || "(none)\n"}`);
         },
       },
     ],
