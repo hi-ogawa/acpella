@@ -58,12 +58,39 @@ Coverage checklist:
   - [ ] default query form
   - [ ] default unknown agent
   - [ ] default affects later session creation
+- /cron
+  - [x] bare help output
+  - [x] status
+  - [x] start
+  - [x] stop
+  - [x] reload
+  - [x] add
+  - [ ] add rejects missing delivery target
+  - [ ] add rejects invalid args
+  - [ ] add rejects invalid id
+  - [ ] add rejects invalid schedule
+  - [ ] add refreshes runner
+  - [x] list
+  - [x] show
+  - [ ] show unknown id
+  - [x] enable
+  - [ ] enable unknown id
+  - [x] disable
+  - [ ] disable unknown id
+  - [x] delete
+  - [ ] delete unknown id
+  - [x] runner executes repl cron job through handler prompt
+  - [ ] runner records failed delivery
 */
 
 import fs from "node:fs";
 import { expect, test, vi } from "vitest";
 import { loadConfig, type AppConfig } from "./config";
+import { CronRunner } from "./cron/runner.ts";
+import { CronStore } from "./cron/store.ts";
 import { createHandler, type HandlerContext } from "./handler";
+import { writeJsonFile } from "./lib/utils-node.ts";
+import { formatTime } from "./lib/utils.ts";
 import { TEST_AGENT_COMMAND } from "./state";
 import { useFs } from "./test/helper.ts";
 
@@ -71,12 +98,32 @@ async function createHandlerTester() {
   const { root } = useFs({ prefix: "handler" });
   const config = loadConfig({
     ACPELLA_HOME: root,
+    TEST_ACPELLA_TIMEZONE: "Asia/Jakarta",
+  });
+
+  const cronStore = new CronStore({
+    cronFile: config.cronFile,
+    cronStateFile: config.cronStateFile,
+  });
+  const cronDeliveries: string[] = [];
+  const cronRunner = new CronRunner({
+    store: cronStore,
+    agent: {
+      prompt: (options) => handler.prompt(options),
+    },
+    delivery: {
+      send: async ({ text }) => {
+        cronDeliveries.push(text);
+      },
+    },
   });
 
   const onServiceExit = vi.fn();
   const handler = await createHandler(config, {
     version: "v1.0.0-test",
     onServiceExit,
+    cronStore,
+    getCronRunner: () => cronRunner,
   });
 
   async function request(context: Omit<HandlerContext, "send">) {
@@ -88,9 +135,9 @@ async function createHandlerTester() {
     return sanitizeOutput(messages.join("\n"), config);
   }
 
-  function createSession(sessionName: string) {
+  function createSession(sessionName: string, context?: Partial<HandlerContext>) {
     return {
-      request: (text: string) => request({ sessionName, text }),
+      request: (text: string) => request({ ...context, sessionName, text }),
     };
   }
 
@@ -99,6 +146,9 @@ async function createHandlerTester() {
     request,
     createSession,
     onServiceExit,
+    cronStore,
+    cronRunner,
+    cronDeliveries,
   };
 }
 
@@ -144,6 +194,18 @@ test("basic", async () => {
       /agent remove <name> - Remove an agent.
       /agent default [name] - Show or set the default agent.
 
+    /cron
+      /cron status - Show cron scheduler status.
+      /cron start - Start cron scheduler.
+      /cron stop - Stop cron scheduler.
+      /cron reload - Reload cron jobs from disk.
+      /cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> <prompt...> - Add a cron job.
+      /cron list - List cron jobs.
+      /cron show <id> - Show a cron job.
+      /cron enable <id> - Enable a cron job.
+      /cron disable <id> - Disable a cron job.
+      /cron delete <id> - Delete a cron job.
+
     /verbose
       /verbose current - Show tool-call output setting.
       /verbose on - Show tool-call updates.
@@ -175,6 +237,14 @@ test("basic", async () => {
         }
       }"
     `);
+});
+
+test("agent error", async () => {
+  const tester = await createHandlerTester();
+  const session = tester.createSession("test");
+  await expect(session.request("__throw_error__")).rejects.toMatchInlineSnapshot(
+    `[RequestError: Internal error]`,
+  );
 });
 
 test("service commands", async () => {
@@ -458,5 +528,422 @@ test("message metadata", async () => {
     session_name: test
     </message_metadata>
     __keep_metadata: ok"
+  `);
+});
+
+test("cron reload command", async ({ onTestFinished }) => {
+  vi.useFakeTimers({
+    now: Date.parse("2026-04-18T00:00:00Z"),
+  });
+  onTestFinished(() => {
+    vi.useRealTimers();
+  });
+
+  const tester = await createHandlerTester();
+  tester.cronRunner.start();
+  onTestFinished(() => {
+    tester.cronRunner.stop();
+  });
+
+  const session = tester.createSession("test", {
+    metadata: { cronDeliveryTarget: { repl: true } },
+  });
+  expect(await session.request("/cron list")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    No cron jobs."
+  `);
+
+  writeJsonFile(tester.config.cronFile, {
+    version: 1,
+    jobs: {
+      "file-job": {
+        id: "file-job",
+        enabled: true,
+        schedule: "2 * * * *",
+        timezone: tester.config.timezone,
+        prompt: "hello-from-file",
+        target: {
+          sessionName: "test",
+          delivery: { repl: true },
+        },
+      },
+    },
+  });
+
+  expect(await session.request("/cron reload")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Reloaded cron jobs."
+  `);
+  expect(await session.request("/cron list")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    - file-job [enabled]
+      schedule: 2 * * * *
+      timezone: Asia/Jakarta
+      target session: test
+      delivery target: repl
+      next: 2026-04-18T07:02:00+07:00
+      last: none"
+  `);
+
+  writeJsonFile(tester.config.cronFile, {
+    version: 12.34,
+    jobs: {},
+  });
+  expect(await session.request("/cron reload")).toContain(
+    "[⚙️ System]\nFailed to reload cron jobs:",
+  );
+  expect(await session.request("/cron list")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    - file-job [enabled]
+      schedule: 2 * * * *
+      timezone: Asia/Jakarta
+      target session: test
+      delivery target: repl
+      next: 2026-04-18T07:02:00+07:00
+      last: none"
+  `);
+
+  vi.advanceTimersToNextTimer();
+  vi.advanceTimersToNextTimer();
+  expect(formatTime(Date.now(), tester.config.timezone)).toMatchInlineSnapshot(
+    `"2026-04-18T07:02:00+07:00"`,
+  );
+  await vi.waitUntil(() => tester.cronDeliveries.length > 0);
+  expect(tester.cronDeliveries).toMatchInlineSnapshot(`
+    [
+      "echo: <trigger_metadata>
+    trigger: cron
+    cron_id: file-job
+    scheduled_at: 2026-04-18T07:02:00+07:00
+    started_at: 2026-04-18T07:02:00+07:00
+    timezone: Asia/Jakarta
+    session_name: test
+    </trigger_metadata>
+
+    hello-from-file
+    ",
+    ]
+  `);
+});
+
+test("cron command", async ({ onTestFinished }) => {
+  vi.useFakeTimers({
+    now: Date.parse("2026-04-18T00:00:00Z"),
+  });
+  onTestFinished(() => {
+    vi.useRealTimers();
+  });
+
+  const tester = await createHandlerTester();
+  tester.cronRunner.start();
+  onTestFinished(() => {
+    tester.cronRunner.stop();
+  });
+
+  const session = tester.createSession("test", {
+    metadata: { cronDeliveryTarget: { repl: true } },
+  });
+  expect(await session.request("/cron status")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    cron runner: running
+    jobs: 0
+    enabled jobs: 0"
+  `);
+  expect(await session.request("/cron stop")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Cron runner stopped."
+  `);
+  expect(await session.request("/cron status")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    cron runner: stopped
+    jobs: 0
+    enabled jobs: 0"
+  `);
+  expect(await session.request("/cron start")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Cron runner started."
+  `);
+  expect(await session.request("/cron status")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    cron runner: running
+    jobs: 0
+    enabled jobs: 0"
+  `);
+  expect(await session.request("/cron add test-job * * * * * hello-cron")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Added cron job: test-job"
+  `);
+  expect(await session.request("/cron list")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    - test-job [enabled]
+      schedule: * * * * *
+      timezone: Asia/Jakarta
+      target session: test
+      delivery target: repl
+      next: 2026-04-18T07:01:00+07:00
+      last: none"
+  `);
+  expect(await session.request("/cron show test-job")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    id: test-job
+    enabled: yes
+    schedule: * * * * *
+    timezone: Asia/Jakarta
+    target session: test
+    delivery target: repl
+    next: 2026-04-18T07:01:00+07:00
+    last: none
+    prompt: hello-cron"
+  `);
+  expect(await session.request("/cron status")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    cron runner: running
+    jobs: 1
+    enabled jobs: 1"
+  `);
+  expect(tester.cronDeliveries).toMatchInlineSnapshot(`[]`);
+
+  vi.advanceTimersToNextTimer();
+  expect(formatTime(Date.now(), tester.config.timezone)).toMatchInlineSnapshot(
+    `"2026-04-18T07:01:00+07:00"`,
+  );
+  expect(tester.cronDeliveries).toMatchInlineSnapshot(`[]`);
+  expect(await session.request("/cron show test-job")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    id: test-job
+    enabled: yes
+    schedule: * * * * *
+    timezone: Asia/Jakarta
+    target session: test
+    delivery target: repl
+    next: 2026-04-18T07:02:00+07:00
+    last: running, scheduled 2026-04-18T00:01:00Z
+    prompt: hello-cron"
+  `);
+
+  await vi.waitUntil(() => tester.cronDeliveries.length > 0);
+  expect(tester.cronDeliveries).toMatchInlineSnapshot(`
+    [
+      "echo: <trigger_metadata>
+    trigger: cron
+    cron_id: test-job
+    scheduled_at: 2026-04-18T07:01:00+07:00
+    started_at: 2026-04-18T07:01:00+07:00
+    timezone: Asia/Jakarta
+    session_name: test
+    </trigger_metadata>
+
+    hello-cron
+    ",
+    ]
+  `);
+  expect(await session.request("/cron show test-job")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    id: test-job
+    enabled: yes
+    schedule: * * * * *
+    timezone: Asia/Jakarta
+    target session: test
+    delivery target: repl
+    next: 2026-04-18T07:02:00+07:00
+    last: succeeded, scheduled 2026-04-18T00:01:00Z, finished 2026-04-18T00:01:00Z
+    prompt: hello-cron"
+  `);
+  tester.cronDeliveries.length = 0;
+
+  expect(await session.request("/cron add other-job 3 * * * * hello-other")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Added cron job: other-job"
+  `);
+
+  expect(await session.request("/cron disable test-job")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Disabled cron job: test-job"
+  `);
+  expect(await session.request("/cron list")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    - test-job [disabled]
+      schedule: * * * * *
+      timezone: Asia/Jakarta
+      target session: test
+      delivery target: repl
+      next: none
+      last: succeeded, scheduled 2026-04-18T00:01:00Z, finished 2026-04-18T00:01:00Z
+
+    - other-job [enabled]
+      schedule: 3 * * * *
+      timezone: Asia/Jakarta
+      target session: test
+      delivery target: repl
+      next: 2026-04-18T07:03:00+07:00
+      last: none"
+  `);
+
+  vi.advanceTimersToNextTimer();
+  vi.advanceTimersToNextTimer();
+  expect(formatTime(Date.now(), tester.config.timezone)).toMatchInlineSnapshot(
+    `"2026-04-18T07:03:00+07:00"`,
+  );
+  expect(tester.cronDeliveries).toMatchInlineSnapshot(`[]`);
+  expect(await session.request("/cron show other-job")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    id: other-job
+    enabled: yes
+    schedule: 3 * * * *
+    timezone: Asia/Jakarta
+    target session: test
+    delivery target: repl
+    next: 2026-04-18T08:03:00+07:00
+    last: running, scheduled 2026-04-18T00:03:00Z
+    prompt: hello-other"
+  `);
+
+  await vi.waitUntil(() => tester.cronDeliveries.length > 0);
+  expect(tester.cronDeliveries).toMatchInlineSnapshot(`
+    [
+      "echo: <trigger_metadata>
+    trigger: cron
+    cron_id: other-job
+    scheduled_at: 2026-04-18T07:03:00+07:00
+    started_at: 2026-04-18T07:03:00+07:00
+    timezone: Asia/Jakarta
+    session_name: test
+    </trigger_metadata>
+
+    hello-other
+    ",
+    ]
+  `);
+  expect(await session.request("/cron list")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    - test-job [disabled]
+      schedule: * * * * *
+      timezone: Asia/Jakarta
+      target session: test
+      delivery target: repl
+      next: none
+      last: succeeded, scheduled 2026-04-18T00:01:00Z, finished 2026-04-18T00:01:00Z
+
+    - other-job [enabled]
+      schedule: 3 * * * *
+      timezone: Asia/Jakarta
+      target session: test
+      delivery target: repl
+      next: 2026-04-18T08:03:00+07:00
+      last: succeeded, scheduled 2026-04-18T00:03:00Z, finished 2026-04-18T00:03:00Z"
+  `);
+
+  expect(await session.request("/cron enable test-job")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Enabled cron job: test-job"
+  `);
+  expect(await session.request("/cron status")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    cron runner: running
+    jobs: 2
+    enabled jobs: 2"
+  `);
+  expect(await session.request("/cron delete test-job")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Deleted cron job: test-job"
+  `);
+  expect(await session.request("/cron list")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    - other-job [enabled]
+      schedule: 3 * * * *
+      timezone: Asia/Jakarta
+      target session: test
+      delivery target: repl
+      next: 2026-04-18T08:03:00+07:00
+      last: succeeded, scheduled 2026-04-18T00:03:00Z, finished 2026-04-18T00:03:00Z"
+  `);
+  expect(await session.request("/cron status")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    cron runner: running
+    jobs: 1
+    enabled jobs: 1"
+  `);
+});
+
+test("cron error delivery", async ({ onTestFinished }) => {
+  vi.useFakeTimers({
+    now: Date.parse("2026-04-18T00:00:00Z"),
+  });
+  onTestFinished(() => {
+    vi.useRealTimers();
+  });
+
+  const tester = await createHandlerTester();
+  tester.cronRunner.start();
+  onTestFinished(() => {
+    tester.cronRunner.stop();
+  });
+
+  const session = tester.createSession("test", {
+    metadata: { cronDeliveryTarget: { repl: true } },
+  });
+  expect(await session.request("/cron add test-job * * * * * __throw_error__"))
+    .toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Added cron job: test-job"
+  `);
+  expect(await session.request("/cron show test-job")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    id: test-job
+    enabled: yes
+    schedule: * * * * *
+    timezone: Asia/Jakarta
+    target session: test
+    delivery target: repl
+    next: 2026-04-18T07:01:00+07:00
+    last: none
+    prompt: __throw_error__"
+  `);
+  expect(tester.cronDeliveries).toMatchInlineSnapshot(`[]`);
+
+  vi.advanceTimersToNextTimer();
+  expect(formatTime(Date.now(), tester.config.timezone)).toMatchInlineSnapshot(
+    `"2026-04-18T07:01:00+07:00"`,
+  );
+  expect(tester.cronDeliveries).toMatchInlineSnapshot(`[]`);
+  expect(await session.request("/cron show test-job")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    id: test-job
+    enabled: yes
+    schedule: * * * * *
+    timezone: Asia/Jakarta
+    target session: test
+    delivery target: repl
+    next: 2026-04-18T07:02:00+07:00
+    last: running, scheduled 2026-04-18T00:01:00Z
+    prompt: __throw_error__"
+  `);
+
+  await vi.waitUntil(() => tester.cronDeliveries.length > 0);
+  expect(tester.cronDeliveries).toMatchInlineSnapshot(`
+    [
+      "[cron] test-job failed
+
+    scheduled_at: 2026-04-18T07:01:00+07:00
+    started_at: 2026-04-18T07:01:00+07:00
+    timezone: Asia/Jakarta
+    session_name: test
+
+    Error:
+    Internal error
+    ",
+    ]
+  `);
+  expect(await session.request("/cron show test-job")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    id: test-job
+    enabled: yes
+    schedule: * * * * *
+    timezone: Asia/Jakarta
+    target session: test
+    delivery target: repl
+    next: 2026-04-18T07:02:00+07:00
+    last: failed, scheduled 2026-04-18T00:01:00Z, finished 2026-04-18T00:01:00Z, error: Internal error
+    prompt: __throw_error__"
   `);
 });
