@@ -1,4 +1,4 @@
-import { AsyncDebouncer } from "@tanstack/pacer";
+import { Debouncer } from "@tanstack/pacer";
 
 // https://core.telegram.org/bots/api#sendmessage
 // > Text of the message to be sent, 1-4096 characters after entities parsing
@@ -12,22 +12,17 @@ export class ReplyManager {
   };
   buffer = "";
   sent = false;
-  sendQueue = new PromiseQueue();
-  flushDebouncer: AsyncDebouncer<() => Promise<void>>;
-  flushDebouncerError?: unknown;
+  sendQueue = new AsyncSequentialQueue();
+  flushDebouncer: AsyncDebounceManager;
 
   constructor(options: ReplyManager["options"]) {
     this.options = options;
-    this.flushDebouncer = new AsyncDebouncer(this.flush.bind(this), {
-      wait: IDLE_FLUSH_TIMEOUT_MS,
-      onError: (error) => {
-        this.flushDebouncerError = error;
-      },
+    this.flushDebouncer = new AsyncDebounceManager({
+      task: () => this.flushImpl(),
+      timeout: IDLE_FLUSH_TIMEOUT_MS,
     });
   }
 
-  // sequentialized to surface preceding errors
-  // from asynchronous idle timeout send
   send(text: string): Promise<void> {
     return this.sendQueue.run(() => this.sendImpl(text));
   }
@@ -45,7 +40,7 @@ export class ReplyManager {
   }
 
   async write(text: string): Promise<void> {
-    await this.checkError();
+    await this.waitQueue();
     this.buffer += text;
     while (this.buffer.length > this.options.limit) {
       const result = splitHead(this.buffer, this.options.limit);
@@ -55,12 +50,16 @@ export class ReplyManager {
         await this.send(part);
       }
     }
-    void this.flushDebouncer.maybeExecute();
+    this.flushDebouncer.schedule();
   }
 
   async flush(): Promise<void> {
     this.flushDebouncer.cancel();
-    await this.checkError();
+    await this.waitQueue();
+    await this.flushImpl();
+  }
+
+  private async flushImpl(): Promise<void> {
     const buffer = this.buffer.trim();
     this.buffer = "";
     if (!buffer) {
@@ -76,22 +75,44 @@ export class ReplyManager {
     }
   }
 
-  private async checkError() {
+  private async waitQueue() {
     await this.sendQueue.promise;
-    if (this.flushDebouncerError) {
-      throw this.flushDebouncerError;
-    }
+    await this.flushDebouncer.queue.promise;
   }
 }
 
-class PromiseQueue {
+// sequentialize async function calls and surface preceding errors
+class AsyncSequentialQueue {
   promise: Promise<unknown> = Promise.resolve();
+  error?: unknown;
 
   run<T>(fn: () => Promise<T>): Promise<T> {
     const result = this.promise.then(fn);
+    result.catch((e) => {
+      this.error = e;
+    });
     this.promise = result;
     return result;
   }
+}
+
+class AsyncDebounceManager {
+  debouncer: Debouncer<() => void>;
+  queue: AsyncSequentialQueue = new AsyncSequentialQueue();
+
+  constructor(options: { task: () => Promise<void>; timeout: number }) {
+    this.debouncer = new Debouncer(
+      () => {
+        void this.queue.run(() => options.task());
+      },
+      {
+        wait: options.timeout,
+      },
+    );
+  }
+
+  schedule = () => this.debouncer.maybeExecute();
+  cancel = () => this.debouncer.cancel();
 }
 
 function splitMessageText(text: string, limit: number): string[] {
