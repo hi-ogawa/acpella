@@ -39,9 +39,9 @@ export class ReplyManager {
   }
 
   async flush(): Promise<void> {
-    const buffer = this.buffer;
+    const buffer = this.buffer.trim();
     this.buffer = "";
-    if (!buffer.trim()) {
+    if (!buffer) {
       return;
     }
     await this.send(buffer);
