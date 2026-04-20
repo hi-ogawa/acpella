@@ -265,7 +265,7 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
           stateStore.setSession(sessionName, { agentKey });
         }
         stateStore.setSession(sessionName, { agentSessionId: undefined });
-        await handlePrompt({ ...context, text: "" });
+        await context.reply.system("New session ready.");
       },
     },
     {
