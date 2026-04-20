@@ -24,7 +24,7 @@ Coverage checklist:
   - [x] new with default agent
   - [ ] new with named agent
   - [x] new resets agentSessionId before creating a fresh ACP session
-  - [x] new sends an empty prompt
+  - [x] new waits for next prompt before ACP session bootstrap
   - [x] new unknown agent
   - [x] new agent startup failure
   - [x] load with agent:sessionId
@@ -295,7 +295,11 @@ test("session commands", async () => {
     "[⚙️ System]
     - test -> test:__testSession1 (active)"
   `);
-  expect(await session.request("/session new")).toMatchInlineSnapshot(`"echo: (empty)"`);
+  expect(await session.request("/session new")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    New session ready."
+  `);
+  expect(await session.request("test-prompt")).toMatchInlineSnapshot(`"echo: test-prompt"`);
   expect(await session.request("/session current")).toMatchInlineSnapshot(`
     "[⚙️ System]
     session: test
@@ -376,7 +380,11 @@ test("agent command", async () => {
     "[⚙️ System]
     Saved new agent: test-error"
   `);
-  await expect(session.request("/session new test-error")).rejects.toMatchInlineSnapshot(
+  expect(await session.request("/session new test-error")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    New session ready."
+  `);
+  await expect(session.request("test-prompt")).rejects.toMatchInlineSnapshot(
     `[Error: ACP agent failed to start: spawn no-such-command ENOENT]`,
   );
   await expect(session.request("/agent new bad:key no-such-command")).rejects
@@ -435,7 +443,11 @@ test("agent command", async () => {
     Cannot remove agent: test-error
     1 session(s) still reference it."
   `);
-  expect(await session.request("/session new test2")).toMatchInlineSnapshot(`"echo: (empty)"`);
+  expect(await session.request("/session new test2")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    New session ready."
+  `);
+  expect(await session.request("test-prompt")).toMatchInlineSnapshot(`"echo: test-prompt"`);
   expect(await session.request("/session current")).toMatchInlineSnapshot(`
     "[⚙️ System]
     session: test
