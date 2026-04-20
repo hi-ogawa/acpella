@@ -97,6 +97,8 @@ class PromiseLane {
 }
 
 class AsyncDebounceManager {
+  // don't use AsyncDebouncer since it's semantics is overkill
+  // and more misleading to integrate for this use case
   debouncer: Debouncer<() => void>;
   lane: PromiseLane = new PromiseLane();
 
