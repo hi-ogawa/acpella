@@ -9,8 +9,7 @@ import {
   type ListSessionsResponse,
   type PromptRequest,
 } from "@agentclientprotocol/sdk";
-import { AsyncQueue } from "../lib/async-queue.ts";
-import { objectPickBy } from "../lib/utils.ts";
+import { objectPickBy, AsyncIterableQueue } from "../lib/utils.ts";
 
 // we spawn a process per session instead of per acp command for simplicity.
 // this is likey more robust without acp agent capability assumption
@@ -182,7 +181,7 @@ async function toSessionProcess(agent: AgentProcess, sessionId: string) {
 }
 
 function promptStream(agent: AgentProcess, request: PromptRequest) {
-  const queue = new AsyncQueue<SessionUpdate>();
+  const queue = new AsyncIterableQueue<SessionUpdate>();
   const unsubscribe = agent.subscribe((u) => queue.push(u));
   const promise = agent.connection.prompt(request);
   promise

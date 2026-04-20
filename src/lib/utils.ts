@@ -52,3 +52,39 @@ export function formatError(error: unknown): string {
 export type Result<T, E> = { ok: true; value: T } | { ok: false; value: E };
 export const resultOk = <T>(value: T): Result<T, never> => ({ ok: true, value });
 export const resultErr = <E>(value: E): Result<never, E> => ({ ok: false, value });
+
+export class AsyncIterableQueue<T> {
+  private queue: T[] = [];
+  private notify: (() => void) | undefined;
+  private done = false;
+  private err: unknown;
+
+  push(value: T): void {
+    this.queue.push(value);
+    this.notify?.();
+    this.notify = undefined;
+  }
+
+  finish(err?: unknown): void {
+    this.done = true;
+    this.err = err;
+    this.notify?.();
+    this.notify = undefined;
+  }
+
+  async *consume(): AsyncGenerator<T> {
+    do {
+      while (this.queue.length > 0) {
+        yield this.queue.shift()!;
+      }
+      if (!this.done) {
+        await new Promise<void>((r) => {
+          this.notify = r;
+        });
+      }
+    } while (!this.done);
+    if (this.err !== undefined) {
+      throw this.err;
+    }
+  }
+}
