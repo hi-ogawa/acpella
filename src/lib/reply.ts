@@ -1,7 +1,9 @@
+import { AsyncDebouncer } from "@tanstack/pacer";
+
 // https://core.telegram.org/bots/api#sendmessage
 // > Text of the message to be sent, 1-4096 characters after entities parsing
 export const MESSAGE_SPLIT_BUDGET = 3900;
-export const IDLE_FLUSH_MS = 4000;
+export const IDLE_FLUSH_TIMEOUT_MS = 4000;
 
 export class ReplyManager {
   options: {
@@ -11,9 +13,17 @@ export class ReplyManager {
   buffer = "";
   sent = false;
   sendQueue = new PromiseQueue();
+  flushDebouncer: AsyncDebouncer<() => Promise<void>>;
+  flushDebouncerError?: unknown;
 
   constructor(options: ReplyManager["options"]) {
     this.options = options;
+    this.flushDebouncer = new AsyncDebouncer(this.flush.bind(this), {
+      wait: IDLE_FLUSH_TIMEOUT_MS,
+      onError: (error) => {
+        this.flushDebouncerError = error;
+      },
+    });
   }
 
   // sequentialized to surface preceding errors
@@ -35,6 +45,7 @@ export class ReplyManager {
   }
 
   async write(text: string): Promise<void> {
+    await this.checkError();
     this.buffer += text;
     while (this.buffer.length > this.options.limit) {
       const result = splitHead(this.buffer, this.options.limit);
@@ -44,10 +55,11 @@ export class ReplyManager {
         await this.send(part);
       }
     }
+    void this.flushDebouncer.maybeExecute();
   }
 
-  // TODO: schedule flush
   async flush(): Promise<void> {
+    await this.checkError();
     const buffer = this.buffer.trim();
     this.buffer = "";
     if (!buffer) {
@@ -62,6 +74,21 @@ export class ReplyManager {
       await this.send("(no response)");
     }
   }
+
+  // private async armIdleTimeout(): Promise<void> {
+  //   await this.sendQueue.promise;
+  //   this.idleTimeout.set(async () => {
+  //     this.idleTimeout.clear();
+  //     this.flush().catch(() => {});
+  //   }, IDLE_FLUSH_TIMEOUT_MS);
+  // }
+
+  private async checkError() {
+    await this.sendQueue.promise;
+    if (this.flushDebouncerError) {
+      throw this.flushDebouncerError;
+    }
+  }
 }
 
 class PromiseQueue {
@@ -73,6 +100,22 @@ class PromiseQueue {
     return result;
   }
 }
+
+// class TimeoutManager {
+//   timeout?: ReturnType<typeof setTimeout>;
+
+//   set(fn: () => void, delay: number): void {
+//     this.clear();
+//     this.timeout = setTimeout(fn, delay);
+//   }
+
+//   clear(): void {
+//     if (this.timeout) {
+//       clearTimeout(this.timeout);
+//       this.timeout = undefined;
+//     }
+//   }
+// }
 
 function splitMessageText(text: string, limit: number): string[] {
   const parts: string[] = [];
