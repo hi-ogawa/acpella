@@ -18,6 +18,7 @@ export default defineConfig({
       include: ["src/**/*.ts"],
       exclude: ["src/**/*.test.ts", "src/test/**", "src/e2e/**"],
     },
+    setupFiles: ["./src/test/setup.ts"],
     projects: [
       {
         extends: true,

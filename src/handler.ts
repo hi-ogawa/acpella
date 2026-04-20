@@ -1,15 +1,25 @@
 import { AgentManager } from "./acp/index.ts";
 import type { AgentSessionProcess } from "./acp/index.ts";
 import type { AppConfig } from "./config.ts";
+import {
+  parseCronAddArgs,
+  parseCronIdArg,
+  renderCronList,
+  renderCronShow,
+} from "./cron/command.ts";
+import type { CronRunner, CronRunnerAgentOptions } from "./cron/runner.ts";
+import type { CronDeliveryTarget, CronStore } from "./cron/store.ts";
 import { createCommandHandler } from "./lib/command.ts";
 import type { CommandTree } from "./lib/command.ts";
 import { buildFirstPrompt, buildMessageMetadataPrompt } from "./lib/prompt.ts";
 import { MESSAGE_SPLIT_BUDGET, ReplyManager } from "./lib/reply.ts";
+import { formatError } from "./lib/utils.ts";
 import { parseAgentSessionKey, SessionStateStore, toAgentSessionKey } from "./state.ts";
-import type { StateAgentSession } from "./state.ts";
+import type { StateAgentSession, StateSession } from "./state.ts";
 
 export interface Handler {
   handle: (context: HandlerContext) => Promise<void>;
+  prompt: CronRunnerAgentOptions["prompt"];
   commands: Record<string, string>;
 }
 
@@ -18,7 +28,8 @@ export interface HandlerContext {
   text: string;
   send: (text: string) => Promise<unknown>;
   metadata?: {
-    timestamp: number;
+    timestamp?: number;
+    cronDeliveryTarget?: CronDeliveryTarget;
   };
 }
 
@@ -33,9 +44,12 @@ export async function createHandler(
   handlerOptions: {
     version?: string;
     onServiceExit: () => void;
+    cronStore: CronStore;
+    getCronRunner?: () => CronRunner;
   },
 ): Promise<Handler> {
   const stateStore = new SessionStateStore(config.stateFile);
+  const cronStore = handlerOptions.cronStore;
   const activeSessions = new Map<string, AgentSessionProcess>();
   const cancelledSessions = new WeakSet<AgentSessionProcess>();
 
@@ -48,12 +62,52 @@ export async function createHandler(
   }
 
   async function handlePrompt(context: HandlerExtraContext): Promise<void> {
-    const { reply, sessionName, text, metadata } = context;
+    let { reply, sessionName, metadata } = context;
     if (activeSessions.has(sessionName)) {
       await reply.system("Agent turn already in progress. Send /cancel to stop it.");
       return;
     }
 
+    let promptText = "";
+    if (metadata?.timestamp) {
+      promptText = buildMessageMetadataPrompt({
+        timestamp: metadata.timestamp,
+        timezone: config.timezone,
+        sessionName,
+      });
+    }
+    promptText += context.text;
+
+    const result = await handlePromptImpl({
+      sessionName,
+      text: promptText,
+      onText: async (chunk) => {
+        await reply.write(chunk);
+      },
+      onToolCall: async (title, stateSession) => {
+        await reply.flush();
+        if (stateSession.verbose) {
+          await reply.write(`Tool: ${title}`);
+          await reply.flush();
+        }
+      },
+    });
+
+    if (result.cancelled) {
+      await reply.flush();
+      await reply.system("Agent turn cancelled.");
+      return;
+    }
+    await reply.finish();
+  }
+
+  async function handlePromptImpl(options: {
+    sessionName: string;
+    text: string;
+    onText: (text: string) => Promise<void> | void;
+    onToolCall?: (title: string, stateSession: StateSession) => Promise<void> | void;
+  }): Promise<{ cancelled: boolean }> {
+    const { sessionName, text } = options;
     const stateSession = stateStore.getSession(sessionName);
     const manager = await getAgentManager(stateSession.agentKey);
 
@@ -72,13 +126,6 @@ export async function createHandler(
       });
       promptText += buildFirstPrompt(config.prompt.file);
     }
-    if (metadata) {
-      promptText += buildMessageMetadataPrompt({
-        timestamp: metadata.timestamp,
-        timezone: config.timezone,
-        sessionName,
-      });
-    }
     promptText += text;
 
     try {
@@ -87,24 +134,15 @@ export async function createHandler(
 
       for await (const update of result.consume()) {
         if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
-          await reply.write(update.content.text);
+          await options.onText(update.content.text);
         } else if (update.sessionUpdate === "tool_call") {
           console.log(`[acp:update] tool_call: ${update.title}`);
-          await reply.flush();
-          if (stateSession.verbose) {
-            await reply.write(`Tool: ${update.title}`);
-            await reply.flush();
-          }
+          await options.onToolCall?.(update.title, stateSession);
         } else {
           console.log(`[acp:update] ${update.sessionUpdate}`);
         }
       }
-      if (cancelledSessions.has(session)) {
-        await reply.flush();
-        await reply.system("Agent turn cancelled.");
-        return;
-      }
-      await reply.finish();
+      return { cancelled: cancelledSessions.has(session) };
     } finally {
       if (activeSessions.get(sessionName) === session) {
         activeSessions.delete(sessionName);
@@ -342,6 +380,196 @@ ${referencedSessions.length} session(s) still reference it.
     },
   ];
 
+  const cronAddCommand = `/cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> <prompt...>`;
+  const getCronRunner = () => handlerOptions.getCronRunner?.();
+  const systemCronCommands: SystemCommandTree[string] = [
+    {
+      tokens: ["status"],
+      help: "/cron status - Show cron scheduler status.",
+      run: async ({ reply }) => {
+        const cronRunner = getCronRunner();
+        const jobs = cronStore.listJobs();
+        const enabledJobs = jobs.filter((job) => job.enabled);
+        await reply.system(`\
+cron runner: ${cronRunner?.isRunning() ? "running" : "stopped"}
+jobs: ${jobs.length}
+enabled jobs: ${enabledJobs.length}
+`);
+      },
+    },
+    {
+      tokens: ["start"],
+      help: "/cron start - Start cron scheduler.",
+      run: async ({ reply }) => {
+        const cronRunner = getCronRunner();
+        if (!cronRunner) {
+          await reply.system("Cron runner is unavailable.");
+          return;
+        }
+        cronRunner.start();
+        await reply.system("Cron runner started.");
+      },
+    },
+    {
+      tokens: ["stop"],
+      help: "/cron stop - Stop cron scheduler.",
+      run: async ({ reply }) => {
+        const cronRunner = getCronRunner();
+        if (!cronRunner) {
+          await reply.system("Cron runner is unavailable.");
+          return;
+        }
+        cronRunner.stop();
+        await reply.system("Cron runner stopped.");
+      },
+    },
+    {
+      tokens: ["reload"],
+      help: "/cron reload - Reload cron jobs from disk.",
+      run: async ({ reply }) => {
+        try {
+          cronStore.reload();
+          getCronRunner()?.refresh();
+          await reply.system("Reloaded cron jobs.");
+        } catch (error) {
+          await reply.system(`Failed to reload cron jobs: ${formatError(error)}`);
+        }
+      },
+    },
+    {
+      tokens: ["add"],
+      help: `${cronAddCommand} - Add a cron job.`,
+      withArgs: true,
+      run: async ({ args, reply, sessionName, metadata }) => {
+        if (!metadata?.cronDeliveryTarget) {
+          await reply.system("Cannot add cron job: delivery target is unavailable.");
+          return;
+        }
+        const parsed = parseCronAddArgs(args, config.timezone);
+        if (!parsed.ok) {
+          await reply.system(`${parsed.value}\nUsage: ${cronAddCommand}`);
+          return;
+        }
+        const cron = parsed.value;
+        try {
+          cronStore.addJob({
+            id: cron.id,
+            enabled: true,
+            schedule: cron.schedule,
+            timezone: config.timezone,
+            prompt: cron.prompt,
+            target: {
+              sessionName,
+              delivery: metadata.cronDeliveryTarget,
+            },
+          });
+          getCronRunner()?.refresh();
+          await reply.system(`Added cron job: ${cron.id}`);
+        } catch (error) {
+          await reply.system(`Failed to add cron job: ${formatError(error)}`);
+        }
+      },
+    },
+    {
+      tokens: ["list"],
+      help: "/cron list - List cron jobs.",
+      run: async ({ reply }) => {
+        await reply.system(renderCronList(cronStore));
+      },
+    },
+    {
+      tokens: ["show"],
+      help: "/cron show <id> - Show a cron job.",
+      withArgs: true,
+      run: async ({ args, reply }) => {
+        const parsed = parseCronIdArg(args, "Usage: /cron show <id>");
+        if (!parsed.ok) {
+          await reply.system(parsed.value);
+          return;
+        }
+        const { id } = parsed.value;
+        const job = cronStore.getJob(id);
+        if (!job) {
+          await reply.system(`Unknown cron job: ${id}`);
+          return;
+        }
+        await reply.system(renderCronShow(job, cronStore.getLatestRun({ cronId: id })));
+      },
+    },
+    {
+      tokens: ["enable"],
+      help: "/cron enable <id> - Enable a cron job.",
+      withArgs: true,
+      run: async ({ args, reply }) => {
+        const parsed = parseCronIdArg(args, "Usage: /cron enable <id>");
+        if (!parsed.ok) {
+          await reply.system(parsed.value);
+          return;
+        }
+        const { id } = parsed.value;
+        if (!cronStore.getJob(id)) {
+          await reply.system(`Unknown cron job: ${id}`);
+          return;
+        }
+        try {
+          cronStore.updateJob(id, { enabled: true });
+          getCronRunner()?.refresh();
+          await reply.system(`Enabled cron job: ${id}`);
+        } catch (error) {
+          await reply.system(`Failed to enable cron job: ${formatError(error)}`);
+        }
+      },
+    },
+    {
+      tokens: ["disable"],
+      help: "/cron disable <id> - Disable a cron job.",
+      withArgs: true,
+      run: async ({ args, reply }) => {
+        const parsed = parseCronIdArg(args, "Usage: /cron disable <id>");
+        if (!parsed.ok) {
+          await reply.system(parsed.value);
+          return;
+        }
+        const { id } = parsed.value;
+        if (!cronStore.getJob(id)) {
+          await reply.system(`Unknown cron job: ${id}`);
+          return;
+        }
+        try {
+          cronStore.updateJob(id, { enabled: false });
+          getCronRunner()?.refresh();
+          await reply.system(`Disabled cron job: ${id}`);
+        } catch (error) {
+          await reply.system(`Failed to disable cron job: ${formatError(error)}`);
+        }
+      },
+    },
+    {
+      tokens: ["delete"],
+      help: "/cron delete <id> - Delete a cron job.",
+      withArgs: true,
+      run: async ({ args, reply }) => {
+        const parsed = parseCronIdArg(args, "Usage: /cron delete <id>");
+        if (!parsed.ok) {
+          await reply.system(parsed.value);
+          return;
+        }
+        const { id } = parsed.value;
+        if (!cronStore.getJob(id)) {
+          await reply.system(`Unknown cron job: ${id}`);
+          return;
+        }
+        try {
+          cronStore.deleteJob(id);
+          getCronRunner()?.refresh();
+          await reply.system(`Deleted cron job: ${id}`);
+        } catch (error) {
+          await reply.system(`Failed to delete cron job: ${formatError(error)}`);
+        }
+      },
+    },
+  ];
+
   const systemCommands: SystemCommandTree = {
     status: [
       {
@@ -392,6 +620,7 @@ home: ${config.home}
     ],
     session: systemSessionCommands,
     agent: systemAgentCommands,
+    cron: systemCronCommands,
     verbose: [
       {
         tokens: ["current"],
@@ -431,6 +660,7 @@ home: ${config.home}
     cancel: "Cancel currently active agent turn",
     session: "Manage sessions",
     agent: "Manage agents",
+    cron: "Manage cron jobs",
     verbose: "Configure tool output",
   };
 
@@ -459,5 +689,24 @@ home: ${config.home}
     await handlePrompt(extraContext);
   };
 
-  return { handle, commands: systemCommandsMetadata };
+  const handleCronPrompt: Handler["prompt"] = async ({ sessionName, text }) => {
+    // TODO: how to serialize prompt for cron and normal prompt?
+    if (activeSessions.has(sessionName)) {
+      throw new Error("Agent turn in progress. Cannot run cron prompt.");
+    }
+    const chunks: string[] = [];
+    const result = await handlePromptImpl({
+      sessionName,
+      text,
+      onText: (chunk) => {
+        chunks.push(chunk);
+      },
+    });
+    if (result.cancelled) {
+      throw new Error("Agent turn cancelled.");
+    }
+    return chunks.join("");
+  };
+
+  return { handle, prompt: handleCronPrompt, commands: systemCommandsMetadata };
 }

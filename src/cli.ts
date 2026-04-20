@@ -1,9 +1,12 @@
+import "temporal-polyfill/global";
 import path from "node:path";
 import { createInterface } from "node:readline/promises";
 import { parseArgs } from "node:util";
 import { run, sequentialize } from "@grammyjs/runner";
 import { Bot } from "grammy";
 import { loadConfig, type AppConfig } from "./config.ts";
+import { CronRunner } from "./cron/runner.ts";
+import { CronStore } from "./cron/store.ts";
 import { createHandler, type Handler } from "./handler.ts";
 import { handleSetupSystemd } from "./lib/systemd.ts";
 import { markdownToTelegramHtml } from "./lib/telegram/format-html.ts";
@@ -11,6 +14,7 @@ import {
   formatTelegramSessionName,
   getTelegramRetryAfter,
   normalizeUserMention,
+  TelegramChatActionManager,
 } from "./lib/telegram/utils.ts";
 import { addIndent, sleep, truncateString } from "./lib/utils.ts";
 import { getVersion } from "./lib/version.ts";
@@ -55,6 +59,32 @@ Options:
 
   const config = loadConfig();
   const version = await getVersion({ cwd: path.join(import.meta.dirname, "..") });
+  const cronStore = new CronStore({
+    cronFile: config.cronFile,
+    cronStateFile: config.cronStateFile,
+  });
+  const cronRunner = new CronRunner({
+    store: cronStore,
+    agent: {
+      prompt: (...args) => handler.prompt(...args),
+    },
+    delivery: {
+      send: async ({ target, text }) => {
+        if (target.repl) {
+          console.log("[cron] repl delivery:", text);
+          console.log(text);
+        }
+        if (!cli.repl && target.telegram) {
+          const { chatId, messageThreadId } = target.telegram;
+          // TODO: fallback, retry, and error handling
+          await bot.api.sendMessage(chatId, markdownToTelegramHtml(text), {
+            parse_mode: "HTML",
+            message_thread_id: messageThreadId,
+          });
+        }
+      },
+    },
+  });
 
   const handler = await createHandler(config, {
     version,
@@ -64,10 +94,18 @@ Options:
         process.exit(0);
       });
     },
+    cronStore,
+    // TODO: break handler <-> cronRunner cycle
+    // docs/tasks/2026-04-19-agent-session-service-architecture.md
+    getCronRunner: () => cronRunner,
   });
 
   if (cli.repl) {
-    await startRepl(config, handler, version);
+    try {
+      await startRepl(config, handler, version);
+    } finally {
+      cronRunner.stop();
+    }
     return;
   }
 
@@ -144,6 +182,12 @@ Options:
       }),
     );
 
+    const chatActionManager = new TelegramChatActionManager({
+      send: () => ctx.replyWithChatAction("typing"),
+      logLabel: label,
+    });
+    chatActionManager.start();
+
     const replyWithRetry = async (...args: Parameters<typeof ctx.reply>) => {
       try {
         return await ctx.reply(...args);
@@ -172,6 +216,12 @@ Options:
         }),
         metadata: {
           timestamp: ctx.message.date * 1000,
+          cronDeliveryTarget: {
+            telegram: {
+              chatId,
+              messageThreadId: ctx.message.message_thread_id,
+            },
+          },
         },
         send: async (replyText) => {
           const html = markdownToTelegramHtml(replyText);
@@ -198,18 +248,25 @@ Options:
       console.error(`${label} (response error)`, error);
       const message = error instanceof Error ? error.message : String(error);
       await replyWithRetry(`Error: ${truncateString(message, 200)}`);
+    } finally {
+      chatActionManager.stop();
     }
   });
 
   console.log(`Starting service (version: ${version}, home: ${config.home})`);
 
+  cronRunner.start();
   const runner = run(bot, {
     sink: {
       // @grammyjs/runner defaults to 500; keep acpella conservative because prompts spawn child agents.
       concurrency: 5,
     },
   });
-  await runner.task();
+  try {
+    await runner.task();
+  } finally {
+    cronRunner.stop();
+  }
 }
 
 async function startRepl(config: AppConfig, handler: Handler, version: string) {
@@ -224,6 +281,9 @@ async function startRepl(config: AppConfig, handler: Handler, version: string) {
         text,
         metadata: {
           timestamp: Date.now(),
+          cronDeliveryTarget: {
+            repl: true,
+          },
         },
         send: async (replyText) => console.log(replyText),
       });
