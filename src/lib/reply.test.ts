@@ -1,11 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { ReplyManager } from "./reply.ts";
 
-function createReplyTest(options: { limit: number }) {
+function createReplyTest(options: { limit: number; idleTimeout?: number }) {
   const messages: string[] = [];
   const reply = new ReplyManager({
     send: async (t) => messages.push(t),
     limit: options.limit,
+    idleTimeout: options.idleTimeout,
   });
   return { reply, messages };
 }
@@ -139,6 +140,33 @@ describe(ReplyManager, () => {
     expect(messages).toMatchInlineSnapshot(`
       [
         "(no response)",
+      ]
+    `);
+  });
+
+  it("flushes buffered text after idle timeout", async () => {
+    vi.useFakeTimers();
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    const { reply, messages } = createReplyTest({ limit: 100, idleTimeout: 50 });
+    await reply.write("hello");
+    expect(messages).toMatchInlineSnapshot(`[]`);
+
+    await vi.advanceTimersByTimeAsync(49);
+    expect(messages).toMatchInlineSnapshot(`[]`);
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(messages).toMatchInlineSnapshot(`
+      [
+        "hello",
+      ]
+    `);
+
+    await reply.finish();
+    expect(messages).toMatchInlineSnapshot(`
+      [
+        "hello",
       ]
     `);
   });
