@@ -578,11 +578,15 @@ enabled jobs: ${enabledJobs.length}
         tokens: [],
         help: "/status - Show service status.",
         run: async ({ reply }) => {
+          const activeSessionNames = [...activeSessions.keys()];
+          const activeSessionsLine =
+            activeSessionNames.length > 0 ? activeSessionNames.join(", ") : "none";
           await reply.system(`\
 status: running
 version: ${handlerOptions.version ?? "(unknown)"}
 default agent: ${stateStore.get().defaultAgent}
 home: ${config.home}
+active sessions: ${activeSessionsLine}
 `);
         },
       },

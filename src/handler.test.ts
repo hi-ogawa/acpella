@@ -3,6 +3,7 @@ Coverage checklist:
 
 - /status
   - [x] output, including default agent
+  - [ ] output with active sessions
 - /service
   - [x] usage output
   - [x] exit calls onServiceExit
@@ -216,7 +217,8 @@ test("basic", async () => {
     status: running
     version: v1.0.0-test
     default agent: test
-    home: <home>"
+    home: <home>
+    active sessions: none"
   `);
   expect(await session.request("hello")).toMatchInlineSnapshot(`"echo: hello"`);
   expect(readStateFile(tester.config)).toMatchInlineSnapshot(`
