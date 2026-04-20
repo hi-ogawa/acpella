@@ -1,6 +1,7 @@
 // https://core.telegram.org/bots/api#sendmessage
 // > Text of the message to be sent, 1-4096 characters after entities parsing
 export const MESSAGE_SPLIT_BUDGET = 3900;
+export const IDLE_FLUSH_MS = 4000;
 
 export class ReplyManager {
   options: {
@@ -14,6 +15,7 @@ export class ReplyManager {
     this.options = options;
   }
 
+  // TODO: sequantilize async fn
   async send(text: string): Promise<void> {
     const parts = splitMessageText(text, this.options.limit);
     for (const part of parts) {
@@ -38,6 +40,7 @@ export class ReplyManager {
     }
   }
 
+  // TODO: schedule flush
   async flush(): Promise<void> {
     const buffer = this.buffer.trim();
     this.buffer = "";
