@@ -89,6 +89,7 @@ export class CronRunner {
         status: "succeeded",
       });
     } catch (error) {
+      console.error(`[cron] Failed job '${job.id}':`, error);
       const errorMessage = formatError(error);
       store.updateRun(run.id, {
         finishedAt: formatTime(Date.now()),
