@@ -39,12 +39,12 @@ export class ReplyManager {
   }
 
   async flush(): Promise<void> {
-    if (!this.buffer.trim()) {
-      this.buffer = "";
+    const buffer = this.buffer;
+    this.buffer = "";
+    if (!buffer.trim()) {
       return;
     }
-    await this.send(this.buffer);
-    this.buffer = "";
+    await this.send(buffer);
   }
 
   async finish(): Promise<void> {
