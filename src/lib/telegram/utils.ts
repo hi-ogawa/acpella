@@ -31,7 +31,7 @@ export function getTelegramRetryAfter(error: unknown): number | undefined {
 }
 
 // Telegram chat actions last 5 seconds or less, so match OpenClaw's cadence:
-// immediate first cue, then 3s keepalive.
+// delayed first cue to avoid flashing on fast replies, then 3s keepalive.
 // https://core.telegram.org/bots/api#sendchataction
 // See refs/openclaw/src/channels/typing.ts and refs/openclaw/src/channels/typing-lifecycle.ts.
 export class TelegramChatActionManager {
@@ -39,6 +39,7 @@ export class TelegramChatActionManager {
     send: () => Promise<unknown>;
     logLabel: string;
   };
+  timeout?: ReturnType<typeof setTimeout>;
   interval?: ReturnType<typeof setInterval>;
   inFlight = false;
   stopped = true;
@@ -53,12 +54,19 @@ export class TelegramChatActionManager {
       return;
     }
     this.stopped = false;
-    void this.trySend();
-    this.interval = setInterval(() => void this.trySend(), 3000);
+    this.timeout = setTimeout(() => {
+      this.timeout = undefined;
+      void this.trySend();
+      this.interval = setInterval(() => void this.trySend(), 3000);
+    }, 1000);
   }
 
   stop(): void {
     this.stopped = true;
+    if (this.timeout) {
+      clearTimeout(this.timeout);
+      this.timeout = undefined;
+    }
     if (this.interval) {
       clearInterval(this.interval);
       this.interval = undefined;
