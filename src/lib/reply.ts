@@ -10,13 +10,19 @@ export class ReplyManager {
   };
   buffer = "";
   sent = false;
+  sendQueue = new PromiseQueue();
 
   constructor(options: ReplyManager["options"]) {
     this.options = options;
   }
 
-  // TODO: sequantilize async fn
-  async send(text: string): Promise<void> {
+  // sequentialized to surface preceding errors
+  // from asynchronous idle timeout send
+  send(text: string): Promise<void> {
+    return this.sendQueue.run(() => this.sendImpl(text));
+  }
+
+  private async sendImpl(text: string): Promise<void> {
     const parts = splitMessageText(text, this.options.limit);
     for (const part of parts) {
       await this.options.send(part);
@@ -55,6 +61,16 @@ export class ReplyManager {
     if (!this.sent) {
       await this.send("(no response)");
     }
+  }
+}
+
+class PromiseQueue {
+  promise: Promise<unknown> = Promise.resolve();
+
+  run<T>(fn: () => Promise<T>): Promise<T> {
+    const result = this.promise.then(fn);
+    this.promise = result;
+    return result;
   }
 }
 
