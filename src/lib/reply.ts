@@ -59,6 +59,7 @@ export class ReplyManager {
   }
 
   async flush(): Promise<void> {
+    this.flushDebouncer.cancel();
     await this.checkError();
     const buffer = this.buffer.trim();
     this.buffer = "";
