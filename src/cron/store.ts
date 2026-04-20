@@ -107,17 +107,15 @@ export type CronDeliveryTarget = z.infer<typeof CronDeliveryTargetSchema>;
 export type CronRun = z.infer<typeof cronRunSchema>;
 type CronRunExtra = CronRun & { cronId: string };
 
-interface CronStoreOptions {
-  cronFile: string;
-  cronStateFile: string;
-}
-
 export class CronStore {
-  options: CronStoreOptions;
+  options: {
+    cronFile: string;
+    cronStateFile: string;
+  };
   jobFile: FileStateManager<CronJobFile>;
   stateFile: FileStateManager<CronStateFile>;
 
-  constructor(options: CronStoreOptions) {
+  constructor(options: CronStore["options"]) {
     this.options = { ...options };
     this.jobFile = new FileStateManager({
       file: options.cronFile,

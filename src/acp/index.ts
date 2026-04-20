@@ -16,23 +16,21 @@ import { objectPickBy } from "../lib/utils.ts";
 // this is likey more robust without acp agent capability assumption
 // and process startup time is negligible compared to LLM interaction itself
 
-type AgentManagerOptions = {
-  command: string;
-  cwd: string;
-};
-
 export class AgentManager {
-  option: AgentManagerOptions;
+  options: {
+    command: string;
+    cwd: string;
+  };
 
-  constructor(options: AgentManagerOptions) {
-    this.option = options;
+  constructor(options: AgentManager["options"]) {
+    this.options = options;
   }
 
   // TODO:
   // cwd and sessionCwd are always same
   // but they are explicitly specified for now
   async newSession({ sessionCwd }: { sessionCwd: string }) {
-    const agent = await spawnAgent(this.option);
+    const agent = await spawnAgent(this.options);
     const response = await agent.connection.newSession({
       cwd: sessionCwd,
       mcpServers: [],
@@ -41,7 +39,7 @@ export class AgentManager {
   }
 
   async loadSession({ sessionCwd, sessionId }: { sessionCwd: string; sessionId: string }) {
-    const agent = await spawnAgent(this.option);
+    const agent = await spawnAgent(this.options);
     await agent.connection.loadSession({
       sessionId,
       cwd: sessionCwd,
@@ -51,7 +49,7 @@ export class AgentManager {
   }
 
   async closeSession({ sessionId }: { sessionId: string }): Promise<void> {
-    const agent = await spawnAgent(this.option);
+    const agent = await spawnAgent(this.options);
     try {
       await agent.connection.unstable_closeSession({ sessionId });
     } finally {
@@ -60,9 +58,9 @@ export class AgentManager {
   }
 
   async listSessions(): Promise<ListSessionsResponse> {
-    const agent = await spawnAgent(this.option);
+    const agent = await spawnAgent(this.options);
     try {
-      return await agent.connection.listSessions({ cwd: this.option.cwd });
+      return await agent.connection.listSessions({ cwd: this.options.cwd });
     } finally {
       agent.stop();
     }

@@ -11,17 +11,15 @@ export interface CronDueEvent {
   scheduledAt: number;
 }
 
-export interface CronSchedulerOptions {
-  entries: CronTimerEntry[];
-  onDue: (event: CronDueEvent) => void;
-}
-
 export class CronScheduler {
   timers: Record<string, CronTimer> = {};
-  options: CronSchedulerOptions;
+  options: {
+    entries: CronTimerEntry[];
+    onDue: (event: CronDueEvent) => void;
+  };
   stopped = true;
 
-  constructor(options: CronSchedulerOptions) {
+  constructor(options: CronScheduler["options"]) {
     this.options = { ...options };
   }
 
@@ -64,17 +62,15 @@ export class CronScheduler {
   }
 }
 
-export interface CronTimerOptions {
-  entry: CronTimerEntry;
-  onDue: (event: CronDueEvent) => void;
-}
-
 export class CronTimer {
-  options: CronTimerOptions;
+  options: {
+    entry: CronTimerEntry;
+    onDue: (event: CronDueEvent) => void;
+  };
   timeout?: ReturnType<typeof setTimeout>;
   scheduledAt?: number;
 
-  constructor(options: CronTimerOptions) {
+  constructor(options: CronTimer["options"]) {
     this.options = { ...options };
   }
 
