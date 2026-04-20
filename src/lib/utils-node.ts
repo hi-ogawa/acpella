@@ -13,17 +13,15 @@ export function readJsonFile<T>(file: string, defaultValue?: () => T): T {
   return defaultValue();
 }
 
-type FileStateManagerOptions<T> = {
-  file: string;
-  parse: (data: unknown) => T;
-  defaultValue: () => T;
-};
-
 export class FileStateManager<T> {
-  options: FileStateManagerOptions<T>;
+  options: {
+    file: string;
+    parse: (data: unknown) => T;
+    defaultValue: () => T;
+  };
   state: T;
 
-  constructor(options: FileStateManagerOptions<T>) {
+  constructor(options: FileStateManager<T>["options"]) {
     this.options = options;
     this.state = this.read();
   }
