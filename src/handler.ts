@@ -101,7 +101,41 @@ export async function createHandler(
     await reply.finish();
   }
 
-  async function handlePromptImpl(options: {
+  class AsyncLane {
+    promise: Promise<unknown> = Promise.resolve();
+    run<T>(fn: () => Promise<T>): Promise<T> {
+      const result = this.promise.then(fn);
+      this.promise = result.catch(() => {});
+      return result;
+    }
+  }
+
+  class DefaultMap<K, V> extends Map<K, V> {
+    options: {
+      init: (k: K) => V;
+    };
+    constructor(options: DefaultMap<K, V>["options"]) {
+      super();
+      this.options = options;
+    }
+
+    override get(key: K): V {
+      if (!super.has(key)) {
+        this.set(key, this.options.init(key));
+      }
+      return this.get(key)!;
+    }
+  }
+
+  const promptLanes = new DefaultMap<string, AsyncLane>({
+    init: () => new AsyncLane(),
+  });
+
+  const handlePromptImpl: typeof handlePromptImplInner = (options) => {
+    return promptLanes.get(options.sessionName).run(() => handlePromptImplInner(options));
+  };
+
+  async function handlePromptImplInner(options: {
     sessionName: string;
     text: string;
     onText: (text: string) => Promise<void> | void;
