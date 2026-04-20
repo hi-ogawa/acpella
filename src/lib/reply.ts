@@ -9,6 +9,7 @@ export class ReplyManager {
   options: {
     send: (text: string) => Promise<unknown>;
     limit: number;
+    idleTimeout?: number;
   };
   buffer = "";
   sent = false;
@@ -19,7 +20,7 @@ export class ReplyManager {
     this.options = options;
     this.flushDebouncer = new AsyncDebounceManager({
       task: () => this.flushImpl(),
-      timeout: IDLE_FLUSH_TIMEOUT_MS,
+      timeout: this.options.idleTimeout ?? IDLE_FLUSH_TIMEOUT_MS,
     });
   }
 
