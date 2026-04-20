@@ -1,3 +1,4 @@
+// TODO: rename to AsyncIterableQueue. move to utils.ts
 /** Push-based async iterable. Call push() to enqueue, finish() to close, error() to close with an error. */
 export class AsyncQueue<T> {
   private queue: T[] = [];

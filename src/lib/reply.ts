@@ -12,7 +12,7 @@ export class ReplyManager {
   };
   buffer = "";
   sent = false;
-  sendQueue = new AsyncSequentialQueue();
+  sendLane = new PromiseLane();
   flushDebouncer: AsyncDebounceManager;
 
   constructor(options: ReplyManager["options"]) {
@@ -24,7 +24,7 @@ export class ReplyManager {
   }
 
   send(text: string): Promise<void> {
-    return this.sendQueue.run(() => this.sendImpl(text));
+    return this.sendLane.run(() => this.sendImpl(text));
   }
 
   private async sendImpl(text: string): Promise<void> {
@@ -76,13 +76,13 @@ export class ReplyManager {
   }
 
   private async waitQueue() {
-    await this.sendQueue.promise;
-    await this.flushDebouncer.queue.promise;
+    await this.sendLane.promise;
+    await this.flushDebouncer.lane.promise;
   }
 }
 
 // sequentialize async function calls and surface preceding errors
-class AsyncSequentialQueue {
+class PromiseLane {
   promise: Promise<unknown> = Promise.resolve();
   error?: unknown;
 
@@ -98,12 +98,12 @@ class AsyncSequentialQueue {
 
 class AsyncDebounceManager {
   debouncer: Debouncer<() => void>;
-  queue: AsyncSequentialQueue = new AsyncSequentialQueue();
+  lane: PromiseLane = new PromiseLane();
 
   constructor(options: { task: () => Promise<void>; timeout: number }) {
     this.debouncer = new Debouncer(
       () => {
-        void this.queue.run(() => options.task());
+        void this.lane.run(() => options.task());
       },
       {
         wait: options.timeout,
