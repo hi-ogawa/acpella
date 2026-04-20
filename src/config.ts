@@ -4,6 +4,8 @@ import { z } from "zod";
 export interface AppConfig {
   home: string;
   stateFile: string;
+  cronFile: string;
+  cronStateFile: string;
   timezone: string;
   telegram: {
     token?: string;
@@ -22,6 +24,7 @@ const envSchema = z
     ACPELLA_TELEGRAM_BOT_TOKEN: z.string().optional(),
     ACPELLA_TELEGRAM_ALLOWED_USER_IDS: z.string().optional(),
     ACPELLA_TELEGRAM_ALLOWED_CHAT_IDS: z.string().optional(),
+    TEST_ACPELLA_TIMEZONE: z.string().optional(),
   })
   .loose();
 
@@ -32,7 +35,9 @@ export function loadConfig(envOverride?: Record<string, string>): AppConfig {
   return {
     home,
     stateFile: path.join(home, ".acpella", "state.json"),
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    cronFile: path.join(home, ".acpella", "cron.json"),
+    cronStateFile: path.join(home, ".acpella", "cron-state.json"),
+    timezone: env.TEST_ACPELLA_TIMEZONE ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
     telegram: {
       token: env.ACPELLA_TELEGRAM_BOT_TOKEN,
       allowedUserIds: parseIdList(env.ACPELLA_TELEGRAM_ALLOWED_USER_IDS) ?? [],
