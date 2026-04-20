@@ -138,6 +138,8 @@ export async function createHandler(
         } else if (update.sessionUpdate === "tool_call") {
           console.log(`[acp:update] tool_call: ${update.title}`);
           await options.onToolCall?.(update.title, stateSession);
+        } else if (update.sessionUpdate === "usage_update") {
+          console.log(`[acp:update] usage_update: (used: ${update.used}, size: ${update.size})`);
         } else {
           console.log(`[acp:update] ${update.sessionUpdate}`);
         }
