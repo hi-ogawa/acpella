@@ -75,14 +75,6 @@ export class ReplyManager {
     }
   }
 
-  // private async armIdleTimeout(): Promise<void> {
-  //   await this.sendQueue.promise;
-  //   this.idleTimeout.set(async () => {
-  //     this.idleTimeout.clear();
-  //     this.flush().catch(() => {});
-  //   }, IDLE_FLUSH_TIMEOUT_MS);
-  // }
-
   private async checkError() {
     await this.sendQueue.promise;
     if (this.flushDebouncerError) {
@@ -100,22 +92,6 @@ class PromiseQueue {
     return result;
   }
 }
-
-// class TimeoutManager {
-//   timeout?: ReturnType<typeof setTimeout>;
-
-//   set(fn: () => void, delay: number): void {
-//     this.clear();
-//     this.timeout = setTimeout(fn, delay);
-//   }
-
-//   clear(): void {
-//     if (this.timeout) {
-//       clearTimeout(this.timeout);
-//       this.timeout = undefined;
-//     }
-//   }
-// }
 
 function splitMessageText(text: string, limit: number): string[] {
   const parts: string[] = [];
