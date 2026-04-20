@@ -179,6 +179,19 @@ class EchoAgent implements Agent {
         },
       });
       reportText = `echo: ${text}`;
+    } else if (text.startsWith("__usage_update:")) {
+      const parts = text.slice(15).split(":");
+      const used = Number(parts[0]);
+      const size = Number(parts[1]);
+      await this.connection.sessionUpdate({
+        sessionId: params.sessionId,
+        update: {
+          sessionUpdate: "usage_update",
+          used,
+          size,
+        },
+      });
+      reportText = `echo: ${text}`;
     } else {
       reportText = `echo: ${text}`;
     }

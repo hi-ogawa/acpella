@@ -6,6 +6,26 @@ const agentSchema = z.object({
   command: z.string().min(1),
 });
 
+const agentSessionContextUsageSchema = z.object({
+  used: z.number(),
+  size: z.number(),
+  updatedAt: z.number(),
+  cost: z
+    .object({
+      amount: z.number(),
+      currency: z.string(),
+    })
+    .optional(),
+});
+
+const agentSessionDataSchema = z.object({
+  usage: z
+    .object({
+      context: agentSessionContextUsageSchema.optional(),
+    })
+    .optional(),
+});
+
 const agentKeySchema = z
   .string()
   .min(1)
@@ -23,6 +43,7 @@ const stateSchema = z
     defaultAgent: agentKeySchema,
     agents: z.record(agentKeySchema, agentSchema),
     sessions: z.record(z.string().min(1), stateSessionSchema),
+    agentSessions: z.record(z.string(), agentSessionDataSchema).optional().default({}),
   })
   .superRefine((state, ctx) => {
     if (!state.agents[state.defaultAgent]) {
@@ -111,6 +132,42 @@ export class SessionStateStore {
       }
     });
   }
+
+  setAgentSessionContextUsage(
+    target: StateAgentSession,
+    usage: { used: number; size: number; cost?: { amount: number; currency: string } },
+  ): void {
+    const key = toAgentSessionKey(target);
+    const current = this.state.agentSessions[key]?.usage?.context;
+    if (
+      current?.used === usage.used &&
+      current?.size === usage.size &&
+      current?.cost?.amount === usage.cost?.amount &&
+      current?.cost?.currency === usage.cost?.currency
+    ) {
+      return;
+    }
+    this.set((state) => {
+      const entry = (state.agentSessions[key] ??= {});
+      const u = (entry.usage ??= {});
+      u.context = {
+        used: usage.used,
+        size: usage.size,
+        updatedAt: Date.now(),
+        ...(usage.cost ? { cost: usage.cost } : {}),
+      };
+    });
+  }
+
+  deleteAgentSessionData(target: StateAgentSession): void {
+    const key = toAgentSessionKey(target);
+    if (!this.state.agentSessions[key]) {
+      return;
+    }
+    this.set((state) => {
+      delete state.agentSessions[key];
+    });
+  }
 }
 
 export const TEST_AGENT_COMMAND = `node ${path.join(import.meta.dirname, "lib/test-agent.ts")}`;
@@ -125,6 +182,7 @@ function getInitialState(): State {
     defaultAgent: Object.keys(BUILTIN_AGENTS)[0],
     agents: { ...BUILTIN_AGENTS },
     sessions: {},
+    agentSessions: {},
   };
 }
 

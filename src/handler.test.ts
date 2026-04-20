@@ -234,7 +234,8 @@ test("basic", async () => {
             "agentSessionId": "__testSession1",
             "verbose": false
           }
-        }
+        },
+        "agentSessions": {}
       }"
     `);
 });
@@ -318,6 +319,65 @@ test("session commands", async () => {
     Unknown agent: no-such-agent"
   `,
   );
+});
+
+test("session context usage", async () => {
+  const tester = await createHandlerTester();
+  const session = tester.createSession("test");
+
+  // Start a session
+  expect(await session.request("hello")).toMatchInlineSnapshot(`"echo: hello"`);
+
+  // Before usage_update, no context shown
+  expect(await session.request("/session current")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    session: test
+    agent: test
+    agent session id: __testSession1"
+  `);
+  expect(await session.request("/session list")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    - test -> test:__testSession1 (active)"
+  `);
+
+  // Send a usage_update
+  expect(await session.request("__usage_update:54321:200000")).toMatchInlineSnapshot(
+    `"echo: __usage_update:54321:200000"`,
+  );
+
+  // After usage_update, context is shown in /session current
+  expect(await session.request("/session current")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    session: test
+    agent: test
+    agent session id: __testSession1
+    context: 54321 / 200000 tokens (27%)"
+  `);
+
+  // /session list shows compact context %
+  expect(await session.request("/session list")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    - test -> test:__testSession1 (active) context 27%"
+  `);
+
+  // /session close removes the stored usage
+  expect(await session.request("/session close")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Session closed: test:__testSession1."
+  `);
+  expect(readStateFile(tester.config)).toMatchInlineSnapshot(`
+    "{
+      "version": 2,
+      "defaultAgent": "test",
+      "agents": {
+        "test": {
+          "command": "node <cwd>/src/lib/test-agent.ts"
+        }
+      },
+      "sessions": {},
+      "agentSessions": {}
+    }"
+  `);
 });
 
 test("verbose command toggles tool call output", async () => {
@@ -481,7 +541,8 @@ test("agent command", async () => {
           "agentSessionId": "__testSession1",
           "verbose": false
         }
-      }
+      },
+      "agentSessions": {}
     }"
   `);
   expect(await session.request("/session load test:__testSession1")).toMatchInlineSnapshot(`
@@ -516,7 +577,8 @@ test("agent command", async () => {
           "agentSessionId": "__testSession1",
           "verbose": false
         }
-      }
+      },
+      "agentSessions": {}
     }"
   `);
 });

@@ -140,6 +140,10 @@ export async function createHandler(
           await options.onToolCall?.(update.title, stateSession);
         } else if (update.sessionUpdate === "usage_update") {
           console.log(`[acp:update] usage_update: (used: ${update.used}, size: ${update.size})`);
+          stateStore.setAgentSessionContextUsage(
+            { agentKey: stateSession.agentKey, agentSessionId: session.sessionId },
+            { used: update.used, size: update.size, cost: update.cost ?? undefined },
+          );
         } else {
           console.log(`[acp:update] ${update.sessionUpdate}`);
         }
@@ -158,11 +162,26 @@ export async function createHandler(
       tokens: ["current"],
       help: "/session current - Show the current session.",
       run: async ({ reply, sessionName }) => {
+        const state = stateStore.get();
         const stateSession = stateStore.getSession(sessionName);
+        const agentSessionKey = stateSession.agentSessionId
+          ? toAgentSessionKey({
+              agentKey: stateSession.agentKey,
+              agentSessionId: stateSession.agentSessionId,
+            })
+          : undefined;
+        const contextUsage = agentSessionKey
+          ? state.agentSessions[agentSessionKey]?.usage?.context
+          : undefined;
+        let contextLine = "";
+        if (contextUsage && contextUsage.size > 0) {
+          const pct = Math.round((contextUsage.used / contextUsage.size) * 100);
+          contextLine = `\ncontext: ${contextUsage.used} / ${contextUsage.size} tokens (${pct}%)`;
+        }
         await reply.system(`\
 session: ${sessionName}
 agent: ${stateSession.agentKey}
-agent session id: ${stateSession.agentSessionId ?? "none"}
+agent session id: ${stateSession.agentSessionId ?? "none"}${contextLine}
 `);
       },
     },
@@ -205,6 +224,11 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
             output += " (active)";
           } else {
             output += " (not active)";
+          }
+          const contextUsage = state.agentSessions[agentSessionKey]?.usage?.context;
+          if (contextUsage && contextUsage.size > 0) {
+            const pct = Math.round((contextUsage.used / contextUsage.size) * 100);
+            output += ` context ${pct}%`;
           }
           output += "\n";
         }
@@ -279,6 +303,7 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
           return;
         }
         const targetSession = { agentKey, agentSessionId };
+        stateStore.deleteAgentSessionData(targetSession);
         stateStore.deleteSession(targetSession);
         let output = `Session closed: ${toAgentSessionKey(targetSession)}.\n`;
         try {
