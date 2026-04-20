@@ -2,55 +2,57 @@
 // > Text of the message to be sent, 1-4096 characters after entities parsing
 export const MESSAGE_SPLIT_BUDGET = 3900;
 
-export type Reply = ReturnType<typeof createReply>;
+export class ReplyManager {
+  options: {
+    send: (text: string) => Promise<unknown>;
+    limit: number;
+  };
+  buffer = "";
+  sent = false;
 
-export function createReply(options: { send: (text: string) => Promise<unknown>; limit: number }) {
-  let buffer = "";
-  let sent = false;
-
-  async function send(text: string): Promise<void> {
-    const parts = splitMessageText(text, options.limit);
-    for (const part of parts) {
-      await options.send(part);
-    }
-    sent = true;
+  constructor(options: ReplyManager["options"]) {
+    this.options = options;
   }
 
-  async function write(text: string): Promise<void> {
-    buffer += text;
-    while (buffer.length > options.limit) {
-      const result = splitHead(buffer, options.limit);
-      buffer = result.tail;
+  async send(text: string): Promise<void> {
+    const parts = splitMessageText(text, this.options.limit);
+    for (const part of parts) {
+      await this.options.send(part);
+    }
+    this.sent = true;
+  }
+
+  async system(text: string): Promise<void> {
+    await this.send(`[⚙️ System]\n${text}`);
+  }
+
+  async write(text: string): Promise<void> {
+    this.buffer += text;
+    while (this.buffer.length > this.options.limit) {
+      const result = splitHead(this.buffer, this.options.limit);
+      this.buffer = result.tail;
       const part = result.head.trim();
       if (part) {
-        await send(part);
+        await this.send(part);
       }
     }
   }
 
-  async function flush(): Promise<void> {
-    if (!buffer.trim()) {
-      buffer = "";
+  async flush(): Promise<void> {
+    if (!this.buffer.trim()) {
+      this.buffer = "";
       return;
     }
-    await send(buffer);
-    buffer = "";
+    await this.send(this.buffer);
+    this.buffer = "";
   }
 
-  return {
-    send,
-    write,
-    flush,
-    system: (text: string) => {
-      return send(`[⚙️ System]\n${text}`);
-    },
-    finish: async () => {
-      await flush();
-      if (!sent) {
-        await send("(no response)");
-      }
-    },
-  };
+  async finish(): Promise<void> {
+    await this.flush();
+    if (!this.sent) {
+      await this.send("(no response)");
+    }
+  }
 }
 
 function splitMessageText(text: string, limit: number): string[] {
