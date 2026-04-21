@@ -297,7 +297,6 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
           return;
         }
         const targetSession = { agentKey, agentSessionId };
-        stateStore.deleteAgentSessionData(targetSession);
         stateStore.deleteSession(targetSession);
         let output = `Session closed: ${toAgentSessionKey(targetSession)}.\n`;
         try {

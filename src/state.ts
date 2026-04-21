@@ -147,14 +147,6 @@ export class SessionStateStore {
       };
     });
   }
-
-  // TODO: just keep it around
-  deleteAgentSessionData(target: StateAgentSession): void {
-    this.set((state) => {
-      state.agentSessions[target.agentKey] ??= {};
-      delete state.agentSessions[target.agentKey][target.agentSessionId];
-    });
-  }
 }
 
 export const TEST_AGENT_COMMAND = `node ${path.join(import.meta.dirname, "lib/test-agent.ts")}`;
