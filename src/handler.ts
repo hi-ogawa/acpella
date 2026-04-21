@@ -66,11 +66,6 @@ export async function createHandler(
 
   async function handlePrompt(context: HandlerExtraContext): Promise<void> {
     let { reply, sessionName, metadata } = context;
-    if (activeSessions.has(sessionName)) {
-      await reply.system("Agent turn already in progress. Send /cancel to stop it.");
-      return;
-    }
-
     let promptText = "";
     if (metadata?.timestamp) {
       promptText = buildMessageMetadataPrompt({
@@ -699,10 +694,6 @@ home: ${config.home}
   };
 
   const handleCronPrompt: Handler["prompt"] = async ({ sessionName, text }) => {
-    // TODO: how to serialize prompt for cron and normal prompt?
-    if (activeSessions.has(sessionName)) {
-      throw new Error("Agent turn in progress. Cannot run cron prompt.");
-    }
     const chunks: string[] = [];
     const result = await handlePromptImpl({
       sessionName,
