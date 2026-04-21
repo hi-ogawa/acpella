@@ -40,11 +40,10 @@ export function buildSystemdUnit(options: {
   tmpDir: string;
 }): string {
   const envFile = resolve(options.workingDirectory, ".env");
-  const pathDirs = [dirname(options.nodeBin), "/usr/local/bin", "/usr/bin", "/bin"];
   const serviceEnv = {
     HOME: options.home,
     TMPDIR: options.env.TMPDIR?.trim() || options.tmpDir,
-    PATH: [...new Set(pathDirs)].join(":"),
+    PATH: buildServicePath({ nodeBin: options.nodeBin, home: options.home }),
   };
   const environmentLines = Object.entries(serviceEnv)
     .map(([key, value]) => `Environment=${escapeSystemdValue(`${key}=${value}`)}`)
@@ -70,6 +69,38 @@ KillMode=control-group
 [Install]
 WantedBy=default.target
 `;
+}
+
+// Build a minimal but usable PATH for systemd user services.
+// Based on openclaw's service environment path construction:
+// https://github.com/openclaw/openclaw/blob/83f6a26d77ce2668b5d0cfba57667e1b0793a525/src/daemon/service-env.ts
+function buildServicePath(options: { nodeBin: string; home: string }): string {
+  const { nodeBin, home } = options;
+
+  const dirs = [
+    dirname(nodeBin),
+    resolve(home, ".local/bin"),
+    resolve(home, ".cargo/bin"),
+    resolve(home, ".bun/bin"),
+    resolve(home, ".volta/bin"),
+    resolve(home, ".asdf/shims"),
+    resolve(home, ".npm-global/bin"),
+    resolve(home, ".fnm/aliases/default/bin"),
+    resolve(home, ".nvm/current/bin"),
+    resolve(home, "bin"),
+    "/opt/homebrew/bin",
+    "/opt/homebrew/sbin",
+    resolve(home, ".linuxbrew/bin"),
+    "/home/linuxbrew/.linuxbrew/bin",
+    "/usr/local/bin",
+    "/usr/local/sbin",
+    "/usr/sbin",
+    "/usr/bin",
+    "/bin",
+    "/sbin",
+  ];
+
+  return [...new Set(dirs)].join(":");
 }
 
 function escapeSystemdValue(value: string): string {
