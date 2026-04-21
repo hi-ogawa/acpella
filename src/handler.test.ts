@@ -446,6 +446,18 @@ test("verbose command toggles tool call output", async () => {
     `);
 });
 
+test("acp update logs include session name", async ({ onTestFinished }) => {
+  const tester = await createHandlerTester();
+  const session = tester.createSession("tg-123");
+  const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+  onTestFinished(() => {
+    logSpy.mockRestore();
+  });
+
+  await session.request("__tool:Read files");
+  expect(logSpy.mock.calls).toContainEqual(["[tg-123] [acp:update] tool_call: Read files"]);
+});
+
 test("agent command", async () => {
   const tester = await createHandlerTester();
   const session = tester.createSession("test");
