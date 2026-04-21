@@ -593,9 +593,7 @@ test("agent command", async () => {
           "verbose": false
         }
       },
-      "agentSessions": {
-        "test2": {}
-      }
+      "agentSessions": {}
     }"
   `);
 });
