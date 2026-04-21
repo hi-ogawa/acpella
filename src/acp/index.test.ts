@@ -102,16 +102,10 @@ describe(AgentManager, () => {
     `);
     await session.cancel();
     expect(updates).toMatchObject({ length: 1 });
-    await expect.poll(() => updates).toMatchObject({ length: 2 });
+    updates.length = 0;
+    await expect.poll(() => updates).toMatchObject({ length: 1 });
     expect(updates).toMatchInlineSnapshot(`
       [
-        {
-          "content": {
-            "text": "cancel-before",
-            "type": "text",
-          },
-          "sessionUpdate": "agent_message_chunk",
-        },
         {
           "content": {
             "text": "cancel-after",
