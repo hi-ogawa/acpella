@@ -71,6 +71,7 @@ function writeState(cwd: string, state: TestAgentState): void {
 
 class EchoAgent implements Agent {
   private connection: AgentSideConnection;
+  private pendingCancels = new Map<string, () => void>();
 
   constructor(connection: AgentSideConnection) {
     this.connection = connection;
@@ -143,6 +144,31 @@ class EchoAgent implements Agent {
       throw new Error("simulated error");
     }
 
+    if (text === "__wait_cancel__") {
+      if (this.pendingCancels.has(params.sessionId)) {
+        throw new Error(`session already waiting for cancel: ${params.sessionId}`);
+      }
+      const cancelled = Promise.withResolvers<void>();
+      this.pendingCancels.set(params.sessionId, cancelled.resolve);
+      await this.connection.sessionUpdate({
+        sessionId: params.sessionId,
+        update: {
+          sessionUpdate: "agent_message_chunk",
+          content: { type: "text", text: "cancel-before" },
+        },
+      });
+      await cancelled.promise;
+      this.pendingCancels.delete(params.sessionId);
+      await this.connection.sessionUpdate({
+        sessionId: params.sessionId,
+        update: {
+          sessionUpdate: "agent_message_chunk",
+          content: { type: "text", text: "cancel-after" },
+        },
+      });
+      return { stopReason: "end_turn" };
+    }
+
     let reportText: string;
     if (text.startsWith("__env:")) {
       const key = text.slice(6);
@@ -194,7 +220,10 @@ class EchoAgent implements Agent {
     return { stopReason: "end_turn" };
   }
 
-  async cancel(_params: CancelNotification): Promise<void> {}
+  async cancel(params: CancelNotification): Promise<void> {
+    const resolve = this.pendingCancels.get(params.sessionId);
+    resolve?.();
+  }
 }
 
 function main() {
