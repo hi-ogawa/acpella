@@ -34,7 +34,10 @@ const stateSchema = z
     agents: z.record(agentKeySchema, agentSchema),
     sessions: z.record(z.string().min(1), stateSessionSchema),
     // { [agentKey]: { [agentSessionId]: ... }}
-    agentSessions: z.record(agentKeySchema, z.record(z.string().min(1), agentSessionDataSchema)),
+    agentSessions: z
+      .record(agentKeySchema, z.record(z.string().min(1), agentSessionDataSchema))
+      .optional() // for back compat
+      .default({}),
   })
   .superRefine((state, ctx) => {
     if (!state.agents[state.defaultAgent]) {
@@ -127,7 +130,7 @@ export class SessionStateStore {
   }
 
   getAgentSessionUsage(taget: StateAgentSession): AgentSessionUsage | undefined {
-    return this.file.state.agentSessions[taget.agentKey]?.[taget.agentSessionId]?.usage;
+    return this.file.state.agentSessions?.[taget.agentKey]?.[taget.agentSessionId]?.usage;
   }
 
   setAgentSessionUsage(
