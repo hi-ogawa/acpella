@@ -120,10 +120,10 @@ export async function createHandler(
     }
 
     override get(key: K): V {
-      if (!super.has(key)) {
+      if (!this.has(key)) {
         this.set(key, this.options.init(key));
       }
-      return this.get(key)!;
+      return super.get(key)!;
     }
   }
 
