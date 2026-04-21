@@ -130,7 +130,7 @@ export class SessionStateStore {
   }
 
   getAgentSessionUsage(taget: StateAgentSession): AgentSessionUsage | undefined {
-    return this.file.state.agentSessions?.[taget.agentKey]?.[taget.agentSessionId]?.usage;
+    return this.file.state.agentSessions[taget.agentKey]?.[taget.agentSessionId]?.usage;
   }
 
   setAgentSessionUsage(
@@ -149,12 +149,9 @@ export class SessionStateStore {
   }
 
   deleteAgentSessionData(target: StateAgentSession): void {
-    const key = toAgentSessionKey(target);
-    if (!this.state.agentSessions[key]) {
-      return;
-    }
     this.set((state) => {
-      delete state.agentSessions[key];
+      state.agentSessions[target.agentKey] ??= {};
+      delete state.agentSessions[target.agentKey][target.agentSessionId];
     });
   }
 }

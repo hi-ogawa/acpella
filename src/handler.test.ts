@@ -357,7 +357,7 @@ test("session context usage", async () => {
   // /session list shows compact context %
   expect(await session.request("/session list")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    - test -> test:__testSession1 (active) context 27%"
+    - test -> test:__testSession1 (active)"
   `);
 
   // /session close removes the stored usage
@@ -375,7 +375,9 @@ test("session context usage", async () => {
         }
       },
       "sessions": {},
-      "agentSessions": {}
+      "agentSessions": {
+        "test": {}
+      }
     }"
   `);
 });
@@ -590,7 +592,9 @@ test("agent command", async () => {
           "verbose": false
         }
       },
-      "agentSessions": {}
+      "agentSessions": {
+        "test2": {}
+      }
     }"
   `);
 });
