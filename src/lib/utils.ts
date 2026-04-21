@@ -93,10 +93,14 @@ export class AsyncIterableQueue<T> {
 
 // serialize async function execution
 export class AsyncLane {
-  promise: Promise<unknown> = Promise.resolve();
+  promise: Promise<void> = Promise.resolve();
+
   run<T>(fn: () => Promise<T>): Promise<T> {
     const result = this.promise.then(fn);
-    this.promise = result.catch(() => {});
+    this.promise = result.then(
+      () => {},
+      () => {},
+    );
     return result;
   }
 }
