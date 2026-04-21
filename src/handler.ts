@@ -150,6 +150,10 @@ export async function createHandler(
           console.log(
             `${updateLogLabel} usage_update: (used: ${update.used}, size: ${update.size})`,
           );
+          stateStore.setAgentSessionUsage(
+            { agentKey: stateSession.agentKey, agentSessionId: session.sessionId },
+            update,
+          );
         } else {
           console.log(`${updateLogLabel} ${update.sessionUpdate}`);
         }
@@ -169,11 +173,22 @@ export async function createHandler(
       help: "/session current - Show the current session.",
       run: async ({ reply, sessionName }) => {
         const stateSession = stateStore.getSession(sessionName);
-        await reply.system(`\
+        let output = `\
 session: ${sessionName}
 agent: ${stateSession.agentKey}
 agent session id: ${stateSession.agentSessionId ?? "none"}
-`);
+`;
+        const usage = stateSession.agentSessionId
+          ? stateStore.getAgentSessionUsage({
+              agentKey: stateSession.agentKey,
+              agentSessionId: stateSession.agentSessionId,
+            })
+          : undefined;
+        if (usage) {
+          const pct = Math.round((usage.used / usage.size) * 100);
+          output += `context: ${usage.used} / ${usage.size} tokens (${pct}%)`;
+        }
+        await reply.system(output);
       },
     },
     {

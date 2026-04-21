@@ -167,7 +167,10 @@ async function createHandlerTester() {
 }
 
 function sanitizeOutput(output: string, config: AppConfig) {
-  return output.replaceAll(config.home, () => "<home>").replaceAll(process.cwd(), () => "<cwd>");
+  return output
+    .replaceAll(config.home, () => "<home>")
+    .replaceAll(process.cwd(), () => "<cwd>")
+    .replaceAll(/"updatedAt": \d+/g, `"updatedAt": <time>`);
 }
 
 function readStateFile(config: AppConfig) {
@@ -248,7 +251,8 @@ test("basic", async () => {
             "agentSessionId": "__testSession1",
             "verbose": false
           }
-        }
+        },
+        "agentSessions": {}
       }"
     `);
 });
@@ -403,6 +407,65 @@ test("session commands", async () => {
     Unknown agent: no-such-agent"
   `,
   );
+});
+
+test("session context usage", async () => {
+  const tester = await createHandlerTester();
+  const session = tester.createSession("test");
+
+  // Start a session
+  expect(await session.request("hello")).toMatchInlineSnapshot(`"echo: hello"`);
+
+  // Before usage_update, no context shown
+  expect(await session.request("/session current")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    session: test
+    agent: test
+    agent session id: __testSession1"
+  `);
+
+  // Send a usage_update
+  expect(await session.request("__usage_update:54321:200000")).toMatchInlineSnapshot(
+    `"echo: __usage_update:54321:200000"`,
+  );
+
+  // After usage_update, context is shown in /session current
+  expect(await session.request("/session current")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    session: test
+    agent: test
+    agent session id: __testSession1
+    context: 54321 / 200000 tokens (27%)"
+  `);
+  expect(readStateFile(tester.config)).toMatchInlineSnapshot(`
+    "{
+      "version": 2,
+      "defaultAgent": "test",
+      "agents": {
+        "test": {
+          "command": "node <cwd>/src/lib/test-agent.ts"
+        }
+      },
+      "sessions": {
+        "test": {
+          "agentKey": "test",
+          "agentSessionId": "__testSession1",
+          "verbose": false
+        }
+      },
+      "agentSessions": {
+        "test": {
+          "__testSession1": {
+            "usage": {
+              "used": 54321,
+              "size": 200000,
+              "updatedAt": <time>
+            }
+          }
+        }
+      }
+    }"
+  `);
 });
 
 test("verbose command toggles tool call output", async () => {
@@ -578,7 +641,8 @@ test("agent command", async () => {
           "agentSessionId": "__testSession1",
           "verbose": false
         }
-      }
+      },
+      "agentSessions": {}
     }"
   `);
   expect(await session.request("/session load test:__testSession1")).toMatchInlineSnapshot(`
@@ -613,7 +677,8 @@ test("agent command", async () => {
           "agentSessionId": "__testSession1",
           "verbose": false
         }
-      }
+      },
+      "agentSessions": {}
     }"
   `);
 });

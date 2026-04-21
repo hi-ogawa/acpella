@@ -17,12 +17,27 @@ const stateSessionSchema = z.object({
   verbose: z.boolean().optional(),
 });
 
+const agentSessionDataSchema = z.object({
+  usage: z
+    .object({
+      used: z.number(),
+      size: z.number(),
+      updatedAt: z.number(),
+    })
+    .optional(),
+});
+
 const stateSchema = z
   .object({
     version: z.literal(2),
     defaultAgent: agentKeySchema,
     agents: z.record(agentKeySchema, agentSchema),
     sessions: z.record(z.string().min(1), stateSessionSchema),
+    // { [agentKey]: { [agentSessionId]: ... }}
+    agentSessions: z
+      .record(agentKeySchema, z.record(z.string().min(1), agentSessionDataSchema))
+      .optional() // for back compat
+      .default({}),
   })
   .superRefine((state, ctx) => {
     if (!state.agents[state.defaultAgent]) {
@@ -56,6 +71,8 @@ export interface StateAgentSession {
   agentKey: string;
   agentSessionId: string;
 }
+type AgentSessionData = z.infer<typeof agentSessionDataSchema>;
+type AgentSessionUsage = NonNullable<AgentSessionData["usage"]>;
 
 export class SessionStateStore {
   file: FileStateManager<State>;
@@ -111,6 +128,25 @@ export class SessionStateStore {
       }
     });
   }
+
+  getAgentSessionUsage(target: StateAgentSession): AgentSessionUsage | undefined {
+    return this.file.state.agentSessions[target.agentKey]?.[target.agentSessionId]?.usage;
+  }
+
+  setAgentSessionUsage(
+    target: StateAgentSession,
+    usage: Omit<AgentSessionUsage, "updatedAt">,
+  ): void {
+    this.set((state) => {
+      state.agentSessions[target.agentKey] ??= {};
+      state.agentSessions[target.agentKey][target.agentSessionId] ??= {};
+      state.agentSessions[target.agentKey][target.agentSessionId].usage = {
+        used: usage.used,
+        size: usage.size,
+        updatedAt: Date.now(),
+      };
+    });
+  }
 }
 
 export const TEST_AGENT_COMMAND = `node ${path.join(import.meta.dirname, "lib/test-agent.ts")}`;
@@ -125,6 +161,7 @@ function getInitialState(): State {
     defaultAgent: Object.keys(BUILTIN_AGENTS)[0],
     agents: { ...BUILTIN_AGENTS },
     sessions: {},
+    agentSessions: {},
   };
 }
 
