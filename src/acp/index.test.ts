@@ -88,7 +88,7 @@ describe(AgentManager, () => {
         updates.push(update);
       }
     })();
-    await expect.poll(() => updates).toMatchObject({ length: 1 });
+    await expect.poll(() => updates).toMatchObject({ length: 2 });
     expect(updates).toMatchInlineSnapshot(`
       [
         {
@@ -98,12 +98,17 @@ describe(AgentManager, () => {
           },
           "sessionUpdate": "agent_message_chunk",
         },
+        {
+          "sessionUpdate": "tool_call",
+          "title": "wait_cancel",
+          "toolCallId": "__testToolCall",
+        },
       ]
     `);
     await session.cancel();
-    expect(updates).toMatchObject({ length: 1 });
+    expect(updates).toMatchObject({ length: 2 });
     updates.length = 0;
-    await expect.poll(() => updates).toMatchObject({ length: 1 });
+    await promise;
     expect(updates).toMatchInlineSnapshot(`
       [
         {
@@ -115,7 +120,6 @@ describe(AgentManager, () => {
         },
       ]
     `);
-    await promise;
   });
 });
 

@@ -157,6 +157,15 @@ class EchoAgent implements Agent {
           content: { type: "text", text: "cancel-before" },
         },
       });
+      // TODO: for now, call tool to force flush in handler.ts
+      await this.connection.sessionUpdate({
+        sessionId: params.sessionId,
+        update: {
+          sessionUpdate: "tool_call",
+          toolCallId: "__testToolCall",
+          title: "wait_cancel",
+        },
+      });
       await cancelled.promise;
       this.pendingCancels.delete(params.sessionId);
       await this.connection.sessionUpdate({

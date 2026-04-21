@@ -7,8 +7,8 @@ Coverage checklist:
   - [x] usage output
   - [x] exit calls onServiceExit
 - /cancel
-  - [ ] with no active turn
-  - [ ] active turn success
+  - [x] with no active turn
+  - [x] active turn success
   - [ ] active turn fallback kill path
 - /verbose
   - [x] default status
@@ -143,6 +143,7 @@ async function createHandlerTester() {
 
   return {
     config,
+    handler,
     request,
     createSession,
     onServiceExit,
@@ -261,6 +262,85 @@ test("service commands", async () => {
     ]
   `);
 });
+
+test("cancel command", async () => {
+  const tester = await createHandlerTester();
+  const sessionName = "test";
+  const session = tester.createSession(sessionName);
+
+  expect(await session.request("/cancel")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    No active agent turn."
+  `);
+
+  const replies: string[] = [];
+  const handlePromise = tester.handler.handle({
+    sessionName,
+    text: "__wait_cancel__",
+    send: async (replyText) => {
+      replies.push(sanitizeOutput(replyText, tester.config));
+    },
+  });
+  await expect.poll(() => replies).toMatchObject({ length: 1 });
+  expect(replies).toMatchInlineSnapshot(`
+    [
+      "cancel-before",
+    ]
+  `);
+  replies.length = 0;
+
+  expect(await session.request("/cancel")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Cancelled current agent turn."
+  `);
+  await handlePromise;
+  expect(replies).toMatchInlineSnapshot(`
+    [
+      "cancel-after",
+      "[⚙️ System]
+    Agent turn cancelled.",
+    ]
+  `);
+});
+
+// test("serializes prompt requests for the same session", async () => {
+//   const tester = await createHandlerTester();
+//   const started = Promise.withResolvers<void>();
+//   const first = tester.startRequest(
+//     {
+//       sessionName: "test",
+//       text: "__wait_cancel__",
+//     },
+//     {
+//       onSend: () => {
+//         started.resolve();
+//       },
+//     },
+//   );
+//   await started.promise;
+
+//   const session = tester.createSession("test");
+//   const second = session.request("hello");
+
+//   await expect(
+//     Promise.race([
+//       second.then(() => "settled"),
+//       sleep(50).then(() => "pending"),
+//     ]),
+//   ).resolves.toBe("pending");
+
+//   expect(await session.request("/cancel")).toMatchInlineSnapshot(`
+//     "[⚙️ System]
+//     Cancelled current agent turn."
+//   `);
+//   await expect(first.done).resolves.toMatchInlineSnapshot(`
+//     "cancel-before
+//     cancel-after
+//     [⚙️ System]
+//     Agent turn cancelled."
+//   `);
+//   await expect(second).resolves.toMatchInlineSnapshot(`"echo: hello"`);
+// });
 
 test("session commands", async () => {
   const tester = await createHandlerTester();
