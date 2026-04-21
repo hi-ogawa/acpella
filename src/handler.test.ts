@@ -368,11 +368,10 @@ test("acp update logs include session name", async () => {
 
   try {
     await session.request("__tool:Read files");
+    expect(logSpy.mock.calls).toContainEqual(["[tg-123] [acp:update] tool_call: Read files"]);
   } finally {
     logSpy.mockRestore();
   }
-
-  expect(logSpy.mock.calls).toContainEqual(["[tg-123] [acp:update] tool_call: Read files"]);
 });
 
 test("agent command", async () => {
