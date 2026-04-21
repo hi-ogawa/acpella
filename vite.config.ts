@@ -10,6 +10,7 @@ export default defineConfig({
   lint: {
     rules: {
       curly: "error",
+      "no-unused-vars": "off",
     },
     options: {
       typeAware: true,

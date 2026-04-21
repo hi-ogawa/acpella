@@ -7,8 +7,8 @@ Coverage checklist:
   - [x] usage output
   - [x] exit calls onServiceExit
 - /cancel
-  - [ ] with no active turn
-  - [ ] active turn success
+  - [x] with no active turn
+  - [x] active turn success
   - [ ] active turn fallback kill path
 - /verbose
   - [x] default status
@@ -127,23 +127,37 @@ async function createHandlerTester() {
   });
 
   async function request(context: Omit<HandlerContext, "send">) {
-    const messages: string[] = [];
+    const replies: string[] = [];
     await handler.handle({
       ...context,
-      send: async (t) => messages.push(t),
+      send: async (t) => replies.push(t),
     });
-    return sanitizeOutput(messages.join("\n"), config);
+    return sanitizeOutput(replies.join("\n"), config);
+  }
+
+  function requestStream(context: Omit<HandlerContext, "send">) {
+    const replies: string[] = [];
+    const promise = handler.handle({
+      ...context,
+      send: async (t) => replies.push(sanitizeOutput(t, config)),
+    });
+    return {
+      promise,
+      replies,
+    };
   }
 
   function createSession(sessionName: string, context?: Partial<HandlerContext>) {
     return {
       request: (text: string) => request({ ...context, sessionName, text }),
+      requestStream: (text: string) => requestStream({ ...context, sessionName, text }),
     };
   }
 
   return {
     config,
     request,
+    requestStream,
     createSession,
     onServiceExit,
     cronStore,
@@ -258,6 +272,77 @@ test("service commands", async () => {
   expect(tester.onServiceExit.mock.calls).toMatchInlineSnapshot(`
     [
       [],
+    ]
+  `);
+});
+
+test("cancel command", async () => {
+  const tester = await createHandlerTester();
+  const sessionName = "test";
+  const session = tester.createSession(sessionName);
+
+  expect(await session.request("/cancel")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    No active agent turn."
+  `);
+
+  const result = session.requestStream("__wait_cancel__");
+  await expect.poll(() => result.replies).toMatchObject({ length: 1 });
+  expect(result.replies).toMatchInlineSnapshot(`
+    [
+      "cancel-before",
+    ]
+  `);
+  result.replies.length = 0;
+
+  expect(await session.request("/cancel")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Cancelled current agent turn."
+  `);
+  await result.promise;
+  expect(result.replies).toMatchInlineSnapshot(`
+    [
+      "cancel-after",
+      "[⚙️ System]
+    Agent turn cancelled.",
+    ]
+  `);
+});
+
+test("serializes prompt requests for the same session", async () => {
+  const tester = await createHandlerTester();
+  const session = tester.createSession("test");
+
+  const result1 = session.requestStream("__wait_cancel__");
+  const result2 = session.requestStream("hello");
+
+  await expect.poll(() => result1.replies).toMatchObject({ length: 1 });
+  expect(result1.replies).toMatchInlineSnapshot(`
+    [
+      "cancel-before",
+    ]
+  `);
+  result1.replies.length = 0;
+
+  expect(await session.request("/cancel")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Cancelled current agent turn."
+  `);
+
+  // first prompt holding off second prompt
+  await result1.promise;
+  expect(result1.replies).toMatchInlineSnapshot(`
+    [
+      "cancel-after",
+      "[⚙️ System]
+    Agent turn cancelled.",
+    ]
+  `);
+  expect(result2.replies).toEqual([]);
+  await result2.promise;
+  expect(result2.replies).toMatchInlineSnapshot(`
+    [
+      "echo: hello",
     ]
   `);
 });
