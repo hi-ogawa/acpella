@@ -145,7 +145,7 @@ export async function createHandler(
           );
           stateStore.setAgentSessionUsage(
             { agentKey: stateSession.agentKey, agentSessionId: session.sessionId },
-            { used: update.used, size: update.size, cost: update.cost ?? undefined },
+            update,
           );
         } else {
           console.log(`${updateLogLabel} ${update.sessionUpdate}`);
@@ -165,27 +165,23 @@ export async function createHandler(
       tokens: ["current"],
       help: "/session current - Show the current session.",
       run: async ({ reply, sessionName }) => {
-        const state = stateStore.get();
         const stateSession = stateStore.getSession(sessionName);
-        const agentSessionKey = stateSession.agentSessionId
-          ? toAgentSessionKey({
+        let output = `\
+session: ${sessionName}
+agent: ${stateSession.agentKey}
+agent session id: ${stateSession.agentSessionId ?? "none"}
+`;
+        const usage = stateSession.agentSessionId
+          ? stateStore.getAgentSessionUsage({
               agentKey: stateSession.agentKey,
               agentSessionId: stateSession.agentSessionId,
             })
           : undefined;
-        const contextUsage = agentSessionKey
-          ? state.agentSessions[agentSessionKey]?.usage
-          : undefined;
-        let contextLine = "";
-        if (contextUsage && contextUsage.size > 0) {
-          const pct = Math.round((contextUsage.used / contextUsage.size) * 100);
-          contextLine = `\ncontext: ${contextUsage.used} / ${contextUsage.size} tokens (${pct}%)`;
+        if (usage) {
+          const pct = Math.round((usage.used / usage.size) * 100);
+          output += `context: ${usage.used} / ${usage.size} tokens (${pct}%)`;
         }
-        await reply.system(`\
-session: ${sessionName}
-agent: ${stateSession.agentKey}
-agent session id: ${stateSession.agentSessionId ?? "none"}${contextLine}
-`);
+        await reply.system(output);
       },
     },
     {
@@ -227,11 +223,6 @@ agent session id: ${stateSession.agentSessionId ?? "none"}${contextLine}
             output += " (active)";
           } else {
             output += " (not active)";
-          }
-          const contextUsage = state.agentSessions[agentSessionKey]?.usage;
-          if (contextUsage && contextUsage.size > 0) {
-            const pct = Math.round((contextUsage.used / contextUsage.size) * 100);
-            output += ` context ${pct}%`;
           }
           output += "\n";
         }

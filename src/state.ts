@@ -33,8 +33,8 @@ const stateSchema = z
     defaultAgent: agentKeySchema,
     agents: z.record(agentKeySchema, agentSchema),
     sessions: z.record(z.string().min(1), stateSessionSchema),
-    // TODO: nest object { [agentKey]: { [agentSessionId]: ... }}
-    agentSessions: z.record(z.string(), agentSessionDataSchema),
+    // { [agentKey]: { [agentSessionId]: ... }}
+    agentSessions: z.record(agentKeySchema, z.record(z.string().min(1), agentSessionDataSchema)),
   })
   .superRefine((state, ctx) => {
     if (!state.agents[state.defaultAgent]) {
@@ -68,6 +68,8 @@ export interface StateAgentSession {
   agentKey: string;
   agentSessionId: string;
 }
+type AgentSessionData = z.infer<typeof agentSessionDataSchema>;
+type AgentSessionUsage = NonNullable<AgentSessionData["usage"]>;
 
 export class SessionStateStore {
   file: FileStateManager<State>;
@@ -124,14 +126,18 @@ export class SessionStateStore {
     });
   }
 
+  getAgentSessionUsage(taget: StateAgentSession): AgentSessionUsage | undefined {
+    return this.file.state.agentSessions[taget.agentKey]?.[taget.agentSessionId]?.usage;
+  }
+
   setAgentSessionUsage(
     target: StateAgentSession,
-    usage: { used: number; size: number; cost?: { amount: number; currency: string } },
+    usage: Omit<AgentSessionUsage, "updatedAt">,
   ): void {
-    const key = toAgentSessionKey(target);
     this.set((state) => {
-      state.agentSessions[key] ??= {};
-      state.agentSessions[key].usage = {
+      state.agentSessions[target.agentKey] ??= {};
+      state.agentSessions[target.agentKey][target.agentSessionId] ??= {};
+      state.agentSessions[target.agentKey][target.agentSessionId].usage = {
         used: usage.used,
         size: usage.size,
         updatedAt: Date.now(),
