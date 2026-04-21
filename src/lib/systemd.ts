@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
-import { uniq } from "./utils";
+import { uniq } from "./utils.ts";
 
 export function handleSetupSystemd(): void {
   const unitContent = buildSystemdUnit({
