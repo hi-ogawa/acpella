@@ -129,8 +129,8 @@ export class SessionStateStore {
     });
   }
 
-  getAgentSessionUsage(taget: StateAgentSession): AgentSessionUsage | undefined {
-    return this.file.state.agentSessions[taget.agentKey]?.[taget.agentSessionId]?.usage;
+  getAgentSessionUsage(target: StateAgentSession): AgentSessionUsage | undefined {
+    return this.file.state.agentSessions[target.agentKey]?.[target.agentSessionId]?.usage;
   }
 
   setAgentSessionUsage(
