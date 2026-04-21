@@ -99,6 +99,10 @@ export async function createHandler(
     await reply.finish();
   }
 
+  // this ensure prompt request from multiple surfaces (e.g. normal prompt and cron)
+  // against for the same session to be processed sequentially.
+  // note that for telegram requests for the same session is already
+  // serialized at the bot handler level via `@grammyjs/runner`
   const handlePromptImpl: typeof handlePromptImplInner = (options) => {
     return activePromptLanes.get(options.sessionName).run(() => handlePromptImplInner(options));
   };
