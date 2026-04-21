@@ -21,6 +21,8 @@ export function objectPickBy<K extends PropertyKey, V>(
 
 export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+export const uniq = <T>(values: T[]): T[] => [...new Set(values)];
+
 export function formatTime(time: number | Temporal.Instant, timezone?: string): string {
   let instant: Temporal.Instant;
   if (typeof time === "number") {

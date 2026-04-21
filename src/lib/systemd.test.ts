@@ -26,7 +26,7 @@ describe(buildSystemdUnit, () => {
       EnvironmentFile=/home/alice/code/acpella/.env
       Environment="HOME=/home/alice with space"
       Environment=TMPDIR=/var/tmp/acpella
-      Environment=PATH=/home/alice/.local/share/fnm/node-versions/v24.13.0/installation/bin:/usr/local/bin:/usr/bin:/bin
+      Environment="PATH=/home/alice/.local/share/fnm/node-versions/v24.13.0/installation/bin:/home/alice with space/.local/bin:/home/alice with space/.cargo/bin:/home/alice with space/.bun/bin:/home/alice with space/.volta/bin:/home/alice with space/.asdf/shims:/home/alice with space/.npm-global/bin:/home/alice with space/.fnm/aliases/default/bin:/home/alice with space/.nvm/current/bin:/home/alice with space/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/home/alice with space/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/bin:/sbin"
       ExecStart=/home/alice/.local/share/fnm/node-versions/v24.13.0/installation/bin/node /home/alice/code/acpella/src/cli.ts
       Restart=always
       RestartSec=2

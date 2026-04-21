@@ -131,21 +131,24 @@ export async function createHandler(
     try {
       const result = session.prompt(promptText);
       activeSessions.set(sessionName, session);
+      const updateLogLabel = `[${sessionName}] [acp:update]`;
 
       for await (const update of result.consume()) {
         if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
           await options.onText(update.content.text);
         } else if (update.sessionUpdate === "tool_call") {
-          console.log(`[acp:update] tool_call: ${update.title}`);
+          console.log(`${updateLogLabel} tool_call: ${update.title}`);
           await options.onToolCall?.(update.title, stateSession);
         } else if (update.sessionUpdate === "usage_update") {
-          console.log(`[acp:update] usage_update: (used: ${update.used}, size: ${update.size})`);
+          console.log(
+            `${updateLogLabel} usage_update: (used: ${update.used}, size: ${update.size})`,
+          );
           stateStore.setAgentSessionContextUsage(
             { agentKey: stateSession.agentKey, agentSessionId: session.sessionId },
             { used: update.used, size: update.size, cost: update.cost ?? undefined },
           );
         } else {
-          console.log(`[acp:update] ${update.sessionUpdate}`);
+          console.log(`${updateLogLabel} ${update.sessionUpdate}`);
         }
       }
       return { cancelled: cancelledSessions.has(session) };
