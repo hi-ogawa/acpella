@@ -143,7 +143,7 @@ export async function createHandler(
           console.log(
             `${updateLogLabel} usage_update: (used: ${update.used}, size: ${update.size})`,
           );
-          stateStore.setAgentSessionContextUsage(
+          stateStore.setAgentSessionUsage(
             { agentKey: stateSession.agentKey, agentSessionId: session.sessionId },
             { used: update.used, size: update.size, cost: update.cost ?? undefined },
           );
@@ -174,7 +174,7 @@ export async function createHandler(
             })
           : undefined;
         const contextUsage = agentSessionKey
-          ? state.agentSessions[agentSessionKey]?.usage?.context
+          ? state.agentSessions[agentSessionKey]?.usage
           : undefined;
         let contextLine = "";
         if (contextUsage && contextUsage.size > 0) {
@@ -228,7 +228,7 @@ agent session id: ${stateSession.agentSessionId ?? "none"}${contextLine}
           } else {
             output += " (not active)";
           }
-          const contextUsage = state.agentSessions[agentSessionKey]?.usage?.context;
+          const contextUsage = state.agentSessions[agentSessionKey]?.usage;
           if (contextUsage && contextUsage.size > 0) {
             const pct = Math.round((contextUsage.used / contextUsage.size) * 100);
             output += ` context ${pct}%`;
