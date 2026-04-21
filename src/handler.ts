@@ -13,7 +13,7 @@ import { createCommandHandler } from "./lib/command.ts";
 import type { CommandTree } from "./lib/command.ts";
 import { buildFirstPrompt, buildMessageMetadataPrompt } from "./lib/prompt.ts";
 import { MESSAGE_SPLIT_BUDGET, ReplyManager } from "./lib/reply.ts";
-import { formatError } from "./lib/utils.ts";
+import { AsyncLane, DefaultMap, formatError } from "./lib/utils.ts";
 import { parseAgentSessionKey, SessionStateStore, toAgentSessionKey } from "./state.ts";
 import type { StateAgentSession, StateSession } from "./state.ts";
 
@@ -52,6 +52,9 @@ export async function createHandler(
   const cronStore = handlerOptions.cronStore;
   const activeSessions = new Map<string, AgentSessionProcess>();
   const cancelledSessions = new WeakSet<AgentSessionProcess>();
+  const activePromptLanes = new DefaultMap<string, AsyncLane>({
+    init: () => new AsyncLane(),
+  });
 
   async function getAgentManager(agentKey: string) {
     const agent = stateStore.get().agents[agentKey];
@@ -101,38 +104,8 @@ export async function createHandler(
     await reply.finish();
   }
 
-  class AsyncLane {
-    promise: Promise<unknown> = Promise.resolve();
-    run<T>(fn: () => Promise<T>): Promise<T> {
-      const result = this.promise.then(fn);
-      this.promise = result.catch(() => {});
-      return result;
-    }
-  }
-
-  class DefaultMap<K, V> extends Map<K, V> {
-    options: {
-      init: (k: K) => V;
-    };
-    constructor(options: DefaultMap<K, V>["options"]) {
-      super();
-      this.options = options;
-    }
-
-    override get(key: K): V {
-      if (!this.has(key)) {
-        this.set(key, this.options.init(key));
-      }
-      return super.get(key)!;
-    }
-  }
-
-  const promptLanes = new DefaultMap<string, AsyncLane>({
-    init: () => new AsyncLane(),
-  });
-
   const handlePromptImpl: typeof handlePromptImplInner = (options) => {
-    return promptLanes.get(options.sessionName).run(() => handlePromptImplInner(options));
+    return activePromptLanes.get(options.sessionName).run(() => handlePromptImplInner(options));
   };
 
   async function handlePromptImplInner(options: {

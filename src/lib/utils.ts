@@ -90,3 +90,30 @@ export class AsyncIterableQueue<T> {
     }
   }
 }
+
+// serialize async function execution
+export class AsyncLane {
+  promise: Promise<unknown> = Promise.resolve();
+  run<T>(fn: () => Promise<T>): Promise<T> {
+    const result = this.promise.then(fn);
+    this.promise = result.catch(() => {});
+    return result;
+  }
+}
+
+export class DefaultMap<K, V> extends Map<K, V> {
+  options: {
+    init: (k: K) => V;
+  };
+  constructor(options: DefaultMap<K, V>["options"]) {
+    super();
+    this.options = options;
+  }
+
+  override get(key: K): V {
+    if (!this.has(key)) {
+      this.set(key, this.options.init(key));
+    }
+    return super.get(key)!;
+  }
+}
