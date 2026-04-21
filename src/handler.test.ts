@@ -127,24 +127,37 @@ async function createHandlerTester() {
   });
 
   async function request(context: Omit<HandlerContext, "send">) {
-    const messages: string[] = [];
+    const replies: string[] = [];
     await handler.handle({
       ...context,
-      send: async (t) => messages.push(t),
+      send: async (t) => replies.push(t),
     });
-    return sanitizeOutput(messages.join("\n"), config);
+    return sanitizeOutput(replies.join("\n"), config);
+  }
+
+  function requestStream(context: Omit<HandlerContext, "send">) {
+    const replies: string[] = [];
+    const promise = handler.handle({
+      ...context,
+      send: async (t) => replies.push(sanitizeOutput(t, config)),
+    });
+    return {
+      promise,
+      replies,
+    };
   }
 
   function createSession(sessionName: string, context?: Partial<HandlerContext>) {
     return {
       request: (text: string) => request({ ...context, sessionName, text }),
+      requestStream: (text: string) => requestStream({ ...context, sessionName, text }),
     };
   }
 
   return {
     config,
-    handler,
     request,
+    requestStream,
     createSession,
     onServiceExit,
     cronStore,
@@ -273,28 +286,21 @@ test("cancel command", async () => {
     No active agent turn."
   `);
 
-  const replies: string[] = [];
-  const handlePromise = tester.handler.handle({
-    sessionName,
-    text: "__wait_cancel__",
-    send: async (replyText) => {
-      replies.push(sanitizeOutput(replyText, tester.config));
-    },
-  });
-  await expect.poll(() => replies).toMatchObject({ length: 1 });
-  expect(replies).toMatchInlineSnapshot(`
+  const result = session.requestStream("__wait_cancel__");
+  await expect.poll(() => result.replies).toMatchObject({ length: 1 });
+  expect(result.replies).toMatchInlineSnapshot(`
     [
       "cancel-before",
     ]
   `);
-  replies.length = 0;
+  result.replies.length = 0;
 
   expect(await session.request("/cancel")).toMatchInlineSnapshot(`
     "[⚙️ System]
     Cancelled current agent turn."
   `);
-  await handlePromise;
-  expect(replies).toMatchInlineSnapshot(`
+  await result.promise;
+  expect(result.replies).toMatchInlineSnapshot(`
     [
       "cancel-after",
       "[⚙️ System]
@@ -305,33 +311,18 @@ test("cancel command", async () => {
 
 test("serializes prompt requests for the same session", async () => {
   const tester = await createHandlerTester();
-  const sessionName = "test";
-  const session = tester.createSession(sessionName);
+  const session = tester.createSession("test");
 
-  const replies1: string[] = [];
-  const handlePromise1 = tester.handler.handle({
-    sessionName,
-    text: "__wait_cancel__",
-    send: async (replyText) => {
-      replies1.push(sanitizeOutput(replyText, tester.config));
-    },
-  });
-  const replies2: string[] = [];
-  const handlePromise2 = tester.handler.handle({
-    sessionName,
-    text: "hello",
-    send: async (replyText) => {
-      replies2.push(sanitizeOutput(replyText, tester.config));
-    },
-  });
+  const result1 = session.requestStream("__wait_cancel__");
+  const result2 = session.requestStream("hello");
 
-  await expect.poll(() => replies1).toMatchObject({ length: 1 });
-  expect(replies1).toMatchInlineSnapshot(`
+  await expect.poll(() => result1.replies).toMatchObject({ length: 1 });
+  expect(result1.replies).toMatchInlineSnapshot(`
     [
       "cancel-before",
     ]
   `);
-  replies1.length = 0;
+  result1.replies.length = 0;
 
   expect(await session.request("/cancel")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -339,17 +330,17 @@ test("serializes prompt requests for the same session", async () => {
   `);
 
   // first prompt holding off second prompt
-  await handlePromise1;
-  expect(replies1).toMatchInlineSnapshot(`
+  await result1.promise;
+  expect(result1.replies).toMatchInlineSnapshot(`
     [
       "cancel-after",
       "[⚙️ System]
     Agent turn cancelled.",
     ]
   `);
-  expect(replies2).toEqual([]);
-  await handlePromise2;
-  expect(replies2).toMatchInlineSnapshot(`
+  expect(result2.replies).toEqual([]);
+  await result2.promise;
+  expect(result2.replies).toMatchInlineSnapshot(`
     [
       "echo: hello",
     ]
