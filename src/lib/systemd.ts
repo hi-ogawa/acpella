@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
+import { uniq } from "./utils";
 
 export function handleSetupSystemd(): void {
   const unitContent = buildSystemdUnit({
@@ -43,7 +44,7 @@ export function buildSystemdUnit(options: {
   const serviceEnv = {
     HOME: options.home,
     TMPDIR: options.env.TMPDIR?.trim() || options.tmpDir,
-    PATH: buildServicePath({ nodeBin: options.nodeBin, home: options.home }),
+    PATH: buildServicePath(options),
   };
   const environmentLines = Object.entries(serviceEnv)
     .map(([key, value]) => `Environment=${escapeSystemdValue(`${key}=${value}`)}`)
@@ -100,7 +101,7 @@ function buildServicePath(options: { nodeBin: string; home: string }): string {
     "/sbin",
   ];
 
-  return [...new Set(dirs)].join(":");
+  return uniq(dirs).join(":");
 }
 
 function escapeSystemdValue(value: string): string {
