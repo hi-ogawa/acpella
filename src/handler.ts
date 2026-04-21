@@ -52,6 +52,7 @@ export async function createHandler(
   const cronStore = handlerOptions.cronStore;
   const activeSessions = new Map<string, AgentSessionProcess>();
   const cancelledSessions = new WeakSet<AgentSessionProcess>();
+  // TODO: refactor activeSessions/cancelledSessions by AsyncLane?
   const activePromptLanes = new DefaultMap<string, AsyncLane>({
     init: () => new AsyncLane(),
   });
