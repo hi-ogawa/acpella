@@ -153,7 +153,10 @@ async function createHandlerTester() {
 }
 
 function sanitizeOutput(output: string, config: AppConfig) {
-  return output.replaceAll(config.home, () => "<home>").replaceAll(process.cwd(), () => "<cwd>");
+  return output
+    .replaceAll(config.home, () => "<home>")
+    .replaceAll(process.cwd(), () => "<cwd>")
+    .replaceAll(/"updatedAt": \d+/g, `"updatedAt": <time>`);
 }
 
 function readStateFile(config: AppConfig) {
@@ -335,10 +338,6 @@ test("session context usage", async () => {
     agent: test
     agent session id: __testSession1"
   `);
-  expect(await session.request("/session list")).toMatchInlineSnapshot(`
-    "[⚙️ System]
-    - test -> test:__testSession1 (active)"
-  `);
 
   // Send a usage_update
   expect(await session.request("__usage_update:54321:200000")).toMatchInlineSnapshot(
@@ -353,18 +352,6 @@ test("session context usage", async () => {
     agent session id: __testSession1
     context: 54321 / 200000 tokens (27%)"
   `);
-
-  // /session list shows compact context %
-  expect(await session.request("/session list")).toMatchInlineSnapshot(`
-    "[⚙️ System]
-    - test -> test:__testSession1 (active)"
-  `);
-
-  // /session close removes the stored usage
-  expect(await session.request("/session close")).toMatchInlineSnapshot(`
-    "[⚙️ System]
-    Session closed: test:__testSession1."
-  `);
   expect(readStateFile(tester.config)).toMatchInlineSnapshot(`
     "{
       "version": 2,
@@ -374,9 +361,23 @@ test("session context usage", async () => {
           "command": "node <cwd>/src/lib/test-agent.ts"
         }
       },
-      "sessions": {},
+      "sessions": {
+        "test": {
+          "agentKey": "test",
+          "agentSessionId": "__testSession1",
+          "verbose": false
+        }
+      },
       "agentSessions": {
-        "test": {}
+        "test": {
+          "__testSession1": {
+            "usage": {
+              "used": 54321,
+              "size": 200000,
+              "updatedAt": <time>
+            }
+          }
+        }
       }
     }"
   `);

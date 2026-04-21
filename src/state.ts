@@ -148,6 +148,7 @@ export class SessionStateStore {
     });
   }
 
+  // TODO: just keep it around
   deleteAgentSessionData(target: StateAgentSession): void {
     this.set((state) => {
       state.agentSessions[target.agentKey] ??= {};
