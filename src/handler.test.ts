@@ -316,14 +316,6 @@ test("serializes prompt requests for the same session", async () => {
       replies1.push(sanitizeOutput(replyText, tester.config));
     },
   });
-  await expect.poll(() => replies1).toMatchObject({ length: 1 });
-  expect(replies1).toMatchInlineSnapshot(`
-    [
-      "cancel-before",
-    ]
-  `);
-  replies1.length = 0;
-
   const replies2: string[] = [];
   const handlePromise2 = tester.handler.handle({
     sessionName,
@@ -332,6 +324,15 @@ test("serializes prompt requests for the same session", async () => {
       replies2.push(sanitizeOutput(replyText, tester.config));
     },
   });
+
+  await expect.poll(() => replies1).toMatchObject({ length: 1 });
+  expect(replies1).toMatchInlineSnapshot(`
+    [
+      "cancel-before",
+    ]
+  `);
+  replies1.length = 0;
+
   expect(await session.request("/cancel")).toMatchInlineSnapshot(`
     "[⚙️ System]
     Cancelled current agent turn."
