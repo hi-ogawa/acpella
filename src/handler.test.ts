@@ -84,7 +84,7 @@ Coverage checklist:
 */
 
 import fs from "node:fs";
-import { expect, test, vi, type TestContext } from "vitest";
+import { expect, test, vi } from "vitest";
 import { loadConfig, type AppConfig } from "./config";
 import { CronRunner } from "./cron/runner.ts";
 import { CronStore } from "./cron/store.ts";
@@ -361,7 +361,7 @@ test("verbose command toggles tool call output", async () => {
     `);
 });
 
-test("acp update logs include session name", async ({ onTestFinished }: TestContext) => {
+test("acp update logs include session name", async ({ onTestFinished }) => {
   const tester = await createHandlerTester();
   const session = tester.createSession("tg-123");
   const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
