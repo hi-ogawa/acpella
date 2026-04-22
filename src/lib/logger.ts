@@ -7,6 +7,7 @@ export class JsonLogger {
   options: {
     file: string;
     flushThrottleMs?: number;
+    // TODO: custom batching
   };
   queuedLogs: QueuedLog[] = [];
   flushThrottled: () => void;
