@@ -16,7 +16,10 @@ export function createCommandHandler<T>(options: {
   onUsage: (usage: string, context: T) => Promise<void>;
 }) {
   const helpByCommand = buildHelpByCommand(options.commands);
-  const commandOverview = renderCommandOverview(options.commands);
+  const commandOverview = [
+    "Commands:\n/help - Show command help.",
+    ...Object.values(helpByCommand),
+  ].join("\n\n");
 
   return {
     async handle(handleOptions: { text: string; context: T }): Promise<boolean> {
@@ -100,14 +103,6 @@ function renderCommandHelp<T>(commandName: string, commands: CommandSpec<T>[]): 
   let output = `/${commandName}`;
   for (const command of commands) {
     output += `\n  ${command.help}`;
-  }
-  return output;
-}
-
-function renderCommandOverview<T>(commands: CommandTree<T>): string {
-  let output = "Commands:\n/help - Show command help.";
-  for (const [command, commandGroup] of Object.entries(commands)) {
-    output += `\n\n${renderCommandHelp(command, commandGroup)}`;
   }
   return output;
 }
