@@ -139,7 +139,7 @@ export async function createHandler(
 
     const logger = new JsonLogger({
       file: path.join(config.logsDir, `acp/${stateSession.agentKey}/${session.sessionId}.jsonl`),
-      shouldFlushBeforeQueue: (queuedLogs, nextData) => {
+      shouldFlush: (queuedLogs, nextData) => {
         const lastLog = queuedLogs[queuedLogs.length - 1];
         const getBatchKey = (data: object | undefined) => {
           const record = data as Record<string, unknown> | undefined;

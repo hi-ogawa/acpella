@@ -7,7 +7,7 @@ export type QueuedLog = { t: number; data: object };
 export interface JsonLoggerOptions {
   file: string;
   flushThrottleMs?: number;
-  shouldFlushBeforeQueue?: (queuedLogs: readonly QueuedLog[], nextData: object) => boolean;
+  shouldFlush?: (queuedLogs: readonly QueuedLog[], nextData: object) => boolean;
   processBatch?: (logs: QueuedLog[]) => object | undefined;
 }
 
@@ -30,10 +30,7 @@ export class JsonLogger {
   }
 
   queue(data: object): void {
-    if (
-      this.queuedLogs.length > 0 &&
-      this.options.shouldFlushBeforeQueue?.(this.queuedLogs, data)
-    ) {
+    if (this.queuedLogs.length > 0 && this.options.shouldFlush?.(this.queuedLogs, data)) {
       this.handleQueue.flush();
     }
     this.queuedLogs.push({ t: Date.now(), data });
