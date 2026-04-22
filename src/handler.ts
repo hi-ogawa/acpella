@@ -12,7 +12,7 @@ import type { CronRunner, CronRunnerAgentOptions } from "./cron/runner.ts";
 import type { CronDeliveryTarget, CronStore } from "./cron/store.ts";
 import { createCommandHandler } from "./lib/command.ts";
 import type { CommandTree } from "./lib/command.ts";
-import { JsonLogger } from "./lib/logger.ts";
+import { formatSessionUpdateLogEntry, JsonLogger } from "./lib/logger.ts";
 import { buildFirstPrompt, buildMessageMetadataPrompt } from "./lib/prompt.ts";
 import { MESSAGE_SPLIT_BUDGET, ReplyManager } from "./lib/reply.ts";
 import { AsyncLane, DefaultMap, formatError } from "./lib/utils.ts";
@@ -148,11 +148,7 @@ export async function createHandler(
       activeSessions.set(sessionName, session);
 
       for await (const update of result.consume()) {
-        logger.queue({
-          type: `update:${update.sessionUpdate}`,
-          ...update,
-          sessionUpdate: undefined,
-        });
+        logger.queue(formatSessionUpdateLogEntry(update));
         if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
           await options.onText(update.content.text);
         } else if (update.sessionUpdate === "tool_call") {

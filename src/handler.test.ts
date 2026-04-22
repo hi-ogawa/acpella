@@ -274,25 +274,27 @@ test("logs", async () => {
     if (!fs.existsSync(logFile)) {
       return null;
     }
-    return sanitizeOutput(fs.readFileSync(logFile, "utf8"), tester.config);
+    return "\n" + sanitizeOutput(fs.readFileSync(logFile, "utf8"), tester.config);
   }
   expect(readLogs()).toMatchInlineSnapshot(`null`);
   await session.request("__multiple_chunks:hello");
   expect(readLogs()).toMatchInlineSnapshot(`
-    "{"t":"<time>","type":"prompt","text":"__multiple_chunks:hello"}
-    {"t":"<time>","type":"update:agent_message_chunk","batch":[{"t":"<time>","content":{"text":"echo-1: hello","type":"text"}},{"t":"<time>","content":{"text":"echo-2: hello","type":"text"}}]}
+    "
+    {"t":"<time>","type":"prompt","text":"__multiple_chunks:hello"}
+    {"t":"<time>","type":"update:agent_message_chunk:text","batch":[{"t":"<time>","text":"echo-1: hello","content":{"text":"echo-1: hello","type":"text"}},{"t":"<time>","text":"echo-2: hello","content":{"text":"echo-2: hello","type":"text"}}]}
     {"t":"<time>","type":"done","cancelled":false}
     "
   `);
   await session.request("__chunk_tool:Search docs");
   expect(readLogs()).toMatchInlineSnapshot(`
-    "{"t":"<time>","type":"prompt","text":"__multiple_chunks:hello"}
-    {"t":"<time>","type":"update:agent_message_chunk","batch":[{"t":"<time>","content":{"text":"echo-1: hello","type":"text"}},{"t":"<time>","content":{"text":"echo-2: hello","type":"text"}}]}
+    "
+    {"t":"<time>","type":"prompt","text":"__multiple_chunks:hello"}
+    {"t":"<time>","type":"update:agent_message_chunk:text","batch":[{"t":"<time>","text":"echo-1: hello","content":{"text":"echo-1: hello","type":"text"}},{"t":"<time>","text":"echo-2: hello","content":{"text":"echo-2: hello","type":"text"}}]}
     {"t":"<time>","type":"done","cancelled":false}
     {"t":"<time>","type":"prompt","text":"__chunk_tool:Search docs"}
-    {"t":"<time>","type":"update:agent_message_chunk","batch":[{"t":"<time>","content":{"text":"before","type":"text"}}]}
-    {"t":"<time>","type":"update:tool_call","batch":[{"t":"<time>","title":"Search docs","toolCallId":"__testToolCall"}]}
-    {"t":"<time>","type":"update:agent_message_chunk","batch":[{"t":"<time>","content":{"text":"after","type":"text"}}]}
+    {"t":"<time>","type":"update:agent_message_chunk:text","text":"before","content":{"text":"before","type":"text"}}
+    {"t":"<time>","type":"update:tool_call","title":"Search docs","toolCallId":"__testToolCall"}
+    {"t":"<time>","type":"update:agent_message_chunk:text","text":"after","content":{"text":"after","type":"text"}}
     {"t":"<time>","type":"done","cancelled":false}
     "
   `);

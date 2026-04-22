@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import type { SessionUpdate } from "@agentclientprotocol/sdk";
 import { throttle, type Throttler } from "./utils.ts";
 
 type LogEntry = { type: string } & Record<string, unknown>;
@@ -59,10 +60,33 @@ function appendLog(file: string, data: object): void {
 }
 
 function processQueuedLogs(logs: TimedLogEntry[]): object {
-  const first = logs[0];
-  return {
-    t: new Date(first.t).toISOString(),
+  let { t, ...first } = logs[0];
+  let output = {
+    t: new Date(t).toISOString(),
     type: first.type,
-    batch: logs.map(({ type, ...log }) => ({ ...log, t: log.t - first.t })),
   };
+  if (logs.length === 1) {
+    return { ...output, ...first };
+  }
+  return {
+    ...output,
+    batch: logs.map(({ type, ...log }) => ({ ...log, t: log.t - t })),
+  };
+}
+
+export function formatSessionUpdateLogEntry(data: SessionUpdate): LogEntry {
+  let output: LogEntry = {
+    type: `update:${data.sessionUpdate}`,
+    ...data,
+  };
+  delete output.sessionUpdate;
+
+  if (data.sessionUpdate === "agent_message_chunk") {
+    output.type += `:${data.content.type}`;
+    if (data.content.type === "text") {
+      output.text = data.content.text;
+      output = { ...data.content, ...output };
+    }
+  }
+  return output;
 }
