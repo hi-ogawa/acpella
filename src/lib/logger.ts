@@ -13,7 +13,7 @@ export class JsonLogger<T = object> {
 
   log(data: T): void {
     try {
-      const entry = { timestamp: new Date().toISOString(), ...data };
+      const entry = { t: new Date().toISOString(), ...data };
       fs.appendFileSync(this.options.file, `${JSON.stringify(entry)}\n`);
     } catch (error) {
       console.error(`[logger] failed to write log '${this.options.file}':`, error);
