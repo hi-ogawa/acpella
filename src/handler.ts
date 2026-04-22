@@ -1,3 +1,4 @@
+import path from "path";
 import { AgentManager } from "./acp/index.ts";
 import type { AgentSessionProcess } from "./acp/index.ts";
 import type { AppConfig } from "./config.ts";
@@ -11,7 +12,7 @@ import type { CronRunner, CronRunnerAgentOptions } from "./cron/runner.ts";
 import type { CronDeliveryTarget, CronStore } from "./cron/store.ts";
 import { createCommandHandler } from "./lib/command.ts";
 import type { CommandTree } from "./lib/command.ts";
-import { createAcpPromptLogger } from "./lib/logger.ts";
+import { JsonLogger } from "./lib/logger.ts";
 import { buildFirstPrompt, buildMessageMetadataPrompt } from "./lib/prompt.ts";
 import { MESSAGE_SPLIT_BUDGET, ReplyManager } from "./lib/reply.ts";
 import { AsyncLane, DefaultMap, formatError } from "./lib/utils.ts";
@@ -136,22 +137,17 @@ export async function createHandler(
     }
     promptText += text;
 
-    const logger = createAcpPromptLogger({
-      logsDir: config.logsDir,
-      sessionName,
-      agentKey: stateSession.agentKey,
-      agentSessionId: session.sessionId,
+    const logger = new JsonLogger({
+      file: path.join(config.logsDir, `acp/${stateSession.agentKey}/${session.sessionId}.jsonl`),
     });
+    logger.log({ type: "prompt", text: promptText });
 
     try {
-      logger.prompt(promptText);
-
       const result = session.prompt(promptText);
       activeSessions.set(sessionName, session);
 
       for await (const update of result.consume()) {
-        logger.sessionUpdate(update);
-
+        logger.log({ type: "session_update", update });
         if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
           await options.onText(update.content.text);
         } else if (update.sessionUpdate === "tool_call") {
@@ -164,10 +160,10 @@ export async function createHandler(
         }
       }
       const cancelled = cancelledSessions.has(session);
-      logger.done({ cancelled });
+      logger.log({ type: "done", cancelled });
       return { cancelled };
     } catch (e) {
-      logger.error(e);
+      logger.log({ type: "error", error: formatError(e) });
       throw e;
     } finally {
       if (activeSessions.get(sessionName) === session) {
