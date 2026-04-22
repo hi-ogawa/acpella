@@ -6,6 +6,7 @@ export type QueuedLog = { t: number; data: object };
 export interface JsonLoggerOptions {
   file: string;
   flushThrottleMs?: number;
+  // TODO: deslop
   shouldFlushBeforeQueue?: (queuedLogs: readonly QueuedLog[], nextData: object) => boolean;
   processBatch?: (logs: QueuedLog[]) => object | object[];
 }
@@ -13,16 +14,18 @@ export interface JsonLoggerOptions {
 export class JsonLogger {
   options: JsonLoggerOptions;
   queuedLogs: QueuedLog[] = [];
-  flushTimeout: ReturnType<typeof setTimeout> | undefined;
+  handleQueue: Throttler;
 
   constructor(options: JsonLoggerOptions) {
     this.options = options;
+    const throttleMs = this.options.flushThrottleMs ?? 1000;
+    this.handleQueue = throttle(() => this.handleQueueImpl(), throttleMs);
     fs.mkdirSync(path.dirname(this.options.file), { recursive: true });
   }
 
   log(data: object): void {
     const t = new Date().toISOString();
-    this.flush();
+    this.handleQueue.flush();
     appendLog(this.options.file, { t, ...data });
   }
 
@@ -31,14 +34,13 @@ export class JsonLogger {
       this.queuedLogs.length > 0 &&
       this.options.shouldFlushBeforeQueue?.(this.queuedLogs, data)
     ) {
-      this.flush();
+      this.handleQueue.flush();
     }
     this.queuedLogs.push({ t: Date.now(), data });
-    this.scheduleFlush();
+    this.handleQueue.schedule();
   }
 
-  flush() {
-    this.cancelScheduledFlush();
+  private handleQueueImpl() {
     if (this.queuedLogs.length > 0) {
       const queuedLogs = this.queuedLogs;
       this.queuedLogs = [];
@@ -50,27 +52,7 @@ export class JsonLogger {
   }
 
   finish() {
-    this.cancelScheduledFlush();
-    this.flush();
-  }
-
-  private scheduleFlush() {
-    if (typeof this.flushTimeout !== "undefined") {
-      return;
-    }
-    const timeout = setTimeout(() => {
-      this.flushTimeout = undefined;
-      this.flush();
-    }, this.options.flushThrottleMs ?? 1000);
-    timeout.unref?.();
-    this.flushTimeout = timeout;
-  }
-
-  private cancelScheduledFlush() {
-    if (typeof this.flushTimeout !== "undefined") {
-      clearTimeout(this.flushTimeout);
-      this.flushTimeout = undefined;
-    }
+    this.handleQueue.flush();
   }
 }
 
@@ -88,4 +70,32 @@ export function formatQueuedLogsBatch(logs: QueuedLog[]): object {
     log.t -= t;
   }
   return { t: new Date(t).toISOString(), batch: logs };
+}
+
+type Throttler = ReturnType<typeof throttle>;
+
+function throttle(fn: () => void, ms: number) {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  function schedule() {
+    if (typeof timeout === "undefined") {
+      timeout = setTimeout(() => {
+        timeout = undefined;
+        fn();
+      }, ms);
+    }
+  }
+
+  function cancel() {
+    if (typeof timeout !== "undefined") {
+      clearTimeout(timeout);
+      timeout = undefined;
+    }
+  }
+
+  function flush() {
+    cancel();
+    fn();
+  }
+
+  return { schedule, cancel, flush };
 }
