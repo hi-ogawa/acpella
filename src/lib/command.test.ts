@@ -63,13 +63,16 @@ describe(createCommandHandler, () => {
         "test:pong",
         "/config
         /config show - Show config.
-        /config set <value...> - Set config.",
+        /config set <value...> - Set config.
+      ",
         "/config
         /config show - Show config.
-        /config set <value...> - Set config.",
+        /config set <value...> - Set config.
+      ",
         "/config
         /config show - Show config.
-        /config set <value...> - Set config.",
+        /config set <value...> - Set config.
+      ",
         "test:set:theme dark",
         "Commands:
       /help - Show command help.
@@ -79,7 +82,9 @@ describe(createCommandHandler, () => {
 
       /config
         /config show - Show config.
-        /config set <value...> - Set config.",
+        /config set <value...> - Set config.
+
+      ",
       ]
     `);
   });

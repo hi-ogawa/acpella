@@ -15,16 +15,7 @@ export function createCommandHandler<T>(options: {
   commands: CommandTree<T>;
   onUsage: (usage: string, context: T) => Promise<void>;
 }) {
-  const helpByCommand = Object.fromEntries(
-    Object.entries(options.commands).map(([command, commandGroup]) => [
-      command,
-      renderCommandHelp(command, commandGroup),
-    ]),
-  );
-  const commandOverview = [
-    "Commands:\n/help - Show command help.",
-    ...Object.values(helpByCommand),
-  ].join("\n\n");
+  const help = buildHelp(options.commands);
 
   return {
     async handle(handleOptions: { text: string; context: T }): Promise<boolean> {
@@ -34,7 +25,7 @@ export function createCommandHandler<T>(options: {
       }
       const [commandName, ...subcommandTokens] = tokens;
       if (commandName === "help") {
-        await options.onUsage(commandOverview, handleOptions.context);
+        await options.onUsage(help.full, handleOptions.context);
         return true;
       }
 
@@ -45,7 +36,7 @@ export function createCommandHandler<T>(options: {
 
       const matched = findCommand(commandGroup, subcommandTokens);
       if (!matched) {
-        await options.onUsage(helpByCommand[commandName]!, handleOptions.context);
+        await options.onUsage(help.byCommand[commandName]!, handleOptions.context);
         return true;
       }
 
@@ -96,10 +87,21 @@ function isEqualArray(left: string[], right: string[]): boolean {
   return left.length === right.length && isPrefixArray(left, right);
 }
 
-function renderCommandHelp<T>(commandName: string, commands: CommandSpec<T>[]): string {
-  let output = `/${commandName}`;
-  for (const command of commands) {
-    output += `\n  ${command.help}`;
+function buildHelp(tree: CommandTree<any>) {
+  const byCommand: Record<string, string> = {};
+  for (const [command, subCommands] of Object.entries(tree)) {
+    byCommand[command] = `\
+/${command}
+${subCommands.map((c) => `  ${c.help}`).join("\n")}
+`;
   }
-  return output;
+  const full = `\
+Commands:
+/help - Show command help.
+
+${Object.values(byCommand)
+  .map((c) => c)
+  .join("\n")}
+`;
+  return { full, byCommand };
 }
