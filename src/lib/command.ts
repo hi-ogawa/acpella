@@ -15,7 +15,12 @@ export function createCommandHandler<T>(options: {
   commands: CommandTree<T>;
   onUsage: (usage: string, context: T) => Promise<void>;
 }) {
-  const helpByCommand = buildHelpByCommand(options.commands);
+  const helpByCommand = Object.fromEntries(
+    Object.entries(options.commands).map(([command, commandGroup]) => [
+      command,
+      renderCommandHelp(command, commandGroup),
+    ]),
+  );
   const commandOverview = [
     "Commands:\n/help - Show command help.",
     ...Object.values(helpByCommand),
@@ -89,14 +94,6 @@ function isPrefixArray(left: string[], right: string[]): boolean {
 
 function isEqualArray(left: string[], right: string[]): boolean {
   return left.length === right.length && isPrefixArray(left, right);
-}
-
-function buildHelpByCommand<T>(commands: CommandTree<T>): Record<string, string> {
-  const helpByCommand: Record<string, string> = {};
-  for (const [command, commandGroup] of Object.entries(commands)) {
-    helpByCommand[command] = renderCommandHelp(command, commandGroup);
-  }
-  return helpByCommand;
 }
 
 function renderCommandHelp<T>(commandName: string, commands: CommandSpec<T>[]): string {
