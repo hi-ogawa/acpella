@@ -138,7 +138,8 @@ export async function createHandler(
     promptText += text;
 
     const traceFile = path.join(
-      config.acpTraceDir,
+      config.logsDir,
+      "acp",
       `${stateSession.agentKey}-${session.sessionId}.jsonl`,
     );
 
