@@ -12,7 +12,7 @@ import type { CronRunner, CronRunnerAgentOptions } from "./cron/runner.ts";
 import type { CronDeliveryTarget, CronStore } from "./cron/store.ts";
 import { createCommandHandler } from "./lib/command.ts";
 import type { CommandTree } from "./lib/command.ts";
-import { formatQueuedLogsBatch, JsonLogger, type QueuedLog } from "./lib/logger.ts";
+import { JsonLogger, type QueuedLog } from "./lib/logger.ts";
 import { buildFirstPrompt, buildMessageMetadataPrompt } from "./lib/prompt.ts";
 import { MESSAGE_SPLIT_BUDGET, ReplyManager } from "./lib/reply.ts";
 import { AsyncLane, DefaultMap, formatError } from "./lib/utils.ts";
@@ -186,11 +186,11 @@ export async function createHandler(
           },
         );
         if (textChunkLogs.length !== logs.length) {
-          return formatQueuedLogsBatch(logs);
+          return;
         }
         const firstLog = textChunkLogs[0];
         if (!firstLog) {
-          return formatQueuedLogsBatch(logs);
+          return;
         }
         const t = firstLog.t;
         return {
