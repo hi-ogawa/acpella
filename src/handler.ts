@@ -1,5 +1,3 @@
-import fs from "node:fs";
-import path from "node:path";
 import { AgentManager } from "./acp/index.ts";
 import type { AgentSessionProcess } from "./acp/index.ts";
 import type { AppConfig } from "./config.ts";
@@ -13,6 +11,7 @@ import type { CronRunner, CronRunnerAgentOptions } from "./cron/runner.ts";
 import type { CronDeliveryTarget, CronStore } from "./cron/store.ts";
 import { createCommandHandler } from "./lib/command.ts";
 import type { CommandTree } from "./lib/command.ts";
+import { createAcpPromptLogger } from "./lib/logger.ts";
 import { buildFirstPrompt, buildMessageMetadataPrompt } from "./lib/prompt.ts";
 import { MESSAGE_SPLIT_BUDGET, ReplyManager } from "./lib/reply.ts";
 import { AsyncLane, DefaultMap, formatError } from "./lib/utils.ts";
@@ -137,73 +136,38 @@ export async function createHandler(
     }
     promptText += text;
 
-    // TODO: abstract to lib/logger.ts
-    const sessionLogFile = path.join(
-      config.logsDir,
-      "acp",
-      `${stateSession.agentKey}`,
-      `${session.sessionId}.jsonl`,
-    );
+    const logger = createAcpPromptLogger({
+      logsDir: config.logsDir,
+      sessionName,
+      agentKey: stateSession.agentKey,
+      agentSessionId: session.sessionId,
+    });
 
     try {
-      appendAcpPromptTrace(sessionLogFile, {
-        type: "prompt",
-        sessionName,
-        agentKey: stateSession.agentKey,
-        agentSessionId: session.sessionId,
-        value: {
-          sessionId: session.sessionId,
-          prompt: [{ type: "text", text: promptText }],
-        },
-      });
+      logger.prompt(promptText);
 
       const result = session.prompt(promptText);
       activeSessions.set(sessionName, session);
-      const updateLogLabel = `[${sessionName}] [acp:update]`;
 
       for await (const update of result.consume()) {
-        appendAcpPromptTrace(sessionLogFile, {
-          type: "session_update",
-          sessionName,
-          agentKey: stateSession.agentKey,
-          agentSessionId: session.sessionId,
-          value: update,
-        });
+        logger.sessionUpdate(update);
 
         if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
           await options.onText(update.content.text);
         } else if (update.sessionUpdate === "tool_call") {
-          console.log(`${updateLogLabel} tool_call: ${update.title}`);
           await options.onToolCall?.(update.title, stateSession);
         } else if (update.sessionUpdate === "usage_update") {
-          console.log(
-            `${updateLogLabel} usage_update: (used: ${update.used}, size: ${update.size})`,
-          );
           stateStore.setAgentSessionUsage(
             { agentKey: stateSession.agentKey, agentSessionId: session.sessionId },
             update,
           );
-        } else {
-          console.log(`${updateLogLabel} ${update.sessionUpdate}`);
         }
       }
       const cancelled = cancelledSessions.has(session);
-      appendAcpPromptTrace(sessionLogFile, {
-        type: "done",
-        sessionName,
-        agentKey: stateSession.agentKey,
-        agentSessionId: session.sessionId,
-        value: { cancelled },
-      });
+      logger.done({ cancelled });
       return { cancelled };
     } catch (e) {
-      appendAcpPromptTrace(sessionLogFile, {
-        type: "error",
-        sessionName,
-        agentKey: stateSession.agentKey,
-        agentSessionId: session.sessionId,
-        value: { error: formatError(e) },
-      });
+      logger.error(e);
       throw e;
     } finally {
       if (activeSessions.get(sessionName) === session) {
@@ -778,13 +742,4 @@ home: ${config.home}
   };
 
   return { handle, prompt: handleCronPrompt, commands: systemCommandsMetadata };
-}
-
-function appendAcpPromptTrace(file: string, value: Record<string, unknown>): void {
-  try {
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.appendFileSync(file, `${JSON.stringify({ ts: new Date().toISOString(), ...value })}\n`);
-  } catch (e) {
-    console.error("[acp:trace] failed to append prompt trace:", e);
-  }
 }
