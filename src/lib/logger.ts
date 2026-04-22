@@ -1,19 +1,18 @@
 import fs from "node:fs";
 import path from "node:path";
-import { throttle, type Throttler } from "./utils";
+import { throttle, type Throttler } from "./utils.ts";
 
-export type QueuedLog = { t: number; data: object };
+type LogEntry = { type: string } & Record<string, unknown>;
+type TimedLogEntry = { t: number } & LogEntry;
 
 export interface JsonLoggerOptions {
   file: string;
   flushThrottleMs?: number;
-  shouldFlush?: (queuedLogs: readonly QueuedLog[], nextData: object) => boolean;
-  processBatch?: (logs: QueuedLog[]) => object | undefined;
 }
 
 export class JsonLogger {
   options: JsonLoggerOptions;
-  queuedLogs: QueuedLog[] = [];
+  queuedLogs: TimedLogEntry[] = [];
   handleQueue: Throttler;
 
   constructor(options: JsonLoggerOptions) {
@@ -23,17 +22,17 @@ export class JsonLogger {
     fs.mkdirSync(path.dirname(this.options.file), { recursive: true });
   }
 
-  log(data: object): void {
+  log(data: LogEntry): void {
     const t = new Date().toISOString();
     this.handleQueue.flush();
     appendLog(this.options.file, { t, ...data });
   }
 
-  queue(data: object): void {
-    if (this.queuedLogs.length > 0 && this.options.shouldFlush?.(this.queuedLogs, data)) {
+  queue(data: LogEntry): void {
+    if (this.queuedLogs.length > 0 && this.queuedLogs.at(-1)!.type !== data.type) {
       this.handleQueue.flush();
     }
-    this.queuedLogs.push({ t: Date.now(), data });
+    this.queuedLogs.push({ t: Date.now(), ...data });
     this.handleQueue.schedule();
   }
 
@@ -41,7 +40,7 @@ export class JsonLogger {
     if (this.queuedLogs.length > 0) {
       const queuedLogs = this.queuedLogs;
       this.queuedLogs = [];
-      const data = this.options.processBatch?.(queuedLogs) ?? formatQueuedLogsBatch(queuedLogs);
+      const data = processQueuedLogs(queuedLogs);
       appendLog(this.options.file, data);
     }
   }
@@ -59,10 +58,11 @@ function appendLog(file: string, data: object): void {
   }
 }
 
-function formatQueuedLogsBatch(logs: QueuedLog[]): object {
-  const t = logs[0].t;
-  for (const log of logs) {
-    log.t -= t;
-  }
-  return { t: new Date(t).toISOString(), batch: logs };
+function processQueuedLogs(logs: TimedLogEntry[]): object {
+  const first = logs[0];
+  return {
+    t: new Date(first.t).toISOString(),
+    type: first.type,
+    batch: logs.map(({ type, ...log }) => ({ ...log, t: log.t - first.t })),
+  };
 }

@@ -170,7 +170,7 @@ function sanitizeOutput(output: string, config: AppConfig) {
   return output
     .replaceAll(config.home, () => "<home>")
     .replaceAll(process.cwd(), () => "<cwd>")
-    .replaceAll(/"timestamp":"[^"]+"/g, `"timestamp":"<time>"`)
+    .replaceAll(/"t":(\d+|"[^"]+")/g, `"t":"<time>"`)
     .replaceAll(/"updatedAt": \d+/g, `"updatedAt": <time>`);
 }
 
@@ -277,23 +277,23 @@ test("logs", async () => {
     return sanitizeOutput(fs.readFileSync(logFile, "utf8"), tester.config);
   }
   expect(readLogs()).toMatchInlineSnapshot(`null`);
-  await session.request("hello");
+  await session.request("__multiple_chunks:hello");
   expect(readLogs()).toMatchInlineSnapshot(`
-    "{"timestamp":"<time>","type":"prompt","text":"hello"}
-    {"timestamp":"<time>","type":"session_update","update":{"content":{"text":"echo: hello","type":"text"},"sessionUpdate":"agent_message_chunk"}}
-    {"timestamp":"<time>","type":"done","cancelled":false}
+    "{"t":"<time>","type":"prompt","text":"__multiple_chunks:hello"}
+    {"t":"<time>","type":"update:agent_message_chunk","batch":[{"t":"<time>","content":{"text":"echo-1: hello","type":"text"}},{"t":"<time>","content":{"text":"echo-2: hello","type":"text"}}]}
+    {"t":"<time>","type":"done","cancelled":false}
     "
   `);
   await session.request("__chunk_tool:Search docs");
   expect(readLogs()).toMatchInlineSnapshot(`
-    "{"timestamp":"<time>","type":"prompt","text":"hello"}
-    {"timestamp":"<time>","type":"session_update","update":{"content":{"text":"echo: hello","type":"text"},"sessionUpdate":"agent_message_chunk"}}
-    {"timestamp":"<time>","type":"done","cancelled":false}
-    {"timestamp":"<time>","type":"prompt","text":"__chunk_tool:Search docs"}
-    {"timestamp":"<time>","type":"session_update","update":{"content":{"text":"before","type":"text"},"sessionUpdate":"agent_message_chunk"}}
-    {"timestamp":"<time>","type":"session_update","update":{"title":"Search docs","toolCallId":"__testToolCall","sessionUpdate":"tool_call"}}
-    {"timestamp":"<time>","type":"session_update","update":{"content":{"text":"after","type":"text"},"sessionUpdate":"agent_message_chunk"}}
-    {"timestamp":"<time>","type":"done","cancelled":false}
+    "{"t":"<time>","type":"prompt","text":"__multiple_chunks:hello"}
+    {"t":"<time>","type":"update:agent_message_chunk","batch":[{"t":"<time>","content":{"text":"echo-1: hello","type":"text"}},{"t":"<time>","content":{"text":"echo-2: hello","type":"text"}}]}
+    {"t":"<time>","type":"done","cancelled":false}
+    {"t":"<time>","type":"prompt","text":"__chunk_tool:Search docs"}
+    {"t":"<time>","type":"update:agent_message_chunk","batch":[{"t":"<time>","content":{"text":"before","type":"text"}}]}
+    {"t":"<time>","type":"update:tool_call","batch":[{"t":"<time>","title":"Search docs","toolCallId":"__testToolCall"}]}
+    {"t":"<time>","type":"update:agent_message_chunk","batch":[{"t":"<time>","content":{"text":"after","type":"text"}}]}
+    {"t":"<time>","type":"done","cancelled":false}
     "
   `);
 });
