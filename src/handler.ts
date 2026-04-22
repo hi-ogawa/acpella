@@ -147,6 +147,7 @@ export async function createHandler(
       activeSessions.set(sessionName, session);
 
       for await (const update of result.consume()) {
+        // TODO: update loggging needs to be batched
         logger.log({ type: "session_update", update });
         if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
           await options.onText(update.content.text);
