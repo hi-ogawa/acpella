@@ -86,6 +86,7 @@ export function formatSessionUpdateLogEntry(data: SessionUpdate): LogEntry {
     if (data.content.type === "text") {
       output.text = data.content.text;
       output = { ...data.content, ...output };
+      delete output.content;
     }
   }
   return output;
