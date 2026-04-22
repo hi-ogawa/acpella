@@ -1,4 +1,4 @@
-import path from "path";
+import path from "node:path";
 import { AgentManager } from "./acp/index.ts";
 import type { AgentSessionProcess } from "./acp/index.ts";
 import type { AppConfig } from "./config.ts";
