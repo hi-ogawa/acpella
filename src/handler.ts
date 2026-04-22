@@ -137,6 +137,7 @@ export async function createHandler(
     }
     promptText += text;
 
+    // TODO: "session_update" loggging needs to be batched
     const logger = new JsonLogger({
       file: path.join(config.logsDir, `acp/${stateSession.agentKey}/${session.sessionId}.jsonl`),
     });
@@ -147,8 +148,7 @@ export async function createHandler(
       activeSessions.set(sessionName, session);
 
       for await (const update of result.consume()) {
-        // TODO: update loggging needs to be batched
-        logger.log({ type: "session_update", update });
+        logger.queue({ type: "session_update", update });
         if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
           await options.onText(update.content.text);
         } else if (update.sessionUpdate === "tool_call") {
@@ -167,6 +167,7 @@ export async function createHandler(
       logger.log({ type: "error", error: formatError(e) });
       throw e;
     } finally {
+      logger.finish();
       if (activeSessions.get(sessionName) === session) {
         activeSessions.delete(sessionName);
       }
