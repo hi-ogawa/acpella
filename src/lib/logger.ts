@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { throttle, type Throttler } from "./utils";
 
 export type QueuedLog = { t: number; data: object };
 
@@ -70,32 +71,4 @@ export function formatQueuedLogsBatch(logs: QueuedLog[]): object {
     log.t -= t;
   }
   return { t: new Date(t).toISOString(), batch: logs };
-}
-
-type Throttler = ReturnType<typeof throttle>;
-
-function throttle(fn: () => void, ms: number) {
-  let timeout: ReturnType<typeof setTimeout> | undefined;
-  function schedule() {
-    if (typeof timeout === "undefined") {
-      timeout = setTimeout(() => {
-        timeout = undefined;
-        fn();
-      }, ms);
-    }
-  }
-
-  function cancel() {
-    if (typeof timeout !== "undefined") {
-      clearTimeout(timeout);
-      timeout = undefined;
-    }
-  }
-
-  function flush() {
-    cancel();
-    fn();
-  }
-
-  return { schedule, cancel, flush };
 }

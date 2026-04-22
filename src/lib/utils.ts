@@ -121,3 +121,31 @@ export class DefaultMap<K, V> extends Map<K, V> {
     return super.get(key)!;
   }
 }
+
+export type Throttler = ReturnType<typeof throttle>;
+
+export function throttle(fn: () => void, ms: number) {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  function schedule() {
+    if (typeof timeout === "undefined") {
+      timeout = setTimeout(() => {
+        timeout = undefined;
+        fn();
+      }, ms);
+    }
+  }
+
+  function cancel() {
+    if (typeof timeout !== "undefined") {
+      clearTimeout(timeout);
+      timeout = undefined;
+    }
+  }
+
+  function flush() {
+    cancel();
+    fn();
+  }
+
+  return { schedule, cancel, flush };
+}
