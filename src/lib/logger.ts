@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-export class JsonLogger<T = unknown> {
+export class JsonLogger<T = object> {
   options: {
     file: string;
   };
