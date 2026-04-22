@@ -67,9 +67,9 @@ describe(createCommandHandler, () => {
         "/config
         /config show - Show config.
         /config set <value...> - Set config.",
-        "Usage:
-      /config show
-      /config set <value...>",
+        "/config
+        /config show - Show config.
+        /config set <value...> - Set config.",
         "test:set:theme dark",
         "Commands:
       /help - Show command help.
