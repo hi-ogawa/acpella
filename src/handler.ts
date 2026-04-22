@@ -137,14 +137,16 @@ export async function createHandler(
     }
     promptText += text;
 
-    const traceFile = path.join(
+    // TODO: abstract to lib/logger.ts
+    const sessionLogFile = path.join(
       config.logsDir,
       "acp",
-      `${stateSession.agentKey}-${session.sessionId}.jsonl`,
+      `${stateSession.agentKey}`,
+      `${session.sessionId}.jsonl`,
     );
 
     try {
-      appendAcpPromptTrace(traceFile, {
+      appendAcpPromptTrace(sessionLogFile, {
         type: "prompt",
         sessionName,
         agentKey: stateSession.agentKey,
@@ -160,7 +162,7 @@ export async function createHandler(
       const updateLogLabel = `[${sessionName}] [acp:update]`;
 
       for await (const update of result.consume()) {
-        appendAcpPromptTrace(traceFile, {
+        appendAcpPromptTrace(sessionLogFile, {
           type: "session_update",
           sessionName,
           agentKey: stateSession.agentKey,
@@ -186,7 +188,7 @@ export async function createHandler(
         }
       }
       const cancelled = cancelledSessions.has(session);
-      appendAcpPromptTrace(traceFile, {
+      appendAcpPromptTrace(sessionLogFile, {
         type: "done",
         sessionName,
         agentKey: stateSession.agentKey,
@@ -195,7 +197,7 @@ export async function createHandler(
       });
       return { cancelled };
     } catch (e) {
-      appendAcpPromptTrace(traceFile, {
+      appendAcpPromptTrace(sessionLogFile, {
         type: "error",
         sessionName,
         agentKey: stateSession.agentKey,
