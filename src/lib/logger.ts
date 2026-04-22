@@ -80,8 +80,10 @@ export function formatSessionUpdateLogEntry(data: SessionUpdate): LogEntry {
     ...data,
   };
   delete output.sessionUpdate;
-
-  if (data.sessionUpdate === "agent_message_chunk") {
+  if (
+    data.sessionUpdate === "agent_message_chunk" ||
+    data.sessionUpdate === "agent_thought_chunk"
+  ) {
     output.type += `:${data.content.type}`;
     if (data.content.type === "text") {
       output.text = data.content.text;
