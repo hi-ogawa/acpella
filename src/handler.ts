@@ -139,56 +139,70 @@ export async function createHandler(
 
     const logger = new JsonLogger({
       file: path.join(config.logsDir, `acp/${stateSession.agentKey}/${session.sessionId}.jsonl`),
-      getBatchKey: (data) => {
-        const record = data as Record<string, unknown> | undefined;
-        if (record?.type !== "session_update") {
-          return "unknown";
-        }
-        const update = record.update as Record<string, unknown> | undefined;
-        if (typeof update?.sessionUpdate !== "string") {
-          return "unknown";
-        }
-        if (update.sessionUpdate === "agent_message_chunk") {
-          const content = update.content as Record<string, unknown> | undefined;
-          if (content?.type === "text" && typeof content.text === "string") {
-            return "session_update:agent_message_chunk:text";
-          }
-        }
-        return `session_update:${update.sessionUpdate}`;
-      },
-      processBatch: (logs) => {
-        const textChunkLogs = logs.map((log) => {
-          const record = log.data as Record<string, unknown>;
-          if (record.type !== "session_update") {
-            return undefined;
+      shouldFlushBeforeQueue: (queuedLogs, nextData) => {
+        const lastLog = queuedLogs[queuedLogs.length - 1];
+        const getBatchKey = (data: object | undefined) => {
+          const record = data as Record<string, unknown> | undefined;
+          if (record?.type !== "session_update") {
+            return "unknown";
           }
           const update = record.update as Record<string, unknown> | undefined;
-          if (update?.sessionUpdate !== "agent_message_chunk") {
-            return undefined;
+          if (typeof update?.sessionUpdate !== "string") {
+            return "unknown";
           }
-          const content = update.content as Record<string, unknown> | undefined;
-          if (content?.type !== "text" || typeof content.text !== "string") {
-            return undefined;
+          if (update.sessionUpdate === "agent_message_chunk") {
+            const content = update.content as Record<string, unknown> | undefined;
+            if (content?.type === "text" && typeof content.text === "string") {
+              return "session_update:agent_message_chunk:text";
+            }
           }
-          return { t: log.t, text: content.text };
-        });
-        if (textChunkLogs.some((log) => typeof log === "undefined")) {
+          return `session_update:${update.sessionUpdate}`;
+        };
+        return getBatchKey(lastLog?.data) !== getBatchKey(nextData);
+      },
+      processBatch: (logs) => {
+        const textChunkLogs = logs.filter(
+          (
+            log,
+          ): log is QueuedLog & {
+            data: {
+              update: {
+                content: {
+                  text: string;
+                };
+              };
+            };
+          } => {
+            const record = log.data as Record<string, unknown>;
+            if (record.type !== "session_update") {
+              return false;
+            }
+            const update = record.update as Record<string, unknown> | undefined;
+            if (update?.sessionUpdate !== "agent_message_chunk") {
+              return false;
+            }
+            const content = update.content as Record<string, unknown> | undefined;
+            return content?.type === "text" && typeof content.text === "string";
+          },
+        );
+        if (textChunkLogs.length !== logs.length) {
           return formatQueuedLogsBatch(logs);
         }
-        if (textChunkLogs.length > 0) {
-          const t = textChunkLogs[0].t;
-          return {
-            t: new Date(t).toISOString(),
-            type: "session_update_batch",
-            sessionUpdate: "agent_message_chunk",
-            contentType: "text",
-            chunks: textChunkLogs.map((log) => ({
-              t: log.t - t,
-              text: log.text,
-            })),
-          };
+        const firstLog = textChunkLogs[0];
+        if (!firstLog) {
+          return formatQueuedLogsBatch(logs);
         }
-        return formatQueuedLogsBatch(logs);
+        const t = firstLog.t;
+        return {
+          t: new Date(t).toISOString(),
+          type: "session_update_batch",
+          sessionUpdate: "agent_message_chunk",
+          contentType: "text",
+          chunks: textChunkLogs.map((log) => ({
+            t: log.t - t,
+            text: log.data.update.content.text,
+          })),
+        };
       },
     });
     logger.log({ type: "prompt", text: promptText });
