@@ -6,6 +6,7 @@ export interface AppConfig {
   stateFile: string;
   cronFile: string;
   cronStateFile: string;
+  acpTraceDir: string;
   timezone: string;
   telegram: {
     token?: string;
@@ -37,6 +38,7 @@ export function loadConfig(envOverride?: Record<string, string>): AppConfig {
     stateFile: path.join(home, ".acpella", "state.json"),
     cronFile: path.join(home, ".acpella", "cron.json"),
     cronStateFile: path.join(home, ".acpella", "cron-state.json"),
+    acpTraceDir: path.join(home, ".acpella", "logs", "acp"),
     timezone: env.TEST_ACPELLA_TIMEZONE ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
     telegram: {
       token: env.ACPELLA_TELEGRAM_BOT_TOKEN,

@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { AgentManager } from "./acp/index.ts";
 import type { AgentSessionProcess } from "./acp/index.ts";
 import type { AppConfig } from "./config.ts";
@@ -128,11 +130,35 @@ export async function createHandler(
     }
     promptText += text;
 
+    const traceFile = path.join(
+      config.acpTraceDir,
+      `${stateSession.agentKey}-${session.sessionId}.jsonl`,
+    );
+
     try {
+      appendAcpPromptTrace(traceFile, {
+        type: "prompt",
+        sessionName,
+        agentKey: stateSession.agentKey,
+        agentSessionId: session.sessionId,
+        value: {
+          sessionId: session.sessionId,
+          prompt: [{ type: "text", text: promptText }],
+        },
+      });
+
       const result = session.prompt(promptText);
       activeSessions.set(sessionName, session);
 
       for await (const update of result.consume()) {
+        appendAcpPromptTrace(traceFile, {
+          type: "session_update",
+          sessionName,
+          agentKey: stateSession.agentKey,
+          agentSessionId: session.sessionId,
+          value: update,
+        });
+
         if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
           await options.onText(update.content.text);
         } else if (update.sessionUpdate === "tool_call") {
@@ -144,7 +170,24 @@ export async function createHandler(
           console.log(`[acp:update] ${update.sessionUpdate}`);
         }
       }
-      return { cancelled: cancelledSessions.has(session) };
+      const cancelled = cancelledSessions.has(session);
+      appendAcpPromptTrace(traceFile, {
+        type: "done",
+        sessionName,
+        agentKey: stateSession.agentKey,
+        agentSessionId: session.sessionId,
+        value: { cancelled },
+      });
+      return { cancelled };
+    } catch (e) {
+      appendAcpPromptTrace(traceFile, {
+        type: "error",
+        sessionName,
+        agentKey: stateSession.agentKey,
+        agentSessionId: session.sessionId,
+        value: { error: formatError(e) },
+      });
+      throw e;
     } finally {
       if (activeSessions.get(sessionName) === session) {
         activeSessions.delete(sessionName);
@@ -711,4 +754,13 @@ home: ${config.home}
   };
 
   return { handle, prompt: handleCronPrompt, commands: systemCommandsMetadata };
+}
+
+function appendAcpPromptTrace(file: string, value: Record<string, unknown>): void {
+  try {
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.appendFileSync(file, `${JSON.stringify({ ts: new Date().toISOString(), ...value })}\n`);
+  } catch (e) {
+    console.error("[acp:trace] failed to append prompt trace:", e);
+  }
 }
