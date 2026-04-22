@@ -16,6 +16,7 @@ export function createCommandHandler<T>(options: {
   onUsage: (usage: string, context: T) => Promise<void>;
 }) {
   const usageByCommand = buildUsageByCommand(options.commands);
+  const helpByCommand = buildHelpByCommand(options.commands);
   const commandOverview = renderCommandOverview(options.commands);
 
   return {
@@ -37,7 +38,10 @@ export function createCommandHandler<T>(options: {
 
       const matched = findCommand(commandGroup, subcommandTokens);
       if (!matched) {
-        await options.onUsage(usageByCommand[commandName]!, handleOptions.context);
+        const output = isGroupHelpRequest(subcommandTokens)
+          ? helpByCommand[commandName]!
+          : usageByCommand[commandName]!;
+        await options.onUsage(output, handleOptions.context);
         return true;
       }
 
@@ -96,6 +100,14 @@ function buildUsageByCommand<T>(commands: CommandTree<T>): Record<string, string
   return usageByCommand;
 }
 
+function buildHelpByCommand<T>(commands: CommandTree<T>): Record<string, string> {
+  const helpByCommand: Record<string, string> = {};
+  for (const [command, commandGroup] of Object.entries(commands)) {
+    helpByCommand[command] = renderCommandHelp(command, commandGroup);
+  }
+  return helpByCommand;
+}
+
 function renderCommandUsage<T>(commands: CommandSpec<T>[]): string {
   const usages = commands.map((command) => getCommandUsage(command));
   if (usages.length === 1) {
@@ -108,13 +120,22 @@ function getCommandUsage<T>(command: CommandSpec<T>): string {
   return command.help.split(" - ", 1)[0]!;
 }
 
+function renderCommandHelp<T>(commandName: string, commands: CommandSpec<T>[]): string {
+  let output = `/${commandName}`;
+  for (const command of commands) {
+    output += `\n  ${command.help}`;
+  }
+  return output;
+}
+
 function renderCommandOverview<T>(commands: CommandTree<T>): string {
   let output = "Commands:\n/help - Show command help.";
   for (const [command, commandGroup] of Object.entries(commands)) {
-    output += `\n\n/${command}`;
-    for (const commandSpec of commandGroup) {
-      output += `\n  ${commandSpec.help}`;
-    }
+    output += `\n\n${renderCommandHelp(command, commandGroup)}`;
   }
   return output;
+}
+
+function isGroupHelpRequest(tokens: string[]): boolean {
+  return tokens.length === 0 || (tokens.length === 1 && tokens[0] === "help");
 }
