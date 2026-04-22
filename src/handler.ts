@@ -1,3 +1,4 @@
+import path from "node:path";
 import { AgentManager } from "./acp/index.ts";
 import type { AgentSessionProcess } from "./acp/index.ts";
 import type { AppConfig } from "./config.ts";
@@ -11,6 +12,7 @@ import type { CronRunner, CronRunnerAgentOptions } from "./cron/runner.ts";
 import type { CronDeliveryTarget, CronStore } from "./cron/store.ts";
 import { createCommandHandler } from "./lib/command.ts";
 import type { CommandTree } from "./lib/command.ts";
+import { formatSessionUpdateLogEntry, JsonLogger } from "./lib/logger.ts";
 import { buildFirstPrompt, buildMessageMetadataPrompt } from "./lib/prompt.ts";
 import { MESSAGE_SPLIT_BUDGET, ReplyManager } from "./lib/reply.ts";
 import { AsyncLane, DefaultMap, formatError } from "./lib/utils.ts";
@@ -135,31 +137,37 @@ export async function createHandler(
     }
     promptText += text;
 
+    const logger = new JsonLogger({
+      file: path.join(config.logsDir, `acp/${stateSession.agentKey}/${session.sessionId}.jsonl`),
+    });
+
+    logger.log({ type: "prompt", text: promptText });
+
     try {
       const result = session.prompt(promptText);
       activeSessions.set(sessionName, session);
-      const updateLogLabel = `[${sessionName}] [acp:update]`;
 
       for await (const update of result.consume()) {
+        logger.queue(formatSessionUpdateLogEntry(update));
         if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
           await options.onText(update.content.text);
         } else if (update.sessionUpdate === "tool_call") {
-          console.log(`${updateLogLabel} tool_call: ${update.title}`);
           await options.onToolCall?.(update.title, stateSession);
         } else if (update.sessionUpdate === "usage_update") {
-          console.log(
-            `${updateLogLabel} usage_update: (used: ${update.used}, size: ${update.size})`,
-          );
           stateStore.setAgentSessionUsage(
             { agentKey: stateSession.agentKey, agentSessionId: session.sessionId },
             update,
           );
-        } else {
-          console.log(`${updateLogLabel} ${update.sessionUpdate}`);
         }
       }
-      return { cancelled: cancelledSessions.has(session) };
+      const cancelled = cancelledSessions.has(session);
+      logger.log({ type: "done", cancelled });
+      return { cancelled };
+    } catch (e) {
+      logger.log({ type: "error", error: formatError(e) });
+      throw e;
     } finally {
+      logger.finish();
       if (activeSessions.get(sessionName) === session) {
         activeSessions.delete(sessionName);
       }

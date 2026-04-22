@@ -6,6 +6,7 @@ export interface AppConfig {
   stateFile: string;
   cronFile: string;
   cronStateFile: string;
+  logsDir: string;
   timezone: string;
   telegram: {
     token?: string;
@@ -24,6 +25,7 @@ const envSchema = z
     ACPELLA_TELEGRAM_BOT_TOKEN: z.string().optional(),
     ACPELLA_TELEGRAM_ALLOWED_USER_IDS: z.string().optional(),
     ACPELLA_TELEGRAM_ALLOWED_CHAT_IDS: z.string().optional(),
+    // pin timezone to make tests deterministic on local and CI
     TEST_ACPELLA_TIMEZONE: z.string().optional(),
   })
   .loose();
@@ -37,6 +39,7 @@ export function loadConfig(envOverride?: Record<string, string>): AppConfig {
     stateFile: path.join(home, ".acpella", "state.json"),
     cronFile: path.join(home, ".acpella", "cron.json"),
     cronStateFile: path.join(home, ".acpella", "cron-state.json"),
+    logsDir: path.join(home, ".acpella", "logs"),
     timezone: env.TEST_ACPELLA_TIMEZONE ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
     telegram: {
       token: env.ACPELLA_TELEGRAM_BOT_TOKEN,

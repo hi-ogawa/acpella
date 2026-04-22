@@ -170,6 +170,7 @@ function sanitizeOutput(output: string, config: AppConfig) {
   return output
     .replaceAll(config.home, () => "<home>")
     .replaceAll(process.cwd(), () => "<cwd>")
+    .replaceAll(/"t":(\d+|"[^"]+")/g, `"t":"<time>"`)
     .replaceAll(/"updatedAt": \d+/g, `"updatedAt": <time>`);
 }
 
@@ -263,6 +264,40 @@ test("agent error", async () => {
   await expect(session.request("__throw_error__")).rejects.toMatchInlineSnapshot(
     `[RequestError: Internal error]`,
   );
+});
+
+test("logs", async () => {
+  const tester = await createHandlerTester();
+  const session = tester.createSession("test");
+  const logFile = `${tester.config.logsDir}/acp/test/__testSession1.jsonl`;
+  function readLogs() {
+    if (!fs.existsSync(logFile)) {
+      return null;
+    }
+    return "\n" + sanitizeOutput(fs.readFileSync(logFile, "utf8"), tester.config);
+  }
+  expect(readLogs()).toMatchInlineSnapshot(`null`);
+  await session.request("__multiple_chunks:hello");
+  expect(readLogs()).toMatchInlineSnapshot(`
+    "
+    {"t":"<time>","type":"prompt","text":"__multiple_chunks:hello"}
+    {"t":"<time>","type":"update:agent_message_chunk:text","batch":[{"t":"<time>","text":"echo-1: hello"},{"t":"<time>","text":"echo-2: hello"}]}
+    {"t":"<time>","type":"done","cancelled":false}
+    "
+  `);
+  await session.request("__chunk_tool:Search docs");
+  expect(readLogs()).toMatchInlineSnapshot(`
+    "
+    {"t":"<time>","type":"prompt","text":"__multiple_chunks:hello"}
+    {"t":"<time>","type":"update:agent_message_chunk:text","batch":[{"t":"<time>","text":"echo-1: hello"},{"t":"<time>","text":"echo-2: hello"}]}
+    {"t":"<time>","type":"done","cancelled":false}
+    {"t":"<time>","type":"prompt","text":"__chunk_tool:Search docs"}
+    {"t":"<time>","type":"update:agent_message_chunk:text","text":"before"}
+    {"t":"<time>","type":"update:tool_call","title":"Search docs","toolCallId":"__testToolCall"}
+    {"t":"<time>","type":"update:agent_message_chunk:text","text":"after"}
+    {"t":"<time>","type":"done","cancelled":false}
+    "
+  `);
 });
 
 test("service commands", async () => {
@@ -507,18 +542,6 @@ test("verbose command toggles tool call output", async () => {
       "Tool: Edit file
       echo: __tool:Edit file"
     `);
-});
-
-test("acp update logs include session name", async ({ onTestFinished }) => {
-  const tester = await createHandlerTester();
-  const session = tester.createSession("tg-123");
-  const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-  onTestFinished(() => {
-    logSpy.mockRestore();
-  });
-
-  await session.request("__tool:Read files");
-  expect(logSpy.mock.calls).toContainEqual(["[tg-123] [acp:update] tool_call: Read files"]);
 });
 
 test("agent command", async () => {
