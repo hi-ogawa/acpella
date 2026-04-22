@@ -7,8 +7,8 @@ Coverage checklist:
   - [x] usage output
   - [x] exit calls onServiceExit
 - /cancel
-  - [ ] with no active turn
-  - [ ] active turn success
+  - [x] with no active turn
+  - [x] active turn success
   - [ ] active turn fallback kill path
 - /verbose
   - [x] default status
@@ -127,23 +127,37 @@ async function createHandlerTester() {
   });
 
   async function request(context: Omit<HandlerContext, "send">) {
-    const messages: string[] = [];
+    const replies: string[] = [];
     await handler.handle({
       ...context,
-      send: async (t) => messages.push(t),
+      send: async (t) => replies.push(t),
     });
-    return sanitizeOutput(messages.join("\n"), config);
+    return sanitizeOutput(replies.join("\n"), config);
+  }
+
+  function requestStream(context: Omit<HandlerContext, "send">) {
+    const replies: string[] = [];
+    const promise = handler.handle({
+      ...context,
+      send: async (t) => replies.push(sanitizeOutput(t, config)),
+    });
+    return {
+      promise,
+      replies,
+    };
   }
 
   function createSession(sessionName: string, context?: Partial<HandlerContext>) {
     return {
       request: (text: string) => request({ ...context, sessionName, text }),
+      requestStream: (text: string) => requestStream({ ...context, sessionName, text }),
     };
   }
 
   return {
     config,
     request,
+    requestStream,
     createSession,
     onServiceExit,
     cronStore,
@@ -153,7 +167,10 @@ async function createHandlerTester() {
 }
 
 function sanitizeOutput(output: string, config: AppConfig) {
-  return output.replaceAll(config.home, () => "<home>").replaceAll(process.cwd(), () => "<cwd>");
+  return output
+    .replaceAll(config.home, () => "<home>")
+    .replaceAll(process.cwd(), () => "<cwd>")
+    .replaceAll(/"updatedAt": \d+/g, `"updatedAt": <time>`);
 }
 
 function readStateFile(config: AppConfig) {
@@ -234,7 +251,8 @@ test("basic", async () => {
             "agentSessionId": "__testSession1",
             "verbose": false
           }
-        }
+        },
+        "agentSessions": {}
       }"
     `);
 });
@@ -258,6 +276,77 @@ test("service commands", async () => {
   expect(tester.onServiceExit.mock.calls).toMatchInlineSnapshot(`
     [
       [],
+    ]
+  `);
+});
+
+test("cancel command", async () => {
+  const tester = await createHandlerTester();
+  const sessionName = "test";
+  const session = tester.createSession(sessionName);
+
+  expect(await session.request("/cancel")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    No active agent turn."
+  `);
+
+  const result = session.requestStream("__wait_cancel__");
+  await expect.poll(() => result.replies).toMatchObject({ length: 1 });
+  expect(result.replies).toMatchInlineSnapshot(`
+    [
+      "cancel-before",
+    ]
+  `);
+  result.replies.length = 0;
+
+  expect(await session.request("/cancel")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Cancelled current agent turn."
+  `);
+  await result.promise;
+  expect(result.replies).toMatchInlineSnapshot(`
+    [
+      "cancel-after",
+      "[⚙️ System]
+    Agent turn cancelled.",
+    ]
+  `);
+});
+
+test("serializes prompt requests for the same session", async () => {
+  const tester = await createHandlerTester();
+  const session = tester.createSession("test");
+
+  const result1 = session.requestStream("__wait_cancel__");
+  const result2 = session.requestStream("hello");
+
+  await expect.poll(() => result1.replies).toMatchObject({ length: 1 });
+  expect(result1.replies).toMatchInlineSnapshot(`
+    [
+      "cancel-before",
+    ]
+  `);
+  result1.replies.length = 0;
+
+  expect(await session.request("/cancel")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Cancelled current agent turn."
+  `);
+
+  // first prompt holding off second prompt
+  await result1.promise;
+  expect(result1.replies).toMatchInlineSnapshot(`
+    [
+      "cancel-after",
+      "[⚙️ System]
+    Agent turn cancelled.",
+    ]
+  `);
+  expect(result2.replies).toEqual([]);
+  await result2.promise;
+  expect(result2.replies).toMatchInlineSnapshot(`
+    [
+      "echo: hello",
     ]
   `);
 });
@@ -320,6 +409,65 @@ test("session commands", async () => {
   );
 });
 
+test("session context usage", async () => {
+  const tester = await createHandlerTester();
+  const session = tester.createSession("test");
+
+  // Start a session
+  expect(await session.request("hello")).toMatchInlineSnapshot(`"echo: hello"`);
+
+  // Before usage_update, no context shown
+  expect(await session.request("/session current")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    session: test
+    agent: test
+    agent session id: __testSession1"
+  `);
+
+  // Send a usage_update
+  expect(await session.request("__usage_update:54321:200000")).toMatchInlineSnapshot(
+    `"echo: __usage_update:54321:200000"`,
+  );
+
+  // After usage_update, context is shown in /session current
+  expect(await session.request("/session current")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    session: test
+    agent: test
+    agent session id: __testSession1
+    context: 54321 / 200000 tokens (27%)"
+  `);
+  expect(readStateFile(tester.config)).toMatchInlineSnapshot(`
+    "{
+      "version": 2,
+      "defaultAgent": "test",
+      "agents": {
+        "test": {
+          "command": "node <cwd>/src/lib/test-agent.ts"
+        }
+      },
+      "sessions": {
+        "test": {
+          "agentKey": "test",
+          "agentSessionId": "__testSession1",
+          "verbose": false
+        }
+      },
+      "agentSessions": {
+        "test": {
+          "__testSession1": {
+            "usage": {
+              "used": 54321,
+              "size": 200000,
+              "updatedAt": <time>
+            }
+          }
+        }
+      }
+    }"
+  `);
+});
+
 test("verbose command toggles tool call output", async () => {
   const tester = await createHandlerTester();
   const session = tester.createSession("test");
@@ -359,6 +507,18 @@ test("verbose command toggles tool call output", async () => {
       "Tool: Edit file
       echo: __tool:Edit file"
     `);
+});
+
+test("acp update logs include session name", async ({ onTestFinished }) => {
+  const tester = await createHandlerTester();
+  const session = tester.createSession("tg-123");
+  const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+  onTestFinished(() => {
+    logSpy.mockRestore();
+  });
+
+  await session.request("__tool:Read files");
+  expect(logSpy.mock.calls).toContainEqual(["[tg-123] [acp:update] tool_call: Read files"]);
 });
 
 test("agent command", async () => {
@@ -481,7 +641,8 @@ test("agent command", async () => {
           "agentSessionId": "__testSession1",
           "verbose": false
         }
-      }
+      },
+      "agentSessions": {}
     }"
   `);
   expect(await session.request("/session load test:__testSession1")).toMatchInlineSnapshot(`
@@ -516,7 +677,8 @@ test("agent command", async () => {
           "agentSessionId": "__testSession1",
           "verbose": false
         }
-      }
+      },
+      "agentSessions": {}
     }"
   `);
 });

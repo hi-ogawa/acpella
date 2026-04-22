@@ -69,6 +69,58 @@ describe(AgentManager, () => {
     await manager.closeSession({ sessionId: "__testSession1" });
     await expect(manager.listSessions()).resolves.toEqual({ sessions: [] });
   });
+
+  it("cancel", async () => {
+    const { root } = useFs({ prefix: "acp" });
+    const manager = new AgentManager({
+      command: TEST_AGENT_COMMAND,
+      cwd: root,
+    });
+    const session = await manager.newSession({
+      sessionCwd: root,
+    });
+    onTestFinished(() => session.stop());
+
+    const result = session.prompt("__wait_cancel__");
+    const updates: any[] = [];
+    const promise = (async () => {
+      for await (const update of result.consume()) {
+        updates.push(update);
+      }
+    })();
+    await expect.poll(() => updates).toMatchObject({ length: 2 });
+    expect(updates).toMatchInlineSnapshot(`
+      [
+        {
+          "content": {
+            "text": "cancel-before",
+            "type": "text",
+          },
+          "sessionUpdate": "agent_message_chunk",
+        },
+        {
+          "sessionUpdate": "tool_call",
+          "title": "wait_cancel",
+          "toolCallId": "__testToolCall",
+        },
+      ]
+    `);
+    await session.cancel();
+    expect(updates).toMatchObject({ length: 2 });
+    updates.length = 0;
+    await promise;
+    expect(updates).toMatchInlineSnapshot(`
+      [
+        {
+          "content": {
+            "text": "cancel-after",
+            "type": "text",
+          },
+          "sessionUpdate": "agent_message_chunk",
+        },
+      ]
+    `);
+  });
 });
 
 async function arrayFromAsyncIterator<T>(iter: AsyncIterable<T>): Promise<T[]> {

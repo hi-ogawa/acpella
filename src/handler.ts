@@ -15,7 +15,7 @@ import { createCommandHandler } from "./lib/command.ts";
 import type { CommandTree } from "./lib/command.ts";
 import { buildFirstPrompt, buildMessageMetadataPrompt } from "./lib/prompt.ts";
 import { MESSAGE_SPLIT_BUDGET, ReplyManager } from "./lib/reply.ts";
-import { formatError } from "./lib/utils.ts";
+import { AsyncLane, DefaultMap, formatError } from "./lib/utils.ts";
 import { parseAgentSessionKey, SessionStateStore, toAgentSessionKey } from "./state.ts";
 import type { StateAgentSession, StateSession } from "./state.ts";
 
@@ -54,6 +54,10 @@ export async function createHandler(
   const cronStore = handlerOptions.cronStore;
   const activeSessions = new Map<string, AgentSessionProcess>();
   const cancelledSessions = new WeakSet<AgentSessionProcess>();
+  // TODO: refactor activeSessions/cancelledSessions by AsyncLane?
+  const activePromptLanes = new DefaultMap<string, AsyncLane>({
+    init: () => new AsyncLane(),
+  });
 
   async function getAgentManager(agentKey: string) {
     const agent = stateStore.get().agents[agentKey];
@@ -65,11 +69,6 @@ export async function createHandler(
 
   async function handlePrompt(context: HandlerExtraContext): Promise<void> {
     let { reply, sessionName, metadata } = context;
-    if (activeSessions.has(sessionName)) {
-      await reply.system("Agent turn already in progress. Send /cancel to stop it.");
-      return;
-    }
-
     let promptText = "";
     if (metadata?.timestamp) {
       promptText = buildMessageMetadataPrompt({
@@ -103,7 +102,15 @@ export async function createHandler(
     await reply.finish();
   }
 
-  async function handlePromptImpl(options: {
+  // This ensures that prompts from multiple sources (for example, normal prompts
+  // and cron) for the same session are processed sequentially.
+  // Note that Telegram requests for the same session are already serialized
+  // at the bot handler level via `@grammyjs/runner`.
+  const handlePromptImpl: typeof handlePromptImplInner = (options) => {
+    return activePromptLanes.get(options.sessionName).run(() => handlePromptImplInner(options));
+  };
+
+  async function handlePromptImplInner(options: {
     sessionName: string;
     text: string;
     onText: (text: string) => Promise<void> | void;
@@ -149,6 +156,7 @@ export async function createHandler(
 
       const result = session.prompt(promptText);
       activeSessions.set(sessionName, session);
+      const updateLogLabel = `[${sessionName}] [acp:update]`;
 
       for await (const update of result.consume()) {
         appendAcpPromptTrace(traceFile, {
@@ -162,12 +170,18 @@ export async function createHandler(
         if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
           await options.onText(update.content.text);
         } else if (update.sessionUpdate === "tool_call") {
-          console.log(`[acp:update] tool_call: ${update.title}`);
+          console.log(`${updateLogLabel} tool_call: ${update.title}`);
           await options.onToolCall?.(update.title, stateSession);
         } else if (update.sessionUpdate === "usage_update") {
-          console.log(`[acp:update] usage_update: (used: ${update.used}, size: ${update.size})`);
+          console.log(
+            `${updateLogLabel} usage_update: (used: ${update.used}, size: ${update.size})`,
+          );
+          stateStore.setAgentSessionUsage(
+            { agentKey: stateSession.agentKey, agentSessionId: session.sessionId },
+            update,
+          );
         } else {
-          console.log(`[acp:update] ${update.sessionUpdate}`);
+          console.log(`${updateLogLabel} ${update.sessionUpdate}`);
         }
       }
       const cancelled = cancelledSessions.has(session);
@@ -202,11 +216,22 @@ export async function createHandler(
       help: "/session current - Show the current session.",
       run: async ({ reply, sessionName }) => {
         const stateSession = stateStore.getSession(sessionName);
-        await reply.system(`\
+        let output = `\
 session: ${sessionName}
 agent: ${stateSession.agentKey}
 agent session id: ${stateSession.agentSessionId ?? "none"}
-`);
+`;
+        const usage = stateSession.agentSessionId
+          ? stateStore.getAgentSessionUsage({
+              agentKey: stateSession.agentKey,
+              agentSessionId: stateSession.agentSessionId,
+            })
+          : undefined;
+        if (usage) {
+          const pct = Math.round((usage.used / usage.size) * 100);
+          output += `context: ${usage.used} / ${usage.size} tokens (${pct}%)`;
+        }
+        await reply.system(output);
       },
     },
     {
@@ -735,10 +760,6 @@ home: ${config.home}
   };
 
   const handleCronPrompt: Handler["prompt"] = async ({ sessionName, text }) => {
-    // TODO: how to serialize prompt for cron and normal prompt?
-    if (activeSessions.has(sessionName)) {
-      throw new Error("Agent turn in progress. Cannot run cron prompt.");
-    }
     const chunks: string[] = [];
     const result = await handlePromptImpl({
       sessionName,
