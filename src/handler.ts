@@ -12,7 +12,7 @@ import type { CronRunner, CronRunnerAgentOptions } from "./cron/runner.ts";
 import type { CronDeliveryTarget, CronStore } from "./cron/store.ts";
 import { createCommandHandler } from "./lib/command.ts";
 import type { CommandTree } from "./lib/command.ts";
-import { JsonLogger } from "./lib/logger.ts";
+import { formatQueuedLogsBatch, JsonLogger, type QueuedLog } from "./lib/logger.ts";
 import { buildFirstPrompt, buildMessageMetadataPrompt } from "./lib/prompt.ts";
 import { MESSAGE_SPLIT_BUDGET, ReplyManager } from "./lib/reply.ts";
 import { AsyncLane, DefaultMap, formatError } from "./lib/utils.ts";
@@ -40,6 +40,78 @@ interface HandlerExtraContext extends HandlerContext {
 }
 
 type SystemCommandTree = CommandTree<HandlerExtraContext>;
+
+type SessionUpdateLogData = {
+  type: "session_update";
+  update: {
+    sessionUpdate: string;
+    [key: string]: unknown;
+  };
+};
+
+type AgentMessageTextChunkLogData = {
+  type: "session_update";
+  update: {
+    sessionUpdate: "agent_message_chunk";
+    content: {
+      type: "text";
+      text: string;
+    };
+  };
+};
+
+function shouldFlushBeforeSessionUpdateLog(queuedLogs: readonly QueuedLog[], nextData: object) {
+  const lastLog = queuedLogs[queuedLogs.length - 1];
+  return getSessionUpdateLogBatchKey(lastLog?.data) !== getSessionUpdateLogBatchKey(nextData);
+}
+
+function processSessionUpdateLogBatch(logs: QueuedLog[]) {
+  const textChunkLogs = logs.filter(
+    (log): log is QueuedLog & { data: AgentMessageTextChunkLogData } =>
+      isAgentMessageTextChunkLogData(log.data),
+  );
+  if (textChunkLogs.length === logs.length) {
+    const t = textChunkLogs[0].t;
+    return {
+      t: new Date(t).toISOString(),
+      type: "session_update_batch",
+      sessionUpdate: "agent_message_chunk",
+      contentType: "text",
+      chunks: textChunkLogs.map((log) => ({
+        t: log.t - t,
+        text: log.data.update.content.text,
+      })),
+    };
+  }
+  return formatQueuedLogsBatch(logs);
+}
+
+function getSessionUpdateLogBatchKey(data: object | undefined) {
+  if (!data || !isSessionUpdateLogData(data)) {
+    return "unknown";
+  }
+  if (isAgentMessageTextChunkLogData(data)) {
+    return "session_update:agent_message_chunk:text";
+  }
+  return `session_update:${data.update.sessionUpdate}`;
+}
+
+function isSessionUpdateLogData(data: object): data is SessionUpdateLogData {
+  const record = data as Record<string, unknown>;
+  if (record.type !== "session_update") {
+    return false;
+  }
+  const update = record.update as Record<string, unknown> | undefined;
+  return typeof update?.sessionUpdate === "string";
+}
+
+function isAgentMessageTextChunkLogData(data: object): data is AgentMessageTextChunkLogData {
+  if (!isSessionUpdateLogData(data) || data.update.sessionUpdate !== "agent_message_chunk") {
+    return false;
+  }
+  const content = data.update.content as Record<string, unknown> | undefined;
+  return content?.type === "text" && typeof content.text === "string";
+}
 
 export async function createHandler(
   config: AppConfig,
@@ -137,9 +209,10 @@ export async function createHandler(
     }
     promptText += text;
 
-    // TODO: "session_update" loggging needs to be batched
     const logger = new JsonLogger({
       file: path.join(config.logsDir, `acp/${stateSession.agentKey}/${session.sessionId}.jsonl`),
+      shouldFlushBeforeQueue: shouldFlushBeforeSessionUpdateLog,
+      processBatch: processSessionUpdateLogBatch,
     });
     logger.log({ type: "prompt", text: promptText });
 
