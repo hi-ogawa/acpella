@@ -3,7 +3,7 @@ import { type CronJob, type CronRun, type CronStore, cronIdSchema } from "./stor
 import { getNextCronSchedule, validateCronSchedule } from "./timer.ts";
 
 export const CRON_ADD_USAGE =
-  "/cron add <id> <minute> <hour> <dayOfMonth> <month> <dayOfWeek> [--session <sessionName>] -- <prompt>";
+  "/cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--session <sessionName>] -- <prompt...>";
 
 export function parseCronAddArgs(
   args: string[],
@@ -25,32 +25,21 @@ export function parseCronAddArgs(
     return resultErr("Invalid input");
   }
 
-  // Parse named options and -- separator from rest
   let sessionName: string | undefined;
-  const promptParts: string[] = [];
-
-  // Options are everything before --; prompt is everything after --
-  const separatorIndex = rest.indexOf("--");
-  if (separatorIndex === -1) {
-    return resultErr("Missing prompt");
-  }
-  const optionParts = rest.slice(0, separatorIndex);
-  const afterSeparator = rest.slice(separatorIndex + 1);
-  for (let i = 0; i < optionParts.length; i++) {
-    if (optionParts[i] === "--session") {
-      const val = optionParts[i + 1];
-      if (!val) {
-        return resultErr("Missing value for --session");
-      }
-      i++;
-      sessionName = val;
-    } else {
-      return resultErr(`Unknown option: ${optionParts[i]}`);
+  if (rest[0] === "--session") {
+    if (!rest[1]) {
+      return resultErr("Missing value for --session");
     }
+    sessionName = rest[1];
+    rest.splice(0, 2);
   }
-  promptParts.push(...afterSeparator);
 
-  const prompt = promptParts.join(" ");
+  if (rest[0] !== "--") {
+    return resultErr("Missing -- separator before prompt");
+  }
+  rest.splice(0, 1);
+
+  const prompt = rest.join(" ");
   if (!prompt) {
     return resultErr("Invalid input");
   }
