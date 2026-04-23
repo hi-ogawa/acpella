@@ -99,9 +99,7 @@ ${subCommands.map((c) => `  ${c.help}`).join("\n")}
 Commands:
 /help - Show command help.
 
-${Object.values(byCommand)
-  .map((c) => c)
-  .join("\n")}
+${Object.values(byCommand).join("\n")}
 `;
   return { full, byCommand };
 }
