@@ -32,7 +32,7 @@ export function parseCronAddArgs(
   // Options are everything before --; prompt is everything after --
   const separatorIndex = rest.indexOf("--");
   if (separatorIndex === -1) {
-    return resultErr("Missing -- separator between options and prompt");
+    return resultErr("Missing prompt");
   }
   const optionParts = rest.slice(0, separatorIndex);
   const afterSeparator = rest.slice(separatorIndex + 1);
