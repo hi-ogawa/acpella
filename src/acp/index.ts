@@ -34,7 +34,7 @@ export class AgentManager {
       cwd: sessionCwd,
       mcpServers: [],
     });
-    return toSessionProcess(agent, response.sessionId);
+    return new AgentSessionProcess(agent, response.sessionId);
   }
 
   async loadSession({ sessionCwd, sessionId }: { sessionCwd: string; sessionId: string }) {
@@ -44,7 +44,7 @@ export class AgentManager {
       cwd: sessionCwd,
       mcpServers: [],
     });
-    return toSessionProcess(agent, sessionId);
+    return new AgentSessionProcess(agent, sessionId);
   }
 
   async closeSession({ sessionId }: { sessionId: string }): Promise<void> {
@@ -67,7 +67,6 @@ export class AgentManager {
 }
 
 export type AgentProcess = Awaited<ReturnType<typeof spawnAgent>>;
-export type AgentSessionProcess = Awaited<ReturnType<typeof toSessionProcess>>;
 
 async function spawnAgent({ command, cwd }: { command: string; cwd: string }) {
   const [cmd, ...args] = command.trim().split(/\s+/);
@@ -164,20 +163,29 @@ function createExitPromise(child: ChildProcess): {
   };
 }
 
-async function toSessionProcess(agent: AgentProcess, sessionId: string) {
-  return {
-    ...agent,
-    sessionId,
-    prompt(text: string) {
-      return promptStream(agent, {
-        sessionId,
-        prompt: [{ type: "text", text }],
-      });
-    },
-    async cancel(): Promise<void> {
-      await agent.connection.cancel({ sessionId });
-    },
-  };
+export class AgentSessionProcess {
+  agent: AgentProcess;
+  sessionId: string;
+
+  constructor(agent: AgentProcess, sessionId: string) {
+    this.agent = agent;
+    this.sessionId = sessionId;
+  }
+
+  stop() {
+    this.agent.stop();
+  }
+
+  prompt(text: string) {
+    return promptStream(this.agent, {
+      sessionId: this.sessionId,
+      prompt: [{ type: "text", text }],
+    });
+  }
+
+  async cancel(): Promise<void> {
+    await this.agent.connection.cancel({ sessionId: this.sessionId });
+  }
 }
 
 function promptStream(agent: AgentProcess, request: PromptRequest) {

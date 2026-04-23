@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
-import { createCommandHandler, type CommandTree } from "./command.ts";
+import { CommandHandler, type CommandTree } from "./command.ts";
 
-describe(createCommandHandler, () => {
+describe(CommandHandler, () => {
   test("dispatches commands and renders generated help", async () => {
     const events: string[] = [];
     type TestContext = {
@@ -36,7 +36,7 @@ describe(createCommandHandler, () => {
         },
       ],
     };
-    const commandHandler = createCommandHandler({
+    const commandHandler = new CommandHandler({
       commands,
       onUsage: async (usage, context) => {
         await context.usage(usage);

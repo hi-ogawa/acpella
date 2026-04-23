@@ -7,46 +7,52 @@ export type CommandSpec<T> = {
   run: (context: CommandRunContext<T>) => Promise<void>;
 };
 
-export type CommandRunContext<T> = T & {
+type CommandRunContext<T> = T & {
   args: string[];
 };
 
-export function createCommandHandler<T>(options: {
+interface CommandHandlerOptions<T> {
   commands: CommandTree<T>;
   onUsage: (usage: string, context: T) => Promise<void>;
-}) {
-  const help = buildHelp(options.commands);
+}
 
-  return {
-    async handle(handleOptions: { text: string; context: T }): Promise<boolean> {
-      const tokens = parseCommandTokens(handleOptions.text);
-      if (!tokens) {
-        return false;
-      }
-      const [commandName, ...subcommandTokens] = tokens;
-      if (commandName === "help") {
-        await options.onUsage(help.full, handleOptions.context);
-        return true;
-      }
+export class CommandHandler<T> {
+  options: CommandHandlerOptions<T>;
+  help: ReturnType<typeof buildHelp>;
 
-      const commandGroup = options.commands[commandName];
-      if (!commandGroup) {
-        return false;
-      }
+  constructor(options: CommandHandlerOptions<T>) {
+    this.options = options;
+    this.help = buildHelp(options.commands);
+  }
 
-      const matched = findCommand(commandGroup, subcommandTokens);
-      if (!matched) {
-        await options.onUsage(help.byCommand[commandName]!, handleOptions.context);
-        return true;
-      }
-
-      await matched.command.run({
-        ...handleOptions.context,
-        args: matched.args,
-      });
+  async handle({ text, context }: { text: string; context: T }): Promise<boolean> {
+    const tokens = parseCommandTokens(text);
+    if (!tokens) {
+      return false;
+    }
+    const [commandName, ...subcommandTokens] = tokens;
+    if (commandName === "help") {
+      await this.options.onUsage(this.help.full, context);
       return true;
-    },
-  };
+    }
+
+    const commandGroup = this.options.commands[commandName];
+    if (!commandGroup) {
+      return false;
+    }
+
+    const matched = findCommand(commandGroup, subcommandTokens);
+    if (!matched) {
+      await this.options.onUsage(this.help.byCommand[commandName]!, context);
+      return true;
+    }
+
+    await matched.command.run({
+      ...context,
+      args: matched.args,
+    });
+    return true;
+  }
 }
 
 function parseCommandTokens(text: string): string[] | undefined {
