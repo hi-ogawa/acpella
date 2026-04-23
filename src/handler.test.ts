@@ -10,12 +10,6 @@ Coverage checklist:
   - [x] with no active turn
   - [x] active turn success
   - [ ] active turn fallback kill path
-- /session verbose
-  - [x] enable
-  - [x] disable
-  - [x] suppresses tool call output
-  - [x] includes tool call output when enabled
-  - [ ] is isolated per acpella session
 - /session
   - [x] info
   - [x] info includes verbose status
@@ -39,6 +33,11 @@ Coverage checklist:
   - [ ] list with multiple agents
   - [ ] list marks stored inactive sessions as not active
   - [ ] list tolerates listSessions failure for one agent
+  - [x] verbose enable
+  - [x] verbose disable
+  - [x] verbose suppresses tool call output
+  - [x] verbose includes tool call output when enabled
+  - [ ] verbose is isolated per acpella session
 - /agent
   - [x] list
   - [x] bare usage output
