@@ -176,14 +176,23 @@ export async function createHandler(
 
   const systemSessionCommands: SystemCommandTree[string] = [
     {
-      tokens: ["current"],
-      help: "/session current - Show the current session.",
-      run: async ({ reply, sessionName }) => {
+      tokens: ["info"],
+      help: "/session info [sessionName] - Show info about a session.",
+      withArgs: true,
+      run: async ({ args, reply, ...context }) => {
+        let arg = args[0];
+        if (arg && !stateStore.get().sessions[arg]) {
+          await reply.system(`Unknown session: ${arg}`);
+          return;
+        }
+        const sessionName = arg ?? context.sessionName;
         const stateSession = stateStore.getSession(sessionName);
+        const { verbose } = stateSession;
         let output = `\
 session: ${sessionName}
 agent: ${stateSession.agentKey}
 agent session id: ${stateSession.agentSessionId ?? "none"}
+verbose: ${verbose ? "on" : "off"}
 `;
         const usage = stateSession.agentSessionId
           ? stateStore.getAgentSessionUsage({
@@ -321,6 +330,30 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
           console.error("[acp] closeSession failed:", e);
         }
         await reply.system(output);
+      },
+    },
+    {
+      tokens: ["verbose", "on"],
+      help: "/session verbose on [sessionName] - Enable tool-call output.",
+      withArgs: true,
+      run: async ({ args, reply, sessionName }) => {
+        const targetSession = args[0] ?? sessionName;
+        stateStore.setSession(targetSession, {
+          verbose: true,
+        });
+        await reply.system("Tool call output: on");
+      },
+    },
+    {
+      tokens: ["verbose", "off"],
+      help: "/session verbose off [sessionName] - Disable tool-call output.",
+      withArgs: true,
+      run: async ({ args, reply, sessionName }) => {
+        const targetSession = args[0] ?? sessionName;
+        stateStore.setSession(targetSession, {
+          verbose: false,
+        });
+        await reply.system("Tool call output: off");
       },
     },
   ];
@@ -655,36 +688,6 @@ home: ${config.home}
     session: systemSessionCommands,
     agent: systemAgentCommands,
     cron: systemCronCommands,
-    verbose: [
-      {
-        tokens: ["current"],
-        help: "/verbose current - Show tool-call output setting.",
-        run: async ({ reply, sessionName }) => {
-          const { verbose } = stateStore.getSession(sessionName);
-          await reply.system(`Tool call output: ${verbose ? "on" : "off"}`);
-        },
-      },
-      {
-        tokens: ["on"],
-        help: "/verbose on - Show tool-call updates.",
-        run: async ({ reply, sessionName }) => {
-          stateStore.setSession(sessionName, {
-            verbose: true,
-          });
-          await reply.system("Tool call output: on");
-        },
-      },
-      {
-        tokens: ["off"],
-        help: "/verbose off - Hide tool-call updates.",
-        run: async ({ reply, sessionName }) => {
-          stateStore.setSession(sessionName, {
-            verbose: false,
-          });
-          await reply.system("Tool call output: off");
-        },
-      },
-    ],
   };
 
   const systemCommandsMetadata: Record<string, string> = {
@@ -695,7 +698,6 @@ home: ${config.home}
     session: "Manage sessions",
     agent: "Manage agents",
     cron: "Manage cron jobs",
-    verbose: "Configure tool output",
   };
 
   const systemCommandHandler = new CommandHandler({
