@@ -53,7 +53,6 @@ export function parseCronAddArgs(
     schedule: string;
     prompt: string;
     sessionName?: string;
-    deliveryTarget?: CronDeliveryTarget;
   },
   string
 > {
@@ -67,36 +66,28 @@ export function parseCronAddArgs(
 
   // Parse named options and -- separator from rest
   let sessionName: string | undefined;
-  let deliveryTarget: CronDeliveryTarget | undefined;
   const promptParts: string[] = [];
 
+  // Options are everything before --; prompt is everything after --
   const separatorIndex = rest.indexOf("--");
-  if (separatorIndex !== -1) {
-    // Options are everything before --; prompt is everything after --
-    const optionParts = rest.slice(0, separatorIndex);
-    const afterSeparator = rest.slice(separatorIndex + 1);
-    for (let i = 0; i < optionParts.length; i++) {
-      if (optionParts[i] === "--session") {
-        const val = optionParts[i + 1];
-        if (!val) {
-          return resultErr("Missing value for --session");
-        }
-        i++;
-        const telegramTarget = parseTelegramSessionTarget(val);
-        if (telegramTarget) {
-          sessionName = telegramTarget.sessionName;
-          deliveryTarget = telegramTarget.deliveryTarget;
-        } else {
-          sessionName = val;
-        }
-      } else {
-        return resultErr(`Unknown option: ${optionParts[i]}`);
-      }
-    }
-    promptParts.push(...afterSeparator);
-  } else {
-    promptParts.push(...rest);
+  if (separatorIndex === -1) {
+    return resultErr("Missing -- separator between options and prompt");
   }
+  const optionParts = rest.slice(0, separatorIndex);
+  const afterSeparator = rest.slice(separatorIndex + 1);
+  for (let i = 0; i < optionParts.length; i++) {
+    if (optionParts[i] === "--session") {
+      const val = optionParts[i + 1];
+      if (!val) {
+        return resultErr("Missing value for --session");
+      }
+      i++;
+      sessionName = val;
+    } else {
+      return resultErr(`Unknown option: ${optionParts[i]}`);
+    }
+  }
+  promptParts.push(...afterSeparator);
 
   const prompt = promptParts.join(" ");
   if (!prompt) {
@@ -112,7 +103,7 @@ export function parseCronAddArgs(
   } catch (error) {
     return resultErr(`Invalid cron schedule: ${formatError(error)}`);
   }
-  return resultOk({ id, schedule, prompt, sessionName, deliveryTarget });
+  return resultOk({ id, schedule, prompt, sessionName });
 }
 
 export function parseCronIdArg(args: string[], usage: string): Result<{ id: string }, string> {
