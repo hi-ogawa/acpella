@@ -10,8 +10,7 @@ import {
 } from "./cron/command.ts";
 import type { CronRunner, CronRunnerAgentOptions } from "./cron/runner.ts";
 import type { CronDeliveryTarget, CronStore } from "./cron/store.ts";
-import { createCommandHandler } from "./lib/command.ts";
-import type { CommandTree } from "./lib/command.ts";
+import { CommandHandler, type CommandTree } from "./lib/command.ts";
 import { formatSessionUpdateLogEntry, JsonLogger } from "./lib/logger.ts";
 import { buildFirstPrompt, buildMessageMetadataPrompt } from "./lib/prompt.ts";
 import { MESSAGE_SPLIT_BUDGET, ReplyManager } from "./lib/reply.ts";
@@ -699,7 +698,7 @@ home: ${config.home}
     verbose: "Configure tool output",
   };
 
-  const systemCommandHandler = createCommandHandler({
+  const systemCommandHandler = new CommandHandler({
     commands: systemCommands,
     onUsage: async (usage, context) => {
       await context.reply.system(usage);
