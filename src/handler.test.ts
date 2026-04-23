@@ -10,17 +10,15 @@ Coverage checklist:
   - [x] with no active turn
   - [x] active turn success
   - [ ] active turn fallback kill path
-- /verbose
-  - [x] default status
-  - [x] on
-  - [x] off
-  - [ ] invalid subcommand
+- /session verbose
+  - [x] enable
+  - [x] disable
   - [x] suppresses tool call output
   - [x] includes tool call output when enabled
   - [ ] is isolated per acpella session
 - /session
-  - [x] current
-  - [x] bare usage output
+  - [x] info
+  - [x] info includes verbose status
   - [x] new with default agent
   - [ ] new with named agent
   - [x] new resets agentSessionId before creating a fresh ACP session
@@ -200,11 +198,13 @@ test("basic", async () => {
       /cancel - Cancel the active agent turn.
 
     /session
-      /session current - Show the current session.
+      /session info [sessionName] - Show info about a session.
       /session list - List known agent sessions.
       /session new [agent] - Start a new agent session.
       /session load <sessionId|agent:sessionId> - Load an existing agent session.
       /session close [sessionId|agent:sessionId] - Close an agent session.
+      /session verbose enable [sessionName] - Enable tool-call output.
+      /session verbose disable [sessionName] - Disable tool-call output.
 
     /agent
       /agent list - List configured agents.
@@ -222,12 +222,7 @@ test("basic", async () => {
       /cron show <id> - Show a cron job.
       /cron enable <id> - Enable a cron job.
       /cron disable <id> - Disable a cron job.
-      /cron delete <id> - Delete a cron job.
-
-    /verbose
-      /verbose current - Show tool-call output setting.
-      /verbose on - Show tool-call updates.
-      /verbose off - Hide tool-call updates."
+      /cron delete <id> - Delete a cron job."
   `);
   expect(await session.request("/status")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -393,37 +388,43 @@ test("session commands", async () => {
   expect(await session.request("/session")).toMatchInlineSnapshot(`
     "[⚙️ System]
     /session
-      /session current - Show the current session.
+      /session info [sessionName] - Show info about a session.
       /session list - List known agent sessions.
       /session new [agent] - Start a new agent session.
       /session load <sessionId|agent:sessionId> - Load an existing agent session.
-      /session close [sessionId|agent:sessionId] - Close an agent session."
+      /session close [sessionId|agent:sessionId] - Close an agent session.
+      /session verbose enable [sessionName] - Enable tool-call output.
+      /session verbose disable [sessionName] - Disable tool-call output."
   `);
   expect(await session.request("/session help")).toMatchInlineSnapshot(`
     "[⚙️ System]
     /session
-      /session current - Show the current session.
+      /session info [sessionName] - Show info about a session.
       /session list - List known agent sessions.
       /session new [agent] - Start a new agent session.
       /session load <sessionId|agent:sessionId> - Load an existing agent session.
-      /session close [sessionId|agent:sessionId] - Close an agent session."
+      /session close [sessionId|agent:sessionId] - Close an agent session.
+      /session verbose enable [sessionName] - Enable tool-call output.
+      /session verbose disable [sessionName] - Disable tool-call output."
   `);
-  expect(await session.request("/session current")).toMatchInlineSnapshot(`
+  expect(await session.request("/session info")).toMatchInlineSnapshot(`
     "[⚙️ System]
     session: test
     agent: test
-    agent session id: none"
+    agent session id: none
+    verbose: off"
   `);
   expect(await session.request("/session list")).toMatchInlineSnapshot(`
     "[⚙️ System]
     No sessions."
   `);
   expect(await session.request("hello")).toMatchInlineSnapshot(`"echo: hello"`);
-  expect(await session.request("/session current")).toMatchInlineSnapshot(`
+  expect(await session.request("/session info")).toMatchInlineSnapshot(`
     "[⚙️ System]
     session: test
     agent: test
-    agent session id: __testSession1"
+    agent session id: __testSession1
+    verbose: off"
   `);
   expect(await session.request("/session list")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -438,11 +439,12 @@ test("session commands", async () => {
     New session ready."
   `);
   expect(await session.request("test-prompt")).toMatchInlineSnapshot(`"echo: test-prompt"`);
-  expect(await session.request("/session current")).toMatchInlineSnapshot(`
+  expect(await session.request("/session info")).toMatchInlineSnapshot(`
     "[⚙️ System]
     session: test
     agent: test
-    agent session id: __testSession2"
+    agent session id: __testSession2
+    verbose: off"
   `);
   expect(await session.request("__session")).toMatchInlineSnapshot(`"session: __testSession2"`);
   expect(await session.request("/session list")).toMatchInlineSnapshot(`
@@ -466,11 +468,12 @@ test("session context usage", async () => {
   expect(await session.request("hello")).toMatchInlineSnapshot(`"echo: hello"`);
 
   // Before usage_update, no context shown
-  expect(await session.request("/session current")).toMatchInlineSnapshot(`
+  expect(await session.request("/session info")).toMatchInlineSnapshot(`
     "[⚙️ System]
     session: test
     agent: test
-    agent session id: __testSession1"
+    agent session id: __testSession1
+    verbose: off"
   `);
 
   // Send a usage_update
@@ -478,12 +481,13 @@ test("session context usage", async () => {
     `"echo: __usage_update:54321:200000"`,
   );
 
-  // After usage_update, context is shown in /session current
-  expect(await session.request("/session current")).toMatchInlineSnapshot(`
+  // After usage_update, context is shown in /session info
+  expect(await session.request("/session info")).toMatchInlineSnapshot(`
     "[⚙️ System]
     session: test
     agent: test
     agent session id: __testSession1
+    verbose: off
     context: 54321 / 200000 tokens (27%)"
   `);
   expect(readStateFile(tester.config)).toMatchInlineSnapshot(`
@@ -521,11 +525,7 @@ test("verbose command toggles tool call output", async () => {
   const tester = await createHandlerTester();
   const session = tester.createSession("test");
 
-  expect(await session.request("/verbose current")).toMatchInlineSnapshot(`
-    "[⚙️ System]
-    Tool call output: off"
-  `);
-  expect(await session.request("/verbose on")).toMatchInlineSnapshot(`
+  expect(await session.request("/session verbose enable")).toMatchInlineSnapshot(`
       "[⚙️ System]
       Tool call output: on"
     `);
@@ -533,7 +533,7 @@ test("verbose command toggles tool call output", async () => {
       "Tool: Read files
       echo: __tool:Read files"
     `);
-  expect(await session.request("/verbose off")).toMatchInlineSnapshot(`
+  expect(await session.request("/session verbose disable")).toMatchInlineSnapshot(`
       "[⚙️ System]
       Tool call output: off"
     `);
@@ -544,11 +544,14 @@ test("verbose command toggles tool call output", async () => {
       "before
       after"
     `);
-  expect(await session.request("/verbose current")).toMatchInlineSnapshot(`
+  expect(await session.request("/session info")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    Tool call output: off"
+    session: test
+    agent: test
+    agent session id: __testSession1
+    verbose: off"
   `);
-  expect(await session.request("/verbose on")).toMatchInlineSnapshot(`
+  expect(await session.request("/session verbose enable")).toMatchInlineSnapshot(`
       "[⚙️ System]
       Tool call output: on"
     `);
@@ -629,11 +632,12 @@ test("agent command", async () => {
     "[⚙️ System]
     Default agent: test2"
   `);
-  expect(await session.request("/session current")).toMatchInlineSnapshot(`
+  expect(await session.request("/session info")).toMatchInlineSnapshot(`
     "[⚙️ System]
     session: test
     agent: test-error
-    agent session id: none"
+    agent session id: none
+    verbose: off"
   `);
   expect(await session.request("/agent remove test-error")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -645,11 +649,12 @@ test("agent command", async () => {
     New session ready."
   `);
   expect(await session.request("test-prompt")).toMatchInlineSnapshot(`"echo: test-prompt"`);
-  expect(await session.request("/session current")).toMatchInlineSnapshot(`
+  expect(await session.request("/session info")).toMatchInlineSnapshot(`
     "[⚙️ System]
     session: test
     agent: test2
-    agent session id: __testSession1"
+    agent session id: __testSession1
+    verbose: off"
   `);
   expect(await session.request("/session list")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -686,11 +691,12 @@ test("agent command", async () => {
     "[⚙️ System]
     Loaded session: test:__testSession1"
   `);
-  expect(await session.request("/session current")).toMatchInlineSnapshot(`
+  expect(await session.request("/session info")).toMatchInlineSnapshot(`
     "[⚙️ System]
     session: test
     agent: test
-    agent session id: __testSession1"
+    agent session id: __testSession1
+    verbose: off"
   `);
   expect(await session.request("/session close test2:__testSession1")).toMatchInlineSnapshot(`
     "[⚙️ System]
