@@ -3,6 +3,7 @@ import { AgentManager } from "./acp/index.ts";
 import type { AgentSessionProcess } from "./acp/index.ts";
 import type { AppConfig } from "./config.ts";
 import {
+  CRON_ADD_USAGE,
   parseCronAddArgs,
   parseCronIdArg,
   renderCronList,
@@ -448,7 +449,6 @@ ${referencedSessions.length} session(s) still reference it.
     },
   ];
 
-  const cronAddCommand = `/cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--session <sessionName>] -- <prompt...>`;
   const getCronRunner = () => handlerOptions.getCronRunner?.();
   const systemCronCommands: SystemCommandTree[string] = [
     {
@@ -506,12 +506,12 @@ enabled jobs: ${enabledJobs.length}
     },
     {
       tokens: ["add"],
-      help: `${cronAddCommand} - Add a cron job.`,
+      help: `${CRON_ADD_USAGE} - Add a cron job.`,
       withArgs: true,
       run: async ({ args, reply, sessionName, metadata }) => {
         const parsed = parseCronAddArgs(args, config.timezone);
         if (!parsed.ok) {
-          await reply.system(`${parsed.value}\nUsage: ${cronAddCommand}`);
+          await reply.system(`${parsed.value}\nUsage: ${CRON_ADD_USAGE}`);
           return;
         }
         const cron = parsed.value;
