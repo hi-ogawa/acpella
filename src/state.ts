@@ -108,10 +108,11 @@ export class SessionStateStore {
   }
 
   getSession(sessionName: string): StateSession {
-    const session = this.get().sessions[sessionName];
+    const state = this.get();
+    const session = state.sessions[sessionName];
     return {
       ...session,
-      agentKey: session?.agentKey ?? this.get().defaultAgent,
+      agentKey: session?.agentKey ?? state.defaultAgent,
       verbose: session?.verbose ?? false,
     };
   }
