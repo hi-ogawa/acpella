@@ -1,6 +1,32 @@
 import { formatError, formatTime, resultErr, resultOk, type Result } from "../lib/utils.ts";
-import { type CronJob, type CronRun, type CronStore, cronIdSchema } from "./store.ts";
+import {
+  type CronDeliveryTarget,
+  type CronJob,
+  type CronRun,
+  type CronStore,
+  cronIdSchema,
+} from "./store.ts";
 import { getNextCronSchedule, validateCronSchedule } from "./timer.ts";
+
+export function parseTelegramSessionTarget(sessionName: string): {
+  sessionName: string;
+  deliveryTarget: CronDeliveryTarget;
+} | null {
+  // Format: tg-<chatId> or tg-<chatId>-<messageThreadId>
+  const match = /^tg-(-?\d+)(?:-(\d+))?$/.exec(sessionName);
+  if (!match) {
+    return null;
+  }
+  const chatId = parseInt(match[1]!, 10);
+  const messageThreadId = match[2] !== undefined ? parseInt(match[2], 10) : undefined;
+  const deliveryTarget: CronDeliveryTarget = {
+    telegram: {
+      chatId,
+      ...(messageThreadId !== undefined ? { messageThreadId } : {}),
+    },
+  };
+  return { sessionName, deliveryTarget };
+}
 
 export function parseCronAddArgs(
   args: string[],
@@ -10,6 +36,8 @@ export function parseCronAddArgs(
     id: string;
     schedule: string;
     prompt: string;
+    sessionName?: string;
+    deliveryTarget?: CronDeliveryTarget;
   },
   string
 > {
@@ -17,8 +45,26 @@ export function parseCronAddArgs(
     return { ok: false, value: "Invalid input" };
   }
   const [id, minute, hour, dayOfMonth, month, dayOfWeek, ...promptParts] = args;
-  const prompt = promptParts.join(" ");
-  if (!id || !minute || !hour || !dayOfMonth || !month || !dayOfWeek || !prompt) {
+  if (!id || !minute || !hour || !dayOfMonth || !month || !dayOfWeek) {
+    return resultErr("Invalid input");
+  }
+
+  // Check if the last prompt part is an optional Telegram session name (e.g. tg-12345 or tg-12345-678)
+  let sessionName: string | undefined;
+  let deliveryTarget: CronDeliveryTarget | undefined;
+  let effectivePromptParts = promptParts;
+  const lastPart = promptParts[promptParts.length - 1];
+  if (lastPart && promptParts.length >= 2) {
+    const telegramTarget = parseTelegramSessionTarget(lastPart);
+    if (telegramTarget) {
+      effectivePromptParts = promptParts.slice(0, -1);
+      sessionName = telegramTarget.sessionName;
+      deliveryTarget = telegramTarget.deliveryTarget;
+    }
+  }
+
+  const prompt = effectivePromptParts.join(" ");
+  if (!prompt) {
     return resultErr("Invalid input");
   }
   const cronIdResult = cronIdSchema.safeParse(id);
@@ -31,7 +77,7 @@ export function parseCronAddArgs(
   } catch (error) {
     return resultErr(`Invalid cron schedule: ${formatError(error)}`);
   }
-  return resultOk({ id, schedule, prompt });
+  return resultOk({ id, schedule, prompt, sessionName, deliveryTarget });
 }
 
 export function parseCronIdArg(args: string[], usage: string): Result<{ id: string }, string> {

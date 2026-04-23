@@ -447,7 +447,7 @@ ${referencedSessions.length} session(s) still reference it.
     },
   ];
 
-  const cronAddCommand = `/cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> <prompt...>`;
+  const cronAddCommand = `/cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> <prompt...> [sessionName]`;
   const getCronRunner = () => handlerOptions.getCronRunner?.();
   const systemCronCommands: SystemCommandTree[string] = [
     {
@@ -508,16 +508,18 @@ enabled jobs: ${enabledJobs.length}
       help: `${cronAddCommand} - Add a cron job.`,
       withArgs: true,
       run: async ({ args, reply, sessionName, metadata }) => {
-        if (!metadata?.cronDeliveryTarget) {
-          await reply.system("Cannot add cron job: delivery target is unavailable.");
-          return;
-        }
         const parsed = parseCronAddArgs(args, config.timezone);
         if (!parsed.ok) {
           await reply.system(`${parsed.value}\nUsage: ${cronAddCommand}`);
           return;
         }
         const cron = parsed.value;
+        const targetSessionName = cron.sessionName ?? sessionName;
+        const deliveryTarget = cron.deliveryTarget ?? metadata?.cronDeliveryTarget;
+        if (!deliveryTarget) {
+          await reply.system("Cannot add cron job: delivery target is unavailable.");
+          return;
+        }
         try {
           cronStore.addJob({
             id: cron.id,
@@ -526,8 +528,8 @@ enabled jobs: ${enabledJobs.length}
             timezone: config.timezone,
             prompt: cron.prompt,
             target: {
-              sessionName,
-              delivery: metadata.cronDeliveryTarget,
+              sessionName: targetSessionName,
+              delivery: deliveryTarget,
             },
           });
           getCronRunner()?.refresh();

@@ -216,7 +216,7 @@ test("basic", async () => {
       /cron start - Start cron scheduler.
       /cron stop - Stop cron scheduler.
       /cron reload - Reload cron jobs from disk.
-      /cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> <prompt...> - Add a cron job.
+      /cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> <prompt...> [sessionName] - Add a cron job.
       /cron list - List cron jobs.
       /cron show <id> - Show a cron job.
       /cron enable <id> - Enable a cron job.
@@ -1176,5 +1176,83 @@ test("cron error delivery", async ({ onTestFinished }) => {
     next: 2026-04-18T07:02:00+07:00
     last: failed, scheduled 2026-04-18T00:01:00Z, finished 2026-04-18T00:01:00Z, error: Internal error
     prompt: __throw_error__"
+  `);
+});
+
+test("cron add with telegram session name", async ({ onTestFinished }) => {
+  vi.useFakeTimers({
+    now: Date.parse("2026-04-18T00:00:00Z"),
+  });
+  onTestFinished(() => {
+    vi.useRealTimers();
+  });
+
+  const tester = await createHandlerTester();
+
+  // Session without metadata.cronDeliveryTarget to verify sessionName arg provides it
+  const session = tester.createSession("test");
+
+  // With only chatId
+  expect(await session.request("/cron add tg-job * * * * * hello-cron tg-12345"))
+    .toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Added cron job: tg-job"
+  `);
+  expect(await session.request("/cron show tg-job")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    id: tg-job
+    enabled: yes
+    schedule: * * * * *
+    timezone: Asia/Jakarta
+    target session: tg-12345
+    delivery target: telegram:12345
+    next: 2026-04-18T07:01:00+07:00
+    last: none
+    prompt: hello-cron"
+  `);
+
+  // With chatId and messageThreadId
+  expect(await session.request("/cron add tg-job2 * * * * * hello-thread tg-12345-678"))
+    .toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Added cron job: tg-job2"
+  `);
+  expect(await session.request("/cron show tg-job2")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    id: tg-job2
+    enabled: yes
+    schedule: * * * * *
+    timezone: Asia/Jakarta
+    target session: tg-12345-678
+    delivery target: telegram:12345/678
+    next: 2026-04-18T07:01:00+07:00
+    last: none
+    prompt: hello-thread"
+  `);
+
+  // Multi-word prompt with sessionName
+  expect(await session.request("/cron add tg-job3 * * * * * hello world tg-99"))
+    .toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Added cron job: tg-job3"
+  `);
+  expect(await session.request("/cron show tg-job3")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    id: tg-job3
+    enabled: yes
+    schedule: * * * * *
+    timezone: Asia/Jakarta
+    target session: tg-99
+    delivery target: telegram:99
+    next: 2026-04-18T07:01:00+07:00
+    last: none
+    prompt: hello world"
+  `);
+
+  // Without sessionName still requires metadata.cronDeliveryTarget
+  expect(await session.request("/cron add no-target-job * * * * * hello-cron"))
+    .toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Cannot add cron job: delivery target is unavailable."
   `);
 });
