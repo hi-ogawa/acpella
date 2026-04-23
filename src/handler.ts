@@ -179,16 +179,17 @@ export async function createHandler(
       tokens: ["info"],
       help: "/session info [sessionName] - Show info about a session.",
       withArgs: true,
-      run: async ({ args, reply, sessionName }) => {
-        const targetSession = args[0] ?? sessionName;
-        if (args[0] && !stateStore.get().sessions[args[0]]) {
-          await reply.system(`Unknown session: ${args[0]}`);
+      run: async ({ args, reply, ...context }) => {
+        let arg = args[0];
+        if (arg && !stateStore.get().sessions[arg]) {
+          await reply.system(`Unknown session: ${arg}`);
           return;
         }
-        const stateSession = stateStore.getSession(targetSession);
+        const sessionName = arg ?? context.sessionName;
+        const stateSession = stateStore.getSession(sessionName);
         const { verbose } = stateSession;
         let output = `\
-session: ${targetSession}
+session: ${sessionName}
 agent: ${stateSession.agentKey}
 agent session id: ${stateSession.agentSessionId ?? "none"}
 verbose: ${verbose ? "on" : "off"}
