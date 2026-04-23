@@ -4,7 +4,6 @@ import type { AgentSessionProcess } from "./acp/index.ts";
 import type { AppConfig } from "./config.ts";
 import {
   parseCronAddArgs,
-  parseCronDeliveryTarget,
   parseCronIdArg,
   renderCronList,
   renderCronShow,
@@ -15,6 +14,7 @@ import { CommandHandler, type CommandTree } from "./lib/command.ts";
 import { formatSessionUpdateLogEntry, JsonLogger } from "./lib/logger.ts";
 import { buildFirstPrompt, buildMessageMetadataPrompt } from "./lib/prompt.ts";
 import { MESSAGE_SPLIT_BUDGET, ReplyManager } from "./lib/reply.ts";
+import { parseTelegramSessionName } from "./lib/telegram/utils.ts";
 import { AsyncLane, DefaultMap, formatError } from "./lib/utils.ts";
 import { parseAgentSessionKey, SessionStateStore, toAgentSessionKey } from "./state.ts";
 import type { StateAgentSession, StateSession } from "./state.ts";
@@ -521,12 +521,15 @@ enabled jobs: ${enabledJobs.length}
             await reply.system(`Unknown session: ${cron.sessionName}`);
             return;
           }
-          const parsedDelivery = parseCronDeliveryTarget(cron.sessionName);
-          if (!parsedDelivery) {
+          // TODO: standardize one-to-one mapping between sessionName and CronDeliveryTarget
+          const parsedContext = parseTelegramSessionName(cron.sessionName);
+          if (!parsedContext) {
             await reply.system(`Invalid session as delivery target: ${cron.sessionName}`);
             return;
           }
-          delivery = parsedDelivery;
+          delivery = {
+            telegram: parsedContext,
+          };
           sessionName = cron.sessionName;
         }
         if (!delivery) {
