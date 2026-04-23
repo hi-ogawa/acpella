@@ -181,6 +181,10 @@ export async function createHandler(
       withArgs: true,
       run: async ({ args, reply, sessionName }) => {
         const targetSession = args[0] ?? sessionName;
+        if (args[0] && !stateStore.get().sessions[args[0]]) {
+          await reply.system(`Unknown session: ${args[0]}`);
+          return;
+        }
         const stateSession = stateStore.getSession(targetSession);
         const { verbose } = stateSession;
         let output = `\

@@ -458,6 +458,21 @@ test("session commands", async () => {
     Unknown agent: no-such-agent"
   `,
   );
+  // /session info with explicit sessionName: exists
+  const session2 = tester.createSession("other");
+  expect(await session2.request("hello")).toMatchInlineSnapshot(`"echo: hello"`);
+  expect(await session.request("/session info other")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    session: other
+    agent: test
+    agent session id: __testSession3
+    verbose: off"
+  `);
+  // /session info with explicit sessionName: does not exist
+  expect(await session.request("/session info no-such-session")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Unknown session: no-such-session"
+  `);
 });
 
 test("session context usage", async () => {
