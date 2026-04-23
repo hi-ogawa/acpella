@@ -28,6 +28,22 @@ export function parseTelegramSessionTarget(sessionName: string): {
   return { sessionName, deliveryTarget };
 }
 
+export function parseCronDeliveryTarget(sessionName: string): CronDeliveryTarget | undefined {
+  // Format: tg-<chatId> or tg-<chatId>-<messageThreadId>
+  const match = /^tg-(-?\d+)(?:-(\d+))?$/.exec(sessionName);
+  if (!match) {
+    return;
+  }
+  const chatId = parseInt(match[1]!, 10);
+  const messageThreadId = match[2] ? parseInt(match[2], 10) : undefined;
+  return {
+    telegram: {
+      chatId,
+      messageThreadId,
+    },
+  };
+}
+
 export function parseCronAddArgs(
   args: string[],
   timezone: string,

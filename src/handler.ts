@@ -4,6 +4,7 @@ import type { AgentSessionProcess } from "./acp/index.ts";
 import type { AppConfig } from "./config.ts";
 import {
   parseCronAddArgs,
+  parseCronDeliveryTarget,
   parseCronIdArg,
   renderCronList,
   renderCronShow,
@@ -514,9 +515,21 @@ enabled jobs: ${enabledJobs.length}
           return;
         }
         const cron = parsed.value;
-        const targetSessionName = cron.sessionName ?? sessionName;
-        const deliveryTarget = cron.deliveryTarget ?? metadata?.cronDeliveryTarget;
-        if (!deliveryTarget) {
+        let delivery = metadata?.cronDeliveryTarget;
+        if (cron.sessionName) {
+          if (!stateStore.get().sessions[cron.sessionName]) {
+            await reply.system(`Unknown session: ${cron.sessionName}`);
+            return;
+          }
+          const parsedDelivery = parseCronDeliveryTarget(cron.sessionName);
+          if (!parsedDelivery) {
+            await reply.system(`Invalid session as delivery target: ${cron.sessionName}`);
+            return;
+          }
+          delivery = parsedDelivery;
+          sessionName = cron.sessionName;
+        }
+        if (!delivery) {
           await reply.system("Cannot add cron job: delivery target is unavailable.");
           return;
         }
@@ -528,8 +541,8 @@ enabled jobs: ${enabledJobs.length}
             timezone: config.timezone,
             prompt: cron.prompt,
             target: {
-              sessionName: targetSessionName,
-              delivery: deliveryTarget,
+              sessionName,
+              delivery,
             },
           });
           getCronRunner()?.refresh();
