@@ -41,12 +41,7 @@ systemctl --user restart acpella
 journalctl --user -u acpella -f
 ```
 
-## Related implementation anchors
+## Next steps
 
-- `src/lib/systemd.ts` - unit rendering
-- `src/cli.ts` - setup command entrypoint
-
-## When to read deeper docs
-
-- For general runtime debugging beyond systemd, continue with `debugging.md`.
+- For general runtime debugging beyond systemd, continue with `troubleshooting.md`.
 - For first-time clone/install/env setup, continue with `bootstrap.md`.

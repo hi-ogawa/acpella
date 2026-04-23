@@ -28,10 +28,6 @@ The most important environment variables documented in `README.md` are:
 
 `ACPELLA_HOME` defaults to `process.cwd()` when unset.
 
-Implementation anchor:
-
-- `src/config.ts`
-
 ## First local runs
 
 Run the Telegram bot:
@@ -46,9 +42,9 @@ Run the local REPL:
 pnpm repl
 ```
 
-## Agent bootstrap after startup
+## Register a real agent
 
-The built-in default agent is the test echo agent. To register a real ACP agent after startup, use the acpella command surface, for example:
+The built-in default agent is the test echo agent. After starting acpella, register a real ACP agent with the command surface, for example:
 
 ```bash
 /agent new codex codex-acp
@@ -59,8 +55,8 @@ Source:
 
 - `README.md`
 
-## When to read deeper docs
+## Next steps
 
-- For runtime architecture, continue with `runtime-model.md`.
 - For systemd installation and service management, continue with `systemd.md`.
-- For prompt customization through `.acpella/AGENTS.md`, continue with `prompt-and-skills.md`.
+- For prompt customization through `.acpella/AGENTS.md`, continue with `customization.md`.
+- For session and agent workflows, continue with `sessions-and-agents.md`.
