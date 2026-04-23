@@ -65,6 +65,20 @@ const stateSchema = z
     }
   });
 
+export const TEST_AGENT_COMMAND = `node ${path.join(import.meta.dirname, "lib/test-agent.ts")}`;
+
+function getStateSchemaDefault(): State {
+  return {
+    version: 2,
+    defaultAgent: "test",
+    agents: {
+      test: { command: TEST_AGENT_COMMAND },
+    },
+    sessions: {},
+    agentSessions: {},
+  };
+}
+
 export type State = z.infer<typeof stateSchema>;
 export type StateSession = State["sessions"][string];
 export interface StateAgentSession {
@@ -81,13 +95,8 @@ export class SessionStateStore {
     this.file = new FileStateManager<State>({
       file,
       parse: stateSchema.parse.bind(stateSchema),
-      defaultValue: getInitialState,
+      defaultValue: getStateSchemaDefault,
     });
-  }
-
-  // TODO(refactor): remove thin wrappers
-  get state(): State {
-    return this.file.state;
   }
 
   get(): State {
@@ -99,10 +108,11 @@ export class SessionStateStore {
   }
 
   getSession(sessionName: string): StateSession {
-    const session = this.state.sessions[sessionName];
+    const state = this.get();
+    const session = state.sessions[sessionName];
     return {
       ...session,
-      agentKey: session?.agentKey ?? this.state.defaultAgent,
+      agentKey: session?.agentKey ?? state.defaultAgent,
       verbose: session?.verbose ?? false,
     };
   }
@@ -147,22 +157,6 @@ export class SessionStateStore {
       };
     });
   }
-}
-
-export const TEST_AGENT_COMMAND = `node ${path.join(import.meta.dirname, "lib/test-agent.ts")}`;
-
-const BUILTIN_AGENTS: State["agents"] = {
-  test: { command: TEST_AGENT_COMMAND },
-};
-
-function getInitialState(): State {
-  return {
-    version: 2,
-    defaultAgent: Object.keys(BUILTIN_AGENTS)[0],
-    agents: { ...BUILTIN_AGENTS },
-    sessions: {},
-    agentSessions: {},
-  };
 }
 
 export function toAgentSessionKey(options: StateAgentSession): string {
