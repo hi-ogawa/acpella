@@ -15,8 +15,7 @@ export function createCommandHandler<T>(options: {
   commands: CommandTree<T>;
   onUsage: (usage: string, context: T) => Promise<void>;
 }) {
-  const usageByCommand = buildUsageByCommand(options.commands);
-  const commandOverview = renderCommandOverview(options.commands);
+  const help = buildHelp(options.commands);
 
   return {
     async handle(handleOptions: { text: string; context: T }): Promise<boolean> {
@@ -26,7 +25,7 @@ export function createCommandHandler<T>(options: {
       }
       const [commandName, ...subcommandTokens] = tokens;
       if (commandName === "help") {
-        await options.onUsage(commandOverview, handleOptions.context);
+        await options.onUsage(help.full, handleOptions.context);
         return true;
       }
 
@@ -37,7 +36,7 @@ export function createCommandHandler<T>(options: {
 
       const matched = findCommand(commandGroup, subcommandTokens);
       if (!matched) {
-        await options.onUsage(usageByCommand[commandName]!, handleOptions.context);
+        await options.onUsage(help.byCommand[commandName]!, handleOptions.context);
         return true;
       }
 
@@ -88,33 +87,19 @@ function isEqualArray(left: string[], right: string[]): boolean {
   return left.length === right.length && isPrefixArray(left, right);
 }
 
-function buildUsageByCommand<T>(commands: CommandTree<T>): Record<string, string> {
-  const usageByCommand: Record<string, string> = {};
-  for (const [command, commandGroup] of Object.entries(commands)) {
-    usageByCommand[command] = renderCommandUsage(commandGroup);
+function buildHelp(tree: CommandTree<any>) {
+  const byCommand: Record<string, string> = {};
+  for (const [command, subCommands] of Object.entries(tree)) {
+    byCommand[command] = `\
+/${command}
+${subCommands.map((c) => `  ${c.help}`).join("\n")}
+`;
   }
-  return usageByCommand;
-}
+  const full = `\
+Commands:
+/help - Show command help.
 
-function renderCommandUsage<T>(commands: CommandSpec<T>[]): string {
-  const usages = commands.map((command) => getCommandUsage(command));
-  if (usages.length === 1) {
-    return `Usage: ${usages[0]}`;
-  }
-  return `Usage:\n${usages.join("\n")}`;
-}
-
-function getCommandUsage<T>(command: CommandSpec<T>): string {
-  return command.help.split(" - ", 1)[0]!;
-}
-
-function renderCommandOverview<T>(commands: CommandTree<T>): string {
-  let output = "Commands:\n/help - Show command help.";
-  for (const [command, commandGroup] of Object.entries(commands)) {
-    output += `\n\n/${command}`;
-    for (const commandSpec of commandGroup) {
-      output += `\n  ${commandSpec.help}`;
-    }
-  }
-  return output;
+${Object.values(byCommand).join("\n")}
+`;
+  return { full, byCommand };
 }

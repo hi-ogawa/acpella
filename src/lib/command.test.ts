@@ -53,15 +53,26 @@ describe(createCommandHandler, () => {
     expect(await commandHandler.handle({ text: "/missing", context })).toBe(false);
     expect(await commandHandler.handle({ text: "/ping", context })).toBe(true);
     expect(await commandHandler.handle({ text: "/config", context })).toBe(true);
+    expect(await commandHandler.handle({ text: "/config help", context })).toBe(true);
+    expect(await commandHandler.handle({ text: "/config missing", context })).toBe(true);
     expect(await commandHandler.handle({ text: "/config set theme dark", context })).toBe(true);
     expect(await commandHandler.handle({ text: "/help", context })).toBe(true);
 
     expect(events).toMatchInlineSnapshot(`
       [
         "test:pong",
-        "Usage:
-      /config show
-      /config set <value...>",
+        "/config
+        /config show - Show config.
+        /config set <value...> - Set config.
+      ",
+        "/config
+        /config show - Show config.
+        /config set <value...> - Set config.
+      ",
+        "/config
+        /config show - Show config.
+        /config set <value...> - Set config.
+      ",
         "test:set:theme dark",
         "Commands:
       /help - Show command help.
@@ -71,7 +82,9 @@ describe(createCommandHandler, () => {
 
       /config
         /config show - Show config.
-        /config set <value...> - Set config.",
+        /config set <value...> - Set config.
+
+      ",
       ]
     `);
   });

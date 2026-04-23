@@ -305,7 +305,8 @@ test("service commands", async () => {
   const session = tester.createSession("test");
   expect(await session.request("/service")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    Usage: /service exit"
+    /service
+      /service exit - Exit acpella."
   `);
   await session.request("/service exit");
   expect(tester.onServiceExit.mock.calls).toMatchInlineSnapshot(`
@@ -391,12 +392,21 @@ test("session commands", async () => {
   const session = tester.createSession("test");
   expect(await session.request("/session")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    Usage:
-    /session current
-    /session list
-    /session new [agent]
-    /session load <sessionId|agent:sessionId>
-    /session close [sessionId|agent:sessionId]"
+    /session
+      /session current - Show the current session.
+      /session list - List known agent sessions.
+      /session new [agent] - Start a new agent session.
+      /session load <sessionId|agent:sessionId> - Load an existing agent session.
+      /session close [sessionId|agent:sessionId] - Close an agent session."
+  `);
+  expect(await session.request("/session help")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    /session
+      /session current - Show the current session.
+      /session list - List known agent sessions.
+      /session new [agent] - Start a new agent session.
+      /session load <sessionId|agent:sessionId> - Load an existing agent session.
+      /session close [sessionId|agent:sessionId] - Close an agent session."
   `);
   expect(await session.request("/session current")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -418,6 +428,10 @@ test("session commands", async () => {
   expect(await session.request("/session list")).toMatchInlineSnapshot(`
     "[⚙️ System]
     - test -> test:__testSession1 (active)"
+  `);
+  expect(await session.request("/session load")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Usage: /session load <sessionId|agent:sessionId>"
   `);
   expect(await session.request("/session new")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -549,11 +563,11 @@ test("agent command", async () => {
   const session = tester.createSession("test");
   expect(await session.request("/agent")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    Usage:
-    /agent list
-    /agent new <name> <command...>
-    /agent remove <name>
-    /agent default [name]"
+    /agent
+      /agent list - List configured agents.
+      /agent new <name> <command...> - Save a new agent.
+      /agent remove <name> - Remove an agent.
+      /agent default [name] - Show or set the default agent."
   `);
   expect(await session.request("/agent list")).toMatchInlineSnapshot(`
     "[⚙️ System]
