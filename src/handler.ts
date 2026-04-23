@@ -3,6 +3,7 @@ import { AgentManager } from "./acp/index.ts";
 import type { AgentSessionProcess } from "./acp/index.ts";
 import type { AppConfig } from "./config.ts";
 import {
+  CRON_ADD_USAGE,
   parseCronAddArgs,
   parseCronIdArg,
   renderCronList,
@@ -14,6 +15,7 @@ import { CommandHandler, type CommandTree } from "./lib/command.ts";
 import { formatSessionUpdateLogEntry, JsonLogger } from "./lib/logger.ts";
 import { buildFirstPrompt, buildMessageMetadataPrompt } from "./lib/prompt.ts";
 import { MESSAGE_SPLIT_BUDGET, ReplyManager } from "./lib/reply.ts";
+import { parseTelegramSessionName } from "./lib/telegram/utils.ts";
 import { AsyncLane, DefaultMap, formatError } from "./lib/utils.ts";
 import { parseAgentSessionKey, SessionStateStore, toAgentSessionKey } from "./state.ts";
 import type { StateAgentSession, StateSession } from "./state.ts";
@@ -447,7 +449,6 @@ ${referencedSessions.length} session(s) still reference it.
     },
   ];
 
-  const cronAddCommand = `/cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> <prompt...>`;
   const getCronRunner = () => handlerOptions.getCronRunner?.();
   const systemCronCommands: SystemCommandTree[string] = [
     {
@@ -505,19 +506,36 @@ enabled jobs: ${enabledJobs.length}
     },
     {
       tokens: ["add"],
-      help: `${cronAddCommand} - Add a cron job.`,
+      help: `${CRON_ADD_USAGE} - Add a cron job.`,
       withArgs: true,
       run: async ({ args, reply, sessionName, metadata }) => {
-        if (!metadata?.cronDeliveryTarget) {
-          await reply.system("Cannot add cron job: delivery target is unavailable.");
-          return;
-        }
         const parsed = parseCronAddArgs(args, config.timezone);
         if (!parsed.ok) {
-          await reply.system(`${parsed.value}\nUsage: ${cronAddCommand}`);
+          await reply.system(`${parsed.value}\nUsage: ${CRON_ADD_USAGE}`);
           return;
         }
         const cron = parsed.value;
+        let delivery = metadata?.cronDeliveryTarget;
+        if (cron.sessionName) {
+          if (!stateStore.get().sessions[cron.sessionName]) {
+            await reply.system(`Unknown session: ${cron.sessionName}`);
+            return;
+          }
+          // TODO: standardize one-to-one mapping between sessionName and CronDeliveryTarget
+          const parsedContext = parseTelegramSessionName(cron.sessionName);
+          if (!parsedContext) {
+            await reply.system(`Invalid session as delivery target: ${cron.sessionName}`);
+            return;
+          }
+          delivery = {
+            telegram: parsedContext,
+          };
+          sessionName = cron.sessionName;
+        }
+        if (!delivery) {
+          await reply.system("Cannot add cron job: delivery target is unavailable.");
+          return;
+        }
         try {
           cronStore.addJob({
             id: cron.id,
@@ -527,7 +545,7 @@ enabled jobs: ${enabledJobs.length}
             prompt: cron.prompt,
             target: {
               sessionName,
-              delivery: metadata.cronDeliveryTarget,
+              delivery,
             },
           });
           getCronRunner()?.refresh();
