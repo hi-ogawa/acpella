@@ -216,7 +216,7 @@ test("basic", async () => {
       /cron start - Start cron scheduler.
       /cron stop - Stop cron scheduler.
       /cron reload - Reload cron jobs from disk.
-      /cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> <prompt...> [sessionName] - Add a cron job.
+      /cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--session <sessionName>] -- <prompt...> - Add a cron job.
       /cron list - List cron jobs.
       /cron show <id> - Show a cron job.
       /cron enable <id> - Enable a cron job.
@@ -1193,7 +1193,7 @@ test("cron add with telegram session name", async ({ onTestFinished }) => {
   const session = tester.createSession("test");
 
   // With only chatId
-  expect(await session.request("/cron add tg-job * * * * * hello-cron tg-12345"))
+  expect(await session.request("/cron add tg-job * * * * * --session tg-12345 -- hello-cron"))
     .toMatchInlineSnapshot(`
     "[⚙️ System]
     Added cron job: tg-job"
@@ -1212,8 +1212,9 @@ test("cron add with telegram session name", async ({ onTestFinished }) => {
   `);
 
   // With chatId and messageThreadId
-  expect(await session.request("/cron add tg-job2 * * * * * hello-thread tg-12345-678"))
-    .toMatchInlineSnapshot(`
+  expect(
+    await session.request("/cron add tg-job2 * * * * * --session tg-12345-678 -- hello-thread"),
+  ).toMatchInlineSnapshot(`
     "[⚙️ System]
     Added cron job: tg-job2"
   `);
@@ -1231,7 +1232,7 @@ test("cron add with telegram session name", async ({ onTestFinished }) => {
   `);
 
   // Multi-word prompt with sessionName
-  expect(await session.request("/cron add tg-job3 * * * * * hello world tg-99"))
+  expect(await session.request("/cron add tg-job3 * * * * * --session tg-99 -- hello world"))
     .toMatchInlineSnapshot(`
     "[⚙️ System]
     Added cron job: tg-job3"
@@ -1250,7 +1251,7 @@ test("cron add with telegram session name", async ({ onTestFinished }) => {
   `);
 
   // Without sessionName still requires metadata.cronDeliveryTarget
-  expect(await session.request("/cron add no-target-job * * * * * hello-cron"))
+  expect(await session.request("/cron add no-target-job * * * * * -- hello-cron"))
     .toMatchInlineSnapshot(`
     "[⚙️ System]
     Cannot add cron job: delivery target is unavailable."

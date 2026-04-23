@@ -44,26 +44,45 @@ export function parseCronAddArgs(
   if (args.length < 7) {
     return { ok: false, value: "Invalid input" };
   }
-  const [id, minute, hour, dayOfMonth, month, dayOfWeek, ...promptParts] = args;
+  const [id, minute, hour, dayOfMonth, month, dayOfWeek, ...rest] = args;
   if (!id || !minute || !hour || !dayOfMonth || !month || !dayOfWeek) {
     return resultErr("Invalid input");
   }
 
-  // Check if the last prompt part is an optional Telegram session name (e.g. tg-12345 or tg-12345-678)
+  // Parse named options and -- separator from rest
   let sessionName: string | undefined;
   let deliveryTarget: CronDeliveryTarget | undefined;
-  let effectivePromptParts = promptParts;
-  const lastPart = promptParts[promptParts.length - 1];
-  if (lastPart && promptParts.length >= 2) {
-    const telegramTarget = parseTelegramSessionTarget(lastPart);
-    if (telegramTarget) {
-      effectivePromptParts = promptParts.slice(0, -1);
-      sessionName = telegramTarget.sessionName;
-      deliveryTarget = telegramTarget.deliveryTarget;
+  const promptParts: string[] = [];
+
+  const separatorIndex = rest.indexOf("--");
+  if (separatorIndex !== -1) {
+    // Options are everything before --; prompt is everything after --
+    const optionParts = rest.slice(0, separatorIndex);
+    const afterSeparator = rest.slice(separatorIndex + 1);
+    for (let i = 0; i < optionParts.length; i++) {
+      if (optionParts[i] === "--session") {
+        const val = optionParts[i + 1];
+        if (!val) {
+          return resultErr("Missing value for --session");
+        }
+        i++;
+        const telegramTarget = parseTelegramSessionTarget(val);
+        if (telegramTarget) {
+          sessionName = telegramTarget.sessionName;
+          deliveryTarget = telegramTarget.deliveryTarget;
+        } else {
+          sessionName = val;
+        }
+      } else {
+        return resultErr(`Unknown option: ${optionParts[i]}`);
+      }
     }
+    promptParts.push(...afterSeparator);
+  } else {
+    promptParts.push(...rest);
   }
 
-  const prompt = effectivePromptParts.join(" ");
+  const prompt = promptParts.join(" ");
   if (!prompt) {
     return resultErr("Invalid input");
   }

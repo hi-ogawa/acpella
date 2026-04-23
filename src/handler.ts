@@ -447,7 +447,7 @@ ${referencedSessions.length} session(s) still reference it.
     },
   ];
 
-  const cronAddCommand = `/cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> <prompt...> [sessionName]`;
+  const cronAddCommand = `/cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--session <sessionName>] -- <prompt...>`;
   const getCronRunner = () => handlerOptions.getCronRunner?.();
   const systemCronCommands: SystemCommandTree[string] = [
     {
