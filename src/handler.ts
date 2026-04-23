@@ -333,8 +333,8 @@ verbose: ${verbose ? "on" : "off"}
       },
     },
     {
-      tokens: ["verbose", "enable"],
-      help: "/session verbose enable [sessionName] - Enable tool-call output.",
+      tokens: ["verbose", "on"],
+      help: "/session verbose on [sessionName] - Enable tool-call output.",
       withArgs: true,
       run: async ({ args, reply, sessionName }) => {
         const targetSession = args[0] ?? sessionName;
@@ -345,8 +345,8 @@ verbose: ${verbose ? "on" : "off"}
       },
     },
     {
-      tokens: ["verbose", "disable"],
-      help: "/session verbose disable [sessionName] - Disable tool-call output.",
+      tokens: ["verbose", "off"],
+      help: "/session verbose off [sessionName] - Disable tool-call output.",
       withArgs: true,
       run: async ({ args, reply, sessionName }) => {
         const targetSession = args[0] ?? sessionName;

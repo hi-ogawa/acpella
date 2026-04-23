@@ -33,8 +33,8 @@ Coverage checklist:
   - [ ] list with multiple agents
   - [ ] list marks stored inactive sessions as not active
   - [ ] list tolerates listSessions failure for one agent
-  - [x] verbose enable
-  - [x] verbose disable
+  - [x] verbose on
+  - [x] verbose off
   - [x] verbose suppresses tool call output
   - [x] verbose includes tool call output when enabled
   - [ ] verbose is isolated per acpella session
@@ -202,8 +202,8 @@ test("basic", async () => {
       /session new [agent] - Start a new agent session.
       /session load <sessionId|agent:sessionId> - Load an existing agent session.
       /session close [sessionId|agent:sessionId] - Close an agent session.
-      /session verbose enable [sessionName] - Enable tool-call output.
-      /session verbose disable [sessionName] - Disable tool-call output.
+      /session verbose on [sessionName] - Enable tool-call output.
+      /session verbose off [sessionName] - Disable tool-call output.
 
     /agent
       /agent list - List configured agents.
@@ -392,8 +392,8 @@ test("session commands", async () => {
       /session new [agent] - Start a new agent session.
       /session load <sessionId|agent:sessionId> - Load an existing agent session.
       /session close [sessionId|agent:sessionId] - Close an agent session.
-      /session verbose enable [sessionName] - Enable tool-call output.
-      /session verbose disable [sessionName] - Disable tool-call output."
+      /session verbose on [sessionName] - Enable tool-call output.
+      /session verbose off [sessionName] - Disable tool-call output."
   `);
   expect(await session.request("/session help")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -403,8 +403,8 @@ test("session commands", async () => {
       /session new [agent] - Start a new agent session.
       /session load <sessionId|agent:sessionId> - Load an existing agent session.
       /session close [sessionId|agent:sessionId] - Close an agent session.
-      /session verbose enable [sessionName] - Enable tool-call output.
-      /session verbose disable [sessionName] - Disable tool-call output."
+      /session verbose on [sessionName] - Enable tool-call output.
+      /session verbose off [sessionName] - Disable tool-call output."
   `);
   expect(await session.request("/session info")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -539,7 +539,7 @@ test("verbose command toggles tool call output", async () => {
   const tester = await createHandlerTester();
   const session = tester.createSession("test");
 
-  expect(await session.request("/session verbose enable")).toMatchInlineSnapshot(`
+  expect(await session.request("/session verbose on")).toMatchInlineSnapshot(`
       "[⚙️ System]
       Tool call output: on"
     `);
@@ -547,7 +547,7 @@ test("verbose command toggles tool call output", async () => {
       "Tool: Read files
       echo: __tool:Read files"
     `);
-  expect(await session.request("/session verbose disable")).toMatchInlineSnapshot(`
+  expect(await session.request("/session verbose off")).toMatchInlineSnapshot(`
       "[⚙️ System]
       Tool call output: off"
     `);
@@ -565,7 +565,7 @@ test("verbose command toggles tool call output", async () => {
     agent session id: __testSession1
     verbose: off"
   `);
-  expect(await session.request("/session verbose enable")).toMatchInlineSnapshot(`
+  expect(await session.request("/session verbose on")).toMatchInlineSnapshot(`
       "[⚙️ System]
       Tool call output: on"
     `);
