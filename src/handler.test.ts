@@ -1181,7 +1181,7 @@ test("cron error delivery", async ({ onTestFinished }) => {
   `);
 });
 
-test.todo("cron add with telegram session name", async ({ onTestFinished }) => {
+test("cron add with session name", async ({ onTestFinished }) => {
   vi.useFakeTimers({
     now: Date.parse("2026-04-18T00:00:00Z"),
   });
@@ -1191,8 +1191,16 @@ test.todo("cron add with telegram session name", async ({ onTestFinished }) => {
 
   const tester = await createHandlerTester();
 
-  // Session without metadata.cronDeliveryTarget to verify sessionName arg provides it
-  const session = tester.createSession("test");
+  // setup deliver target sessions
+  const targetSession1 = tester.createSession("tg-12345");
+  await targetSession1.request("hello");
+  const targetSession2 = tester.createSession("tg-12345-678");
+  await targetSession2.request("hello");
+
+  // setup cron from repl
+  const session = tester.createSession("test", {
+    metadata: { cronDeliveryTarget: { repl: true } },
+  });
 
   // With only chatId
   expect(await session.request("/cron add tg-job * * * * * --session tg-12345 -- hello-cron"))
@@ -1234,7 +1242,7 @@ test.todo("cron add with telegram session name", async ({ onTestFinished }) => {
   `);
 
   // Multi-word prompt with sessionName
-  expect(await session.request("/cron add tg-job3 * * * * * --session tg-99 -- hello world"))
+  expect(await session.request("/cron add tg-job3 * * * * * --session tg-12345 -- hello world"))
     .toMatchInlineSnapshot(`
     "[⚙️ System]
     Added cron job: tg-job3"
@@ -1245,17 +1253,10 @@ test.todo("cron add with telegram session name", async ({ onTestFinished }) => {
     enabled: yes
     schedule: * * * * *
     timezone: Asia/Jakarta
-    target session: tg-99
-    delivery target: telegram:99
+    target session: tg-12345
+    delivery target: telegram:12345
     next: 2026-04-18T07:01:00+07:00
     last: none
     prompt: hello world"
-  `);
-
-  // Without sessionName still requires metadata.cronDeliveryTarget
-  expect(await session.request("/cron add no-target-job * * * * * -- hello-cron"))
-    .toMatchInlineSnapshot(`
-    "[⚙️ System]
-    Cannot add cron job: delivery target is unavailable."
   `);
 });
