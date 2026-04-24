@@ -15,7 +15,7 @@ cp .env.example .env
 Generate a user unit for the current checkout:
 
 ```bash
-$ pnpm cli --setup-systemd
+$ pnpm cli systemd-install
 
 Wrote /home/hiroshi/.config/systemd/user/acpella.service
 

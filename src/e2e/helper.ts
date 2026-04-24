@@ -1,9 +1,12 @@
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import path from "node:path";
+import { promisify } from "node:util";
 import { onTestFinished, TestRunner, vi, type TestContext } from "vitest";
 import { useFs } from "../test/helper.ts";
 
 export type TestService = ReturnType<typeof startService>;
+
+export const execFileAsync = promisify(execFile);
 
 export function startService(options?: { env?: Record<string, string>; sourceDir?: string }) {
   const { root } = useFs({
@@ -145,4 +148,9 @@ function copyStackTrace(target: Error, source: Error) {
     target.stack = source.stack.replace(source.message, target.message);
   }
   return target;
+}
+
+export function sanitizeOutput(s: string) {
+  // strip --env-file-if-exists warnings
+  return s.replaceAll(".env not found. Continuing without it.\n", "");
 }
