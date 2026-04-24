@@ -48,7 +48,7 @@ describe("repl", () => {
 describe("exec", async () => {
   test("command", async () => {
     const cli = useCli();
-    const result = await cli.cli("exec /service");
+    const result = await cli.cli("exec", "/service");
     expect(sanitizeOutput(result.stderr)).toMatchInlineSnapshot(`""`);
     expect(result.stdout).toMatchInlineSnapshot(`
       "[⚙️ System]
@@ -61,7 +61,7 @@ describe("exec", async () => {
 
   test("prompt", async () => {
     const cli = useCli();
-    const result = await cli.cli("exec __multiple_chunks:hello");
+    const result = await cli.cli("exec", "__multiple_chunks:hello");
     expect(sanitizeOutput(result.stderr)).toMatchInlineSnapshot(`""`);
     expect(result.stdout).toMatchInlineSnapshot(`
       "echo-1: helloecho-2: hello
