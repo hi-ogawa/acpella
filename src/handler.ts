@@ -15,7 +15,7 @@ import { CommandHandler, type CommandTree } from "./lib/command.ts";
 import { formatSessionUpdateLogEntry, JsonLogger } from "./lib/logger.ts";
 import { buildFirstPrompt, buildMessageMetadataPrompt } from "./lib/prompt.ts";
 import { MESSAGE_SPLIT_BUDGET, ReplyManager } from "./lib/reply.ts";
-import { installSystemdUnit } from "./lib/systemd.ts";
+import { handleSystemdInstall } from "./lib/systemd.ts";
 import { parseTelegramSessionName } from "./lib/telegram/utils.ts";
 import { AsyncLane, DefaultMap, formatError } from "./lib/utils.ts";
 import { parseAgentSessionKey, SessionStateStore, toAgentSessionKey } from "./state.ts";
@@ -676,7 +676,7 @@ home: ${config.home}
         tokens: ["systemd", "install"],
         help: "/service systemd install - Install systemd service.",
         run: async ({ reply }) => {
-          const message = installSystemdUnit();
+          const message = handleSystemdInstall();
           await reply.system(message);
         },
       },
