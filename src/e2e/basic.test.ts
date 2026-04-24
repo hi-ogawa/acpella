@@ -1,7 +1,7 @@
 import path from "node:path";
 import { describe, expect, test } from "vitest";
 import { useFs } from "../test/helper.ts";
-import { execFileAsync, startService } from "./helper.ts";
+import { execFileAsync, sanitizeOutput, startService } from "./helper.ts";
 
 describe("basic", () => {
   test("basic", async () => {
@@ -40,6 +40,7 @@ test("cli exec", async () => {
       ACPELLA_HOME: root,
     },
   });
+  expect(sanitizeOutput(result.stderr)).toMatchInlineSnapshot(`""`);
   expect(result.stdout).toMatchInlineSnapshot(`
     "[⚙️ System]
     /service

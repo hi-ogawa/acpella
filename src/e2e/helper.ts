@@ -149,3 +149,8 @@ function copyStackTrace(target: Error, source: Error) {
   }
   return target;
 }
+
+export function sanitizeOutput(s: string) {
+  // strip --env-file-if-exists warnings
+  return s.replaceAll(".env not found. Continuing without it.\n", "");
+}
