@@ -30,10 +30,10 @@ describe("basic", () => {
 
 function useCli() {
   const { root } = useFs({
-    prefix: "e2e-exec",
+    prefix: "e2e-cli",
   });
-  function exec(message: string) {
-    return execFileAsync("pnpm", ["-s", "cli", "exec", message], {
+  function run(...messages: string[]) {
+    return execFileAsync("pnpm", ["-s", "cli", ...messages], {
       cwd: path.join(import.meta.dirname, "../.."),
       env: {
         ...process.env,
@@ -41,13 +41,32 @@ function useCli() {
       },
     });
   }
-  return { root, exec };
+  return { root, cli: run };
 }
+
+test("help", async () => {
+  const cli = useCli();
+  const result = await cli.cli("--help");
+  expect(sanitizeOutput(result.stderr)).toMatchInlineSnapshot(`""`);
+  expect(result.stdout).toMatchInlineSnapshot(`
+    "Usage: acpella [command]
+
+    Commands:
+      serve             Run Telegram bot service. Default when no command is provided.
+      repl              Run local in-process REPL.
+      exec <message...> Run one local message, then exit.
+
+    Options:
+      -h, --help        Show this help.
+
+    "
+  `);
+});
 
 describe("exec", async () => {
   test("command", async () => {
     const cli = useCli();
-    const result = await cli.exec("/service");
+    const result = await cli.cli("exec /service");
     expect(sanitizeOutput(result.stderr)).toMatchInlineSnapshot(`""`);
     expect(result.stdout).toMatchInlineSnapshot(`
       "[⚙️ System]
@@ -60,7 +79,7 @@ describe("exec", async () => {
 
   test("prompt", async () => {
     const cli = useCli();
-    const result = await cli.exec("__multiple_chunks:hello");
+    const result = await cli.cli("exec __multiple_chunks:hello");
     expect(sanitizeOutput(result.stderr)).toMatchInlineSnapshot(`""`);
     expect(result.stdout).toMatchInlineSnapshot(`
       "echo-1: helloecho-2: hello
