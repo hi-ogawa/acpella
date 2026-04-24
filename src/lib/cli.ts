@@ -1,4 +1,4 @@
-import { toResult, type Result } from "./utils.ts";
+import { Result } from "./utils.ts";
 
 type ParsedCli = {
   command: string;
@@ -14,18 +14,18 @@ export function parseCli(options: {
   const command = inputCommand ?? options.defaultCommand;
 
   if (command === "-h" || command === "--help") {
-    return toResult.ok({
+    return Result.ok({
       command: "help",
       args: [],
     });
   }
   if (!command) {
-    return toResult.err("Missing command");
+    return Result.err("Missing command");
   }
   if (!options.commands.includes(command)) {
-    return toResult.err(`Unknown command: ${command}`);
+    return Result.err(`Unknown command: ${command}`);
   }
-  return toResult.ok({
+  return Result.ok({
     command,
     args,
   });
