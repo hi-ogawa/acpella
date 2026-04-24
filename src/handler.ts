@@ -587,11 +587,10 @@ enabled jobs: ${enabledJobs.length}
           await reply.system(`Unknown cron job: ${cron.id}`);
           return;
         }
-        const patch: Parameters<CronStore["updateJob"]>[1] = {};
-        if (cron.schedule) {
-          patch.schedule = cron.schedule;
-          patch.timezone = config.timezone;
-        }
+        const patch: Parameters<CronStore["updateJob"]>[1] = {
+          schedule: cron.schedule,
+          timezone: config.timezone,
+        };
         if (cron.prompt) {
           patch.prompt = cron.prompt;
         }
