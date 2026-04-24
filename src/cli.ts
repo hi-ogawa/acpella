@@ -48,6 +48,11 @@ ${CLI_HELP}`);
   }
 
   const cli = cliResult.value;
+  if (cli.command === "help") {
+    console.log(CLI_HELP);
+    return;
+  }
+
   if (cli.command !== "exec" && cli.args.length > 0) {
     console.error(`\
 Unexpected arguments for ${cli.command}: ${cli.args.join(" ")}
@@ -68,11 +73,6 @@ ${CLI_HELP}`);
 
   if (cli.command === "systemd-install") {
     handleSetupSystemd();
-    return;
-  }
-
-  if (cli.command === "help") {
-    console.log(CLI_HELP);
     return;
   }
 

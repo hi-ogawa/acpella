@@ -15,7 +15,7 @@ export function parseCli(options: {
 
   if (command === "-h" || command === "--help") {
     return toResult.ok({
-      command: "help" as any,
+      command: "help",
       args: [],
     });
   }
@@ -26,7 +26,7 @@ export function parseCli(options: {
     return toResult.err(`Unknown command: ${command}`);
   }
   return toResult.ok({
-    command: command as any,
+    command,
     args,
   });
 }
