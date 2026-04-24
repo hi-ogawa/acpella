@@ -28,23 +28,42 @@ describe("basic", () => {
   });
 });
 
-test("cli exec", async () => {
+function useCli() {
   const { root } = useFs({
     prefix: "e2e-exec",
   });
+  function exec(message: string) {
+    return execFileAsync("pnpm", ["-s", "cli", "exec", message], {
+      cwd: path.join(import.meta.dirname, "../.."),
+      env: {
+        ...process.env,
+        ACPELLA_HOME: root,
+      },
+    });
+  }
+  return { root, exec };
+}
 
-  const result = await execFileAsync("pnpm", ["-s", "cli", "exec", "/service"], {
-    cwd: path.join(import.meta.dirname, "../.."),
-    env: {
-      ...process.env,
-      ACPELLA_HOME: root,
-    },
+describe("exec", async () => {
+  test("command", async () => {
+    const cli = useCli();
+    const result = await cli.exec("/service");
+    expect(sanitizeOutput(result.stderr)).toMatchInlineSnapshot(`""`);
+    expect(result.stdout).toMatchInlineSnapshot(`
+      "[⚙️ System]
+      /service
+        /service exit - Exit acpella.
+      "
+    `);
   });
-  expect(sanitizeOutput(result.stderr)).toMatchInlineSnapshot(`""`);
-  expect(result.stdout).toMatchInlineSnapshot(`
-    "[⚙️ System]
-    /service
-      /service exit - Exit acpella.
-    "
-  `);
+
+  test("prompt", async () => {
+    const cli = useCli();
+    const result = await cli.exec("__multiple_chunks:hello");
+    expect(sanitizeOutput(result.stderr)).toMatchInlineSnapshot(`""`);
+    expect(result.stdout).toMatchInlineSnapshot(`
+      "echo-1: helloecho-2: hello
+      "
+    `);
+  });
 });
