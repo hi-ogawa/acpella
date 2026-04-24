@@ -4,6 +4,8 @@ import { getNextCronSchedule, validateCronSchedule } from "./timer.ts";
 
 export const CRON_ADD_USAGE =
   "/cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--session <sessionName>] -- <prompt...>";
+export const CRON_UPDATE_USAGE =
+  "/cron update <id> [<minute> <hour> <day-of-month> <month> <day-of-week>] [--session <sessionName>] [-- <prompt...>]";
 
 export function parseCronAddArgs(
   args: string[],
@@ -52,6 +54,71 @@ export function parseCronAddArgs(
     validateCronSchedule({ schedule, timezone });
   } catch (error) {
     return Result.err(`Invalid cron schedule: ${formatError(error)}`);
+  }
+  return Result.ok({ id, schedule, prompt, sessionName });
+}
+
+export function parseCronUpdateArgs(
+  args: string[],
+  timezone: string,
+): Result<
+  {
+    id: string;
+    schedule?: string;
+    prompt?: string;
+    sessionName?: string;
+  },
+  string
+> {
+  const [id, ...rest] = args;
+  if (!id) {
+    return Result.err("Invalid input");
+  }
+  const cronIdResult = cronIdSchema.safeParse(id);
+  if (!cronIdResult.success) {
+    return Result.err("Invalid cron id. Use letters, numbers, underscores, or hyphens.");
+  }
+
+  let schedule: string | undefined;
+  if (rest[0] && rest[0] !== "--session" && rest[0] !== "--") {
+    if (rest.length < 5) {
+      return Result.err("Schedule update requires all five cron fields");
+    }
+    const [minute, hour, dayOfMonth, month, dayOfWeek] = rest.splice(0, 5);
+    if (!minute || !hour || !dayOfMonth || !month || !dayOfWeek) {
+      return Result.err("Invalid input");
+    }
+    schedule = [minute, hour, dayOfMonth, month, dayOfWeek].join(" ");
+    try {
+      validateCronSchedule({ schedule, timezone });
+    } catch (error) {
+      return Result.err(`Invalid cron schedule: ${formatError(error)}`);
+    }
+  }
+
+  let sessionName: string | undefined;
+  if (rest[0] === "--session") {
+    if (!rest[1]) {
+      return Result.err("Missing value for --session");
+    }
+    sessionName = rest[1];
+    rest.splice(0, 2);
+  }
+
+  let prompt: string | undefined;
+  if (rest[0] === "--") {
+    rest.splice(0, 1);
+    prompt = rest.join(" ");
+    if (!prompt) {
+      return Result.err("Invalid input");
+    }
+    rest.splice(0);
+  }
+  if (rest.length > 0) {
+    return Result.err("Unexpected input");
+  }
+  if (!schedule && !sessionName && !prompt) {
+    return Result.err("No updates specified");
   }
   return Result.ok({ id, schedule, prompt, sessionName });
 }
