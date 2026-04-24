@@ -8,7 +8,6 @@ import { CronRunner } from "./cron/runner.ts";
 import { CronStore } from "./cron/store.ts";
 import { createHandler, type Handler } from "./handler.ts";
 import { parseCli } from "./lib/cli.ts";
-import { handleSetupSystemd } from "./lib/systemd.ts";
 import { markdownToTelegramHtml } from "./lib/telegram/format-html.ts";
 import {
   formatTelegramSessionName,
@@ -26,7 +25,6 @@ Commands:
   serve             Run Telegram bot service. Default when no command is provided.
   repl              Run local in-process REPL.
   exec <message...> Run one local message, then exit.
-  systemd-install   Install systemd service.
 
 Options:
   -h, --help        Show this help.
@@ -35,7 +33,7 @@ Options:
 async function main() {
   const cliResult = parseCli({
     argv: process.argv,
-    commands: ["serve", "repl", "exec", "systemd-install"],
+    commands: ["serve", "repl", "exec"],
     defaultCommand: "serve",
   });
   if (!cliResult.ok) {
@@ -68,13 +66,6 @@ Missing message for exec
 
 ${CLI_HELP}`);
     process.exitCode = 1;
-    return;
-  }
-
-  // TODO: move to handler-level command
-  //   /service systemd start
-  if (cli.command === "systemd-install") {
-    handleSetupSystemd();
     return;
   }
 

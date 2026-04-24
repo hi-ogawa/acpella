@@ -154,3 +154,19 @@ export function sanitizeOutput(s: string) {
   // strip --env-file-if-exists warnings
   return s.replaceAll(".env not found. Continuing without it.\n", "");
 }
+
+export function useCli() {
+  const { root } = useFs({
+    prefix: "e2e-cli",
+  });
+  function run(...messages: string[]) {
+    return execFileAsync("pnpm", ["-s", "cli", ...messages], {
+      cwd: path.join(import.meta.dirname, "../.."),
+      env: {
+        ...process.env,
+        ACPELLA_HOME: root,
+      },
+    });
+  }
+  return { root, cli: run };
+}

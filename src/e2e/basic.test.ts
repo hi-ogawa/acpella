@@ -1,9 +1,26 @@
-import path from "node:path";
 import { describe, expect, test } from "vitest";
-import { useFs } from "../test/helper.ts";
-import { execFileAsync, sanitizeOutput, startService } from "./helper.ts";
+import { sanitizeOutput, startService, useCli } from "./helper.ts";
 
-describe("basic", () => {
+test("help", async () => {
+  const cli = useCli();
+  const result = await cli.cli("--help");
+  expect(sanitizeOutput(result.stderr)).toMatchInlineSnapshot(`""`);
+  expect(result.stdout).toMatchInlineSnapshot(`
+    "Usage: acpella [command]
+
+    Commands:
+      serve             Run Telegram bot service. Default when no command is provided.
+      repl              Run local in-process REPL.
+      exec <message...> Run one local message, then exit.
+
+    Options:
+      -h, --help        Show this help.
+
+    "
+  `);
+});
+
+describe("repl", () => {
   test("basic", async () => {
     const service = startService();
     await service.waitForOutput("Starting repl");
@@ -28,30 +45,15 @@ describe("basic", () => {
   });
 });
 
-function useCli() {
-  const { root } = useFs({
-    prefix: "e2e-exec",
-  });
-  function exec(message: string) {
-    return execFileAsync("pnpm", ["-s", "cli", "exec", message], {
-      cwd: path.join(import.meta.dirname, "../.."),
-      env: {
-        ...process.env,
-        ACPELLA_HOME: root,
-      },
-    });
-  }
-  return { root, exec };
-}
-
 describe("exec", async () => {
   test("command", async () => {
     const cli = useCli();
-    const result = await cli.exec("/service");
+    const result = await cli.cli("exec", "/service");
     expect(sanitizeOutput(result.stderr)).toMatchInlineSnapshot(`""`);
     expect(result.stdout).toMatchInlineSnapshot(`
       "[⚙️ System]
       /service
+        /service systemd install - Install systemd service.
         /service exit - Exit acpella.
       "
     `);
@@ -59,7 +61,7 @@ describe("exec", async () => {
 
   test("prompt", async () => {
     const cli = useCli();
-    const result = await cli.exec("__multiple_chunks:hello");
+    const result = await cli.cli("exec", "__multiple_chunks:hello");
     expect(sanitizeOutput(result.stderr)).toMatchInlineSnapshot(`""`);
     expect(result.stdout).toMatchInlineSnapshot(`
       "echo-1: helloecho-2: hello

@@ -191,6 +191,7 @@ test("basic", async () => {
       /status - Show service status.
 
     /service
+      /service systemd install - Install systemd service.
       /service exit - Exit acpella.
 
     /cancel
@@ -300,6 +301,7 @@ test("service commands", async () => {
   expect(await session.request("/service")).toMatchInlineSnapshot(`
     "[⚙️ System]
     /service
+      /service systemd install - Install systemd service.
       /service exit - Exit acpella."
   `);
   await session.request("/service exit");
