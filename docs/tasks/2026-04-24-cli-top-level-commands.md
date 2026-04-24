@@ -73,3 +73,29 @@ Do not add CLI-native aliases like `node src/cli.ts agent list` in this task. Th
 5. Factor local one-shot dispatch into a small helper, for example `runLocalOnce({ text, sessionName })`, so `exec` does not duplicate REPL handler wiring.
 6. Update `README.md`, `docs/deploy.md`, and package scripts after the command surface exists.
 7. Add tests around parser behavior and one-shot dispatch where practical.
+
+## Follow-up: systemd as a service command
+
+After `exec` exists, consider moving systemd setup into the handler command surface under `/service`:
+
+```bash
+node src/cli.ts exec /service systemd install
+```
+
+Interactive local usage would then work the same way:
+
+```text
+/service systemd install
+```
+
+This would make the CLI command less special: `systemd install` could either remain as a thin CLI alias or be removed in favor of the generic `exec` path. The implementation should first refactor `src/lib/systemd.ts` so the filesystem operation is reusable and returns printable text instead of writing directly to stdout from `handleSetupSystemd`.
+
+Suggested shape:
+
+- Keep low-level unit rendering in `buildSystemdUnit`.
+- Add a helper such as `installSystemdUnit({ cwd, env, home, nodeBin, tmpDir })`.
+- Have the helper write the unit file and return the success instructions as a string.
+- Have CLI `systemd install` print that string.
+- Have `/service systemd install` call the same helper and reply through `reply.system(...)`.
+
+Do not expose `/service systemd install` casually to Telegram without deciding the security model. It is a host/admin side effect: a permitted Telegram user would be able to write a systemd unit under the service user's home. That may be acceptable for this high-trust project, but it should be an explicit choice. If needed, restrict this command to local surfaces (`repl`/`exec`) before allowing it over Telegram.
