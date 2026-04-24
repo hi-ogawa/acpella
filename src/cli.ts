@@ -71,6 +71,8 @@ ${CLI_HELP}`);
     return;
   }
 
+  // TODO: move to handler-level command
+  //   /service systemd start
   if (cli.command === "systemd-install") {
     handleSetupSystemd();
     return;
