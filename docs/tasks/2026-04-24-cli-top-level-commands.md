@@ -17,7 +17,7 @@ node src/cli.ts  # intentionally remains `serve` for compatibility
 node src/cli.ts serve
 node src/cli.ts repl
 node src/cli.ts exec <system command or prompt...>
-node src/cli.ts systemd install
+node src/cli.ts systemd-install
 node src/cli.ts help
 ```
 
@@ -56,7 +56,7 @@ Do not add CLI-native aliases like `node src/cli.ts agent list` in this task. Th
    - no args means `serve`
    - `serve` maps to current default Telegram behavior.
    - `repl` maps to current `--repl`.
-   - `systemd install` maps to current `--setup-systemd`.
+   - `systemd-install` maps to current `--setup-systemd`.
    - `help` prints usage.
    - `--help` and `-h` may remain as standard help aliases even though other mode flags are removed.
    - remove current mode flags such as `--repl` and `--setup-systemd`.
@@ -88,14 +88,14 @@ Interactive local usage would then work the same way:
 /service systemd install
 ```
 
-This would make the CLI command less special: `systemd install` could either remain as a thin CLI alias or be removed in favor of the generic `exec` path. The implementation should first refactor `src/lib/systemd.ts` so the filesystem operation is reusable and returns printable text instead of writing directly to stdout from `handleSetupSystemd`.
+This would make the CLI command less special: `systemd-install` could either remain as a thin CLI alias or be removed in favor of the generic `exec` path. The implementation should first refactor `src/lib/systemd.ts` so the filesystem operation is reusable and returns printable text instead of writing directly to stdout from `handleSetupSystemd`.
 
 Suggested shape:
 
 - Keep low-level unit rendering in `buildSystemdUnit`.
 - Add a helper such as `installSystemdUnit({ cwd, env, home, nodeBin, tmpDir })`.
 - Have the helper write the unit file and return the success instructions as a string.
-- Have CLI `systemd install` print that string.
+- Have CLI `systemd-install` print that string.
 - Have `/service systemd install` call the same helper and reply through `reply.system(...)`.
 
 Do not expose `/service systemd install` casually to Telegram without deciding the security model. It is a host/admin side effect: a permitted Telegram user would be able to write a systemd unit under the service user's home. That may be acceptable for this high-trust project, but it should be an explicit choice. If needed, restrict this command to local surfaces (`repl`/`exec`) before allowing it over Telegram.
