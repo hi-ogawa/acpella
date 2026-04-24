@@ -29,7 +29,7 @@ const USAGE = `Usage: node src/cli.ts [command]
 Commands:
   serve             Run Telegram bot service. Default when no command is provided.
   repl              Run local in-process REPL.
-  systemd install   Setup systemd service.
+  systemd-install   Install systemd service.
   help              Show this help.
 
 Options:
