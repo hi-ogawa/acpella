@@ -1,9 +1,26 @@
-import path from "node:path";
 import { describe, expect, test } from "vitest";
-import { useFs } from "../test/helper.ts";
-import { execFileAsync, sanitizeOutput, startService } from "./helper.ts";
+import { sanitizeOutput, startService, useCli } from "./helper.ts";
 
-describe("basic", () => {
+test("help", async () => {
+  const cli = useCli();
+  const result = await cli.cli("--help");
+  expect(sanitizeOutput(result.stderr)).toMatchInlineSnapshot(`""`);
+  expect(result.stdout).toMatchInlineSnapshot(`
+    "Usage: acpella [command]
+
+    Commands:
+      serve             Run Telegram bot service. Default when no command is provided.
+      repl              Run local in-process REPL.
+      exec <message...> Run one local message, then exit.
+
+    Options:
+      -h, --help        Show this help.
+
+    "
+  `);
+});
+
+describe("repl", () => {
   test("basic", async () => {
     const service = startService();
     await service.waitForOutput("Starting repl");
@@ -26,41 +43,6 @@ describe("basic", () => {
     service.write("__env:AGENT_VISIBLE_KEY");
     await service.waitForOutput("env: AGENT_VISIBLE_KEY=agent-visible-key");
   });
-});
-
-function useCli() {
-  const { root } = useFs({
-    prefix: "e2e-cli",
-  });
-  function run(...messages: string[]) {
-    return execFileAsync("pnpm", ["-s", "cli", ...messages], {
-      cwd: path.join(import.meta.dirname, "../.."),
-      env: {
-        ...process.env,
-        ACPELLA_HOME: root,
-      },
-    });
-  }
-  return { root, cli: run };
-}
-
-test("help", async () => {
-  const cli = useCli();
-  const result = await cli.cli("--help");
-  expect(sanitizeOutput(result.stderr)).toMatchInlineSnapshot(`""`);
-  expect(result.stdout).toMatchInlineSnapshot(`
-    "Usage: acpella [command]
-
-    Commands:
-      serve             Run Telegram bot service. Default when no command is provided.
-      repl              Run local in-process REPL.
-      exec <message...> Run one local message, then exit.
-
-    Options:
-      -h, --help        Show this help.
-
-    "
-  `);
 });
 
 describe("exec", async () => {
