@@ -1,4 +1,3 @@
-import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 import { AgentManager } from "./acp/index.ts";
 import type { AgentSessionProcess } from "./acp/index.ts";
@@ -677,13 +676,7 @@ home: ${config.home}
         tokens: ["systemd", "install"],
         help: "/service systemd install - Install systemd service.",
         run: async ({ reply }) => {
-          const message = installSystemdUnit({
-            workingDirectory: process.cwd(),
-            env: process.env,
-            home: homedir(),
-            nodeBin: process.execPath,
-            tmpDir: tmpdir(),
-          });
+          const message = installSystemdUnit();
           await reply.system(message);
         },
       },

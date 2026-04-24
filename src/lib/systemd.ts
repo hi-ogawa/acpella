@@ -1,23 +1,19 @@
 import { mkdirSync, writeFileSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { uniq } from "./utils.ts";
 
-export function installSystemdUnit(options: {
-  workingDirectory: string;
-  env: NodeJS.ProcessEnv;
-  home: string;
-  nodeBin: string;
-  tmpDir: string;
-}): string {
+export function installSystemdUnit(): string {
+  const home = homedir();
   const unitContent = buildSystemdUnit({
-    workingDirectory: options.workingDirectory,
-    env: options.env,
-    home: options.home,
-    nodeBin: options.nodeBin,
-    tmpDir: options.tmpDir,
+    workingDirectory: process.cwd(),
+    env: process.env,
+    home,
+    nodeBin: process.execPath,
+    tmpDir: tmpdir(),
   });
 
-  const unitFile = resolve(options.home, ".config/systemd/user/acpella.service");
+  const unitFile = resolve(home, ".config/systemd/user/acpella.service");
   mkdirSync(dirname(unitFile), { recursive: true });
   writeFileSync(unitFile, unitContent);
 
