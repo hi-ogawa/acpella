@@ -10,7 +10,6 @@ cp .env.example .env
 # edit .env using the Config section below
 
 pnpm cli       # run Telegram bot service
-pnpm cli repl  # run REPL
 pnpm repl      # run REPL
 ```
 
