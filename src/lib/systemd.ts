@@ -1,13 +1,19 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { accessSync, constants, mkdirSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
-import { dirname, resolve } from "node:path";
+import { basename, dirname, resolve } from "node:path";
 import { uniq } from "./utils.ts";
 
-export function handleSystemdInstall(): string {
+export function handleSystemdInstall(options: {
+  workingDirectory: string;
+  envFile?: string;
+}): string {
   const unitContent = buildSystemdUnit({
-    workingDirectory: process.cwd(),
+    workingDirectory: options.workingDirectory,
     env: process.env,
+    envFile: options.envFile,
+    acpellaBin: findExecutable({ command: "acpella", path: process.env.PATH }),
     home: homedir(),
+    entrypoint: process.argv[1],
     nodeBin: process.execPath,
     tmpDir: tmpdir(),
   });
@@ -36,11 +42,13 @@ Logs:
 export function buildSystemdUnit(options: {
   workingDirectory: string;
   env: NodeJS.ProcessEnv;
+  envFile?: string;
+  acpellaBin?: string;
+  entrypoint?: string;
   home: string;
   nodeBin: string;
   tmpDir: string;
 }): string {
-  const envFile = resolve(options.workingDirectory, ".env");
   const serviceEnv = {
     HOME: options.home,
     TMPDIR: options.env.TMPDIR?.trim() || options.tmpDir,
@@ -60,9 +68,8 @@ Wants=network-online.target
 Type=simple
 SyslogIdentifier=${escapeSystemdValue("acpella")}
 WorkingDirectory=${escapeSystemdValue(options.workingDirectory)}
-EnvironmentFile=${escapeSystemdValue(envFile)}
 ${environmentLines}
-ExecStart=${escapeSystemdValue(options.nodeBin)} ${escapeSystemdValue(resolve(options.workingDirectory, "src/cli.ts"))}
+ExecStart=${buildExecStart(options)}
 Restart=always
 RestartSec=2
 KillMode=control-group
@@ -102,6 +109,46 @@ function buildServicePath(options: { nodeBin: string; home: string }): string {
   ];
 
   return uniq(dirs).join(":");
+}
+
+function buildExecStart(options: {
+  entrypoint?: string;
+  envFile?: string;
+  acpellaBin?: string;
+  nodeBin: string;
+}): string {
+  const serveArgs = [...(options.envFile ? ["--env-file", options.envFile] : []), "serve"];
+  const entrypoint = options.entrypoint ? resolve(options.entrypoint) : "acpella";
+  const command = options.acpellaBin
+    ? [options.acpellaBin, ...serveArgs]
+    : isSourceCliEntrypoint(entrypoint)
+      ? [options.nodeBin, entrypoint, ...serveArgs]
+      : [entrypoint, ...serveArgs];
+
+  return command.map(escapeSystemdValue).join(" ");
+}
+
+function isSourceCliEntrypoint(entrypoint: string): boolean {
+  return basename(entrypoint) === "cli.ts" && entrypoint.endsWith("/src/cli.ts");
+}
+
+function findExecutable(options: { command: string; path?: string }): string | undefined {
+  const path = options.path?.trim();
+  if (!path) {
+    return;
+  }
+  for (const dir of path.split(":")) {
+    if (!dir) {
+      continue;
+    }
+    const candidate = resolve(dir, options.command);
+    try {
+      accessSync(candidate, constants.X_OK);
+      return candidate;
+    } catch {
+      // Continue searching PATH.
+    }
+  }
 }
 
 function escapeSystemdValue(value: string): string {

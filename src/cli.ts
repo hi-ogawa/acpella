@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import "temporal-polyfill/global";
 import path from "node:path";
 import { createInterface } from "node:readline/promises";
@@ -8,6 +9,7 @@ import { CronRunner } from "./cron/runner.ts";
 import { CronStore } from "./cron/store.ts";
 import { createHandler, type Handler } from "./handler.ts";
 import { parseCli } from "./lib/cli.ts";
+import { loadCliEnvFile } from "./lib/env-file.ts";
 import { markdownToTelegramHtml } from "./lib/telegram/format-html.ts";
 import {
   formatTelegramSessionName,
@@ -27,6 +29,7 @@ Commands:
   exec <message...> Run one local message, then exit.
 
 Options:
+  --env-file <path> Load an env file for this invocation.
   -h, --help        Show this help.
 `;
 
@@ -48,6 +51,15 @@ ${CLI_HELP}`);
   const cli = cliResult.value;
   if (cli.command === "help") {
     console.log(CLI_HELP);
+    return;
+  }
+
+  let loadedEnvFile: ReturnType<typeof loadCliEnvFile>;
+  try {
+    loadedEnvFile = loadCliEnvFile({ envFile: cli.envFile });
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
     return;
   }
 
@@ -106,6 +118,7 @@ ${CLI_HELP}`);
         process.exit(0);
       });
     },
+    envFile: loadedEnvFile.explicit ? loadedEnvFile.path : undefined,
     cronStore,
     // TODO: break handler <-> cronRunner cycle
     // docs/tasks/2026-04-19-agent-session-service-architecture.md

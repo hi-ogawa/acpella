@@ -6,15 +6,23 @@ Thin service that connects a messaging channel (Telegram) to AI agent via [ACP](
 
 ```bash
 pnpm install
-cp .env.example .env
-# edit .env using the Config section below
+pnpm build
+pnpm link --global
 
-pnpm cli              # run Telegram bot service
-pnpm repl             # run REPL
-pnpm cli exec /status # run one local admin command
+mkdir -p "${XDG_CONFIG_HOME:-$HOME/.config}/acpella"
+cp .env.example "${XDG_CONFIG_HOME:-$HOME/.config}/acpella/.env"
+# edit the copied .env using the Config section below
+
+acpella serve         # run Telegram bot service
+acpella repl          # run REPL
+acpella exec /status  # run one local admin command
 ```
 
+From the source checkout during development, `pnpm cli`, `pnpm repl`, and `pnpm cli exec /status` still load local `.env` as a convenience.
+
 ## Config
+
+Installed `acpella` reads `${XDG_CONFIG_HOME:-~/.config}/acpella/.env` by default. Use `--env-file <path>` to load a different env file for one invocation. Existing process environment values take precedence over values in env files.
 
 | Variable                            | Default         | Description                                |
 | ----------------------------------- | --------------- | ------------------------------------------ |
@@ -26,6 +34,14 @@ pnpm cli exec /status # run one local admin command
 ## Configuring Agent
 
 The default agent is the built-in `test` echo agent. See [`skills/acpella`](skills/acpella) for current agent registration, session, customization, cron, and service administration workflows.
+
+## Development
+
+```bash
+pnpm cli serve
+pnpm cli repl
+pnpm cli exec /status
+```
 
 ## Docs
 

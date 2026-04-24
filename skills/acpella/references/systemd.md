@@ -4,13 +4,13 @@ Use this reference for installing acpella as a user service, updating the unit, 
 
 ## Generate the user unit
 
-From the acpella source checkout you want the service to run:
-
 ```bash
-pnpm cli exec /service systemd install
+acpella exec /service systemd install
 ```
 
-This writes a user unit for the current checkout. Prefer running this from a local shell through `exec`; it is a host administration side effect.
+This writes a user unit for the current `ACPELLA_HOME` and starts the installed `acpella` executable with `serve`. Prefer running this from a local shell through `exec`; it is a host administration side effect.
+
+From the source checkout during development, `pnpm cli exec /service systemd install` is the fallback.
 
 ## First install
 

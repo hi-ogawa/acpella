@@ -36,18 +36,18 @@ If needed, reset with:
 /session new
 ```
 
-Run this in the target Telegram or REPL conversation. Do not use `pnpm cli exec` for `/session new`.
+Run this in the target Telegram or REPL conversation. Do not use `acpella exec` for `/session new`.
 
 For the general workflows behind those commands, continue with [sessions-and-agents.md](sessions-and-agents.md).
 
 For installation-wide checks from a local shell, prefer:
 
 ```bash
-pnpm cli exec /status
-pnpm cli exec /agent list
+acpella exec /status
+acpella exec /agent list
 ```
 
-Run these from the acpella source checkout that owns the running service, not from `ACPELLA_HOME` unless they are the same directory.
+Run these with the same installed `acpella` command or `--env-file` used by the running service.
 
 ## Prompt customization not taking effect
 
@@ -82,11 +82,11 @@ For the command workflow itself, continue with [cron.md](cron.md).
 For installation-wide cron checks from a local shell, prefer:
 
 ```bash
-pnpm cli exec /cron status
-pnpm cli exec /cron list
+acpella exec /cron status
+acpella exec /cron list
 ```
 
-Run these from the acpella source checkout that owns the running service, not from `ACPELLA_HOME` unless they are the same directory.
+Run these with the same installed `acpella` command or `--env-file` used by the running service.
 
 ## When deeper inspection is needed
 

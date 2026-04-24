@@ -48,6 +48,7 @@ export async function createHandler(
   handlerOptions: {
     version?: string;
     onServiceExit: () => void;
+    envFile?: string;
     cronStore: CronStore;
     getCronRunner?: () => CronRunner;
   },
@@ -676,7 +677,10 @@ home: ${config.home}
         tokens: ["systemd", "install"],
         help: "/service systemd install - Install systemd service.",
         run: async ({ reply }) => {
-          const message = handleSystemdInstall();
+          const message = handleSystemdInstall({
+            envFile: handlerOptions.envFile,
+            workingDirectory: config.home,
+          });
           await reply.system(message);
         },
       },

@@ -1,6 +1,10 @@
 import { defineConfig } from "vite-plus";
 
 export default defineConfig({
+  pack: {
+    entry: "src/cli.ts",
+    fixedExtension: false,
+  },
   fmt: {
     ignorePatterns: ["fixtures/telegram-html/**"],
     sortImports: {
