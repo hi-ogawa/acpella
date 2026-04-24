@@ -51,6 +51,7 @@ export function formatError(error: unknown): string {
   return String(error);
 }
 
+// TODO: remove `resultOk/resultErr` in favor of `toResult.ok/err`
 export type Result<T, E> = { ok: true; value: T } | { ok: false; value: E };
 export const resultOk = <T>(value: T): Result<T, never> => ({ ok: true, value });
 export const resultErr = <E>(value: E): Result<never, E> => ({ ok: false, value });
