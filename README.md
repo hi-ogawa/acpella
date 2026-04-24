@@ -9,8 +9,9 @@ pnpm install
 cp .env.example .env
 # edit .env using the Config section below
 
-pnpm cli  # run telegram bot
-pnpm repl # run REPL
+pnpm cli       # run Telegram bot service
+pnpm cli repl  # run REPL
+pnpm repl      # run REPL
 ```
 
 ## Config
@@ -24,7 +25,7 @@ pnpm repl # run REPL
 
 ### `$ACPELLA_TELEGRAM_*`
 
-Telegram related configuration is not required for `--repl` mode.
+Telegram related configuration is not required for `repl` mode.
 
 ### `$ACPELLA_HOME/.acpella/AGENTS.md`
 

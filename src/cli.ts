@@ -1,7 +1,6 @@
 import "temporal-polyfill/global";
 import path from "node:path";
 import { createInterface } from "node:readline/promises";
-import { parseArgs } from "node:util";
 import { run, sequentialize } from "@grammyjs/runner";
 import { Bot } from "grammy";
 import { loadConfig, type AppConfig } from "./config.ts";
@@ -19,41 +18,75 @@ import {
 import { addIndent, sleep, truncateString } from "./lib/utils.ts";
 import { getVersion } from "./lib/version.ts";
 
-async function main() {
-  const argv = process.argv.slice(2);
-  const { values: cli } = parseArgs({
-    args: argv,
-    options: {
-      repl: {
-        type: "boolean",
-        default: false,
-      },
-      help: {
-        type: "boolean",
-        short: "h",
-        default: false,
-      },
-      "setup-systemd": {
-        type: "boolean",
-        default: false,
-      },
-    },
-    strict: true,
-  });
+type CliCommand =
+  | { type: "help" }
+  | { type: "repl" }
+  | { type: "serve" }
+  | { type: "systemd-install" };
 
-  if (cli["setup-systemd"]) {
+const USAGE = `Usage: node src/cli.ts [command]
+
+Commands:
+  serve             Run Telegram bot service. Default when no command is provided.
+  repl              Run local in-process REPL.
+  systemd install   Setup systemd service.
+  help              Show this help.
+
+Options:
+  -h, --help        Show this help.
+`;
+
+function parseCliCommand(argv: string[]): { command: CliCommand } | { error: string } {
+  const [command, ...args] = argv;
+
+  if (!command) {
+    return { command: { type: "serve" } };
+  }
+  if (command === "-h" || command === "--help" || command === "help") {
+    if (args.length > 0) {
+      return { error: `Unexpected arguments for ${command}: ${args.join(" ")}` };
+    }
+    return { command: { type: "help" } };
+  }
+  if (command === "serve") {
+    if (args.length > 0) {
+      return { error: `Unexpected arguments for serve: ${args.join(" ")}` };
+    }
+    return { command: { type: "serve" } };
+  }
+  if (command === "repl") {
+    if (args.length > 0) {
+      return { error: `Unexpected arguments for repl: ${args.join(" ")}` };
+    }
+    return { command: { type: "repl" } };
+  }
+  if (command === "systemd") {
+    if (args.length === 1 && args[0] === "install") {
+      return { command: { type: "systemd-install" } };
+    }
+    return { error: "Usage: node src/cli.ts systemd install" };
+  }
+
+  return { error: `Unknown command: ${command}` };
+}
+
+async function main() {
+  const parsed = parseCliCommand(process.argv.slice(2));
+  if ("error" in parsed) {
+    process.stderr.write(`${parsed.error}\n\n${USAGE}`);
+    process.exitCode = 1;
+    return;
+  }
+
+  const { command } = parsed;
+
+  if (command.type === "systemd-install") {
     handleSetupSystemd();
     return;
   }
 
-  if (cli.help) {
-    process.stdout.write(`Usage: node src/cli.ts [options]
-
-Options:
-  --repl                 Run local in-process REPL.
-  --setup-systemd        Setup systemd service.
-  -h, --help             Show this help.
-`);
+  if (command.type === "help") {
+    process.stdout.write(USAGE);
     return;
   }
 
@@ -74,7 +107,7 @@ Options:
           console.log("[cron] repl delivery:", text);
           console.log(text);
         }
-        if (!cli.repl && target.telegram) {
+        if (command.type === "serve" && target.telegram) {
           const { chatId, messageThreadId } = target.telegram;
           // TODO: fallback, retry, and error handling
           await bot.api.sendMessage(chatId, markdownToTelegramHtml(text), {
@@ -100,7 +133,7 @@ Options:
     getCronRunner: () => cronRunner,
   });
 
-  if (cli.repl) {
+  if (command.type === "repl") {
     try {
       await startRepl(config, handler, version);
     } finally {
