@@ -19,7 +19,7 @@ import {
 import { addIndent, sleep, truncateString } from "./lib/utils.ts";
 import { getVersion } from "./lib/version.ts";
 
-const USAGE = `\
+const CLI_HELP = `\
 Usage: acpella [command]
 
 Commands:
@@ -41,7 +41,7 @@ async function main() {
     console.error(`\
 ${cliResult.value}
 
-${USAGE}`);
+${CLI_HELP}`);
     process.exitCode = 1;
     return;
   }
@@ -51,7 +51,7 @@ ${USAGE}`);
     console.error(`\
 Unexpected arguments for ${cli.command}: ${cli.args.join(" ")}
 
-${USAGE}`);
+${CLI_HELP}`);
     process.exitCode = 1;
     return;
   }
@@ -62,7 +62,7 @@ ${USAGE}`);
   }
 
   if (cli.command === "help") {
-    console.log(USAGE);
+    console.log(CLI_HELP);
     return;
   }
 
