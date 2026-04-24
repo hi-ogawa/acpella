@@ -71,6 +71,6 @@ Other known ACP agents are listed in the ACP agent registry: https://agentclient
 
 ## Next steps
 
-- For systemd installation and service management, continue with `systemd.md`.
-- For prompt customization through `.acpella/AGENTS.md`, continue with `customization.md`.
-- For session and agent managements, continue with `sessions-and-agents.md`.
+- For systemd installation and service management, continue with [systemd.md](systemd.md).
+- For prompt customization through `.acpella/AGENTS.md`, continue with [customization.md](customization.md).
+- For session and agent management, continue with [sessions-and-agents.md](sessions-and-agents.md).

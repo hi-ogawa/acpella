@@ -20,7 +20,7 @@ If acpella itself may be down, start with:
 journalctl --user -u acpella -f
 ```
 
-If the problem is about installing or managing the service, continue with `systemd.md`.
+If the problem is about installing or managing the service, continue with [systemd.md](systemd.md).
 
 ## Session or agent confusion
 
@@ -38,7 +38,7 @@ If needed, reset with:
 
 Run this in the target Telegram or REPL conversation. Do not use `pnpm cli exec` for `/session new`.
 
-For the general workflows behind those commands, continue with `sessions-and-agents.md`.
+For the general workflows behind those commands, continue with [sessions-and-agents.md](sessions-and-agents.md).
 
 For installation-wide checks from a local shell, prefer:
 
@@ -59,7 +59,7 @@ Remember:
 - customization is applied on new sessions
 - include and directive lines must be whole lines, not inline text
 
-For the customization model, continue with `customization.md`.
+For the customization model, continue with [customization.md](customization.md).
 
 ## Cron issues
 
@@ -75,7 +75,7 @@ Typical checks:
 - is the job enabled?
 - is the job targeting the expected conversation?
 
-For the command workflow itself, continue with `cron.md`.
+For the command workflow itself, continue with [cron.md](cron.md).
 
 For installation-wide cron checks from a local shell, prefer:
 

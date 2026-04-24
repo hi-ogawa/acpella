@@ -75,4 +75,4 @@ Think of it this way:
 
 ## If things look wrong
 
-If the wrong agent or session appears to be active, continue with `troubleshooting.md`.
+If the wrong agent or session appears to be active, continue with [troubleshooting.md](troubleshooting.md).

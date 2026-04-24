@@ -34,5 +34,5 @@ journalctl --user -u acpella -f
 
 ## Next steps
 
-- For general runtime debugging beyond systemd, continue with `troubleshooting.md`.
-- For first-time clone/install/env setup, continue with `bootstrap.md`.
+- For general runtime debugging beyond systemd, continue with [troubleshooting.md](troubleshooting.md).
+- For first-time clone/install/env setup, continue with [bootstrap.md](bootstrap.md).

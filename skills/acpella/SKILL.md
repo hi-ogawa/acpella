@@ -31,12 +31,12 @@ Do not use `exec` to send normal agent prompts. Do not use `exec` for session li
 
 ## Route by user question
 
-- **Bootstrap, install, `.env`, or first run**: read `references/bootstrap.md`.
-- **Systemd setup, restart flow, or service logs**: read `references/systemd.md`.
-- **Customizing behavior with `.acpella/AGENTS.md`, includes, directives, or skills**: read `references/customization.md`.
-- **Managing sessions or ACP agents**: read `references/sessions-and-agents.md`.
-- **Scheduled prompts and cron jobs**: read `references/cron.md`.
-- **Things are not working as expected**: read `references/troubleshooting.md`.
+- **Bootstrap, install, `.env`, or first run**: read [references/bootstrap.md](references/bootstrap.md).
+- **Systemd setup, restart flow, or service logs**: read [references/systemd.md](references/systemd.md).
+- **Customizing behavior with `.acpella/AGENTS.md`, includes, directives, or skills**: read [references/customization.md](references/customization.md).
+- **Managing sessions or ACP agents**: read [references/sessions-and-agents.md](references/sessions-and-agents.md).
+- **Scheduled prompts and cron jobs**: read [references/cron.md](references/cron.md).
+- **Things are not working as expected**: read [references/troubleshooting.md](references/troubleshooting.md).
 
 Do not load every reference by default. Pick only the sections needed for the current task.
 

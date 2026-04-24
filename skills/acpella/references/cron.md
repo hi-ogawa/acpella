@@ -70,4 +70,4 @@ Use:
 
 ## If cron is not behaving as expected
 
-Continue with `troubleshooting.md`, especially for service logs, cron runner state, or missing deliveries.
+Continue with [troubleshooting.md](troubleshooting.md), especially for service logs, cron runner state, or missing deliveries.

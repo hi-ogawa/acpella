@@ -60,6 +60,6 @@ Keep the top-level prompt lean:
 
 ## When to read deeper docs
 
-- For first-time local setup, continue with `bootstrap.md`.
-- For session reset after prompt changes, continue with `sessions-and-agents.md`.
-- If prompt expansion or directives are not behaving as expected, continue with `troubleshooting.md`.
+- For first-time local setup, continue with [bootstrap.md](bootstrap.md).
+- For session reset after prompt changes, continue with [sessions-and-agents.md](sessions-and-agents.md).
+- If prompt expansion or directives are not behaving as expected, continue with [troubleshooting.md](troubleshooting.md).
