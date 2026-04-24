@@ -1,8 +1,10 @@
-import { describe, it } from "vitest";
-import { startService } from "./helper.ts";
+import path from "node:path";
+import { describe, expect, test } from "vitest";
+import { useFs } from "../test/helper.ts";
+import { execFileAsync, startService } from "./helper.ts";
 
 describe("basic", () => {
-  it("basic", async () => {
+  test("basic", async () => {
     const service = startService();
     await service.waitForOutput("Starting repl");
     service.write("/status");
@@ -11,7 +13,7 @@ describe("basic", () => {
     await service.waitForOutput("echo: hello world");
   });
 
-  it("does not pass ACPELLA env to the agent", async () => {
+  test("does not pass ACPELLA env to the agent", async () => {
     const service = startService({
       env: {
         ACPELLA_TELEGRAM_BOT_TOKEN: "secret-token",
@@ -24,4 +26,25 @@ describe("basic", () => {
     service.write("__env:AGENT_VISIBLE_KEY");
     await service.waitForOutput("env: AGENT_VISIBLE_KEY=agent-visible-key");
   });
+});
+
+test("cli exec", async () => {
+  const { root } = useFs({
+    prefix: "e2e-exec",
+  });
+
+  const result = await execFileAsync("pnpm", ["-s", "cli", "exec", "/service"], {
+    cwd: path.join(import.meta.dirname, "../.."),
+    env: {
+      ...process.env,
+      ACPELLA_HOME: root,
+    },
+  });
+  expect(result.stderr).toMatchInlineSnapshot(`""`);
+  expect(result.stdout).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    /service
+      /service exit - Exit acpella.
+    "
+  `);
 });
