@@ -21,6 +21,8 @@ Prompt changes apply to new sessions, not old ones. If you update `.acpella/AGEN
 /session new
 ```
 
+Run this in the target Telegram or REPL conversation. Do not use `pnpm cli exec` for `/session new`.
+
 ## Include lines
 
 Whole-line include syntax is supported:

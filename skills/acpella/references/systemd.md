@@ -2,24 +2,15 @@
 
 Use this reference for installing acpella as a user service, updating the unit, and checking live service logs.
 
-Primary sources:
-
-- `README.md`
-- `docs/deploy.md`
-
 ## Generate the user unit
 
 From the checkout you want to run:
 
 ```bash
-pnpm cli --setup-systemd
+pnpm cli exec /service systemd install
 ```
 
-This writes a user unit for the current checkout.
-
-Primary source:
-
-- `docs/deploy.md`
+This writes a user unit for the current checkout. Prefer running this from a local shell through `exec`; it is a host administration side effect.
 
 ## First install
 

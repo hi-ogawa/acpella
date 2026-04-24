@@ -27,7 +27,6 @@ If the problem is about installing or managing the service, continue with `syste
 Useful commands:
 
 - `/status`
-- `/session current`
 - `/session list`
 - `/agent list`
 
@@ -37,7 +36,16 @@ If needed, reset with:
 /session new
 ```
 
+Run this in the target Telegram or REPL conversation. Do not use `pnpm cli exec` for `/session new`.
+
 For the general workflows behind those commands, continue with `sessions-and-agents.md`.
+
+For installation-wide checks from a local shell, prefer:
+
+```bash
+pnpm cli exec /status
+pnpm cli exec /agent list
+```
 
 ## Prompt customization not taking effect
 
@@ -69,13 +77,20 @@ Typical checks:
 
 For the command workflow itself, continue with `cron.md`.
 
+For installation-wide cron checks from a local shell, prefer:
+
+```bash
+pnpm cli exec /cron status
+pnpm cli exec /cron list
+```
+
 ## When deeper inspection is needed
 
 If the public docs and command outputs do not explain the problem, inspect:
 
-- `.acpella/state.json`
-- `.acpella/cron.json`
-- `.acpella/cron-state.json`
-- `.acpella/logs/acp/<agentKey>/<agentSessionId>.jsonl`
+- `.acpella/state.json`: conversation/session routing, default agent, configured agents, and per-session preferences. Use for wrong-agent, wrong-session, or missing-session problems.
+- `.acpella/cron.json`: durable cron job definitions: ids, enabled flags, schedules, prompts, target sessions, and delivery targets. Use for cron setup or destination problems.
+- `.acpella/cron-state.json`: cron run history and latest run status. Use for missed, failed, or duplicate scheduled runs.
+- `.acpella/logs/acp/<agentKey>/<agentSessionId>.jsonl`: raw ACP exchange logs for one agent session. Use when the command layer looks correct but the agent failed, hung, or returned unexpected output.
 
 At that point the task has usually moved from normal usage into implementation or runtime debugging.

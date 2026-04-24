@@ -2,10 +2,6 @@
 
 Use this reference for first-time setup and initial local runs of acpella.
 
-Primary source:
-
-- `README.md`
-
 ## Basic setup
 
 ```bash
@@ -15,11 +11,11 @@ pnpm install
 cp .env.example .env
 ```
 
-After copying `.env`, edit it using the config section in `README.md`.
+After copying `.env`, edit the main config values below.
 
 ## Main config knobs
 
-The most important environment variables documented in `README.md` are:
+The most important environment variables are:
 
 - `ACPELLA_TELEGRAM_BOT_TOKEN`
 - `ACPELLA_TELEGRAM_ALLOWED_USER_IDS`
@@ -42,18 +38,22 @@ Run the local REPL:
 pnpm repl
 ```
 
-## Register a real agent
-
-The built-in default agent is the test echo agent. After starting acpella, register a real ACP agent with the command surface, for example:
+Run one local administrative slash command:
 
 ```bash
-/agent new codex codex-acp
-/agent default codex
+pnpm cli exec /status
 ```
 
-Source:
+Use `exec` for acpella administration, not for normal agent prompts.
 
-- `README.md`
+## Register a real agent
+
+The built-in default agent is the test echo agent. Register a real ACP agent with the command surface, for example:
+
+```bash
+pnpm cli exec /agent new codex codex-acp
+pnpm cli exec /agent default codex
+```
 
 ## Next steps
 
