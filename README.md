@@ -11,7 +11,7 @@ cp .env.example .env
 
 pnpm cli              # run Telegram bot service
 pnpm repl             # run REPL
-pnpm cli exec /status # send one message
+pnpm cli exec /status # run one local admin command
 ```
 
 ## Config
@@ -23,48 +23,11 @@ pnpm cli exec /status # send one message
 | `ACPELLA_TELEGRAM_ALLOWED_CHAT_IDS` | —               | Comma-separated chat IDs (group allowlist) |
 | `ACPELLA_HOME`                      | `process.cwd()` | Agent working directory                    |
 
-### `$ACPELLA_TELEGRAM_*`
-
-Telegram related configuration is not required for `repl` mode.
-
-### `$ACPELLA_HOME/.acpella/AGENTS.md`
-
-If this file exists, its contents are sent as custom instructions once when creating a new session.
-
 ## Configuring Agent
 
-The default agent is the built-in `test` echo agent. Register a real ACP agent after starting
-acpella:
-
-```sh
-/agent new codex codex-acp
-/agent default codex
-```
-
-Known ACP agents are listed in the [ACP agent registry](https://agentclientprotocol.com/get-started/registry).
-
-For Codex ACP, either install `@zed-industries/codex-acp` globally and run:
-
-```sh
-/agent new codex codex-acp
-```
-
-Or run it through `npx`:
-
-```sh
-/agent new codex npx -y @zed-industries/codex-acp
-```
-
-Gotcha: Codex ACP reads Codex CLI configuration through its own `-c key=value` override flag.
-If you want Codex to run without sandboxing, pass that through the agent command:
-
-```sh
-/agent new codex codex-acp -c sandbox_mode=danger-full-access
-```
-
-Check `codex-acp --help` for the current configuration override syntax before changing flags.
+The default agent is the built-in `test` echo agent. See [`skills/acpella`](skills/acpella) for current agent registration, session, customization, cron, and service administration workflows.
 
 ## Docs
 
-- [`docs/deploy.md`](docs/deploy.md) — systemd unit, install steps
+- [`skills/acpella`](skills/acpella) — maintained usage and administration guide for agents
 - [`docs/architecture.md`](docs/architecture.md) — design decisions, data flow

@@ -46,11 +46,25 @@ Use:
 Typical flow:
 
 ```bash
-pnpm cli exec /agent new codex codex-acp
+pnpm cli exec /agent new codex npx -y @zed-industries/codex-acp
 pnpm cli exec /agent default codex
 ```
 
 That registers a real ACP agent and makes it the default for future sessions.
+
+For Codex ACP, `npx -y @zed-industries/codex-acp` is the portable registration path. If `@zed-industries/codex-acp` is installed globally and `codex-acp` is available on the same `PATH` used by acpella, registering `codex-acp` directly is also fine:
+
+```bash
+pnpm cli exec /agent new codex codex-acp
+```
+
+Codex ACP reads Codex CLI configuration through its own `-c key=value` override flag. For example, to run Codex without sandboxing:
+
+```bash
+pnpm cli exec /agent new codex npx -y @zed-industries/codex-acp -c sandbox_mode=danger-full-access
+```
+
+Check `codex-acp --help` for the current configuration override syntax before changing flags.
 
 ## Session vs agent choice
 

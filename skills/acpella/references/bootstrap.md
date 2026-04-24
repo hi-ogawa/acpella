@@ -13,16 +13,19 @@ cp .env.example .env
 
 After copying `.env`, edit the main config values below.
 
-## Main config knobs
+## Config
 
-The most important environment variables are:
+| Variable                            | Default         | Description                                  |
+| ----------------------------------- | --------------- | -------------------------------------------- |
+| `ACPELLA_TELEGRAM_BOT_TOKEN`        | -               | Bot token from @BotFather                    |
+| `ACPELLA_TELEGRAM_ALLOWED_USER_IDS` | -               | Comma-separated numeric Telegram user IDs    |
+| `ACPELLA_TELEGRAM_ALLOWED_CHAT_IDS` | -               | Comma-separated chat IDs for group allowlist |
+| `ACPELLA_HOME`                      | `process.cwd()` | Agent working directory                      |
 
-- `ACPELLA_TELEGRAM_BOT_TOKEN`
-- `ACPELLA_TELEGRAM_ALLOWED_USER_IDS`
-- `ACPELLA_TELEGRAM_ALLOWED_CHAT_IDS`
-- `ACPELLA_HOME`
+Notes:
 
-`ACPELLA_HOME` defaults to `process.cwd()` when unset.
+- Telegram configuration is not required for `pnpm repl`.
+- If `ACPELLA_HOME/.acpella/AGENTS.md` exists, acpella sends it as custom instructions once when creating a new session.
 
 ## First local runs
 
@@ -48,15 +51,26 @@ Use `exec` for acpella administration, not for normal agent prompts.
 
 ## Register a real agent
 
-The built-in default agent is the test echo agent. Register a real ACP agent with the command surface, for example:
+The built-in default agent is the test echo agent. Acpella does not install ACP agent adapters for you; `/agent new` stores the command that acpella will later spawn.
+
+For Codex ACP without a global install, register the adapter through `npx`:
 
 ```bash
-pnpm cli exec /agent new codex codex-acp
+pnpm cli exec /agent new codex npx -y @zed-industries/codex-acp
 pnpm cli exec /agent default codex
 ```
+
+If `codex-acp` is already installed and available on the same `PATH` used by acpella, you can register `codex-acp` directly instead:
+
+```bash
+npm i -g @zed-industries/codex-acp
+pnpm cli exec /agent new codex codex-acp
+```
+
+Other known ACP agents are listed in the ACP agent registry: https://agentclientprotocol.com/get-started/registry
 
 ## Next steps
 
 - For systemd installation and service management, continue with `systemd.md`.
 - For prompt customization through `.acpella/AGENTS.md`, continue with `customization.md`.
-- For session and agent workflows, continue with `sessions-and-agents.md`.
+- For session and agent managements, continue with `sessions-and-agents.md`.
