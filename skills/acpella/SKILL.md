@@ -9,7 +9,18 @@ description: >-
 
 # acpella
 
-Use this skill when the task is about using or customizing acpella itself rather than the contents of one user's home.
+Acpella is a small bridge from a messaging surface, currently Telegram or the local REPL, to an ACP-compatible agent such as Codex ACP. Acpella owns delivery, slash-command routing, session mappings, cron scheduling, and `.acpella` state. The selected ACP agent owns the actual assistant behavior, tool execution, and long-running agent session.
+
+## Working model
+
+- `ACPELLA_HOME` is the working directory acpella uses for agent sessions and acpella state.
+- Acpella stores its own state under `ACPELLA_HOME/.acpella/`, including session mappings, configured agents, cron jobs, logs, and optional custom instructions.
+- A Telegram chat/thread or REPL context maps to an acpella session name.
+- An acpella session points at a selected ACP agent and, after use, an agent session id.
+- Slash commands such as `/agent`, `/session`, `/cron`, `/status`, and `/service` are handled by acpella, not sent to the agent.
+- Normal user prompts are forwarded to the selected ACP agent.
+
+Use this skill when the task is about operating acpella itself: setup, service management, agent registration, session routing, prompt customization, cron jobs, or troubleshooting. For tasks about the user's project inside `ACPELLA_HOME`, follow that project's own instructions instead.
 
 ## Command surface
 
@@ -40,9 +51,8 @@ Do not use `exec` to send normal agent prompts. Do not use `exec` for session li
 
 Do not load every reference by default. Pick only the sections needed for the current task.
 
-## Working rules
+## How to use this skill
 
-- Prefer user-facing explanations and workflows over internal implementation detail.
+- Start from the route table above and load only the reference needed for the current task.
 - Treat this skill and its references as the usage guide; it may be installed outside the acpella repository.
 - Read repository docs or source files only when the task is implementation work or the bundled skill references do not answer the question.
-- When explaining a feature, describe current behavior first before proposing changes.
