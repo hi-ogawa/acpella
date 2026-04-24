@@ -52,6 +52,7 @@ describe("exec", async () => {
     expect(result.stdout).toMatchInlineSnapshot(`
       "[⚙️ System]
       /service
+        /service systemd install - Install systemd service.
         /service exit - Exit acpella.
       "
     `);
