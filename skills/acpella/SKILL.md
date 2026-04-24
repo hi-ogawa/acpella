@@ -13,6 +13,8 @@ Acpella is a small bridge from a messaging surface, currently Telegram or the lo
 
 ## Working model
 
+- Acpella source lives at https://github.com/hi-ogawa/acpella.
+- The acpella source checkout is where `pnpm cli` works and where service code is installed from.
 - `ACPELLA_HOME` is the working directory acpella uses for agent sessions and acpella state.
 - Acpella stores its own state under `ACPELLA_HOME/.acpella/`, including session mappings, configured agents, cron jobs, logs, and optional custom instructions.
 - A Telegram chat/thread or REPL context maps to an acpella session name.
@@ -27,6 +29,8 @@ Use this skill when the task is about operating acpella itself: setup, service m
 Administrative slash commands use the same text syntax across Telegram, the local REPL, and local one-shot execution.
 
 Use `pnpm cli exec <slash-command...>` only for local shell administration of acpella itself: inspecting or changing installation-wide state, listing configured objects, or running setup commands.
+
+Command examples use `pnpm cli`, which assumes the shell is in the acpella source checkout. If the current directory is not the acpella checkout, first `cd` to the checkout that owns the running service, or replace `pnpm cli` with that installation's equivalent acpella CLI entrypoint.
 
 Good `exec` examples:
 

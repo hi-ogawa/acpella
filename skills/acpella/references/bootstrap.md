@@ -4,6 +4,8 @@ Use this reference for first-time setup and initial local runs of acpella.
 
 ## Basic setup
 
+Clone the source from https://github.com/hi-ogawa/acpella:
+
 ```bash
 git clone https://github.com/hi-ogawa/acpella
 cd acpella
@@ -28,6 +30,8 @@ Notes:
 - If `ACPELLA_HOME/.acpella/AGENTS.md` exists, acpella sends it as custom instructions once when creating a new session.
 
 ## First local runs
+
+Run these from the acpella source checkout.
 
 Run the Telegram bot:
 

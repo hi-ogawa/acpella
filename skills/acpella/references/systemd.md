@@ -4,7 +4,7 @@ Use this reference for installing acpella as a user service, updating the unit, 
 
 ## Generate the user unit
 
-From the checkout you want to run:
+From the acpella source checkout you want the service to run:
 
 ```bash
 pnpm cli exec /service systemd install

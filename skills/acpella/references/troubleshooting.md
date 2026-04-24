@@ -47,6 +47,8 @@ pnpm cli exec /status
 pnpm cli exec /agent list
 ```
 
+Run these from the acpella source checkout that owns the running service, not from `ACPELLA_HOME` unless they are the same directory.
+
 ## Prompt customization not taking effect
 
 Check:
@@ -83,6 +85,8 @@ For installation-wide cron checks from a local shell, prefer:
 pnpm cli exec /cron status
 pnpm cli exec /cron list
 ```
+
+Run these from the acpella source checkout that owns the running service, not from `ACPELLA_HOME` unless they are the same directory.
 
 ## When deeper inspection is needed
 
