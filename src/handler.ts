@@ -1,3 +1,4 @@
+import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 import { AgentManager } from "./acp/index.ts";
 import type { AgentSessionProcess } from "./acp/index.ts";
@@ -15,6 +16,7 @@ import { CommandHandler, type CommandTree } from "./lib/command.ts";
 import { formatSessionUpdateLogEntry, JsonLogger } from "./lib/logger.ts";
 import { buildFirstPrompt, buildMessageMetadataPrompt } from "./lib/prompt.ts";
 import { MESSAGE_SPLIT_BUDGET, ReplyManager } from "./lib/reply.ts";
+import { installSystemdUnit } from "./lib/systemd.ts";
 import { parseTelegramSessionName } from "./lib/telegram/utils.ts";
 import { AsyncLane, DefaultMap, formatError } from "./lib/utils.ts";
 import { parseAgentSessionKey, SessionStateStore, toAgentSessionKey } from "./state.ts";
@@ -671,6 +673,20 @@ home: ${config.home}
       },
     ],
     service: [
+      {
+        tokens: ["systemd", "install"],
+        help: "/service systemd install - Install systemd service.",
+        run: async ({ reply }) => {
+          const message = installSystemdUnit({
+            workingDirectory: process.cwd(),
+            env: process.env,
+            home: homedir(),
+            nodeBin: process.execPath,
+            tmpDir: tmpdir(),
+          });
+          await reply.system(message);
+        },
+      },
       {
         tokens: ["exit"],
         help: "/service exit - Exit acpella.",
