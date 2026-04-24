@@ -10,17 +10,9 @@ Coverage checklist:
   - [x] with no active turn
   - [x] active turn success
   - [ ] active turn fallback kill path
-- /verbose
-  - [x] default status
-  - [x] on
-  - [x] off
-  - [ ] invalid subcommand
-  - [x] suppresses tool call output
-  - [x] includes tool call output when enabled
-  - [ ] is isolated per acpella session
 - /session
-  - [x] current
-  - [x] bare usage output
+  - [x] info
+  - [x] info includes verbose status
   - [x] new with default agent
   - [ ] new with named agent
   - [x] new resets agentSessionId before creating a fresh ACP session
@@ -41,6 +33,11 @@ Coverage checklist:
   - [ ] list with multiple agents
   - [ ] list marks stored inactive sessions as not active
   - [ ] list tolerates listSessions failure for one agent
+  - [x] verbose on
+  - [x] verbose off
+  - [x] verbose suppresses tool call output
+  - [x] verbose includes tool call output when enabled
+  - [ ] verbose is isolated per acpella session
 - /agent
   - [x] list
   - [x] bare usage output
@@ -194,17 +191,20 @@ test("basic", async () => {
       /status - Show service status.
 
     /service
+      /service systemd install - Install systemd service.
       /service exit - Exit acpella.
 
     /cancel
       /cancel - Cancel the active agent turn.
 
     /session
-      /session current - Show the current session.
+      /session info [sessionName] - Show info about a session.
       /session list - List known agent sessions.
       /session new [agent] - Start a new agent session.
       /session load <sessionId|agent:sessionId> - Load an existing agent session.
       /session close [sessionId|agent:sessionId] - Close an agent session.
+      /session verbose on [sessionName] - Enable tool-call output.
+      /session verbose off [sessionName] - Disable tool-call output.
 
     /agent
       /agent list - List configured agents.
@@ -217,17 +217,12 @@ test("basic", async () => {
       /cron start - Start cron scheduler.
       /cron stop - Stop cron scheduler.
       /cron reload - Reload cron jobs from disk.
-      /cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> <prompt...> - Add a cron job.
+      /cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--session <sessionName>] -- <prompt...> - Add a cron job.
       /cron list - List cron jobs.
       /cron show <id> - Show a cron job.
       /cron enable <id> - Enable a cron job.
       /cron disable <id> - Disable a cron job.
-      /cron delete <id> - Delete a cron job.
-
-    /verbose
-      /verbose current - Show tool-call output setting.
-      /verbose on - Show tool-call updates.
-      /verbose off - Hide tool-call updates."
+      /cron delete <id> - Delete a cron job."
   `);
   expect(await session.request("/status")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -306,6 +301,7 @@ test("service commands", async () => {
   expect(await session.request("/service")).toMatchInlineSnapshot(`
     "[⚙️ System]
     /service
+      /service systemd install - Install systemd service.
       /service exit - Exit acpella."
   `);
   await session.request("/service exit");
@@ -393,37 +389,43 @@ test("session commands", async () => {
   expect(await session.request("/session")).toMatchInlineSnapshot(`
     "[⚙️ System]
     /session
-      /session current - Show the current session.
+      /session info [sessionName] - Show info about a session.
       /session list - List known agent sessions.
       /session new [agent] - Start a new agent session.
       /session load <sessionId|agent:sessionId> - Load an existing agent session.
-      /session close [sessionId|agent:sessionId] - Close an agent session."
+      /session close [sessionId|agent:sessionId] - Close an agent session.
+      /session verbose on [sessionName] - Enable tool-call output.
+      /session verbose off [sessionName] - Disable tool-call output."
   `);
   expect(await session.request("/session help")).toMatchInlineSnapshot(`
     "[⚙️ System]
     /session
-      /session current - Show the current session.
+      /session info [sessionName] - Show info about a session.
       /session list - List known agent sessions.
       /session new [agent] - Start a new agent session.
       /session load <sessionId|agent:sessionId> - Load an existing agent session.
-      /session close [sessionId|agent:sessionId] - Close an agent session."
+      /session close [sessionId|agent:sessionId] - Close an agent session.
+      /session verbose on [sessionName] - Enable tool-call output.
+      /session verbose off [sessionName] - Disable tool-call output."
   `);
-  expect(await session.request("/session current")).toMatchInlineSnapshot(`
+  expect(await session.request("/session info")).toMatchInlineSnapshot(`
     "[⚙️ System]
     session: test
     agent: test
-    agent session id: none"
+    agent session id: none
+    verbose: off"
   `);
   expect(await session.request("/session list")).toMatchInlineSnapshot(`
     "[⚙️ System]
     No sessions."
   `);
   expect(await session.request("hello")).toMatchInlineSnapshot(`"echo: hello"`);
-  expect(await session.request("/session current")).toMatchInlineSnapshot(`
+  expect(await session.request("/session info")).toMatchInlineSnapshot(`
     "[⚙️ System]
     session: test
     agent: test
-    agent session id: __testSession1"
+    agent session id: __testSession1
+    verbose: off"
   `);
   expect(await session.request("/session list")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -438,11 +440,12 @@ test("session commands", async () => {
     New session ready."
   `);
   expect(await session.request("test-prompt")).toMatchInlineSnapshot(`"echo: test-prompt"`);
-  expect(await session.request("/session current")).toMatchInlineSnapshot(`
+  expect(await session.request("/session info")).toMatchInlineSnapshot(`
     "[⚙️ System]
     session: test
     agent: test
-    agent session id: __testSession2"
+    agent session id: __testSession2
+    verbose: off"
   `);
   expect(await session.request("__session")).toMatchInlineSnapshot(`"session: __testSession2"`);
   expect(await session.request("/session list")).toMatchInlineSnapshot(`
@@ -456,6 +459,21 @@ test("session commands", async () => {
     Unknown agent: no-such-agent"
   `,
   );
+  // /session info with explicit sessionName: exists
+  const session2 = tester.createSession("other");
+  expect(await session2.request("hello")).toMatchInlineSnapshot(`"echo: hello"`);
+  expect(await session.request("/session info other")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    session: other
+    agent: test
+    agent session id: __testSession3
+    verbose: off"
+  `);
+  // /session info with explicit sessionName: does not exist
+  expect(await session.request("/session info no-such-session")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Unknown session: no-such-session"
+  `);
 });
 
 test("session context usage", async () => {
@@ -466,11 +484,12 @@ test("session context usage", async () => {
   expect(await session.request("hello")).toMatchInlineSnapshot(`"echo: hello"`);
 
   // Before usage_update, no context shown
-  expect(await session.request("/session current")).toMatchInlineSnapshot(`
+  expect(await session.request("/session info")).toMatchInlineSnapshot(`
     "[⚙️ System]
     session: test
     agent: test
-    agent session id: __testSession1"
+    agent session id: __testSession1
+    verbose: off"
   `);
 
   // Send a usage_update
@@ -478,12 +497,13 @@ test("session context usage", async () => {
     `"echo: __usage_update:54321:200000"`,
   );
 
-  // After usage_update, context is shown in /session current
-  expect(await session.request("/session current")).toMatchInlineSnapshot(`
+  // After usage_update, context is shown in /session info
+  expect(await session.request("/session info")).toMatchInlineSnapshot(`
     "[⚙️ System]
     session: test
     agent: test
     agent session id: __testSession1
+    verbose: off
     context: 54321 / 200000 tokens (27%)"
   `);
   expect(readStateFile(tester.config)).toMatchInlineSnapshot(`
@@ -521,11 +541,7 @@ test("verbose command toggles tool call output", async () => {
   const tester = await createHandlerTester();
   const session = tester.createSession("test");
 
-  expect(await session.request("/verbose current")).toMatchInlineSnapshot(`
-    "[⚙️ System]
-    Tool call output: off"
-  `);
-  expect(await session.request("/verbose on")).toMatchInlineSnapshot(`
+  expect(await session.request("/session verbose on")).toMatchInlineSnapshot(`
       "[⚙️ System]
       Tool call output: on"
     `);
@@ -533,7 +549,7 @@ test("verbose command toggles tool call output", async () => {
       "Tool: Read files
       echo: __tool:Read files"
     `);
-  expect(await session.request("/verbose off")).toMatchInlineSnapshot(`
+  expect(await session.request("/session verbose off")).toMatchInlineSnapshot(`
       "[⚙️ System]
       Tool call output: off"
     `);
@@ -544,11 +560,14 @@ test("verbose command toggles tool call output", async () => {
       "before
       after"
     `);
-  expect(await session.request("/verbose current")).toMatchInlineSnapshot(`
+  expect(await session.request("/session info")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    Tool call output: off"
+    session: test
+    agent: test
+    agent session id: __testSession1
+    verbose: off"
   `);
-  expect(await session.request("/verbose on")).toMatchInlineSnapshot(`
+  expect(await session.request("/session verbose on")).toMatchInlineSnapshot(`
       "[⚙️ System]
       Tool call output: on"
     `);
@@ -629,11 +648,12 @@ test("agent command", async () => {
     "[⚙️ System]
     Default agent: test2"
   `);
-  expect(await session.request("/session current")).toMatchInlineSnapshot(`
+  expect(await session.request("/session info")).toMatchInlineSnapshot(`
     "[⚙️ System]
     session: test
     agent: test-error
-    agent session id: none"
+    agent session id: none
+    verbose: off"
   `);
   expect(await session.request("/agent remove test-error")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -645,11 +665,12 @@ test("agent command", async () => {
     New session ready."
   `);
   expect(await session.request("test-prompt")).toMatchInlineSnapshot(`"echo: test-prompt"`);
-  expect(await session.request("/session current")).toMatchInlineSnapshot(`
+  expect(await session.request("/session info")).toMatchInlineSnapshot(`
     "[⚙️ System]
     session: test
     agent: test2
-    agent session id: __testSession1"
+    agent session id: __testSession1
+    verbose: off"
   `);
   expect(await session.request("/session list")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -686,11 +707,12 @@ test("agent command", async () => {
     "[⚙️ System]
     Loaded session: test:__testSession1"
   `);
-  expect(await session.request("/session current")).toMatchInlineSnapshot(`
+  expect(await session.request("/session info")).toMatchInlineSnapshot(`
     "[⚙️ System]
     session: test
     agent: test
-    agent session id: __testSession1"
+    agent session id: __testSession1
+    verbose: off"
   `);
   expect(await session.request("/session close test2:__testSession1")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -880,7 +902,8 @@ test("cron command", async ({ onTestFinished }) => {
     jobs: 0
     enabled jobs: 0"
   `);
-  expect(await session.request("/cron add test-job * * * * * hello-cron")).toMatchInlineSnapshot(`
+  expect(await session.request("/cron add test-job * * * * * -- hello-cron"))
+    .toMatchInlineSnapshot(`
     "[⚙️ System]
     Added cron job: test-job"
   `);
@@ -962,7 +985,8 @@ test("cron command", async ({ onTestFinished }) => {
   `);
   tester.cronDeliveries.length = 0;
 
-  expect(await session.request("/cron add other-job 3 * * * * hello-other")).toMatchInlineSnapshot(`
+  expect(await session.request("/cron add other-job 3 * * * * -- hello-other"))
+    .toMatchInlineSnapshot(`
     "[⚙️ System]
     Added cron job: other-job"
   `);
@@ -1093,7 +1117,7 @@ test("cron error delivery", async ({ onTestFinished }) => {
   const session = tester.createSession("test", {
     metadata: { cronDeliveryTarget: { repl: true } },
   });
-  expect(await session.request("/cron add test-job * * * * * __throw_error__"))
+  expect(await session.request("/cron add test-job * * * * * -- __throw_error__"))
     .toMatchInlineSnapshot(`
     "[⚙️ System]
     Added cron job: test-job"
@@ -1156,5 +1180,85 @@ test("cron error delivery", async ({ onTestFinished }) => {
     next: 2026-04-18T07:02:00+07:00
     last: failed, scheduled 2026-04-18T00:01:00Z, finished 2026-04-18T00:01:00Z, error: Internal error
     prompt: __throw_error__"
+  `);
+});
+
+test("cron add with session name", async ({ onTestFinished }) => {
+  vi.useFakeTimers({
+    now: Date.parse("2026-04-18T00:00:00Z"),
+  });
+  onTestFinished(() => {
+    vi.useRealTimers();
+  });
+
+  const tester = await createHandlerTester();
+
+  // setup deliver target sessions
+  const targetSession1 = tester.createSession("tg-12345");
+  await targetSession1.request("hello");
+  const targetSession2 = tester.createSession("tg-12345-678");
+  await targetSession2.request("hello");
+
+  // setup cron from repl
+  const session = tester.createSession("test", {
+    metadata: { cronDeliveryTarget: { repl: true } },
+  });
+
+  // With only chatId
+  expect(await session.request("/cron add tg-job * * * * * --session tg-12345 -- hello-cron"))
+    .toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Added cron job: tg-job"
+  `);
+  expect(await session.request("/cron show tg-job")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    id: tg-job
+    enabled: yes
+    schedule: * * * * *
+    timezone: Asia/Jakarta
+    target session: tg-12345
+    delivery target: telegram:12345
+    next: 2026-04-18T07:01:00+07:00
+    last: none
+    prompt: hello-cron"
+  `);
+
+  // With chatId and messageThreadId
+  expect(
+    await session.request("/cron add tg-job2 * * * * * --session tg-12345-678 -- hello-thread"),
+  ).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Added cron job: tg-job2"
+  `);
+  expect(await session.request("/cron show tg-job2")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    id: tg-job2
+    enabled: yes
+    schedule: * * * * *
+    timezone: Asia/Jakarta
+    target session: tg-12345-678
+    delivery target: telegram:12345/678
+    next: 2026-04-18T07:01:00+07:00
+    last: none
+    prompt: hello-thread"
+  `);
+
+  // Multi-word prompt with sessionName
+  expect(await session.request("/cron add tg-job3 * * * * * --session tg-12345 -- hello world"))
+    .toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Added cron job: tg-job3"
+  `);
+  expect(await session.request("/cron show tg-job3")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    id: tg-job3
+    enabled: yes
+    schedule: * * * * *
+    timezone: Asia/Jakarta
+    target session: tg-12345
+    delivery target: telegram:12345
+    next: 2026-04-18T07:01:00+07:00
+    last: none
+    prompt: hello world"
   `);
 });

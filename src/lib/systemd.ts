@@ -3,7 +3,7 @@ import { homedir, tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { uniq } from "./utils.ts";
 
-export function handleSetupSystemd(): void {
+export function handleSystemdInstall(): string {
   const unitContent = buildSystemdUnit({
     workingDirectory: process.cwd(),
     env: process.env,
@@ -16,7 +16,7 @@ export function handleSetupSystemd(): void {
   mkdirSync(dirname(unitFile), { recursive: true });
   writeFileSync(unitFile, unitContent);
 
-  console.log(`\
+  return `\
 Wrote ${unitFile}
 
 First install:
@@ -29,7 +29,7 @@ After updating this unit:
 
 Logs:
   journalctl --user -u acpella -f
-`);
+`;
 }
 
 // https://github.com/openclaw/openclaw/blob/83f6a26d77ce2668b5d0cfba57667e1b0793a525/src/daemon/systemd-unit.ts

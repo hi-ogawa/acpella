@@ -3,6 +3,7 @@ import { AgentManager } from "./acp/index.ts";
 import type { AgentSessionProcess } from "./acp/index.ts";
 import type { AppConfig } from "./config.ts";
 import {
+  CRON_ADD_USAGE,
   parseCronAddArgs,
   parseCronIdArg,
   renderCronList,
@@ -14,6 +15,8 @@ import { CommandHandler, type CommandTree } from "./lib/command.ts";
 import { formatSessionUpdateLogEntry, JsonLogger } from "./lib/logger.ts";
 import { buildFirstPrompt, buildMessageMetadataPrompt } from "./lib/prompt.ts";
 import { MESSAGE_SPLIT_BUDGET, ReplyManager } from "./lib/reply.ts";
+import { handleSystemdInstall } from "./lib/systemd.ts";
+import { parseTelegramSessionName } from "./lib/telegram/utils.ts";
 import { AsyncLane, DefaultMap, formatError } from "./lib/utils.ts";
 import { parseAgentSessionKey, SessionStateStore, toAgentSessionKey } from "./state.ts";
 import type { StateAgentSession, StateSession } from "./state.ts";
@@ -176,14 +179,23 @@ export async function createHandler(
 
   const systemSessionCommands: SystemCommandTree[string] = [
     {
-      tokens: ["current"],
-      help: "/session current - Show the current session.",
-      run: async ({ reply, sessionName }) => {
+      tokens: ["info"],
+      help: "/session info [sessionName] - Show info about a session.",
+      withArgs: true,
+      run: async ({ args, reply, ...context }) => {
+        let arg = args[0];
+        if (arg && !stateStore.get().sessions[arg]) {
+          await reply.system(`Unknown session: ${arg}`);
+          return;
+        }
+        const sessionName = arg ?? context.sessionName;
         const stateSession = stateStore.getSession(sessionName);
+        const { verbose } = stateSession;
         let output = `\
 session: ${sessionName}
 agent: ${stateSession.agentKey}
 agent session id: ${stateSession.agentSessionId ?? "none"}
+verbose: ${verbose ? "on" : "off"}
 `;
         const usage = stateSession.agentSessionId
           ? stateStore.getAgentSessionUsage({
@@ -323,6 +335,30 @@ agent session id: ${stateSession.agentSessionId ?? "none"}
         await reply.system(output);
       },
     },
+    {
+      tokens: ["verbose", "on"],
+      help: "/session verbose on [sessionName] - Enable tool-call output.",
+      withArgs: true,
+      run: async ({ args, reply, sessionName }) => {
+        const targetSession = args[0] ?? sessionName;
+        stateStore.setSession(targetSession, {
+          verbose: true,
+        });
+        await reply.system("Tool call output: on");
+      },
+    },
+    {
+      tokens: ["verbose", "off"],
+      help: "/session verbose off [sessionName] - Disable tool-call output.",
+      withArgs: true,
+      run: async ({ args, reply, sessionName }) => {
+        const targetSession = args[0] ?? sessionName;
+        stateStore.setSession(targetSession, {
+          verbose: false,
+        });
+        await reply.system("Tool call output: off");
+      },
+    },
   ];
 
   const systemAgentCommands: SystemCommandTree[string] = [
@@ -414,7 +450,6 @@ ${referencedSessions.length} session(s) still reference it.
     },
   ];
 
-  const cronAddCommand = `/cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> <prompt...>`;
   const getCronRunner = () => handlerOptions.getCronRunner?.();
   const systemCronCommands: SystemCommandTree[string] = [
     {
@@ -472,19 +507,36 @@ enabled jobs: ${enabledJobs.length}
     },
     {
       tokens: ["add"],
-      help: `${cronAddCommand} - Add a cron job.`,
+      help: `${CRON_ADD_USAGE} - Add a cron job.`,
       withArgs: true,
       run: async ({ args, reply, sessionName, metadata }) => {
-        if (!metadata?.cronDeliveryTarget) {
-          await reply.system("Cannot add cron job: delivery target is unavailable.");
-          return;
-        }
         const parsed = parseCronAddArgs(args, config.timezone);
         if (!parsed.ok) {
-          await reply.system(`${parsed.value}\nUsage: ${cronAddCommand}`);
+          await reply.system(`${parsed.value}\nUsage: ${CRON_ADD_USAGE}`);
           return;
         }
         const cron = parsed.value;
+        let delivery = metadata?.cronDeliveryTarget;
+        if (cron.sessionName) {
+          if (!stateStore.get().sessions[cron.sessionName]) {
+            await reply.system(`Unknown session: ${cron.sessionName}`);
+            return;
+          }
+          // TODO: standardize one-to-one mapping between sessionName and CronDeliveryTarget
+          const parsedContext = parseTelegramSessionName(cron.sessionName);
+          if (!parsedContext) {
+            await reply.system(`Invalid session as delivery target: ${cron.sessionName}`);
+            return;
+          }
+          delivery = {
+            telegram: parsedContext,
+          };
+          sessionName = cron.sessionName;
+        }
+        if (!delivery) {
+          await reply.system("Cannot add cron job: delivery target is unavailable.");
+          return;
+        }
         try {
           cronStore.addJob({
             id: cron.id,
@@ -494,7 +546,7 @@ enabled jobs: ${enabledJobs.length}
             prompt: cron.prompt,
             target: {
               sessionName,
-              delivery: metadata.cronDeliveryTarget,
+              delivery,
             },
           });
           getCronRunner()?.refresh();
@@ -621,6 +673,14 @@ home: ${config.home}
     ],
     service: [
       {
+        tokens: ["systemd", "install"],
+        help: "/service systemd install - Install systemd service.",
+        run: async ({ reply }) => {
+          const message = handleSystemdInstall();
+          await reply.system(message);
+        },
+      },
+      {
         tokens: ["exit"],
         help: "/service exit - Exit acpella.",
         run: async ({ reply }) => {
@@ -655,36 +715,6 @@ home: ${config.home}
     session: systemSessionCommands,
     agent: systemAgentCommands,
     cron: systemCronCommands,
-    verbose: [
-      {
-        tokens: ["current"],
-        help: "/verbose current - Show tool-call output setting.",
-        run: async ({ reply, sessionName }) => {
-          const { verbose } = stateStore.getSession(sessionName);
-          await reply.system(`Tool call output: ${verbose ? "on" : "off"}`);
-        },
-      },
-      {
-        tokens: ["on"],
-        help: "/verbose on - Show tool-call updates.",
-        run: async ({ reply, sessionName }) => {
-          stateStore.setSession(sessionName, {
-            verbose: true,
-          });
-          await reply.system("Tool call output: on");
-        },
-      },
-      {
-        tokens: ["off"],
-        help: "/verbose off - Hide tool-call updates.",
-        run: async ({ reply, sessionName }) => {
-          stateStore.setSession(sessionName, {
-            verbose: false,
-          });
-          await reply.system("Tool call output: off");
-        },
-      },
-    ],
   };
 
   const systemCommandsMetadata: Record<string, string> = {
@@ -695,7 +725,6 @@ home: ${config.home}
     session: "Manage sessions",
     agent: "Manage agents",
     cron: "Manage cron jobs",
-    verbose: "Configure tool output",
   };
 
   const systemCommandHandler = new CommandHandler({
