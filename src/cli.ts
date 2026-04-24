@@ -25,6 +25,7 @@ Usage: acpella [command]
 Commands:
   serve             Run Telegram bot service. Default when no command is provided.
   repl              Run local in-process REPL.
+  exec <message...> Run one local message, then exit.
   systemd-install   Install systemd service.
 
 Options:
@@ -34,7 +35,7 @@ Options:
 async function main() {
   const cliResult = parseCli({
     argv: process.argv,
-    commands: ["serve", "repl", "systemd-install"],
+    commands: ["serve", "repl", "exec", "systemd-install"],
     defaultCommand: "serve",
   });
   if (!cliResult.ok) {
@@ -47,9 +48,18 @@ ${CLI_HELP}`);
   }
 
   const cli = cliResult.value;
-  if (cli.args.length > 0) {
+  if (cli.command !== "exec" && cli.args.length > 0) {
     console.error(`\
 Unexpected arguments for ${cli.command}: ${cli.args.join(" ")}
+
+${CLI_HELP}`);
+    process.exitCode = 1;
+    return;
+  }
+
+  if (cli.command === "exec" && cli.args.length === 0) {
+    console.error(`\
+Missing message for exec
 
 ${CLI_HELP}`);
     process.exitCode = 1;
@@ -111,7 +121,16 @@ ${CLI_HELP}`);
 
   if (cli.command === "repl") {
     try {
-      await startRepl(config, handler, version);
+      await startRepl({ config, handler, version });
+    } finally {
+      cronRunner.stop();
+    }
+    return;
+  }
+
+  if (cli.command === "exec") {
+    try {
+      await runExec({ handler, text: cli.args.join(" ") });
     } finally {
       cronRunner.stop();
     }
@@ -278,24 +297,22 @@ ${CLI_HELP}`);
   }
 }
 
-async function startRepl(config: AppConfig, handler: Handler, version: string) {
+async function startRepl({
+  config,
+  handler,
+  version,
+}: {
+  config: AppConfig;
+  handler: Handler;
+  version: string;
+}) {
   console.log(`Starting repl (version: ${version}, home: ${config.home})`);
 
   let isHandling = false;
   async function sendMessage(text: string) {
     isHandling = true;
     try {
-      await handler.handle({
-        sessionName: "repl",
-        text,
-        metadata: {
-          timestamp: Date.now(),
-          cronDeliveryTarget: {
-            repl: true,
-          },
-        },
-        send: async (replyText) => console.log(replyText),
-      });
+      await runExec({ handler, text });
     } catch (error) {
       console.error(error);
     } finally {
@@ -335,6 +352,22 @@ async function startRepl(config: AppConfig, handler: Handler, version: string) {
   } finally {
     rl.close();
   }
+}
+
+async function runExec({ handler, text }: { handler: Handler; text: string }) {
+  await handler.handle({
+    sessionName: "repl",
+    text,
+    metadata: {
+      timestamp: Date.now(),
+      cronDeliveryTarget: {
+        repl: true,
+      },
+    },
+    send: async (replyText) => {
+      console.log(replyText);
+    },
+  });
 }
 
 main().catch((err) => {

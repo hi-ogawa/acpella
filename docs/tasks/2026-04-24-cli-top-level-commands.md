@@ -69,6 +69,7 @@ Do not add CLI-native aliases like `node src/cli.ts agent list` in this task. Th
    - Successful handler responses and system command output go to stdout.
    - Handler/application errors go to stderr and set exit code `1`.
    - Do not add stdin support in this task; `exec -` can be considered later.
+   - Implemented with raw handler dispatch, so service commands still use slash syntax such as `exec /status`.
 4. Keep no-args behavior as `serve` in this task to avoid breaking existing deploy scripts. This is compatibility, not the preferred long-term CLI default.
 5. Factor local one-shot dispatch into a small helper, for example `runLocalOnce({ text, sessionName })`, so `exec` does not duplicate REPL handler wiring.
 6. Update `README.md`, `docs/deploy.md`, and package scripts after the command surface exists.
