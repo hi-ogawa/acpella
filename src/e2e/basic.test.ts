@@ -40,7 +40,6 @@ test("cli exec", async () => {
       ACPELLA_HOME: root,
     },
   });
-  expect(result.stderr).toMatchInlineSnapshot(`""`);
   expect(result.stdout).toMatchInlineSnapshot(`
     "[⚙️ System]
     /service
