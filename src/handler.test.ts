@@ -1257,10 +1257,11 @@ test("cron error delivery", async ({ onTestFinished }) => {
   `);
 });
 
-test("cron add with session name", async ({ onTestFinished }) => {
+test("cron with session name", async ({ onTestFinished }) => {
   // Sequence:
   // - Create tg-12345 and tg-12345-678 sessions so --session can target known sessions.
   // - Add tg-job with --session tg-12345 and verify chat-only Telegram delivery.
+  // - Update tg-job with --session tg-12345-678 and verify thread Telegram delivery.
   // - Add tg-job2 with --session tg-12345-678 and verify thread Telegram delivery.
   // - Add tg-job3 with a multi-word prompt and verify prompt parsing is preserved.
   vi.useFakeTimers({
@@ -1300,6 +1301,24 @@ test("cron add with session name", async ({ onTestFinished }) => {
     next: 2026-04-18T07:01:00+07:00
     last: none
     prompt: hello-cron"
+  `);
+  expect(
+    await session.request("/cron update tg-job 2 * * * * --session tg-12345-678 -- hello-updated"),
+  ).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Updated cron job: tg-job"
+  `);
+  expect(await session.request("/cron show tg-job")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    id: tg-job
+    enabled: yes
+    schedule: 2 * * * *
+    timezone: Asia/Jakarta
+    target session: tg-12345-678
+    delivery target: telegram:12345/678
+    next: 2026-04-18T07:02:00+07:00
+    last: none
+    prompt: hello-updated"
   `);
 
   // With chatId and messageThreadId
