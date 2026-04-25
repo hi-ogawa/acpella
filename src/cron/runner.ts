@@ -18,7 +18,7 @@ export interface CronRunnerAgentOptions {
 export class CronRunner {
   options: CronRunnerOptions;
   scheduler: CronScheduler;
-  watcher?: CronFileWatcher;
+  watcher: CronFileWatcher;
 
   constructor(options: CronRunnerOptions) {
     this.options = { ...options };
