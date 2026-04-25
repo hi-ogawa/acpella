@@ -13,7 +13,6 @@ Use:
 - `/cron status`
 - `/cron start`
 - `/cron stop`
-- `/cron reload`
 - `/cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--session <sessionName>] -- <prompt...>`
 - `/cron update <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--session <sessionName>] [-- <prompt...>]`
 - `/cron list`
@@ -98,7 +97,7 @@ Use these commands in the acpella process whose cron runner should be inspected 
 - `/cron start` to start that process's cron runner
 - `/cron stop` to stop that process's cron runner
 
-Cron job definition changes made through `pnpm cli exec '/cron add ...'`, `pnpm cli exec '/cron update ...'`, or direct edits to `.acpella/cron.json` write shared state. A live acpella process with an active cron runner reloads those file changes automatically. Use `/cron reload` only as a manual fallback in the process that should refresh its in-memory cron view.
+Cron job definition changes made through `pnpm cli exec '/cron add ...'`, `pnpm cli exec '/cron update ...'`, or direct edits to `.acpella/cron.json` write shared state. A live acpella process with an active cron runner reloads those file changes automatically.
 
 ## If cron is not behaving as expected
 

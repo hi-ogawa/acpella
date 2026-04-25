@@ -494,19 +494,6 @@ enabled jobs: ${enabledJobs.length}
       },
     },
     {
-      tokens: ["reload"],
-      help: "/cron reload - Reload cron jobs from disk.",
-      run: async ({ reply }) => {
-        try {
-          cronStore.reload();
-          getCronRunner()?.refresh();
-          await reply.system("Reloaded cron jobs.");
-        } catch (error) {
-          await reply.system(`Failed to reload cron jobs: ${formatError(error)}`);
-        }
-      },
-    },
-    {
       tokens: ["add"],
       help: `${CRON_ADD_USAGE} - Add a cron job.`,
       withArgs: true,
