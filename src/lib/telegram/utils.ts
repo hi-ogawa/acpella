@@ -24,6 +24,17 @@ export function formatTelegramSessionName(context: Context): string {
     .join("-");
 }
 
+// TODO: standardize one-to-one mapping between sessionName and CronDeliveryTarget
+export function parseTelegramSessionName(sessionName: string) {
+  const match = /^tg-(-?\d+)(?:-(\d+))?$/.exec(sessionName);
+  if (!match) {
+    return;
+  }
+  const chatId = parseInt(match[1]!, 10);
+  const messageThreadId = match[2] ? parseInt(match[2], 10) : undefined;
+  return { chatId, messageThreadId };
+}
+
 export function getTelegramRetryAfter(error: unknown): number | undefined {
   if (error instanceof GrammyError && error.error_code === 429) {
     return error.parameters.retry_after;

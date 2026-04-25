@@ -1,49 +1,57 @@
-import { formatError, formatTime, resultErr, resultOk, type Result } from "../lib/utils.ts";
+import { formatTime, Result } from "../lib/utils.ts";
 import { type CronJob, type CronRun, type CronStore, cronIdSchema } from "./store.ts";
 import { getNextCronSchedule, validateCronSchedule } from "./timer.ts";
 
-export function parseCronAddArgs(
-  args: string[],
-  timezone: string,
-): Result<
-  {
-    id: string;
-    schedule: string;
-    prompt: string;
-  },
-  string
-> {
-  if (args.length < 7) {
-    return { ok: false, value: "Invalid input" };
-  }
-  const [id, minute, hour, dayOfMonth, month, dayOfWeek, ...promptParts] = args;
-  const prompt = promptParts.join(" ");
-  if (!id || !minute || !hour || !dayOfMonth || !month || !dayOfWeek || !prompt) {
-    return resultErr("Invalid input");
+export const CRON_ADD_USAGE =
+  "/cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--session <sessionName>] -- <prompt...>";
+export const CRON_UPDATE_USAGE =
+  "/cron update <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--session <sessionName>] [-- <prompt...>]";
+
+export function parseCronArgs(args: string[], timezone: string) {
+  const [id, minute, hour, dayOfMonth, month, dayOfWeek, ...restArgs] = args;
+  if (!id || !minute || !hour || !dayOfMonth || !month || !dayOfWeek) {
+    throw new Error("Invalid input");
   }
   const cronIdResult = cronIdSchema.safeParse(id);
   if (!cronIdResult.success) {
-    return resultErr("Invalid cron id. Use letters, numbers, underscores, or hyphens.");
+    throw new Error("Invalid cron id. Use letters, numbers, underscores, or hyphens.");
   }
   const schedule = [minute, hour, dayOfMonth, month, dayOfWeek].join(" ");
-  try {
-    validateCronSchedule({ schedule, timezone });
-  } catch (error) {
-    return resultErr(`Invalid cron schedule: ${formatError(error)}`);
+  validateCronSchedule({ schedule, timezone });
+
+  let sessionName: string | undefined;
+  if (restArgs[0] === "--session") {
+    if (!restArgs[1]) {
+      throw new Error("Missing value for --session");
+    }
+    sessionName = restArgs[1];
+    restArgs.splice(0, 2);
   }
-  return resultOk({ id, schedule, prompt });
+
+  let prompt: string | undefined;
+  if (restArgs.length > 0) {
+    if (restArgs[0] !== "--") {
+      throw new Error("Missing -- separator before prompt");
+    }
+    prompt = restArgs.slice(1).join(" ");
+    if (!prompt) {
+      throw new Error("prompt is empty");
+    }
+  }
+
+  return { id, schedule, sessionName, prompt };
 }
 
 export function parseCronIdArg(args: string[], usage: string): Result<{ id: string }, string> {
   const id = args[0];
   if (!id || args.length !== 1) {
-    return resultErr(usage);
+    return Result.err(usage);
   }
   const cronIdResult = cronIdSchema.safeParse(id);
   if (!cronIdResult.success) {
-    return resultErr("Invalid cron id. Use letters, numbers, underscores, or hyphens.");
+    return Result.err("Invalid cron id. Use letters, numbers, underscores, or hyphens.");
   }
-  return resultOk({ id });
+  return Result.ok({ id });
 }
 
 export function renderCronList(cronStore: CronStore): string {

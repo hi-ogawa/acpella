@@ -52,8 +52,10 @@ export function formatError(error: unknown): string {
 }
 
 export type Result<T, E> = { ok: true; value: T } | { ok: false; value: E };
-export const resultOk = <T>(value: T): Result<T, never> => ({ ok: true, value });
-export const resultErr = <E>(value: E): Result<never, E> => ({ ok: false, value });
+export const Result = {
+  ok: <T>(value: T): Result<T, never> => ({ ok: true, value }),
+  err: <E>(value: E): Result<never, E> => ({ ok: false, value }),
+};
 
 export class AsyncIterableQueue<T> {
   private queue: T[] = [];

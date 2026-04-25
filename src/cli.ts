@@ -1,7 +1,6 @@
 import "temporal-polyfill/global";
 import path from "node:path";
 import { createInterface } from "node:readline/promises";
-import { parseArgs } from "node:util";
 import { run, sequentialize } from "@grammyjs/runner";
 import { Bot } from "grammy";
 import { loadConfig, type AppConfig } from "./config.ts";
@@ -9,7 +8,7 @@ import { CronRunner } from "./cron/runner.ts";
 import { CronStore } from "./cron/store.ts";
 import { CronFileWatcher } from "./cron/watch.ts";
 import { createHandler, type Handler } from "./handler.ts";
-import { handleSetupSystemd } from "./lib/systemd.ts";
+import { parseCli } from "./lib/cli.ts";
 import { markdownToTelegramHtml } from "./lib/telegram/format-html.ts";
 import {
   formatTelegramSessionName,
@@ -20,42 +19,43 @@ import {
 import { addIndent, sleep, truncateString } from "./lib/utils.ts";
 import { getVersion } from "./lib/version.ts";
 
-async function main() {
-  const argv = process.argv.slice(2);
-  const { values: cli } = parseArgs({
-    args: argv,
-    options: {
-      repl: {
-        type: "boolean",
-        default: false,
-      },
-      help: {
-        type: "boolean",
-        short: "h",
-        default: false,
-      },
-      "setup-systemd": {
-        type: "boolean",
-        default: false,
-      },
-    },
-    strict: true,
-  });
+const CLI_HELP = `\
+Usage: acpella [command]
 
-  if (cli["setup-systemd"]) {
-    handleSetupSystemd();
+Commands:
+  serve             Run Telegram bot service. Default when no command is provided.
+  repl              Run local in-process REPL.
+  exec <message...> Run one local message, then exit.
+
+Options:
+  -h, --help        Show this help.
+`;
+
+async function main() {
+  const cliArgv = process.argv.slice(2);
+  if (["-h", "--help"].includes(cliArgv[0])) {
+    console.log(CLI_HELP);
     return;
   }
 
-  if (cli.help) {
-    process.stdout.write(`Usage: node src/cli.ts [options]
+  const cli = parseCli({
+    argv: cliArgv,
+    commands: ["serve", "repl", "exec"],
+    defaultCommand: "serve",
+  });
 
-Options:
-  --repl                 Run local in-process REPL.
-  --setup-systemd        Setup systemd service.
-  -h, --help             Show this help.
-`);
-    return;
+  if (cli.command !== "exec" && cli.args.length > 0) {
+    throw new Error(`\
+Unexpected arguments for ${cli.command}: ${cli.args.join(" ")}
+
+${CLI_HELP}`);
+  }
+
+  if (cli.command === "exec" && cli.args.length === 0) {
+    throw new Error(`\
+Missing message for exec
+
+${CLI_HELP}`);
   }
 
   const config = loadConfig();
@@ -75,7 +75,7 @@ Options:
           console.log("[cron] repl delivery:", text);
           console.log(text);
         }
-        if (!cli.repl && target.telegram) {
+        if (cli.command === "serve" && target.telegram) {
           const { chatId, messageThreadId } = target.telegram;
           // TODO: fallback, retry, and error handling
           await bot.api.sendMessage(chatId, markdownToTelegramHtml(text), {
@@ -106,9 +106,18 @@ Options:
     getCronRunner: () => cronRunner,
   });
 
-  if (cli.repl) {
+  if (cli.command === "repl") {
     try {
-      await startRepl(config, handler, version);
+      await startRepl({ config, handler, version });
+    } finally {
+      cronRunner.stop();
+    }
+    return;
+  }
+
+  if (cli.command === "exec") {
+    try {
+      await runExec({ handler, text: cli.args.join(" ") });
     } finally {
       cronRunner.stop();
     }
@@ -119,14 +128,10 @@ Options:
   const allowedChats = new Set(config.telegram.allowedChatIds);
 
   if (!config.telegram.token) {
-    console.error("ACPELLA_TELEGRAM_BOT_TOKEN is required");
-    process.exitCode = 1;
-    return;
+    throw new Error("ACPELLA_TELEGRAM_BOT_TOKEN is required");
   }
   if (allowedUsers.size === 0) {
-    console.error("ACPELLA_TELEGRAM_ALLOWED_USER_IDS must be non-empty");
-    process.exitCode = 1;
-    return;
+    throw new Error("ACPELLA_TELEGRAM_ALLOWED_USER_IDS must be non-empty");
   }
 
   const bot = new Bot(config.telegram.token);
@@ -252,8 +257,9 @@ Options:
         return;
       }
       console.error(`${label} (response error)`, error);
+      const name = error instanceof Error ? error.name : "Error";
       const message = error instanceof Error ? error.message : String(error);
-      await replyWithRetry(`Error: ${truncateString(message, 200)}`);
+      await replyWithRetry(`${name}: ${truncateString(message, 200)}`);
     } finally {
       chatActionManager.stop();
     }
@@ -277,24 +283,22 @@ Options:
   }
 }
 
-async function startRepl(config: AppConfig, handler: Handler, version: string) {
+async function startRepl({
+  config,
+  handler,
+  version,
+}: {
+  config: AppConfig;
+  handler: Handler;
+  version: string;
+}) {
   console.log(`Starting repl (version: ${version}, home: ${config.home})`);
 
   let isHandling = false;
   async function sendMessage(text: string) {
     isHandling = true;
     try {
-      await handler.handle({
-        sessionName: "repl",
-        text,
-        metadata: {
-          timestamp: Date.now(),
-          cronDeliveryTarget: {
-            repl: true,
-          },
-        },
-        send: async (replyText) => console.log(replyText),
-      });
+      await runExec({ handler, text });
     } catch (error) {
       console.error(error);
     } finally {
@@ -334,6 +338,26 @@ async function startRepl(config: AppConfig, handler: Handler, version: string) {
   } finally {
     rl.close();
   }
+}
+
+// TODO:
+// make exitCode non-zero for soft errors (e.g. invalid command usages) on exec.
+// currently only hard errors can make exitCode = 1.
+// (plan: enhance context.send interface to include status semantics)
+async function runExec({ handler, text }: { handler: Handler; text: string }) {
+  await handler.handle({
+    sessionName: "repl",
+    text,
+    metadata: {
+      timestamp: Date.now(),
+      cronDeliveryTarget: {
+        repl: true,
+      },
+    },
+    send: async (replyText) => {
+      console.log(replyText);
+    },
+  });
 }
 
 main().catch((err) => {

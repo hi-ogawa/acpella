@@ -3,17 +3,21 @@ import { AgentManager } from "./acp/index.ts";
 import type { AgentSessionProcess } from "./acp/index.ts";
 import type { AppConfig } from "./config.ts";
 import {
-  parseCronAddArgs,
+  CRON_ADD_USAGE,
+  CRON_UPDATE_USAGE,
+  parseCronArgs,
   parseCronIdArg,
   renderCronList,
   renderCronShow,
 } from "./cron/command.ts";
 import type { CronRunner, CronRunnerAgentOptions } from "./cron/runner.ts";
-import type { CronDeliveryTarget, CronStore } from "./cron/store.ts";
+import type { CronDeliveryTarget, CronJob, CronStore } from "./cron/store.ts";
 import { CommandHandler, type CommandTree } from "./lib/command.ts";
 import { formatSessionUpdateLogEntry, JsonLogger } from "./lib/logger.ts";
 import { buildFirstPrompt, buildMessageMetadataPrompt } from "./lib/prompt.ts";
 import { MESSAGE_SPLIT_BUDGET, ReplyManager } from "./lib/reply.ts";
+import { handleSystemdInstall } from "./lib/systemd.ts";
+import { parseTelegramSessionName } from "./lib/telegram/utils.ts";
 import { AsyncLane, DefaultMap, formatError } from "./lib/utils.ts";
 import { parseAgentSessionKey, SessionStateStore, toAgentSessionKey } from "./state.ts";
 import type { StateAgentSession, StateSession } from "./state.ts";
@@ -447,7 +451,6 @@ ${referencedSessions.length} session(s) still reference it.
     },
   ];
 
-  const cronAddCommand = `/cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> <prompt...>`;
   const getCronRunner = () => handlerOptions.getCronRunner?.();
   const systemCronCommands: SystemCommandTree[string] = [
     {
@@ -505,19 +508,32 @@ enabled jobs: ${enabledJobs.length}
     },
     {
       tokens: ["add"],
-      help: `${cronAddCommand} - Add a cron job.`,
+      help: `${CRON_ADD_USAGE} - Add a cron job.`,
       withArgs: true,
       run: async ({ args, reply, sessionName, metadata }) => {
-        if (!metadata?.cronDeliveryTarget) {
+        const cron = parseCronArgs(args, config.timezone);
+        if (!cron.prompt) {
+          await reply.system(`Missing prompt`);
+          return;
+        }
+        let delivery = metadata?.cronDeliveryTarget;
+        if (cron.sessionName) {
+          if (!stateStore.get().sessions[cron.sessionName]) {
+            await reply.system(`Unknown session: ${cron.sessionName}`);
+            return;
+          }
+          const parsedSesssion = parseTelegramSessionName(cron.sessionName);
+          if (!parsedSesssion) {
+            await reply.system(`Invalid session as delivery target: ${cron.sessionName}`);
+            return;
+          }
+          delivery = { telegram: parsedSesssion };
+          sessionName = cron.sessionName;
+        }
+        if (!delivery) {
           await reply.system("Cannot add cron job: delivery target is unavailable.");
           return;
         }
-        const parsed = parseCronAddArgs(args, config.timezone);
-        if (!parsed.ok) {
-          await reply.system(`${parsed.value}\nUsage: ${cronAddCommand}`);
-          return;
-        }
-        const cron = parsed.value;
         try {
           cronStore.addJob({
             id: cron.id,
@@ -527,13 +543,56 @@ enabled jobs: ${enabledJobs.length}
             prompt: cron.prompt,
             target: {
               sessionName,
-              delivery: metadata.cronDeliveryTarget,
+              delivery,
             },
           });
           getCronRunner()?.refresh();
           await reply.system(`Added cron job: ${cron.id}`);
         } catch (error) {
           await reply.system(`Failed to add cron job: ${formatError(error)}`);
+        }
+      },
+    },
+    {
+      tokens: ["update"],
+      help: `${CRON_UPDATE_USAGE} - Update a cron job.`,
+      withArgs: true,
+      run: async ({ args, reply }) => {
+        const cron = parseCronArgs(args, config.timezone);
+        const job = cronStore.getJob(cron.id);
+        if (!job) {
+          await reply.system(`Unknown cron job: ${cron.id}`);
+          return;
+        }
+        const patch: Partial<CronJob> = {
+          schedule: cron.schedule,
+          timezone: config.timezone,
+        };
+        if (cron.prompt) {
+          patch.prompt = cron.prompt;
+        }
+        if (cron.sessionName) {
+          if (!stateStore.get().sessions[cron.sessionName]) {
+            await reply.system(`Unknown session: ${cron.sessionName}`);
+            return;
+          }
+          const parsedSesssion = parseTelegramSessionName(cron.sessionName);
+          if (!parsedSesssion) {
+            await reply.system(`Invalid session as delivery target: ${cron.sessionName}`);
+            return;
+          }
+          const delivery = { telegram: parsedSesssion };
+          patch.target = {
+            sessionName: cron.sessionName,
+            delivery,
+          };
+        }
+        try {
+          cronStore.updateJob(cron.id, patch);
+          getCronRunner()?.refresh();
+          await reply.system(`Updated cron job: ${cron.id}`);
+        } catch (error) {
+          await reply.system(`Failed to update cron job: ${formatError(error)}`);
         }
       },
     },
@@ -653,6 +712,14 @@ home: ${config.home}
       },
     ],
     service: [
+      {
+        tokens: ["systemd", "install"],
+        help: "/service systemd install - Install systemd service.",
+        run: async ({ reply }) => {
+          const message = handleSystemdInstall();
+          await reply.system(message);
+        },
+      },
       {
         tokens: ["exit"],
         help: "/service exit - Exit acpella.",
