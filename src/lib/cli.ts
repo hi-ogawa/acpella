@@ -10,25 +10,24 @@ export function parseCli(options: {
   defaultCommand?: string;
 }): ParsedCli {
   let envFile: string | undefined;
-  let argsStart = 0;
-  const firstArg = options.argv[0];
-  if (firstArg === "-h" || firstArg === "--help") {
+  const argv = [...options.argv];
+  if (argv[0] === "-h" || argv[0] === "--help") {
     return {
       command: "help",
       args: [],
     };
   }
-  if (firstArg === "--env-file") {
-    const value = options.argv[1];
+  if (argv[0] === "--env-file") {
+    const value = argv[1];
     if (!value) {
       throw new Error("Missing value for --env-file");
     }
     envFile = value;
-    argsStart = 2;
+    argv.splice(0, 2);
   }
 
-  const [inputCommand, ...args] = options.argv.slice(argsStart);
-  const command = inputCommand ?? options.defaultCommand;
+  const command = argv[0] ?? options.defaultCommand;
+  const args = argv.slice(1);
 
   if (!command) {
     throw new Error("Missing command");
