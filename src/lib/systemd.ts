@@ -40,7 +40,6 @@ export function buildSystemdUnit(options: {
   nodeBin: string;
   tmpDir: string;
 }): string {
-  const envFile = resolve(options.workingDirectory, ".env");
   const serviceEnv = {
     HOME: options.home,
     TMPDIR: options.env.TMPDIR?.trim() || options.tmpDir,
@@ -60,7 +59,6 @@ Wants=network-online.target
 Type=simple
 SyslogIdentifier=${escapeSystemdValue("acpella")}
 WorkingDirectory=${escapeSystemdValue(options.workingDirectory)}
-EnvironmentFile=${escapeSystemdValue(envFile)}
 ${environmentLines}
 ExecStart=${escapeSystemdValue(options.nodeBin)} ${escapeSystemdValue(resolve(options.workingDirectory, "src/cli.ts"))}
 Restart=always
