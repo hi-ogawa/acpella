@@ -8,7 +8,7 @@ import { CronRunner } from "./cron/runner.ts";
 import { CronStore } from "./cron/store.ts";
 import { createHandler, type Handler } from "./handler.ts";
 import { parseCli } from "./lib/cli.ts";
-import { loadEnvFile } from "./lib/env-file.ts";
+import { loadEnv } from "./lib/env.ts";
 import { markdownToTelegramHtml } from "./lib/telegram/format-html.ts";
 import {
   formatTelegramSessionName,
@@ -59,7 +59,7 @@ Missing message for exec
 ${CLI_HELP}`);
   }
 
-  loadEnvFile({
+  loadEnv({
     file: cli.envFile,
   });
 
