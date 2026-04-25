@@ -3,17 +3,17 @@ import { homedir } from "node:os";
 import path from "node:path";
 import { parseEnv } from "node:util";
 
-export function loadEnvFile(options?: { file?: string; cwd?: string; env?: NodeJS.ProcessEnv }): {
+export function loadEnvFile(options: { file?: string; cwd?: string; env?: NodeJS.ProcessEnv }): {
   file: string;
   loaded: boolean;
 } {
-  const env = options?.env ?? process.env;
-  const file = options?.file
-    ? path.resolve(options?.cwd ?? process.cwd(), options.file)
-    : resolveDefaultEnvFile({ env });
+  const env = options.env ?? process.env;
+  const file = options.file
+    ? path.resolve(options.cwd ?? process.cwd(), options.file)
+    : resolveDefaultEnvFile(env);
 
   if (!fs.existsSync(file)) {
-    if (options?.file) {
+    if (options.file) {
       throw new Error(`Env file not found: ${file}`);
     }
     return {
@@ -34,8 +34,7 @@ export function loadEnvFile(options?: { file?: string; cwd?: string; env?: NodeJ
   };
 }
 
-function resolveDefaultEnvFile(options?: { env?: NodeJS.ProcessEnv }): string {
-  const env = options?.env ?? process.env;
+function resolveDefaultEnvFile(env: NodeJS.ProcessEnv): string {
   const configHome = env.XDG_CONFIG_HOME?.trim()
     ? path.resolve(env.XDG_CONFIG_HOME)
     : path.join(homedir(), ".config");
