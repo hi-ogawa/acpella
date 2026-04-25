@@ -11,7 +11,7 @@ import {
   renderCronShow,
 } from "./cron/command.ts";
 import type { CronRunner, CronRunnerAgentOptions } from "./cron/runner.ts";
-import type { CronDeliveryTarget, CronStore } from "./cron/store.ts";
+import type { CronDeliveryTarget, CronJob, CronStore } from "./cron/store.ts";
 import { CommandHandler, type CommandTree } from "./lib/command.ts";
 import { formatSessionUpdateLogEntry, JsonLogger } from "./lib/logger.ts";
 import { buildFirstPrompt, buildMessageMetadataPrompt } from "./lib/prompt.ts";
@@ -452,27 +452,6 @@ ${referencedSessions.length} session(s) still reference it.
   ];
 
   const getCronRunner = () => handlerOptions.getCronRunner?.();
-  const getCronTelegramTarget = async ({
-    reply,
-    sessionName,
-  }: {
-    reply: ReplyManager;
-    sessionName: string;
-  }): Promise<CronDeliveryTarget | undefined> => {
-    if (!stateStore.get().sessions[sessionName]) {
-      await reply.system(`Unknown session: ${sessionName}`);
-      return;
-    }
-    // TODO: standardize one-to-one mapping between sessionName and CronDeliveryTarget
-    const parsedContext = parseTelegramSessionName(sessionName);
-    if (!parsedContext) {
-      await reply.system(`Invalid session as delivery target: ${sessionName}`);
-      return;
-    }
-    return {
-      telegram: parsedContext,
-    };
-  };
   const systemCronCommands: SystemCommandTree[string] = [
     {
       tokens: ["status"],
@@ -539,11 +518,16 @@ enabled jobs: ${enabledJobs.length}
         }
         let delivery = metadata?.cronDeliveryTarget;
         if (cron.sessionName) {
-          const target = await getCronTelegramTarget({ reply, sessionName: cron.sessionName });
-          if (!target) {
+          if (!stateStore.get().sessions[sessionName]) {
+            await reply.system(`Unknown session: ${sessionName}`);
             return;
           }
-          delivery = target;
+          const parsedSesssion = parseTelegramSessionName(sessionName);
+          if (!parsedSesssion) {
+            await reply.system(`Invalid session as delivery target: ${sessionName}`);
+            return;
+          }
+          delivery = { telegram: parsedSesssion };
           sessionName = cron.sessionName;
         }
         if (!delivery) {
@@ -580,7 +564,7 @@ enabled jobs: ${enabledJobs.length}
           await reply.system(`Unknown cron job: ${cron.id}`);
           return;
         }
-        const patch: Parameters<CronStore["updateJob"]>[1] = {
+        const patch: Partial<CronJob> = {
           schedule: cron.schedule,
           timezone: config.timezone,
         };
@@ -588,10 +572,16 @@ enabled jobs: ${enabledJobs.length}
           patch.prompt = cron.prompt;
         }
         if (cron.sessionName) {
-          const delivery = await getCronTelegramTarget({ reply, sessionName: cron.sessionName });
-          if (!delivery) {
+          if (!stateStore.get().sessions[cron.sessionName]) {
+            await reply.system(`Unknown session: ${cron.sessionName}`);
             return;
           }
+          const parsedSesssion = parseTelegramSessionName(cron.sessionName);
+          if (!parsedSesssion) {
+            await reply.system(`Invalid session as delivery target: ${cron.sessionName}`);
+            return;
+          }
+          const delivery = { telegram: parsedSesssion };
           patch.target = {
             sessionName: cron.sessionName,
             delivery,
