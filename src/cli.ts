@@ -267,8 +267,9 @@ ${CLI_HELP}`);
         return;
       }
       console.error(`${label} (response error)`, error);
+      const name = error instanceof Error ? error.name : "Error";
       const message = error instanceof Error ? error.message : String(error);
-      await replyWithRetry(`Error: ${truncateString(message, 200)}`);
+      await replyWithRetry(`${name}: ${truncateString(message, 200)}`);
     } finally {
       chatActionManager.stop();
     }
@@ -347,6 +348,10 @@ async function startRepl({
   }
 }
 
+// TODO:
+// make exitCode non-zero for soft errors (e.g. invalid command usages) on exec.
+// currently only hard errors can make exitCode = 1.
+// (plan: enhance context.send interface to include status semantics)
 async function runExec({ handler, text }: { handler: Handler; text: string }) {
   await handler.handle({
     sessionName: "repl",

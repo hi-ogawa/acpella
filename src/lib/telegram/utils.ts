@@ -24,6 +24,7 @@ export function formatTelegramSessionName(context: Context): string {
     .join("-");
 }
 
+// TODO: standardize one-to-one mapping between sessionName and CronDeliveryTarget
 export function parseTelegramSessionName(sessionName: string) {
   const match = /^tg-(-?\d+)(?:-(\d+))?$/.exec(sessionName);
   if (!match) {

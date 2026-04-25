@@ -1,59 +1,45 @@
-import { formatError, formatTime, Result } from "../lib/utils.ts";
+import { formatTime, Result } from "../lib/utils.ts";
 import { type CronJob, type CronRun, type CronStore, cronIdSchema } from "./store.ts";
 import { getNextCronSchedule, validateCronSchedule } from "./timer.ts";
 
 export const CRON_ADD_USAGE =
   "/cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--session <sessionName>] -- <prompt...>";
+export const CRON_UPDATE_USAGE =
+  "/cron update <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--session <sessionName>] [-- <prompt...>]";
 
-export function parseCronAddArgs(
-  args: string[],
-  timezone: string,
-): Result<
-  {
-    id: string;
-    schedule: string;
-    prompt: string;
-    sessionName?: string;
-  },
-  string
-> {
-  if (args.length < 7) {
-    return Result.err("Invalid input");
-  }
-  const [id, minute, hour, dayOfMonth, month, dayOfWeek, ...rest] = args;
+export function parseCronArgs(args: string[], timezone: string) {
+  const [id, minute, hour, dayOfMonth, month, dayOfWeek, ...restArgs] = args;
   if (!id || !minute || !hour || !dayOfMonth || !month || !dayOfWeek) {
-    return Result.err("Invalid input");
-  }
-
-  let sessionName: string | undefined;
-  if (rest[0] === "--session") {
-    if (!rest[1]) {
-      return Result.err("Missing value for --session");
-    }
-    sessionName = rest[1];
-    rest.splice(0, 2);
-  }
-
-  if (rest[0] !== "--") {
-    return Result.err("Missing -- separator before prompt");
-  }
-  rest.splice(0, 1);
-
-  const prompt = rest.join(" ");
-  if (!prompt) {
-    return Result.err("Invalid input");
+    throw new Error("Invalid input");
   }
   const cronIdResult = cronIdSchema.safeParse(id);
   if (!cronIdResult.success) {
-    return Result.err("Invalid cron id. Use letters, numbers, underscores, or hyphens.");
+    throw new Error("Invalid cron id. Use letters, numbers, underscores, or hyphens.");
   }
   const schedule = [minute, hour, dayOfMonth, month, dayOfWeek].join(" ");
-  try {
-    validateCronSchedule({ schedule, timezone });
-  } catch (error) {
-    return Result.err(`Invalid cron schedule: ${formatError(error)}`);
+  validateCronSchedule({ schedule, timezone });
+
+  let sessionName: string | undefined;
+  if (restArgs[0] === "--session") {
+    if (!restArgs[1]) {
+      throw new Error("Missing value for --session");
+    }
+    sessionName = restArgs[1];
+    restArgs.splice(0, 2);
   }
-  return Result.ok({ id, schedule, prompt, sessionName });
+
+  let prompt: string | undefined;
+  if (restArgs.length > 0) {
+    if (restArgs[0] !== "--") {
+      throw new Error("Missing -- separator before prompt");
+    }
+    prompt = restArgs.slice(1).join(" ");
+    if (!prompt) {
+      throw new Error("prompt is empty");
+    }
+  }
+
+  return { id, schedule, sessionName, prompt };
 }
 
 export function parseCronIdArg(args: string[], usage: string): Result<{ id: string }, string> {

@@ -67,6 +67,7 @@ Coverage checklist:
   - [ ] add rejects invalid id
   - [ ] add rejects invalid schedule
   - [ ] add refreshes runner
+  - [x] update
   - [x] list
   - [x] show
   - [ ] show unknown id
@@ -218,6 +219,7 @@ test("basic", async () => {
       /cron stop - Stop cron scheduler.
       /cron reload - Reload cron jobs from disk.
       /cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--session <sessionName>] -- <prompt...> - Add a cron job.
+      /cron update <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--session <sessionName>] [-- <prompt...>] - Update a cron job.
       /cron list - List cron jobs.
       /cron show <id> - Show a cron job.
       /cron enable <id> - Enable a cron job.
@@ -765,6 +767,10 @@ test("message metadata", async () => {
 });
 
 test("cron reload command", async ({ onTestFinished }) => {
+  // Timeline:
+  // - 00:00 UTC / 07:00 Jakarta: runner starts with no jobs.
+  // - 00:00 UTC / 07:00 Jakarta: write file-job directly to cron.json, then reload.
+  // - 00:02 UTC / 07:02 Jakarta: file-job fires with hello-from-file.
   vi.useFakeTimers({
     now: Date.parse("2026-04-18T00:00:00Z"),
   });
@@ -860,6 +866,13 @@ test("cron reload command", async ({ onTestFinished }) => {
 });
 
 test("cron command", async ({ onTestFinished }) => {
+  // Timeline:
+  // - 00:00 UTC / 07:00 Jakarta: add test-job for every minute.
+  // - 00:01 UTC / 07:01 Jakarta: test-job fires with hello-cron.
+  // - 00:01 UTC / 07:01 Jakarta: add other-job for minute 3, disable test-job.
+  // - 00:03 UTC / 07:03 Jakarta: other-job fires with its added prompt, hello-other.
+  // - 00:03 UTC / 07:03 Jakarta: update other-job to minute 4, then update its prompt.
+  // - 00:04 UTC / 07:04 Jakarta: other-job fires with its updated prompt, hello-updated.
   vi.useFakeTimers({
     now: Date.parse("2026-04-18T00:00:00Z"),
   });
@@ -990,7 +1003,6 @@ test("cron command", async ({ onTestFinished }) => {
     "[⚙️ System]
     Added cron job: other-job"
   `);
-
   expect(await session.request("/cron disable test-job")).toMatchInlineSnapshot(`
     "[⚙️ System]
     Disabled cron job: test-job"
@@ -1049,6 +1061,64 @@ test("cron command", async ({ onTestFinished }) => {
     ",
     ]
   `);
+  tester.cronDeliveries.length = 0;
+
+  expect(await session.request("/cron update other-job 4 * * * *")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Updated cron job: other-job"
+  `);
+  expect(await session.request("/cron show other-job")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    id: other-job
+    enabled: yes
+    schedule: 4 * * * *
+    timezone: Asia/Jakarta
+    target session: test
+    delivery target: repl
+    next: 2026-04-18T07:04:00+07:00
+    last: succeeded, scheduled 2026-04-18T00:03:00Z, finished 2026-04-18T00:03:00Z
+    prompt: hello-other"
+  `);
+  expect(await session.request("/cron update other-job 4 * * * * -- hello-updated"))
+    .toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Updated cron job: other-job"
+  `);
+
+  vi.advanceTimersToNextTimer();
+  expect(formatTime(Date.now(), tester.config.timezone)).toMatchInlineSnapshot(
+    `"2026-04-18T07:04:00+07:00"`,
+  );
+  expect(tester.cronDeliveries).toMatchInlineSnapshot(`[]`);
+  expect(await session.request("/cron show other-job")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    id: other-job
+    enabled: yes
+    schedule: 4 * * * *
+    timezone: Asia/Jakarta
+    target session: test
+    delivery target: repl
+    next: 2026-04-18T08:04:00+07:00
+    last: running, scheduled 2026-04-18T00:04:00Z
+    prompt: hello-updated"
+  `);
+
+  await vi.waitUntil(() => tester.cronDeliveries.length > 0);
+  expect(tester.cronDeliveries).toMatchInlineSnapshot(`
+    [
+      "echo: <trigger_metadata>
+    trigger: cron
+    cron_id: other-job
+    scheduled_at: 2026-04-18T07:04:00+07:00
+    started_at: 2026-04-18T07:04:00+07:00
+    timezone: Asia/Jakarta
+    session_name: test
+    </trigger_metadata>
+
+    hello-updated
+    ",
+    ]
+  `);
   expect(await session.request("/cron list")).toMatchInlineSnapshot(`
     "[⚙️ System]
     - test-job [disabled]
@@ -1060,12 +1130,12 @@ test("cron command", async ({ onTestFinished }) => {
       last: succeeded, scheduled 2026-04-18T00:01:00Z, finished 2026-04-18T00:01:00Z
 
     - other-job [enabled]
-      schedule: 3 * * * *
+      schedule: 4 * * * *
       timezone: Asia/Jakarta
       target session: test
       delivery target: repl
-      next: 2026-04-18T08:03:00+07:00
-      last: succeeded, scheduled 2026-04-18T00:03:00Z, finished 2026-04-18T00:03:00Z"
+      next: 2026-04-18T08:04:00+07:00
+      last: succeeded, scheduled 2026-04-18T00:04:00Z, finished 2026-04-18T00:04:00Z"
   `);
 
   expect(await session.request("/cron enable test-job")).toMatchInlineSnapshot(`
@@ -1085,12 +1155,12 @@ test("cron command", async ({ onTestFinished }) => {
   expect(await session.request("/cron list")).toMatchInlineSnapshot(`
     "[⚙️ System]
     - other-job [enabled]
-      schedule: 3 * * * *
+      schedule: 4 * * * *
       timezone: Asia/Jakarta
       target session: test
       delivery target: repl
-      next: 2026-04-18T08:03:00+07:00
-      last: succeeded, scheduled 2026-04-18T00:03:00Z, finished 2026-04-18T00:03:00Z"
+      next: 2026-04-18T08:04:00+07:00
+      last: succeeded, scheduled 2026-04-18T00:04:00Z, finished 2026-04-18T00:04:00Z"
   `);
   expect(await session.request("/cron status")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -1101,6 +1171,10 @@ test("cron command", async ({ onTestFinished }) => {
 });
 
 test("cron error delivery", async ({ onTestFinished }) => {
+  // Timeline:
+  // - 00:00 UTC / 07:00 Jakarta: add test-job for every minute with a failing prompt.
+  // - 00:01 UTC / 07:01 Jakarta: test-job starts and records a running state.
+  // - 00:01 UTC / 07:01 Jakarta: prompt fails, run records failure, delivery receives an error notice.
   vi.useFakeTimers({
     now: Date.parse("2026-04-18T00:00:00Z"),
   });
@@ -1183,7 +1257,13 @@ test("cron error delivery", async ({ onTestFinished }) => {
   `);
 });
 
-test("cron add with session name", async ({ onTestFinished }) => {
+test("cron with session name", async ({ onTestFinished }) => {
+  // Sequence:
+  // - Create tg-12345 and tg-12345-678 sessions so --session can target known sessions.
+  // - Add tg-job with --session tg-12345 and verify chat-only Telegram delivery.
+  // - Update tg-job with --session tg-12345-678 and verify thread Telegram delivery.
+  // - Add tg-job2 with --session tg-12345-678 and verify thread Telegram delivery.
+  // - Add tg-job3 with a multi-word prompt and verify prompt parsing is preserved.
   vi.useFakeTimers({
     now: Date.parse("2026-04-18T00:00:00Z"),
   });
@@ -1221,6 +1301,24 @@ test("cron add with session name", async ({ onTestFinished }) => {
     next: 2026-04-18T07:01:00+07:00
     last: none
     prompt: hello-cron"
+  `);
+  expect(
+    await session.request("/cron update tg-job 2 * * * * --session tg-12345-678 -- hello-updated"),
+  ).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Updated cron job: tg-job"
+  `);
+  expect(await session.request("/cron show tg-job")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    id: tg-job
+    enabled: yes
+    schedule: 2 * * * *
+    timezone: Asia/Jakarta
+    target session: tg-12345-678
+    delivery target: telegram:12345/678
+    next: 2026-04-18T07:02:00+07:00
+    last: none
+    prompt: hello-updated"
   `);
 
   // With chatId and messageThreadId

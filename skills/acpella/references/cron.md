@@ -15,6 +15,7 @@ Use:
 - `/cron stop`
 - `/cron reload`
 - `/cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--session <sessionName>] -- <prompt...>`
+- `/cron update <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--session <sessionName>] [-- <prompt...>]`
 - `/cron list`
 - `/cron show <id>`
 - `/cron enable <id>`
@@ -48,16 +49,42 @@ If `/cron add` is issued inside the Telegram conversation where the job should d
 1. Find the target session with `pnpm cli exec /session list` if creating the job from local shell administration; if more than one candidate could match, confirm with the user before continuing.
 2. Add the job with `pnpm cli exec '/cron add ... --session <sessionName> -- <prompt...>'` for actual Telegram delivery.
 3. Check it with `/cron show <id>` or `/cron list`.
-4. Use `/cron disable <id>` when you want to pause it.
-5. Use `/cron enable <id>` to resume it.
-6. Use `/cron delete <id>` to remove it entirely.
+4. Use `/cron update <id> <minute> <hour> <day-of-month> <month> <day-of-week> ...` to change its schedule, destination, or prompt.
+5. Use `/cron disable <id>` when you want to pause it.
+6. Use `/cron enable <id>` to resume it.
+7. Use `/cron delete <id>` to remove it entirely.
 
-There is no edit command. To update a cron job's schedule, destination, or prompt, delete the old job and add it again:
+## Updating jobs
+
+`/cron update` always requires all five cron fields. Omitted `--session` and prompt values keep their existing values. Prompt updates must come after a literal `--` separator.
+
+When running `/cron update` through a shell with `pnpm cli exec`, quote the full slash command if the schedule contains `*`.
+
+Update schedule:
 
 ```bash
-pnpm cli exec /cron delete morning-check
-pnpm cli exec '/cron add morning-check 0 10 * * 1-5 --session tg-123456789 -- Check the project state and report anything urgent.'
+pnpm cli exec '/cron update morning-check 0 10 * * 1-5'
 ```
+
+Update destination while keeping the same schedule by repeating the current five cron fields:
+
+```bash
+pnpm cli exec '/cron update morning-check 0 10 * * 1-5 --session tg-123456789'
+```
+
+Update prompt while keeping the same schedule by repeating the current five cron fields:
+
+```bash
+pnpm cli exec '/cron update morning-check 0 10 * * 1-5 -- Check the project state and report anything urgent.'
+```
+
+Update schedule, destination, and prompt together:
+
+```bash
+pnpm cli exec '/cron update morning-check 0 10 * * 1-5 --session tg-123456789 -- Check the project state and report anything urgent.'
+```
+
+If updating `--session` from `/session list` output, ask the user to confirm when the intended destination is not obvious. To change a job id, delete the old job and add a new one.
 
 ## Scheduler control
 
