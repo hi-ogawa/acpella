@@ -348,6 +348,10 @@ async function startRepl({
   }
 }
 
+// TODO:
+// make exitCode non-zero for soft errors (e.g. invalid command usages) on exec.
+// currently only hard errors can make exitCode = 1.
+// (plan: enhance context.send interface to include status semantics)
 async function runExec({ handler, text }: { handler: Handler; text: string }) {
   await handler.handle({
     sessionName: "repl",
