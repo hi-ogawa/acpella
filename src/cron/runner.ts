@@ -35,12 +35,12 @@ export class CronRunner {
 
   start() {
     this.scheduler.start();
+    this.watcher.start();
     this.refresh();
-    this.watcher?.start();
   }
 
   stop() {
-    this.watcher?.stop();
+    this.watcher.stop();
     this.scheduler.stop();
   }
 
