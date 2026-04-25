@@ -20,6 +20,21 @@ test("help", async () => {
   `);
 });
 
+test("cli error", async () => {
+  const cli = useCli();
+  await expect(cli.cli("yay")).rejects.toThrowErrorMatchingInlineSnapshot(`
+    [Error: Command failed: pnpm -s cli blabla
+    Error: Unknown command: blabla
+        at parseCli (file:///home/hiroshi/code/personal/acpella/src/lib/cli.ts:17:11)
+        at main (file:///home/hiroshi/code/personal/acpella/src/cli.ts:40:15)
+        at file:///home/hiroshi/code/personal/acpella/src/cli.ts:355:1
+        at ModuleJob.run (node:internal/modules/esm/module_job:430:25)
+        at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:661:26)
+        at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+    ]
+  `);
+});
+
 describe("repl", () => {
   test("basic", async () => {
     const service = startService();
@@ -83,5 +98,16 @@ describe("exec", async () => {
         return true;
       },
     );
+  });
+
+  test("soft error", async () => {
+    const cli = useCli();
+    const result = await cli.cli("exec", "/agent default boo");
+    expect(sanitizeOutput(result.stderr)).toMatchInlineSnapshot(`""`);
+    expect(result.stdout).toMatchInlineSnapshot(`
+      "[⚙️ System]
+      Unknown agent: boo
+      "
+    `);
   });
 });
