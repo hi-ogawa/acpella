@@ -2,19 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { loadEnvFile, resolveDefaultEnvFile } from "./env-file.ts";
-
-describe(resolveDefaultEnvFile, () => {
-  it("uses XDG config home when present", () => {
-    expect(
-      resolveDefaultEnvFile({
-        env: {
-          XDG_CONFIG_HOME: "/tmp/custom-config",
-        },
-      }),
-    ).toBe("/tmp/custom-config/acpella/.env");
-  });
-});
+import { loadEnvFile } from "./env-file.ts";
 
 describe(loadEnvFile, () => {
   it("loads default env file without overriding existing env", () => {

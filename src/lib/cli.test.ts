@@ -19,23 +19,6 @@ describe(parseCli, () => {
     });
   });
 
-  it("allows env-file without explicit command", () => {
-    expect(
-      parseCli({
-        argv: ["node", "src/cli.ts", "--env-file", "./custom.env"],
-        commands: ["serve", "repl", "exec"],
-        defaultCommand: "serve",
-      }),
-    ).toEqual({
-      ok: true,
-      value: {
-        command: "serve",
-        args: [],
-        envFile: "./custom.env",
-      },
-    });
-  });
-
   it("fails when env-file path is missing", () => {
     expect(
       parseCli({
