@@ -31,33 +31,30 @@ Options:
 `;
 
 async function main() {
-  const cli = parseCli({
-    argv: process.argv,
-    commands: ["serve", "repl", "exec"],
-    defaultCommand: "serve",
-  });
-
-  if (cli.command === "help") {
+  const cliArgv = process.argv.slice(2);
+  if (["-h", "--help"].includes(cliArgv[0])) {
     console.log(CLI_HELP);
     return;
   }
 
+  const cli = parseCli({
+    argv: cliArgv,
+    commands: ["serve", "repl", "exec"],
+    defaultCommand: "serve",
+  });
+
   if (cli.command !== "exec" && cli.args.length > 0) {
-    console.error(`\
+    throw new Error(`\
 Unexpected arguments for ${cli.command}: ${cli.args.join(" ")}
 
 ${CLI_HELP}`);
-    process.exitCode = 1;
-    return;
   }
 
   if (cli.command === "exec" && cli.args.length === 0) {
-    console.error(`\
+    throw new Error(`\
 Missing message for exec
 
 ${CLI_HELP}`);
-    process.exitCode = 1;
-    return;
   }
 
   const config = loadConfig();
@@ -125,14 +122,10 @@ ${CLI_HELP}`);
   const allowedChats = new Set(config.telegram.allowedChatIds);
 
   if (!config.telegram.token) {
-    console.error("ACPELLA_TELEGRAM_BOT_TOKEN is required");
-    process.exitCode = 1;
-    return;
+    throw new Error("ACPELLA_TELEGRAM_BOT_TOKEN is required");
   }
   if (allowedUsers.size === 0) {
-    console.error("ACPELLA_TELEGRAM_ALLOWED_USER_IDS must be non-empty");
-    process.exitCode = 1;
-    return;
+    throw new Error("ACPELLA_TELEGRAM_ALLOWED_USER_IDS must be non-empty");
   }
 
   const bot = new Bot(config.telegram.token);
