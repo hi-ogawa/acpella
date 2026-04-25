@@ -159,7 +159,7 @@ export function useCli() {
   const { root } = useFs({
     prefix: "e2e-cli",
   });
-  function run(...messages: string[]) {
+  function cli(...messages: string[]) {
     return execFileAsync("pnpm", ["-s", "cli", ...messages], {
       cwd: path.join(import.meta.dirname, "../.."),
       env: {
@@ -168,5 +168,5 @@ export function useCli() {
       },
     });
   }
-  return { root, cli: run };
+  return { root, cli };
 }
