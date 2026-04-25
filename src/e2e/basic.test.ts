@@ -74,7 +74,7 @@ describe("exec", async () => {
     await expect(cli.cli("exec", "/session load error-agent:error-session")).rejects.toSatisfy(
       (e) => {
         expect.assert(e instanceof Error);
-        expect(e.message.split("\n").slice(0, 2)).toMatchInlineSnapshot(`
+        expect(sanitizeOutput(e.message).split("\n").slice(0, 2)).toMatchInlineSnapshot(`
         [
           "Command failed: pnpm -s cli exec /session load error-agent:error-session",
           "Error: Unknown agent: error-agent",
