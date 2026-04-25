@@ -70,9 +70,9 @@ test(CronTimer, ({ onTestFinished }) => {
   });
 
   // timer internally set timeout at most 1 minute
-  vi.advanceTimersToNextTimer();
+  vi.advanceTimersByTime(60 * 1000);
   expect(events).toMatchInlineSnapshot(`[]`);
-  vi.advanceTimersToNextTimer();
+  vi.advanceTimersByTime(60 * 1000);
   expect(events).toMatchInlineSnapshot(`
     [
       {
@@ -81,7 +81,7 @@ test(CronTimer, ({ onTestFinished }) => {
       },
     ]
   `);
-  vi.advanceTimersToNextTimer();
+  vi.advanceTimersByTime(60 * 1000);
   expect(events).toMatchInlineSnapshot(`
     [
       {
@@ -90,7 +90,7 @@ test(CronTimer, ({ onTestFinished }) => {
       },
     ]
   `);
-  vi.advanceTimersToNextTimer();
+  vi.advanceTimersByTime(60 * 1000);
   expect(events).toMatchInlineSnapshot(`
     [
       {
