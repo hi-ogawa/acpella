@@ -5,7 +5,7 @@ describe(parseCli, () => {
   it("parses global env-file option before command", () => {
     expect(
       parseCli({
-        argv: ["node", "src/cli.ts", "--env-file", "./custom.env", "repl"],
+        argv: ["--env-file", "./custom.env", "repl"],
         commands: ["serve", "repl", "exec"],
         defaultCommand: "serve",
       }),
@@ -21,7 +21,7 @@ describe(parseCli, () => {
   it("fails when env-file path is missing", () => {
     expect(() =>
       parseCli({
-        argv: ["node", "src/cli.ts", "--env-file"],
+        argv: ["--env-file"],
         commands: ["serve", "repl", "exec"],
         defaultCommand: "serve",
       }),

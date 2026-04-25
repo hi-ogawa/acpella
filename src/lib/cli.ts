@@ -10,7 +10,7 @@ export function parseCli(options: {
   defaultCommand?: string;
 }): ParsedCli {
   let envFile: string | undefined;
-  let index = 2;
+  let index = 0;
   while (index < options.argv.length) {
     const token = options.argv[index];
     if (token === "-h" || token === "--help") {

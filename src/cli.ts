@@ -34,7 +34,7 @@ Options:
 
 async function main() {
   const cli = parseCli({
-    argv: process.argv,
+    argv: process.argv.slice(2),
     commands: ["serve", "repl", "exec"],
     defaultCommand: "serve",
   });
