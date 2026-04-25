@@ -26,9 +26,19 @@ Use this skill when the task is about operating acpella itself: setup, service m
 
 ## Command surface
 
-Administrative slash commands use the same text syntax across Telegram, the local REPL, and local one-shot execution.
+Administrative slash commands use the same text syntax across Telegram, the local REPL, and local one-shot execution, but they run inside whichever acpella process receives them.
 
 When unsure which slash command or arguments to use, start with `/help` from Telegram, the local REPL, or `pnpm cli exec /help`. Treat it as the source of truth for the currently installed command surface.
+
+## Command process scope
+
+- Telegram commands are handled by the long-running acpella bot service.
+- REPL commands are handled by that REPL process.
+- `pnpm cli exec <slash-command...>` starts a separate short-lived acpella process, handles one command, then exits.
+
+Commands that only read or mutate shared `.acpella` state, such as `/agent list`, `/session list`, `/cron add`, or `/cron update`, are usually fine through `exec`.
+
+Commands that control process-local runtime state, such as `/cron start`, `/cron stop`, `/session new`, `/session load`, or `/session close`, must be sent to the process whose runtime state should change. Do not use `exec` to control another running acpella service.
 
 Use `pnpm cli exec <slash-command...>` only for local shell administration of acpella itself: inspecting or changing installation-wide state, listing configured objects, or running setup commands.
 
