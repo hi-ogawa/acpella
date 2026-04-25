@@ -6,7 +6,6 @@ import { Bot } from "grammy";
 import { loadConfig, type AppConfig } from "./config.ts";
 import { CronRunner } from "./cron/runner.ts";
 import { CronStore } from "./cron/store.ts";
-import { CronFileWatcher } from "./cron/watch.ts";
 import { createHandler, type Handler } from "./handler.ts";
 import { parseCli } from "./lib/cli.ts";
 import { markdownToTelegramHtml } from "./lib/telegram/format-html.ts";
@@ -85,11 +84,6 @@ ${CLI_HELP}`);
         }
       },
     },
-  });
-  const cronFileWatcher = new CronFileWatcher({
-    cronFile: config.cronFile,
-    store: cronStore,
-    runner: cronRunner,
   });
 
   const handler = await createHandler(config, {
@@ -268,7 +262,6 @@ ${CLI_HELP}`);
   console.log(`Starting service (version: ${version}, home: ${config.home})`);
 
   cronRunner.start();
-  cronFileWatcher.start();
   const runner = run(bot, {
     sink: {
       // @grammyjs/runner defaults to 500; keep acpella conservative because prompts spawn child agents.
@@ -278,7 +271,6 @@ ${CLI_HELP}`);
   try {
     await runner.task();
   } finally {
-    cronFileWatcher.stop();
     cronRunner.stop();
   }
 }
