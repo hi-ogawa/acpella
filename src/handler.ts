@@ -518,13 +518,13 @@ enabled jobs: ${enabledJobs.length}
         }
         let delivery = metadata?.cronDeliveryTarget;
         if (cron.sessionName) {
-          if (!stateStore.get().sessions[sessionName]) {
-            await reply.system(`Unknown session: ${sessionName}`);
+          if (!stateStore.get().sessions[cron.sessionName]) {
+            await reply.system(`Unknown session: ${cron.sessionName}`);
             return;
           }
-          const parsedSesssion = parseTelegramSessionName(sessionName);
+          const parsedSesssion = parseTelegramSessionName(cron.sessionName);
           if (!parsedSesssion) {
-            await reply.system(`Invalid session as delivery target: ${sessionName}`);
+            await reply.system(`Invalid session as delivery target: ${cron.sessionName}`);
             return;
           }
           delivery = { telegram: parsedSesssion };
