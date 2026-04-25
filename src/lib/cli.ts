@@ -10,13 +10,6 @@ export function parseCli(options: {
 }): ParsedCli {
   const [inputCommand, ...args] = options.argv.slice(2);
   const command = inputCommand ?? options.defaultCommand;
-
-  if (command === "-h" || command === "--help") {
-    return {
-      command: "help",
-      args: [],
-    };
-  }
   if (!command) {
     throw new Error("Missing command");
   }
