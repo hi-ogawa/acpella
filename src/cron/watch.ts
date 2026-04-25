@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import { formatError } from "../lib/utils.ts";
+import { debounce, type Debouncer, formatError } from "../lib/utils.ts";
 import type { CronRunner } from "./runner.ts";
 import type { CronStore } from "./store.ts";
 
@@ -13,7 +13,7 @@ export interface CronFileWatcherOptions {
 export class CronFileWatcher {
   options: Required<CronFileWatcherOptions>;
   started = false;
-  debounceTimeout?: ReturnType<typeof setTimeout>;
+  reloadDebouncer: Debouncer;
 
   constructor(options: CronFileWatcherOptions) {
     this.options = {
@@ -21,6 +21,7 @@ export class CronFileWatcher {
       watchIntervalMs: 1000,
       ...options,
     };
+    this.reloadDebouncer = debounce(() => this.reload(), this.options.debounceMs);
   }
 
   start(): void {
@@ -43,10 +44,7 @@ export class CronFileWatcher {
     }
     this.started = false;
     fs.unwatchFile(this.options.store.options.cronFile, this.handleWatchEvent);
-    if (this.debounceTimeout) {
-      clearTimeout(this.debounceTimeout);
-      this.debounceTimeout = undefined;
-    }
+    this.reloadDebouncer.cancel();
   }
 
   handleWatchEvent = (current: fs.Stats, previous: fs.Stats): void => {
@@ -57,14 +55,7 @@ export class CronFileWatcher {
     ) {
       return;
     }
-    if (this.debounceTimeout) {
-      clearTimeout(this.debounceTimeout);
-      this.debounceTimeout = undefined;
-    }
-    this.debounceTimeout = setTimeout(() => {
-      this.debounceTimeout = undefined;
-      this.reload();
-    }, this.options.debounceMs);
+    this.reloadDebouncer.schedule();
   };
 
   reload(): void {
