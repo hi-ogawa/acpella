@@ -7,7 +7,7 @@ export const CRON_ADD_USAGE =
 export const CRON_UPDATE_USAGE =
   "/cron update <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--session <sessionName>] [-- <prompt...>]";
 
-function parseCronArgs(args: string[], timezone: string) {
+export function parseCronArgs(args: string[], timezone: string) {
   const [id, minute, hour, dayOfMonth, month, dayOfWeek, ...restArgs] = args;
   if (!id || !minute || !hour || !dayOfMonth || !month || !dayOfWeek) {
     throw new Error("Invalid input");
@@ -40,41 +40,6 @@ function parseCronArgs(args: string[], timezone: string) {
   }
 
   return { id, schedule, sessionName, prompt };
-}
-
-export function parseCronAddArgs(
-  args: string[],
-  timezone: string,
-): Result<
-  {
-    id: string;
-    schedule: string;
-    prompt: string;
-    sessionName?: string;
-  },
-  string
-> {
-  const { id, schedule, sessionName, prompt } = parseCronArgs(args, timezone);
-  if (!prompt) {
-    throw new Error("Missing prompt");
-  }
-  return Result.ok({ id, schedule, prompt, sessionName });
-}
-
-export function parseCronUpdateArgs(
-  args: string[],
-  timezone: string,
-): Result<
-  {
-    id: string;
-    schedule: string;
-    prompt?: string;
-    sessionName?: string;
-  },
-  string
-> {
-  const { id, schedule, sessionName, prompt } = parseCronArgs(args, timezone);
-  return Result.ok({ id, schedule, prompt, sessionName });
 }
 
 export function parseCronIdArg(args: string[], usage: string): Result<{ id: string }, string> {

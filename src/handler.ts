@@ -5,9 +5,8 @@ import type { AppConfig } from "./config.ts";
 import {
   CRON_ADD_USAGE,
   CRON_UPDATE_USAGE,
-  parseCronAddArgs,
+  parseCronArgs,
   parseCronIdArg,
-  parseCronUpdateArgs,
   renderCronList,
   renderCronShow,
 } from "./cron/command.ts";
@@ -533,12 +532,11 @@ enabled jobs: ${enabledJobs.length}
       help: `${CRON_ADD_USAGE} - Add a cron job.`,
       withArgs: true,
       run: async ({ args, reply, sessionName, metadata }) => {
-        const parsed = parseCronAddArgs(args, config.timezone);
-        if (!parsed.ok) {
-          await reply.system(`${parsed.value}\nUsage: ${CRON_ADD_USAGE}`);
+        const cron = parseCronArgs(args, config.timezone);
+        if (!cron.prompt) {
+          await reply.system(`Missing prompt`);
           return;
         }
-        const cron = parsed.value;
         let delivery = metadata?.cronDeliveryTarget;
         if (cron.sessionName) {
           const target = await getCronTelegramTarget({ reply, sessionName: cron.sessionName });
@@ -576,12 +574,7 @@ enabled jobs: ${enabledJobs.length}
       help: `${CRON_UPDATE_USAGE} - Update a cron job.`,
       withArgs: true,
       run: async ({ args, reply }) => {
-        const parsed = parseCronUpdateArgs(args, config.timezone);
-        if (!parsed.ok) {
-          await reply.system(`${parsed.value}\nUsage: ${CRON_UPDATE_USAGE}`);
-          return;
-        }
-        const cron = parsed.value;
+        const cron = parseCronArgs(args, config.timezone);
         const job = cronStore.getJob(cron.id);
         if (!job) {
           await reply.system(`Unknown cron job: ${cron.id}`);
