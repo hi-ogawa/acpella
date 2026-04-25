@@ -267,8 +267,9 @@ ${CLI_HELP}`);
         return;
       }
       console.error(`${label} (response error)`, error);
+      const name = error instanceof Error ? error.name : "Error";
       const message = error instanceof Error ? error.message : String(error);
-      await replyWithRetry(`Error: ${truncateString(message, 200)}`);
+      await replyWithRetry(`${name}: ${truncateString(message, 200)}`);
     } finally {
       chatActionManager.stop();
     }
