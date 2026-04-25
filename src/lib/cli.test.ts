@@ -9,26 +9,22 @@ describe(parseCli, () => {
         commands: ["serve", "repl", "exec"],
         defaultCommand: "serve",
       }),
-    ).toEqual({
-      ok: true,
-      value: {
-        command: "repl",
-        args: [],
-        envFile: "./custom.env",
-      },
-    });
+    ).toMatchInlineSnapshot(`
+      {
+        "args": [],
+        "command": "repl",
+        "envFile": "./custom.env",
+      }
+    `);
   });
 
   it("fails when env-file path is missing", () => {
-    expect(
+    expect(() =>
       parseCli({
         argv: ["node", "src/cli.ts", "--env-file"],
         commands: ["serve", "repl", "exec"],
         defaultCommand: "serve",
       }),
-    ).toEqual({
-      ok: false,
-      value: "Missing value for --env-file",
-    });
+    ).toThrowErrorMatchingInlineSnapshot(`[Error: Missing value for --env-file]`);
   });
 });

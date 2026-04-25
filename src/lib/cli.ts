@@ -1,5 +1,3 @@
-import { Result } from "./utils.ts";
-
 type ParsedCli = {
   command: string;
   args: string[];
@@ -10,21 +8,21 @@ export function parseCli(options: {
   argv: string[];
   commands: string[];
   defaultCommand?: string;
-}): Result<ParsedCli, string> {
+}): ParsedCli {
   let envFile: string | undefined;
   let index = 2;
   while (index < options.argv.length) {
     const token = options.argv[index];
     if (token === "-h" || token === "--help") {
-      return Result.ok({
+      return {
         command: "help",
         args: [],
-      });
+      };
     }
     if (token === "--env-file") {
       const value = options.argv[index + 1];
       if (!value) {
-        return Result.err("Missing value for --env-file");
+        throw new Error("Missing value for --env-file");
       }
       envFile = value;
       index += 2;
@@ -37,14 +35,14 @@ export function parseCli(options: {
   const command = inputCommand ?? options.defaultCommand;
 
   if (!command) {
-    return Result.err("Missing command");
+    throw new Error("Missing command");
   }
   if (!options.commands.includes(command)) {
-    return Result.err(`Unknown command: ${command}`);
+    throw new Error(`Unknown command: ${command}`);
   }
-  return Result.ok({
+  return {
     command,
     args,
     envFile,
-  });
+  };
 }

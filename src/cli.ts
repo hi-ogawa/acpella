@@ -33,21 +33,12 @@ Options:
 `;
 
 async function main() {
-  const cliResult = parseCli({
+  const cli = parseCli({
     argv: process.argv,
     commands: ["serve", "repl", "exec"],
     defaultCommand: "serve",
   });
-  if (!cliResult.ok) {
-    console.error(`\
-${cliResult.value}
 
-${CLI_HELP}`);
-    process.exitCode = 1;
-    return;
-  }
-
-  const cli = cliResult.value;
   if (cli.command === "help") {
     console.log(CLI_HELP);
     return;
