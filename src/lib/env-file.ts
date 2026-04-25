@@ -3,14 +3,6 @@ import { homedir } from "node:os";
 import path from "node:path";
 import { parseEnv } from "node:util";
 
-export function resolveDefaultEnvFile(options?: { env?: NodeJS.ProcessEnv }): string {
-  const env = options?.env ?? process.env;
-  const configHome = env.XDG_CONFIG_HOME?.trim()
-    ? path.resolve(env.XDG_CONFIG_HOME)
-    : path.join(homedir(), ".config");
-  return path.join(configHome, "acpella", ".env");
-}
-
 export function loadEnvFile(options?: { file?: string; cwd?: string; env?: NodeJS.ProcessEnv }): {
   file: string;
   loaded: boolean;
@@ -40,4 +32,12 @@ export function loadEnvFile(options?: { file?: string; cwd?: string; env?: NodeJ
     file,
     loaded: true,
   };
+}
+
+function resolveDefaultEnvFile(options?: { env?: NodeJS.ProcessEnv }): string {
+  const env = options?.env ?? process.env;
+  const configHome = env.XDG_CONFIG_HOME?.trim()
+    ? path.resolve(env.XDG_CONFIG_HOME)
+    : path.join(homedir(), ".config");
+  return path.join(configHome, "acpella", ".env");
 }

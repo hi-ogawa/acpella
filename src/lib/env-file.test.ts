@@ -4,6 +4,8 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { loadEnvFile } from "./env-file.ts";
 
+// TODO: move to e2e
+
 describe(loadEnvFile, () => {
   it("loads default env file without overriding existing env", () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "acpella-env-file-"));
