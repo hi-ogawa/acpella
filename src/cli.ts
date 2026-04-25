@@ -33,13 +33,14 @@ Options:
 `;
 
 async function main() {
-  if (["-h", "--help"].includes(process.argv[2])) {
+  const cliArgv = process.argv.slice(2);
+  if (["-h", "--help"].includes(cliArgv[0])) {
     console.log(CLI_HELP);
     return;
   }
 
   const cli = parseCli({
-    argv: process.argv.slice(2),
+    argv: cliArgv,
     commands: ["serve", "repl", "exec"],
     defaultCommand: "serve",
   });
