@@ -3,25 +3,20 @@ import { debounce, type Debouncer, formatError } from "../lib/utils.ts";
 import type { CronRunner } from "./runner.ts";
 import type { CronStore } from "./store.ts";
 
-export interface CronFileWatcherOptions {
-  store: CronStore;
-  runner: CronRunner;
-  debounceMs?: number;
-  watchIntervalMs?: number;
-}
+const RELOAD_DEBOUNCE_MS = 250;
+const WATCH_INTERVAL_MS = 1000;
 
 export class CronFileWatcher {
-  options: Required<CronFileWatcherOptions>;
+  options: {
+    store: CronStore;
+    runner: CronRunner;
+  };
   started = false;
   reloadDebouncer: Debouncer;
 
-  constructor(options: CronFileWatcherOptions) {
-    this.options = {
-      debounceMs: 250,
-      watchIntervalMs: 1000,
-      ...options,
-    };
-    this.reloadDebouncer = debounce(() => this.reload(), this.options.debounceMs);
+  constructor(options: CronFileWatcher["options"]) {
+    this.options = options;
+    this.reloadDebouncer = debounce(() => this.reload(), RELOAD_DEBOUNCE_MS);
   }
 
   start(): void {
@@ -32,7 +27,7 @@ export class CronFileWatcher {
     fs.watchFile(
       this.options.store.options.cronFile,
       {
-        interval: this.options.watchIntervalMs,
+        interval: WATCH_INTERVAL_MS,
       },
       this.handleWatchEvent,
     );
