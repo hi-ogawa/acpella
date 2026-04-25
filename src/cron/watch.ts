@@ -25,13 +25,14 @@ export class CronFileWatcher {
       return;
     }
     this.started = true;
-    this.watcher = watchFile({
+    this.watcher = new FileWatcher({
       file: this.options.store.options.cronFile,
       intervalMs: WATCH_INTERVAL_MS,
       onChange: () => {
         this.reloadDebouncer.schedule();
       },
     });
+    this.watcher.start();
   }
 
   stop(): void {
@@ -39,7 +40,7 @@ export class CronFileWatcher {
       return;
     }
     this.started = false;
-    this.watcher?.dispose();
+    this.watcher?.stop();
     this.watcher = undefined;
     this.reloadDebouncer.cancel();
   }
@@ -57,29 +58,50 @@ export class CronFileWatcher {
   }
 }
 
-interface FileWatcher {
-  dispose: () => void;
-}
-
-function watchFile(options: {
-  file: string;
-  intervalMs: number;
-  onChange: () => void;
-}): FileWatcher {
-  let previousStats = readStats(options.file);
-  const interval = setInterval(() => {
-    const currentStats = readStats(options.file);
-    if (didStatsChange(currentStats, previousStats)) {
-      options.onChange();
-    }
-    previousStats = currentStats;
-  }, options.intervalMs);
-
-  return {
-    dispose: () => {
-      clearInterval(interval);
-    },
+class FileWatcher {
+  options: {
+    file: string;
+    intervalMs: number;
+    onChange: () => void;
   };
+  started = false;
+  previousStats?: fs.Stats;
+  interval?: ReturnType<typeof setInterval>;
+
+  constructor(options: FileWatcher["options"]) {
+    this.options = options;
+  }
+
+  start(): void {
+    if (this.started) {
+      return;
+    }
+    this.started = true;
+    this.previousStats = readStats(this.options.file);
+    this.interval = setInterval(() => {
+      this.poll();
+    }, this.options.intervalMs);
+  }
+
+  stop(): void {
+    if (!this.started) {
+      return;
+    }
+    this.started = false;
+    if (this.interval) {
+      clearInterval(this.interval);
+      this.interval = undefined;
+    }
+    this.previousStats = undefined;
+  }
+
+  poll(): void {
+    const currentStats = readStats(this.options.file);
+    if (didStatsChange(currentStats, this.previousStats)) {
+      this.options.onChange();
+    }
+    this.previousStats = currentStats;
+  }
 }
 
 function readStats(file: string): fs.Stats | undefined {
