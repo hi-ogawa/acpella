@@ -60,7 +60,6 @@ Coverage checklist:
   - [x] status
   - [x] start
   - [x] stop
-  - [x] reload
   - [x] add
   - [ ] add rejects missing delivery target
   - [ ] add rejects invalid args
@@ -217,7 +216,6 @@ test("basic", async () => {
       /cron status - Show cron scheduler status.
       /cron start - Start cron scheduler.
       /cron stop - Stop cron scheduler.
-      /cron reload - Reload cron jobs from disk.
       /cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--session <sessionName>] -- <prompt...> - Add a cron job.
       /cron update <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--session <sessionName>] [-- <prompt...>] - Update a cron job.
       /cron list - List cron jobs.
@@ -763,104 +761,6 @@ test("message metadata", async () => {
     session_name: test
     </message_metadata>
     __keep_metadata: ok"
-  `);
-});
-
-test("cron reload command", async ({ onTestFinished }) => {
-  // Timeline:
-  // - 00:00 UTC / 07:00 Jakarta: runner starts with no jobs.
-  // - 00:00 UTC / 07:00 Jakarta: write file-job directly to cron.json, then reload.
-  // - 00:02 UTC / 07:02 Jakarta: file-job fires with hello-from-file.
-  vi.useFakeTimers({
-    now: Date.parse("2026-04-18T00:00:00Z"),
-  });
-  onTestFinished(() => {
-    vi.useRealTimers();
-  });
-
-  const tester = await createHandlerTester();
-  tester.cronRunner.start();
-  onTestFinished(() => {
-    tester.cronRunner.stop();
-  });
-
-  const session = tester.createSession("test", {
-    metadata: { cronDeliveryTarget: { repl: true } },
-  });
-  expect(await session.request("/cron list")).toMatchInlineSnapshot(`
-    "[⚙️ System]
-    No cron jobs."
-  `);
-
-  writeJsonFile(tester.config.cronFile, {
-    version: 1,
-    jobs: {
-      "file-job": {
-        id: "file-job",
-        enabled: true,
-        schedule: "2 * * * *",
-        timezone: tester.config.timezone,
-        prompt: "hello-from-file",
-        target: {
-          sessionName: "test",
-          delivery: { repl: true },
-        },
-      },
-    },
-  });
-
-  expect(await session.request("/cron reload")).toMatchInlineSnapshot(`
-    "[⚙️ System]
-    Reloaded cron jobs."
-  `);
-  expect(await session.request("/cron list")).toMatchInlineSnapshot(`
-    "[⚙️ System]
-    - file-job [enabled]
-      schedule: 2 * * * *
-      timezone: Asia/Jakarta
-      target session: test
-      delivery target: repl
-      next: 2026-04-18T07:02:00+07:00
-      last: none"
-  `);
-
-  writeJsonFile(tester.config.cronFile, {
-    version: 12.34,
-    jobs: {},
-  });
-  expect(await session.request("/cron reload")).toContain(
-    "[⚙️ System]\nFailed to reload cron jobs:",
-  );
-  expect(await session.request("/cron list")).toMatchInlineSnapshot(`
-    "[⚙️ System]
-    - file-job [enabled]
-      schedule: 2 * * * *
-      timezone: Asia/Jakarta
-      target session: test
-      delivery target: repl
-      next: 2026-04-18T07:02:00+07:00
-      last: none"
-  `);
-
-  vi.advanceTimersByTime(2 * 60 * 1000);
-  expect(formatTime(Date.now(), tester.config.timezone)).toMatchInlineSnapshot(
-    `"2026-04-18T07:02:00+07:00"`,
-  );
-  await vi.waitUntil(() => tester.cronDeliveries.length > 0);
-  expect(tester.cronDeliveries).toMatchInlineSnapshot(`
-    [
-      "echo: <trigger_metadata>
-    trigger: cron
-    cron_id: file-job
-    scheduled_at: 2026-04-18T07:02:00+07:00
-    started_at: 2026-04-18T07:02:00+07:00
-    timezone: Asia/Jakarta
-    session_name: test
-    </trigger_metadata>
-
-    hello-from-file
-    ",
-    ]
   `);
 });
 
