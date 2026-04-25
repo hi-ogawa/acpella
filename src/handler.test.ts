@@ -842,10 +842,7 @@ test("cron reload command", async ({ onTestFinished }) => {
       last: none"
   `);
 
-  vi.advanceTimersByTime(60 * 1000);
-  vi.advanceTimersByTime(60 * 1000);
-  // vi.advanceTimersToNextTimer()
-  // vi.advanceTimersToNextTimer()
+  vi.advanceTimersByTime(2 * 60 * 1000);
   expect(formatTime(Date.now(), tester.config.timezone)).toMatchInlineSnapshot(
     `"2026-04-18T07:02:00+07:00"`,
   );
@@ -1028,8 +1025,7 @@ test("cron command", async ({ onTestFinished }) => {
       last: none"
   `);
 
-  vi.advanceTimersByTime(60 * 1000);
-  vi.advanceTimersByTime(60 * 1000);
+  vi.advanceTimersByTime(2 * 60 * 1000);
   expect(formatTime(Date.now(), tester.config.timezone)).toMatchInlineSnapshot(
     `"2026-04-18T07:03:00+07:00"`,
   );
