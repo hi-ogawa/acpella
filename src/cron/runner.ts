@@ -27,7 +27,6 @@ export class CronRunner {
       onDue: this.handleDueEvent.bind(this),
     });
     this.watcher = new CronFileWatcher({
-      cronFile: options.store.options.cronFile,
       store: options.store,
       runner: this,
     });

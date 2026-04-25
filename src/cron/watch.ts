@@ -4,7 +4,6 @@ import type { CronRunner } from "./runner.ts";
 import type { CronStore } from "./store.ts";
 
 export interface CronFileWatcherOptions {
-  cronFile: string;
   store: CronStore;
   runner: CronRunner;
   debounceMs?: number;
@@ -30,7 +29,7 @@ export class CronFileWatcher {
     }
     this.started = true;
     fs.watchFile(
-      this.options.cronFile,
+      this.options.store.options.cronFile,
       {
         interval: this.options.watchIntervalMs,
       },
@@ -43,7 +42,7 @@ export class CronFileWatcher {
       return;
     }
     this.started = false;
-    fs.unwatchFile(this.options.cronFile, this.handleWatchEvent);
+    fs.unwatchFile(this.options.store.options.cronFile, this.handleWatchEvent);
     if (this.debounceTimeout) {
       clearTimeout(this.debounceTimeout);
       this.debounceTimeout = undefined;
