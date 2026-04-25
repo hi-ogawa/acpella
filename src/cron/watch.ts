@@ -13,6 +13,7 @@ export class CronFileWatcher {
   };
   started = false;
   reloadDebouncer: Debouncer;
+  watcher?: FileWatcher;
 
   constructor(options: CronFileWatcher["options"]) {
     this.options = options;
@@ -24,13 +25,13 @@ export class CronFileWatcher {
       return;
     }
     this.started = true;
-    fs.watchFile(
-      this.options.store.options.cronFile,
-      {
-        interval: WATCH_INTERVAL_MS,
+    this.watcher = watchFile({
+      file: this.options.store.options.cronFile,
+      intervalMs: WATCH_INTERVAL_MS,
+      onChange: () => {
+        this.reloadDebouncer.schedule();
       },
-      this.handleWatchEvent,
-    );
+    });
   }
 
   stop(): void {
@@ -38,20 +39,10 @@ export class CronFileWatcher {
       return;
     }
     this.started = false;
-    fs.unwatchFile(this.options.store.options.cronFile, this.handleWatchEvent);
+    this.watcher?.dispose();
+    this.watcher = undefined;
     this.reloadDebouncer.cancel();
   }
-
-  handleWatchEvent = (current: fs.Stats, previous: fs.Stats): void => {
-    if (
-      current.mtimeMs === previous.mtimeMs &&
-      current.ctimeMs === previous.ctimeMs &&
-      current.size === previous.size
-    ) {
-      return;
-    }
-    this.reloadDebouncer.schedule();
-  };
 
   reload(): void {
     try {
@@ -64,4 +55,55 @@ export class CronFileWatcher {
       );
     }
   }
+}
+
+interface FileWatcher {
+  dispose: () => void;
+}
+
+function watchFile(options: {
+  file: string;
+  intervalMs: number;
+  onChange: () => void;
+}): FileWatcher {
+  let previousStats = readStats(options.file);
+  const interval = setInterval(() => {
+    const currentStats = readStats(options.file);
+    if (didStatsChange(currentStats, previousStats)) {
+      options.onChange();
+    }
+    previousStats = currentStats;
+  }, options.intervalMs);
+
+  return {
+    dispose: () => {
+      clearInterval(interval);
+    },
+  };
+}
+
+function readStats(file: string): fs.Stats | undefined {
+  try {
+    return fs.statSync(file);
+  } catch (error) {
+    if (isFileNotFoundError(error)) {
+      return undefined;
+    }
+    throw error;
+  }
+}
+
+function didStatsChange(current: fs.Stats | undefined, previous: fs.Stats | undefined): boolean {
+  if (!current || !previous) {
+    return current !== previous;
+  }
+  return (
+    current.mtimeMs !== previous.mtimeMs ||
+    current.ctimeMs !== previous.ctimeMs ||
+    current.size !== previous.size
+  );
+}
+
+function isFileNotFoundError(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
 }
