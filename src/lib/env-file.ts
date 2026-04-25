@@ -35,7 +35,7 @@ export function loadEnvFile(options: { file?: string; cwd?: string; env?: NodeJS
 }
 
 function resolveDefaultEnvFile(env: NodeJS.ProcessEnv): string {
-  const configHome = env.XDG_CONFIG_HOME?.trim()
+  const configHome = env.XDG_CONFIG_HOME
     ? path.resolve(env.XDG_CONFIG_HOME)
     : path.join(homedir(), ".config");
   return path.join(configHome, "acpella", ".env");
