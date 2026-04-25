@@ -842,8 +842,7 @@ test("cron reload command", async ({ onTestFinished }) => {
       last: none"
   `);
 
-  vi.advanceTimersToNextTimer();
-  vi.advanceTimersToNextTimer();
+  vi.advanceTimersByTime(2 * 60 * 1000);
   expect(formatTime(Date.now(), tester.config.timezone)).toMatchInlineSnapshot(
     `"2026-04-18T07:02:00+07:00"`,
   );
@@ -950,7 +949,7 @@ test("cron command", async ({ onTestFinished }) => {
   `);
   expect(tester.cronDeliveries).toMatchInlineSnapshot(`[]`);
 
-  vi.advanceTimersToNextTimer();
+  vi.advanceTimersByTime(60 * 1000);
   expect(formatTime(Date.now(), tester.config.timezone)).toMatchInlineSnapshot(
     `"2026-04-18T07:01:00+07:00"`,
   );
@@ -1026,8 +1025,7 @@ test("cron command", async ({ onTestFinished }) => {
       last: none"
   `);
 
-  vi.advanceTimersToNextTimer();
-  vi.advanceTimersToNextTimer();
+  vi.advanceTimersByTime(2 * 60 * 1000);
   expect(formatTime(Date.now(), tester.config.timezone)).toMatchInlineSnapshot(
     `"2026-04-18T07:03:00+07:00"`,
   );
@@ -1085,7 +1083,7 @@ test("cron command", async ({ onTestFinished }) => {
     Updated cron job: other-job"
   `);
 
-  vi.advanceTimersToNextTimer();
+  vi.advanceTimersByTime(60 * 1000);
   expect(formatTime(Date.now(), tester.config.timezone)).toMatchInlineSnapshot(
     `"2026-04-18T07:04:00+07:00"`,
   );
@@ -1210,7 +1208,7 @@ test("cron error delivery", async ({ onTestFinished }) => {
   `);
   expect(tester.cronDeliveries).toMatchInlineSnapshot(`[]`);
 
-  vi.advanceTimersToNextTimer();
+  vi.advanceTimersByTime(60 * 1000);
   expect(formatTime(Date.now(), tester.config.timezone)).toMatchInlineSnapshot(
     `"2026-04-18T07:01:00+07:00"`,
   );
