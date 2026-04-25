@@ -20,18 +20,17 @@ test("help", async () => {
   `);
 });
 
+function sanitizeCliError(error: Error) {
+  return sanitizeOutput(error.message)
+    .replaceAll(/    at .*\n/g, "")
+    .trim();
+}
+
 test("cli error", async () => {
   const cli = useCli();
-  await expect(cli.cli("yay")).rejects.toThrowErrorMatchingInlineSnapshot(`
-    [Error: Command failed: pnpm -s cli blabla
-    Error: Unknown command: blabla
-        at parseCli (file:///home/hiroshi/code/personal/acpella/src/lib/cli.ts:17:11)
-        at main (file:///home/hiroshi/code/personal/acpella/src/cli.ts:40:15)
-        at file:///home/hiroshi/code/personal/acpella/src/cli.ts:355:1
-        at ModuleJob.run (node:internal/modules/esm/module_job:430:25)
-        at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:661:26)
-        at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
-    ]
+  await expect(cli.cli("yay").catch(sanitizeCliError)).resolves.toThrowErrorMatchingInlineSnapshot(`
+    "Command failed: pnpm -s cli yay
+    Error: Unknown command: yay"
   `);
 });
 
@@ -86,18 +85,11 @@ describe("exec", async () => {
 
   test("hard error", async () => {
     const cli = useCli();
-    await expect(cli.cli("exec", "/session load error-agent:error-session")).rejects.toSatisfy(
-      (e) => {
-        expect.assert(e instanceof Error);
-        expect(sanitizeOutput(e.message).split("\n").slice(0, 2)).toMatchInlineSnapshot(`
-        [
-          "Command failed: pnpm -s cli exec /session load error-agent:error-session",
-          "Error: Unknown agent: error-agent",
-        ]
-      `);
-        return true;
-      },
-    );
+    await expect(cli.cli("exec", "/session load error-agent:error-session").catch(sanitizeCliError))
+      .resolves.toMatchInlineSnapshot(`
+      "Command failed: pnpm -s cli exec /session load error-agent:error-session
+      Error: Unknown agent: error-agent"
+    `);
   });
 
   test("soft error", async () => {
