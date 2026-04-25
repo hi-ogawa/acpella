@@ -13,18 +13,11 @@ export class CronFileWatcher {
   };
   started = false;
   reloadDebouncer: Debouncer;
-  watcher?: FileWatcher;
+  watcher: FileWatcher;
 
   constructor(options: CronFileWatcher["options"]) {
     this.options = options;
     this.reloadDebouncer = debounce(() => this.reload(), RELOAD_DEBOUNCE_MS);
-  }
-
-  start(): void {
-    if (this.started) {
-      return;
-    }
-    this.started = true;
     this.watcher = new FileWatcher({
       file: this.options.store.options.cronFile,
       intervalMs: WATCH_INTERVAL_MS,
@@ -32,6 +25,13 @@ export class CronFileWatcher {
         this.reloadDebouncer.schedule();
       },
     });
+  }
+
+  start(): void {
+    if (this.started) {
+      return;
+    }
+    this.started = true;
     this.watcher.start();
   }
 
@@ -40,8 +40,7 @@ export class CronFileWatcher {
       return;
     }
     this.started = false;
-    this.watcher?.stop();
-    this.watcher = undefined;
+    this.watcher.stop();
     this.reloadDebouncer.cancel();
   }
 
