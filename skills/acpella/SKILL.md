@@ -28,6 +28,8 @@ Use this skill when the task is about operating acpella itself: setup, service m
 
 Administrative slash commands use the same text syntax across Telegram, the local REPL, and local one-shot execution.
 
+When unsure which slash command or arguments to use, start with `/help` from Telegram, the local REPL, or `pnpm cli exec /help`. Treat it as the source of truth for the currently installed command surface.
+
 Use `pnpm cli exec <slash-command...>` only for local shell administration of acpella itself: inspecting or changing installation-wide state, listing configured objects, or running setup commands.
 
 Command examples use `pnpm cli`, which assumes the shell is in the acpella source checkout. If the current directory is not the acpella checkout, first `cd` to the checkout that owns the running service, or replace `pnpm cli` with that installation's equivalent acpella CLI entrypoint.
