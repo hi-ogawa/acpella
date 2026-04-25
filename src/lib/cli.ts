@@ -11,12 +11,6 @@ export function parseCli(options: {
 }): ParsedCli {
   let envFile: string | undefined;
   const argv = [...options.argv];
-  if (argv[0] === "-h" || argv[0] === "--help") {
-    return {
-      command: "help",
-      args: [],
-    };
-  }
   if (argv[0] === "--env-file") {
     const value = argv[1];
     if (!value) {

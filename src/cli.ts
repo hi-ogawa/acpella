@@ -33,16 +33,16 @@ Options:
 `;
 
 async function main() {
+  if (["-h", "--help"].includes(process.argv[2])) {
+    console.log(CLI_HELP);
+    return;
+  }
+
   const cli = parseCli({
     argv: process.argv.slice(2),
     commands: ["serve", "repl", "exec"],
     defaultCommand: "serve",
   });
-
-  if (cli.command === "help") {
-    console.log(CLI_HELP);
-    return;
-  }
 
   if (cli.command !== "exec" && cli.args.length > 0) {
     console.error(`\
