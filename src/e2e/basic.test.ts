@@ -20,6 +20,20 @@ test("help", async () => {
   `);
 });
 
+function sanitizeCliError(error: Error) {
+  return sanitizeOutput(error.message)
+    .replaceAll(/    at .*\n/g, "")
+    .trim();
+}
+
+test("cli error", async () => {
+  const cli = useCli();
+  await expect(cli.cli("yay").catch(sanitizeCliError)).resolves.toThrowErrorMatchingInlineSnapshot(`
+    "Command failed: pnpm -s cli yay
+    Error: Unknown command: yay"
+  `);
+});
+
 describe("repl", () => {
   test("basic", async () => {
     const service = startService();
@@ -71,17 +85,21 @@ describe("exec", async () => {
 
   test("hard error", async () => {
     const cli = useCli();
-    await expect(cli.cli("exec", "/session load error-agent:error-session")).rejects.toSatisfy(
-      (e) => {
-        expect.assert(e instanceof Error);
-        expect(sanitizeOutput(e.message).split("\n").slice(0, 2)).toMatchInlineSnapshot(`
-        [
-          "Command failed: pnpm -s cli exec /session load error-agent:error-session",
-          "Error: Unknown agent: error-agent",
-        ]
-      `);
-        return true;
-      },
-    );
+    await expect(cli.cli("exec", "/session load error-agent:error-session").catch(sanitizeCliError))
+      .resolves.toMatchInlineSnapshot(`
+      "Command failed: pnpm -s cli exec /session load error-agent:error-session
+      Error: Unknown agent: error-agent"
+    `);
+  });
+
+  test("soft error", async () => {
+    const cli = useCli();
+    const result = await cli.cli("exec", "/agent default boo");
+    expect(sanitizeOutput(result.stderr)).toMatchInlineSnapshot(`""`);
+    expect(result.stdout).toMatchInlineSnapshot(`
+      "[⚙️ System]
+      Unknown agent: boo
+      "
+    `);
   });
 });
