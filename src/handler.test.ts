@@ -38,6 +38,7 @@ Coverage checklist:
   - [x] verbose suppresses tool call output
   - [x] verbose includes tool call output when enabled
   - [ ] verbose is isolated per acpella session
+  - [ ] renew stale session when chat prompt crosses daily boundary
 - /agent
   - [x] list
   - [x] bare usage output
@@ -77,6 +78,7 @@ Coverage checklist:
   - [x] delete
   - [ ] delete unknown id
   - [x] runner executes repl cron job through handler prompt
+  - [ ] runner renews stale session when cron prompt crosses daily boundary
   - [ ] runner records failed delivery
 */
 
@@ -1377,3 +1379,7 @@ test("cron with session name", async ({ onTestFinished }) => {
     prompt: hello world"
   `);
 });
+
+test.todo("session renews stale chat prompt after daily boundary");
+
+test.todo("cron runner renews stale session after daily boundary");
