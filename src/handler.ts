@@ -17,6 +17,11 @@ import { formatSessionUpdateLogEntry, JsonLogger } from "./lib/logger.ts";
 import type { MessageMetadata } from "./lib/prompt.ts";
 import { buildFirstPrompt, buildMessageMetadataPrompt } from "./lib/prompt.ts";
 import { MESSAGE_SPLIT_BUDGET, ReplyManager } from "./lib/reply.ts";
+import {
+  parseSessionRenewPolicy,
+  renderSessionRenewPolicy,
+  shouldRenewSession,
+} from "./lib/session-renew.ts";
 import { handleSystemdInstall } from "./lib/systemd.ts";
 import { parseTelegramSessionName } from "./lib/telegram/utils.ts";
 import { AsyncLane, DefaultMap, formatError } from "./lib/utils.ts";
@@ -119,19 +124,30 @@ export async function createHandler(
     const { sessionName, text } = options;
     const stateSession = stateStore.getSession(sessionName);
     const manager = await getAgentManager(stateSession.agentKey);
+    const now = Date.now();
+    const createNewSession =
+      !stateSession.agentSessionId ||
+      shouldRenewSession({
+        updatedAt: stateSession.updatedAt,
+        renew: stateSession.renew,
+        now,
+        timezone: config.timezone,
+      });
 
     let session: AgentSessionProcess;
     let promptText = "";
-    if (stateSession.agentSessionId) {
+    if (!createNewSession) {
       session = await manager.loadSession({
         sessionCwd: config.home,
-        sessionId: stateSession.agentSessionId,
+        sessionId: stateSession.agentSessionId!,
       });
+      stateStore.setSession(sessionName, { updatedAt: now });
     } else {
       session = await manager.newSession({ sessionCwd: config.home });
       stateStore.setSession(sessionName, {
         agentKey: stateSession.agentKey,
         agentSessionId: session.sessionId,
+        updatedAt: now,
       });
       promptText += buildFirstPrompt(config.prompt.file);
     }
@@ -194,6 +210,7 @@ session: ${sessionName}
 agent: ${stateSession.agentKey}
 agent session id: ${stateSession.agentSessionId ?? "none"}
 verbose: ${verbose ? "on" : "off"}
+renew: ${renderSessionRenewPolicy({ policy: stateSession.renew, timezone: config.timezone })}
 `;
         const usage = stateSession.agentSessionId
           ? stateStore.getAgentSessionUsage({
@@ -355,6 +372,30 @@ verbose: ${verbose ? "on" : "off"}
           verbose: false,
         });
         await reply.system("Tool call output: off");
+      },
+    },
+    {
+      tokens: ["renew"],
+      help: "/session renew <off|daily|daily:N> [sessionName] - Set session renewal policy.",
+      withArgs: true,
+      run: async ({ args, reply, sessionName }) => {
+        const [value, targetSession] = args;
+        const usage = "Usage: /session renew <off|daily|daily:N> [sessionName]";
+        if (!value) {
+          await reply.system(usage);
+          return;
+        }
+        if (targetSession) {
+          if (!stateStore.get().sessions[targetSession]) {
+            await reply.system(`Unknown session: ${targetSession}`);
+            return;
+          }
+          sessionName = targetSession;
+        }
+        const policy = parseSessionRenewPolicy(value);
+        stateStore.setSession(sessionName, { renew: policy });
+        const output = renderSessionRenewPolicy({ policy, timezone: config.timezone });
+        await reply.system(`Session renewal: ${output}`);
       },
     },
   ];

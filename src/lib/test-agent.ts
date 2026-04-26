@@ -183,6 +183,8 @@ class EchoAgent implements Agent {
       const key = text.slice(6);
       const value = process.env[key] ?? "(unset)";
       reportText = `env: ${key}=${value}`;
+    } else if (text.includes("__include_session__")) {
+      reportText = `session: ${params.sessionId}\n${text.replace("__include_session__", "").trim()}`;
     } else if (text === "__session") {
       reportText = `session: ${params.sessionId}`;
     } else if (text.startsWith("__chunk_tool:")) {

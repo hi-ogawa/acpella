@@ -1,5 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
+import { sessionRenewPolicySchema } from "./lib/session-renew.ts";
 import { FileStateManager } from "./lib/utils-node.ts";
 
 const agentSchema = z.object({
@@ -15,6 +16,8 @@ const stateSessionSchema = z.object({
   agentKey: agentKeySchema,
   agentSessionId: z.string().min(1).optional(),
   verbose: z.boolean().optional(),
+  renew: sessionRenewPolicySchema.optional(),
+  updatedAt: z.number().int().nonnegative().optional(),
 });
 
 const agentSessionDataSchema = z.object({

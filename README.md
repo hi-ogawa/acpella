@@ -30,7 +30,7 @@ acpella exec /status # run one local admin command
 
 ## Configuring Agent
 
-The default agent is the built-in `test` echo agent. See [`skills/acpella`](skills/acpella) for current agent registration, session, customization, cron, and service administration workflows.
+The default agent is the built-in `test` echo agent. See [skills/acpella](skills/acpella/SKILL.md) for current agent registration, session, customization, cron, and service administration workflows.
 
 ## Development
 
@@ -50,5 +50,5 @@ pnpm cli exec /status
 
 ## Docs
 
-- [`skills/acpella`](skills/acpella) — maintained usage and administration guide for agents
+- [`skills/acpella`](skills/acpella/SKILL.md) — maintained usage and administration guide for agents
 - [`docs/architecture.md`](docs/architecture.md) — design decisions, data flow
