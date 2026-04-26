@@ -30,7 +30,7 @@ Task docs should enable **handoff to a fresh agent** - include enough context to
 - Reference files/patterns to follow
 - Implementation plan
 
-## Conventions
+## Rules
 
 - Commit messages: use Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:`, `chore:`); add `!` for breaking changes
 - File names: kebab-case
@@ -42,8 +42,4 @@ Task docs should enable **handoff to a fresh agent** - include enough context to
 - Import with `.ts` extensions (NodeNext resolution)
 - Use braces for every `switch` case body (`case "x": { ... }`, `default: { ... }`)
 - When changing setup, CLI commands, service management, session routing, agent registration, customization, cron, or troubleshooting behavior, check whether `README.md` and `skills/acpella` need matching updates.
-
-## Rule
-
-- Never remove `TODO: review slop` comment
 - Do not update existing `docs/tasks/*` notes just to reflect code refactors unless explicitly asked.
