@@ -59,9 +59,10 @@ Missing message for exec
 ${CLI_HELP}`);
   }
 
-  loadEnv({
-    file: cli.envFile,
-  });
+  // TODO
+  // loadEnv({
+  //   file: cli.envFile,
+  // });
 
   const config = loadConfig();
   const version = await getVersion({ cwd: path.join(import.meta.dirname, "..") });
