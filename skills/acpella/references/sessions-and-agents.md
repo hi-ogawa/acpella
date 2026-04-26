@@ -11,6 +11,7 @@ In practice, session commands are for:
 - starting fresh context
 - loading an older ACP session
 - closing a mapping you no longer want
+- controlling automatic renewal for a conversation
 
 Run session lifecycle commands from Telegram or the REPL conversation whose context you mean to control. Do not use `acpella exec` for `/session new`, `/session load`, or `/session close`. Use `acpella exec /session list` and `acpella exec '/session info <sessionName>'` only to discover existing session names and inspect known sessions for administrative commands such as cron creation.
 
@@ -25,14 +26,30 @@ Use:
 - `/session close [sessionId|agent:sessionId]`
 - `/session verbose on [sessionName]`
 - `/session verbose off [sessionName]`
+- `/session renew off [sessionName]`
+- `/session renew daily [sessionName]`
+- `/session renew daily:<hour> [sessionName]`
 
 Common cases:
 
 - after changing `.acpella/AGENTS.md`, run `/session new`
 - if you want a clean start, run `/session new`
 - if you know an older ACP session id, use `/session load ...`
-- use `/session info [sessionName]` to inspect the selected agent, agent session id, verbose setting, and context usage
+- use `/session info [sessionName]` to inspect the selected agent, agent session id, verbose setting, renewal policy, and context usage
 - use `/session verbose on|off [sessionName]` to show or hide tool-call output for a session
+- use `/session renew off|daily|daily:<hour> [sessionName]` to change whether a session renews automatically
+
+By default, sessions renew lazily once per day at 04:00 in the acpella service timezone. Renewal is checked immediately before the next live or cron prompt for that acpella session name. acpella does not create fresh ACP sessions on a background timer, and inactive conversations are not touched.
+
+Examples:
+
+```text
+/session renew off
+/session renew daily
+/session renew daily:6
+```
+
+`daily` means daily at 04:00. `daily:6` means daily at 06:00. Use `/session info` to confirm the effective policy.
 
 ## Agent commands
 

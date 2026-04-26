@@ -38,7 +38,7 @@ Coverage checklist:
   - [x] verbose suppresses tool call output
   - [x] verbose includes tool call output when enabled
   - [ ] verbose is isolated per acpella session
-  - [ ] renew stale session when chat prompt crosses daily boundary
+  - [x] renew stale session when chat prompt crosses daily boundary
 - /agent
   - [x] list
   - [x] bare usage output
@@ -78,7 +78,7 @@ Coverage checklist:
   - [x] delete
   - [ ] delete unknown id
   - [x] runner executes repl cron job through handler prompt
-  - [ ] runner renews stale session when cron prompt crosses daily boundary
+  - [x] runner renews stale session when cron prompt crosses daily boundary
   - [ ] runner records failed delivery
 */
 
@@ -210,6 +210,7 @@ test("basic", async () => {
       /session close [sessionId|agent:sessionId] - Close an agent session.
       /session verbose on [sessionName] - Enable tool-call output.
       /session verbose off [sessionName] - Disable tool-call output.
+      /session renew <off|daily|daily:N> [sessionName] - Set session renewal policy.
 
     /agent
       /agent list - List configured agents.
@@ -239,24 +240,25 @@ test("basic", async () => {
   `);
   expect(await session.request("hello")).toMatchInlineSnapshot(`"echo: hello"`);
   expect(readStateFile(tester.config)).toMatchInlineSnapshot(`
-      "{
-        "version": 2,
-        "defaultAgent": "test",
-        "agents": {
-          "test": {
-            "command": "node <cwd>/src/lib/test-agent.ts"
-          }
-        },
-        "sessions": {
-          "test": {
-            "agentKey": "test",
-            "agentSessionId": "__testSession1",
-            "verbose": false
-          }
-        },
-        "agentSessions": {}
-      }"
-    `);
+    "{
+      "version": 2,
+      "defaultAgent": "test",
+      "agents": {
+        "test": {
+          "command": "node <cwd>/src/lib/test-agent.ts"
+        }
+      },
+      "sessions": {
+        "test": {
+          "agentKey": "test",
+          "agentSessionId": "__testSession1",
+          "verbose": false,
+          "updatedAt": <time>
+        }
+      },
+      "agentSessions": {}
+    }"
+  `);
 });
 
 test("agent error", async () => {
@@ -401,7 +403,8 @@ test("session commands", async () => {
       /session load <sessionId|agent:sessionId> - Load an existing agent session.
       /session close [sessionId|agent:sessionId] - Close an agent session.
       /session verbose on [sessionName] - Enable tool-call output.
-      /session verbose off [sessionName] - Disable tool-call output."
+      /session verbose off [sessionName] - Disable tool-call output.
+      /session renew <off|daily|daily:N> [sessionName] - Set session renewal policy."
   `);
   expect(await session.request("/session help")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -412,14 +415,16 @@ test("session commands", async () => {
       /session load <sessionId|agent:sessionId> - Load an existing agent session.
       /session close [sessionId|agent:sessionId] - Close an agent session.
       /session verbose on [sessionName] - Enable tool-call output.
-      /session verbose off [sessionName] - Disable tool-call output."
+      /session verbose off [sessionName] - Disable tool-call output.
+      /session renew <off|daily|daily:N> [sessionName] - Set session renewal policy."
   `);
   expect(await session.request("/session info")).toMatchInlineSnapshot(`
     "[⚙️ System]
     session: test
     agent: test
     agent session id: none
-    verbose: off"
+    verbose: off
+    renew: daily at 04:00 Asia/Jakarta"
   `);
   expect(await session.request("/session list")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -431,7 +436,8 @@ test("session commands", async () => {
     session: test
     agent: test
     agent session id: __testSession1
-    verbose: off"
+    verbose: off
+    renew: daily at 04:00 Asia/Jakarta"
   `);
   expect(await session.request("/session list")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -451,7 +457,8 @@ test("session commands", async () => {
     session: test
     agent: test
     agent session id: __testSession2
-    verbose: off"
+    verbose: off
+    renew: daily at 04:00 Asia/Jakarta"
   `);
   expect(await session.request("__session")).toMatchInlineSnapshot(`"session: __testSession2"`);
   expect(await session.request("/session list")).toMatchInlineSnapshot(`
@@ -473,7 +480,8 @@ test("session commands", async () => {
     session: other
     agent: test
     agent session id: __testSession3
-    verbose: off"
+    verbose: off
+    renew: daily at 04:00 Asia/Jakarta"
   `);
   // /session info with explicit sessionName: does not exist
   expect(await session.request("/session info no-such-session")).toMatchInlineSnapshot(`
@@ -495,7 +503,8 @@ test("session context usage", async () => {
     session: test
     agent: test
     agent session id: __testSession1
-    verbose: off"
+    verbose: off
+    renew: daily at 04:00 Asia/Jakarta"
   `);
 
   // Send a usage_update
@@ -510,6 +519,7 @@ test("session context usage", async () => {
     agent: test
     agent session id: __testSession1
     verbose: off
+    renew: daily at 04:00 Asia/Jakarta
     context: 54321 / 200000 tokens (27%)"
   `);
   expect(readStateFile(tester.config)).toMatchInlineSnapshot(`
@@ -525,7 +535,8 @@ test("session context usage", async () => {
         "test": {
           "agentKey": "test",
           "agentSessionId": "__testSession1",
-          "verbose": false
+          "verbose": false,
+          "updatedAt": <time>
         }
       },
       "agentSessions": {
@@ -571,7 +582,8 @@ test("verbose command toggles tool call output", async () => {
     session: test
     agent: test
     agent session id: __testSession1
-    verbose: off"
+    verbose: off
+    renew: daily at 04:00 Asia/Jakarta"
   `);
   expect(await session.request("/session verbose on")).toMatchInlineSnapshot(`
       "[⚙️ System]
@@ -659,7 +671,8 @@ test("agent command", async () => {
     session: test
     agent: test-error
     agent session id: none
-    verbose: off"
+    verbose: off
+    renew: daily at 04:00 Asia/Jakarta"
   `);
   expect(await session.request("/agent remove test-error")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -676,7 +689,8 @@ test("agent command", async () => {
     session: test
     agent: test2
     agent session id: __testSession1
-    verbose: off"
+    verbose: off
+    renew: daily at 04:00 Asia/Jakarta"
   `);
   expect(await session.request("/session list")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -703,7 +717,8 @@ test("agent command", async () => {
         "test": {
           "agentKey": "test2",
           "agentSessionId": "__testSession1",
-          "verbose": false
+          "verbose": false,
+          "updatedAt": <time>
         }
       },
       "agentSessions": {}
@@ -718,7 +733,8 @@ test("agent command", async () => {
     session: test
     agent: test
     agent session id: __testSession1
-    verbose: off"
+    verbose: off
+    renew: daily at 04:00 Asia/Jakarta"
   `);
   expect(await session.request("/session close test2:__testSession1")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -740,7 +756,8 @@ test("agent command", async () => {
         "test": {
           "agentKey": "test",
           "agentSessionId": "__testSession1",
-          "verbose": false
+          "verbose": false,
+          "updatedAt": <time>
         }
       },
       "agentSessions": {}
@@ -1380,7 +1397,7 @@ test("cron with session name", async ({ onTestFinished }) => {
   `);
 });
 
-test.todo("session renews stale chat prompt after daily boundary", async ({ onTestFinished }) => {
+test("session renews stale chat prompt after daily boundary", async ({ onTestFinished }) => {
   // 2026-04-18 03:30 Asia/Jakarta, before the 04:00 daily renewal boundary.
   vi.useFakeTimers({
     now: Date.parse("2026-04-18T03:30:00+07:00"),
@@ -1392,7 +1409,10 @@ test.todo("session renews stale chat prompt after daily boundary", async ({ onTe
   const tester = await createHandlerTester();
   const session = tester.createSession("test");
 
-  await session.request("/session renew daily:4");
+  expect(await session.request("/session renew daily:4")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Session renewal: daily at 04:00 Asia/Jakarta"
+  `);
 
   expect(await session.request("__session")).toMatchInlineSnapshot(`"session: __testSession1"`);
 
@@ -1410,7 +1430,7 @@ test.todo("session renews stale chat prompt after daily boundary", async ({ onTe
   expect(await session.request("__session")).toMatchInlineSnapshot(`"session: __testSession2"`);
 });
 
-test.todo("cron runner renews stale session after daily boundary", async ({ onTestFinished }) => {
+test("cron runner renews stale session after daily boundary", async ({ onTestFinished }) => {
   // 2026-04-18 03:30 Asia/Jakarta, before the 04:00 daily renewal boundary.
   vi.useFakeTimers({
     now: Date.parse("2026-04-18T03:30:00+07:00"),
@@ -1429,7 +1449,10 @@ test.todo("cron runner renews stale session after daily boundary", async ({ onTe
     metadata: { cronDeliveryTarget: { repl: true } },
   });
 
-  await session.request("/session renew daily:4");
+  expect(await session.request("/session renew daily:4")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Session renewal: daily at 04:00 Asia/Jakarta"
+  `);
   expect(await session.request("__session")).toMatchInlineSnapshot(`"session: __testSession1"`);
 
   expect(
@@ -1459,8 +1482,7 @@ test.todo("cron runner renews stale session after daily boundary", async ({ onTe
     session_name: test
     </trigger_metadata>
 
-    cron-after-boundary
-    ",
+     cron-after-boundary",
     ]
   `);
 });

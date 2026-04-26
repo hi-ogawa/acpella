@@ -19,7 +19,16 @@ import { MESSAGE_SPLIT_BUDGET, ReplyManager } from "./lib/reply.ts";
 import { handleSystemdInstall } from "./lib/systemd.ts";
 import { parseTelegramSessionName } from "./lib/telegram/utils.ts";
 import { AsyncLane, DefaultMap, formatError } from "./lib/utils.ts";
-import { parseAgentSessionKey, SessionStateStore, toAgentSessionKey } from "./state.ts";
+import {
+  parseAgentSessionKey,
+  parseSessionRenewPolicy,
+  renderSessionRenewPolicy,
+  resolveSessionRenewPolicy,
+  SessionStateStore,
+  shouldRenewSession,
+  toAgentSessionKey,
+  type SessionRenewPolicyString,
+} from "./state.ts";
 import type { StateAgentSession, StateSession } from "./state.ts";
 
 export interface Handler {
@@ -122,26 +131,44 @@ export async function createHandler(
     const { sessionName, text } = options;
     const stateSession = stateStore.getSession(sessionName);
     const manager = await getAgentManager(stateSession.agentKey);
+    const now = Date.now();
+    const createNewSession =
+      !stateSession.agentSessionId ||
+      shouldRenewSession({
+        session: stateSession,
+        now,
+        timezone: config.timezone,
+      });
 
     let session: AgentSessionProcess;
     let promptText = "";
-    if (stateSession.agentSessionId) {
+    if (!createNewSession) {
       session = await manager.loadSession({
         sessionCwd: config.home,
-        sessionId: stateSession.agentSessionId,
+        sessionId: stateSession.agentSessionId!,
       });
+      stateStore.setSession(sessionName, { updatedAt: now });
     } else {
       session = await manager.newSession({ sessionCwd: config.home });
       stateStore.setSession(sessionName, {
         agentKey: stateSession.agentKey,
         agentSessionId: session.sessionId,
+        updatedAt: now,
       });
       promptText += buildFirstPrompt(config.prompt.file);
     }
     promptText += text;
+    const currentStateSession: StateSession = {
+      ...stateSession,
+      agentSessionId: session.sessionId,
+      updatedAt: now,
+    };
 
     const logger = new JsonLogger({
-      file: path.join(config.logsDir, `acp/${stateSession.agentKey}/${session.sessionId}.jsonl`),
+      file: path.join(
+        config.logsDir,
+        `acp/${currentStateSession.agentKey}/${session.sessionId}.jsonl`,
+      ),
     });
 
     logger.log({ type: "prompt", text: promptText });
@@ -155,10 +182,10 @@ export async function createHandler(
         if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
           await options.onText(update.content.text);
         } else if (update.sessionUpdate === "tool_call") {
-          await options.onToolCall?.(update.title, stateSession);
+          await options.onToolCall?.(update.title, currentStateSession);
         } else if (update.sessionUpdate === "usage_update") {
           stateStore.setAgentSessionUsage(
-            { agentKey: stateSession.agentKey, agentSessionId: session.sessionId },
+            { agentKey: currentStateSession.agentKey, agentSessionId: session.sessionId },
             update,
           );
         }
@@ -192,11 +219,13 @@ export async function createHandler(
         const sessionName = arg ?? context.sessionName;
         const stateSession = stateStore.getSession(sessionName);
         const { verbose } = stateSession;
+        const renewPolicy = resolveSessionRenewPolicy(stateSession.renew);
         let output = `\
 session: ${sessionName}
 agent: ${stateSession.agentKey}
 agent session id: ${stateSession.agentSessionId ?? "none"}
 verbose: ${verbose ? "on" : "off"}
+renew: ${renderSessionRenewPolicy(renewPolicy, config.timezone)}
 `;
         const usage = stateSession.agentSessionId
           ? stateStore.getAgentSessionUsage({
@@ -358,6 +387,24 @@ verbose: ${verbose ? "on" : "off"}
           verbose: false,
         });
         await reply.system("Tool call output: off");
+      },
+    },
+    {
+      tokens: ["renew"],
+      help: "/session renew <off|daily|daily:N> [sessionName] - Set session renewal policy.",
+      withArgs: true,
+      run: async ({ args, reply, sessionName }) => {
+        const [value, targetSession, extra] = args;
+        const usage = "Usage: /session renew <off|daily|daily:N> [sessionName]";
+        const policy = value ? parseSessionRenewPolicy(value) : undefined;
+        if (!value || !policy || extra) {
+          await reply.system(usage);
+          return;
+        }
+        stateStore.setSession(targetSession ?? sessionName, {
+          renew: value as SessionRenewPolicyString,
+        });
+        await reply.system(`Session renewal: ${renderSessionRenewPolicy(policy, config.timezone)}`);
       },
     },
   ];
