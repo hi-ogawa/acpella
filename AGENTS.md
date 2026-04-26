@@ -9,11 +9,14 @@
 
 ## Key Docs
 
-| File                         | Purpose                               |
-| ---------------------------- | ------------------------------------- |
-| `docs/architecture.md`       | Design decisions, data flow           |
-| `docs/references.md`         | Reference projects, local clone setup |
-| `docs/tasks/YYYY-MM-DD-*.md` | Per-task notes                        |
+| File                          | Purpose                               |
+| ----------------------------- | ------------------------------------- |
+| `README.md`                   | User-facing setup, global CLI, config |
+| `skills/acpella/SKILL.md`     | Operator/admin guide for agents       |
+| `skills/acpella/references/*` | Detailed acpella workflows            |
+| `docs/architecture.md`        | Design decisions, data flow           |
+| `docs/references.md`          | Reference projects, local clone setup |
+| `docs/tasks/YYYY-MM-DD-*.md`  | Per-task notes                        |
 
 ## Task Documents
 
@@ -38,6 +41,7 @@ Task docs should enable **handoff to a fresh agent** - include enough context to
 - Prefer a single options object over multiple primitive arguments (e.g. `fn({ a, b })` not `fn(a, b)`)
 - Import with `.ts` extensions (NodeNext resolution)
 - Use braces for every `switch` case body (`case "x": { ... }`, `default: { ... }`)
+- When changing setup, CLI commands, service management, session routing, agent registration, customization, cron, or troubleshooting behavior, check whether `README.md` and `skills/acpella` need matching updates.
 
 ## Rule
 

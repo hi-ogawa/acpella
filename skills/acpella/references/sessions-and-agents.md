@@ -12,7 +12,7 @@ In practice, session commands are for:
 - loading an older ACP session
 - closing a mapping you no longer want
 
-Run session lifecycle commands from Telegram or the REPL conversation whose context you mean to control. Do not use `pnpm cli exec` for `/session new`, `/session load`, or `/session close`. Use `pnpm cli exec /session list` and `pnpm cli exec '/session info <sessionName>'` only to discover existing session names and inspect known sessions for administrative commands such as cron creation.
+Run session lifecycle commands from Telegram or the REPL conversation whose context you mean to control. Do not use `acpella exec` for `/session new`, `/session load`, or `/session close`. Use `acpella exec /session list` and `acpella exec '/session info <sessionName>'` only to discover existing session names and inspect known sessions for administrative commands such as cron creation.
 
 ## Session commands
 
@@ -46,8 +46,8 @@ Use:
 Typical flow:
 
 ```bash
-pnpm cli exec /agent new codex npx -y @zed-industries/codex-acp
-pnpm cli exec /agent default codex
+acpella exec /agent new codex npx -y @zed-industries/codex-acp
+acpella exec /agent default codex
 ```
 
 That registers a real ACP agent and makes it the default for future sessions.
@@ -55,13 +55,13 @@ That registers a real ACP agent and makes it the default for future sessions.
 For Codex ACP, `npx -y @zed-industries/codex-acp` is the portable registration path. If `@zed-industries/codex-acp` is installed globally and `codex-acp` is available on the same `PATH` used by acpella, registering `codex-acp` directly is also fine:
 
 ```bash
-pnpm cli exec /agent new codex codex-acp
+acpella exec /agent new codex codex-acp
 ```
 
 Codex ACP reads Codex CLI configuration through its own `-c key=value` override flag. For example, to run Codex without sandboxing:
 
 ```bash
-pnpm cli exec /agent new codex npx -y @zed-industries/codex-acp -c sandbox_mode=danger-full-access
+acpella exec /agent new codex npx -y @zed-industries/codex-acp -c sandbox_mode=danger-full-access
 ```
 
 Check `codex-acp --help` for the current configuration override syntax before changing flags.

@@ -14,7 +14,8 @@ Acpella is a small bridge from a messaging surface, currently Telegram or the lo
 ## Working model
 
 - Acpella source lives at https://github.com/hi-ogawa/acpella.
-- The acpella source checkout is where `pnpm cli` works and where service code is installed from.
+- The normal operator CLI is the globally linked `acpella` command, installed from the source checkout with `pnpm link --global`.
+- `pnpm cli` is a development fallback for running directly from the source checkout.
 - `ACPELLA_HOME` is the working directory acpella uses for agent sessions and acpella state.
 - Acpella stores its own state under `ACPELLA_HOME/.acpella/`, including session mappings, configured agents, cron jobs, logs, and optional custom instructions.
 - A Telegram chat/thread or REPL context maps to an acpella session name.
@@ -28,30 +29,30 @@ Use this skill when the task is about operating acpella itself: setup, service m
 
 Administrative slash commands use the same text syntax across Telegram, the local REPL, and local one-shot execution, but they run inside whichever acpella process receives them.
 
-When unsure which slash command or arguments to use, start with `/help` from Telegram, the local REPL, or `pnpm cli exec /help`. Treat it as the source of truth for the currently installed command surface.
+When unsure which slash command or arguments to use, start with `/help` from Telegram, the local REPL, or `acpella exec /help`. Treat it as the source of truth for the currently installed command surface.
 
 ## Command process scope
 
 - Telegram commands are handled by the long-running acpella bot service.
 - REPL commands are handled by that REPL process.
-- `pnpm cli exec <slash-command...>` starts a separate short-lived acpella process, handles one command, then exits.
+- `acpella exec <slash-command...>` starts a separate short-lived acpella process, handles one command, then exits.
 
 Commands that only read or mutate shared `.acpella` state, such as `/agent list`, `/session list`, `/cron add`, or `/cron update`, are usually fine through `exec`.
 
 Commands that control process-local runtime state, such as `/cron start`, `/cron stop`, `/session new`, `/session load`, or `/session close`, must be sent to the process whose runtime state should change. Do not use `exec` to control another running acpella service.
 
-Use `pnpm cli exec <slash-command...>` only for local shell administration of acpella itself: inspecting or changing installation-wide state, listing configured objects, or running setup commands.
+Use `acpella exec <slash-command...>` only for local shell administration of acpella itself: inspecting or changing installation-wide state, listing configured objects, or running setup commands.
 
-Command examples use `pnpm cli`, which assumes the shell is in the acpella source checkout. If the current directory is not the acpella checkout, first `cd` to the checkout that owns the running service, or replace `pnpm cli` with that installation's equivalent acpella CLI entrypoint.
+Command examples use `acpella`, which assumes the global CLI is linked to the checkout/version that owns the running service. If it is not, run `pnpm link --global` from the intended checkout or use that installation's equivalent acpella CLI entrypoint.
 
 Good `exec` examples:
 
 ```bash
-pnpm cli exec /status
-pnpm cli exec /agent list
-pnpm cli exec /session list
-pnpm cli exec /cron list
-pnpm cli exec /service systemd install
+acpella exec /status
+acpella exec /agent list
+acpella exec /session list
+acpella exec /cron list
+acpella exec /service systemd install
 ```
 
 Do not use `exec` to send normal agent prompts. Do not use `exec` for session lifecycle actions that depend on the current Telegram or REPL conversation context, such as `/session new`, `/session load`, or `/session close`. Use `/session list` and `/session info <sessionName>` through `exec` only to discover or inspect existing sessions for administrative commands such as cron creation.

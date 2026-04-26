@@ -10,7 +10,9 @@ Clone the source from https://github.com/hi-ogawa/acpella:
 git clone https://github.com/hi-ogawa/acpella
 cd acpella
 pnpm install
-cp .env.example .env
+pnpm link --global
+mkdir -p ~/.config/acpella
+cp .env.example ~/.config/acpella/.env
 ```
 
 After copying `.env`, edit the main config values below.
@@ -26,29 +28,29 @@ After copying `.env`, edit the main config values below.
 
 Notes:
 
-- Telegram configuration is not required for `pnpm repl`.
+- Telegram configuration is not required for `acpella repl`.
 - If `ACPELLA_HOME/.acpella/AGENTS.md` exists, acpella sends it as custom instructions once when creating a new session.
 
 ## First local runs
 
-Run these from the acpella source checkout.
+Run these after linking the global CLI from the acpella source checkout.
 
 Run the Telegram bot:
 
 ```bash
-pnpm cli
+acpella serve
 ```
 
 Run the local REPL:
 
 ```bash
-pnpm repl
+acpella repl
 ```
 
 Run one local administrative slash command:
 
 ```bash
-pnpm cli exec /status
+acpella exec /status
 ```
 
 Use `exec` for acpella administration, not for normal agent prompts.
@@ -60,15 +62,15 @@ The built-in default agent is the test echo agent. Acpella does not install ACP 
 For Codex ACP without a global install, register the adapter through `npx`:
 
 ```bash
-pnpm cli exec /agent new codex npx -y @zed-industries/codex-acp
-pnpm cli exec /agent default codex
+acpella exec /agent new codex npx -y @zed-industries/codex-acp
+acpella exec /agent default codex
 ```
 
 If `codex-acp` is already installed and available on the same `PATH` used by acpella, you can register `codex-acp` directly instead:
 
 ```bash
 npm i -g @zed-industries/codex-acp
-pnpm cli exec /agent new codex codex-acp
+acpella exec /agent new codex codex-acp
 ```
 
 Other known ACP agents are listed in the ACP agent registry: https://agentclientprotocol.com/get-started/registry
