@@ -20,19 +20,25 @@ ${customPrompt.trim()}
   return output;
 }
 
-interface MessageMetadata {
+export interface MessageMetadata {
   timestamp: number;
-  timezone: string;
-  sessionName: string;
+  [key: string]: unknown;
 }
 
-export function buildMessageMetadataPrompt(metadata: MessageMetadata): string {
-  const timestamp = formatTime(metadata.timestamp, metadata.timezone);
+export function buildMessageMetadataPrompt(
+  metadata: MessageMetadata,
+  context: { timezone: string; sessionName: string },
+): string {
+  const { timestamp, ...rest } = metadata;
+  const extra = Object.entries(rest)
+    .map((kv) => kv.join(": "))
+    .join("\n");
   return `\
 <message_metadata>
-sender_timestamp: ${timestamp}
-timezone: ${metadata.timezone}
-session_name: ${metadata.sessionName}
+sender_timestamp: ${formatTime(timestamp, context.timezone)}
+timezone: ${context.timezone}
+session_name: ${context.sessionName}
+${extra}
 </message_metadata>
 `;
 }

@@ -69,16 +69,19 @@ test("acpella skills directive", () => {
 });
 
 test("message metadata", () => {
-  const output = buildMessageMetadataPrompt({
-    timestamp: Date.UTC(2024, 0, 2, 3, 4, 5),
-    timezone: "Asia/Tokyo",
-    sessionName: "my-session",
-  });
+  const output = buildMessageMetadataPrompt(
+    {
+      timestamp: Date.UTC(2024, 0, 2, 3, 4, 5),
+      extraKey: "extraValue",
+    },
+    { timezone: "Asia/Tokyo", sessionName: "my-session" },
+  );
   expect(output).toMatchInlineSnapshot(`
     "<message_metadata>
     sender_timestamp: 2024-01-02T12:04:05+09:00
     timezone: Asia/Tokyo
     session_name: my-session
+    extraKey: extraValue
     </message_metadata>
     "
   `);

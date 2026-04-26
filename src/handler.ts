@@ -14,6 +14,7 @@ import type { CronRunner, CronRunnerAgentOptions } from "./cron/runner.ts";
 import type { CronDeliveryTarget, CronJob, CronStore } from "./cron/store.ts";
 import { CommandHandler, type CommandTree } from "./lib/command.ts";
 import { formatSessionUpdateLogEntry, JsonLogger } from "./lib/logger.ts";
+import type { MessageMetadata } from "./lib/prompt.ts";
 import { buildFirstPrompt, buildMessageMetadataPrompt } from "./lib/prompt.ts";
 import { MESSAGE_SPLIT_BUDGET, ReplyManager } from "./lib/reply.ts";
 import {
@@ -38,7 +39,7 @@ export interface HandlerContext {
   text: string;
   send: (text: string) => Promise<unknown>;
   metadata?: {
-    timestamp?: number;
+    promptMetadata?: MessageMetadata;
     cronDeliveryTarget?: CronDeliveryTarget;
   };
 }
@@ -78,9 +79,8 @@ export async function createHandler(
   async function handlePrompt(context: HandlerExtraContext): Promise<void> {
     let { reply, sessionName, metadata } = context;
     let promptText = "";
-    if (metadata?.timestamp) {
-      promptText = buildMessageMetadataPrompt({
-        timestamp: metadata.timestamp,
+    if (metadata?.promptMetadata && Object.keys(metadata.promptMetadata).length > 0) {
+      promptText = buildMessageMetadataPrompt(metadata.promptMetadata, {
         timezone: config.timezone,
         sessionName,
       });

@@ -10,6 +10,7 @@ import { createHandler, type Handler } from "./handler.ts";
 import { parseCli } from "./lib/cli.ts";
 import { markdownToTelegramHtml } from "./lib/telegram/format-html.ts";
 import {
+  formatTelegramConversationMetadata,
   formatTelegramSessionName,
   getTelegramRetryAfter,
   normalizeUserMention,
@@ -223,7 +224,10 @@ ${CLI_HELP}`);
           username: botUsername,
         }),
         metadata: {
-          timestamp: ctx.message.date * 1000,
+          promptMetadata: {
+            timestamp: ctx.message.date * 1000,
+            channel: formatTelegramConversationMetadata(ctx),
+          },
           cronDeliveryTarget: {
             telegram: {
               chatId,
@@ -344,7 +348,9 @@ async function runExec({ handler, text }: { handler: Handler; text: string }) {
     sessionName: "repl",
     text,
     metadata: {
-      timestamp: Date.now(),
+      promptMetadata: {
+        timestamp: Date.now(),
+      },
       cronDeliveryTarget: {
         repl: true,
       },
