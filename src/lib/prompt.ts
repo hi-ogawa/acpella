@@ -29,21 +29,16 @@ export function buildMessageMetadataPrompt(
   metadata: MessageMetadata,
   context: { timezone: string; sessionName: string },
 ): string {
-  const extraLines = Object.entries(metadata)
-    .filter(([key]) => key !== "timestamp")
+  const { timestamp, ...rest } = metadata;
+  const extra = Object.entries(rest)
     .map(([key, value]) => `${key}: ${String(value)}`)
-    .join("\n");
-  const lines = [
-    `sender_timestamp: ${formatTime(metadata.timestamp, context.timezone)}`,
-    `timezone: ${context.timezone}`,
-    `session_name: ${context.sessionName}`,
-    extraLines,
-  ]
-    .filter(Boolean)
     .join("\n");
   return `\
 <message_metadata>
-${lines}
+sender_timestamp: ${formatTime(timestamp, context.timezone)}
+timezone: ${context.timezone}
+session_name: ${context.sessionName}
+${extra}
 </message_metadata>
 `;
 }
