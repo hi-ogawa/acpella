@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { StateSession } from "../state";
 
 const DEFAULT_SESSION_RENEW_HOUR = 4;
 
@@ -8,12 +9,6 @@ export const sessionRenewPolicySchema = z.object({
 });
 
 export type SessionRenewPolicy = z.infer<typeof sessionRenewPolicySchema>;
-
-export interface RenewableSession {
-  agentSessionId?: string;
-  renew?: SessionRenewPolicy;
-  updatedAt?: number;
-}
 
 export function parseSessionRenewPolicy(value: string): SessionRenewPolicy {
   if (value === "daily") {
@@ -39,6 +34,25 @@ export function renderSessionRenewPolicy(options: {
   return `daily at ${String(options.policy.atHour).padStart(2, "0")}:00 ${options.timezone}`;
 }
 
+export function shouldRenewSession(options: {
+  session: StateSession;
+  now: number;
+  timezone: string;
+}): boolean {
+  if (!options.session.agentSessionId || options.session.updatedAt === undefined) {
+    return false;
+  }
+  if (!options.session.renew) {
+    return false;
+  }
+  const currentPeriodStart = getRenewalPeriodStartMs({
+    time: options.now,
+    timezone: options.timezone,
+    atHour: options.session.renew.atHour,
+  });
+  return options.session.updatedAt < currentPeriodStart;
+}
+
 function getRenewalPeriodStartMs(options: {
   time: number;
   timezone: string;
@@ -57,29 +71,4 @@ function getRenewalPeriodStartMs(options: {
     periodStart = periodStart.subtract({ days: 1 });
   }
   return periodStart.epochMilliseconds;
-}
-
-export function shouldRenewSession(options: {
-  session: RenewableSession;
-  now: number;
-  timezone: string;
-}): boolean {
-  if (!options.session.agentSessionId || options.session.updatedAt === undefined) {
-    return false;
-  }
-  if (!options.session.renew) {
-    return false;
-  }
-  return (
-    getRenewalPeriodStartMs({
-      time: options.session.updatedAt,
-      timezone: options.timezone,
-      atHour: options.session.renew.atHour,
-    }) <
-    getRenewalPeriodStartMs({
-      time: options.now,
-      timezone: options.timezone,
-      atHour: options.session.renew.atHour,
-    })
-  );
 }
