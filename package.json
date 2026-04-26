@@ -8,8 +8,8 @@
   },
   "scripts": {
     "prepare": "vp config",
-    "cli": "node src/cli.ts --env-file .env",
-    "repl": "node src/cli.ts --env-file .env repl",
+    "cli": "node src/cli.ts",
+    "cli-env": "node src/cli.ts --env-file .env",
     "test": "vitest --project=unit",
     "test-ci": "CI=true vitest --project=unit --coverage",
     "test-codex": "vitest --project=codex",

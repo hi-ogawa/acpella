@@ -29,11 +29,6 @@ export interface AppConfig {
   };
 }
 
-export interface LoadConfigOptions {
-  envFile?: string | false;
-  envOverride?: Record<string, string>;
-}
-
 const envSchema = z
   .object({
     ACPELLA_HOME: z.string().optional(),
@@ -45,7 +40,10 @@ const envSchema = z
   })
   .loose();
 
-export function loadConfig(options: LoadConfigOptions = {}): AppConfig {
+export function loadConfig(options: {
+  envFile?: string | false;
+  envOverride?: Record<string, string>;
+}): AppConfig {
   const envForConfigFile = { ...process.env, ...options.envOverride };
   const envFile = loadConfigEnvFile({
     file: options.envFile,
