@@ -216,11 +216,6 @@ ${CLI_HELP}`);
     };
 
     try {
-      const conversationKind = ctx.message.message_thread_id
-        ? "topic"
-        : ctx.chat.type === "private"
-          ? "dm"
-          : "group";
       await handler.handle({
         sessionName,
         text: normalizeUserMention({
@@ -230,7 +225,7 @@ ${CLI_HELP}`);
         metadata: {
           promptMetadata: {
             timestamp: ctx.message.date * 1000,
-            conversation_kind: conversationKind,
+            conversation_kind: ctx.chat.type === "private" ? "direct" : "group",
           },
           cronDeliveryTarget: {
             telegram: {
