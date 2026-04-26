@@ -8,7 +8,7 @@ export const sessionRenewPolicySchema = z.object({
   atHour: z.number().int().min(0).max(23),
 });
 
-export type SessionRenewPolicy = z.infer<typeof sessionRenewPolicySchema>;
+type SessionRenewPolicy = z.infer<typeof sessionRenewPolicySchema>;
 
 export function parseSessionRenewPolicy(value: string): SessionRenewPolicy {
   if (value === "daily") {
