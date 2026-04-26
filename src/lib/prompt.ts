@@ -37,7 +37,7 @@ session_name: ${metadata.sessionName}
 `;
 }
 
-export function readOptionalPromptFile(file: string): string | undefined {
+function readOptionalPromptFile(file: string): string | undefined {
   try {
     return readPromptFileWithIncludes(file, new Set());
   } catch (error) {
