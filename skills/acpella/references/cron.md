@@ -13,7 +13,6 @@ Use:
 - `/cron status`
 - `/cron start`
 - `/cron stop`
-- `/cron reload`
 - `/cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--session <sessionName>] -- <prompt...>`
 - `/cron update <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--session <sessionName>] [-- <prompt...>]`
 - `/cron list`
@@ -33,6 +32,8 @@ When adding a cron job from local shell administration, always provide `--sessio
 ```bash
 pnpm cli exec '/cron add morning-check 0 9 * * 1-5 --session tg-123456789 -- Check the project state and report anything urgent.'
 ```
+
+`pnpm cli exec` runs in a separate short-lived acpella process. Add, update, enable, disable, and delete commands still write the shared cron file, and the running Telegram service should pick those file changes up automatically when its cron runner is active.
 
 For Telegram topics, the session name includes the thread id:
 
@@ -88,12 +89,15 @@ If updating `--session` from `/session list` output, ask the user to confirm whe
 
 ## Scheduler control
 
-Use:
+Cron runner state is process-local. See the main skill's command process scope before using `/cron start` or `/cron stop`.
 
-- `/cron status` to see whether the runner is active
-- `/cron start` to start it
-- `/cron stop` to stop it
-- `/cron reload` after editing cron state on disk or when you need acpella to refresh its in-memory view
+Use these commands in the acpella process whose cron runner should be inspected or controlled:
+
+- `/cron status` to see whether that process's cron runner is active
+- `/cron start` to start that process's cron runner
+- `/cron stop` to stop that process's cron runner
+
+Cron job definition changes made through `pnpm cli exec '/cron add ...'`, `pnpm cli exec '/cron update ...'`, or direct edits to `.acpella/cron.json` write shared state. A live acpella process with an active cron runner reloads those file changes automatically.
 
 ## If cron is not behaving as expected
 

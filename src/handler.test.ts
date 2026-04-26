@@ -60,7 +60,6 @@ Coverage checklist:
   - [x] status
   - [x] start
   - [x] stop
-  - [x] reload
   - [x] add
   - [ ] add rejects missing delivery target
   - [ ] add rejects invalid args
@@ -217,7 +216,6 @@ test("basic", async () => {
       /cron status - Show cron scheduler status.
       /cron start - Start cron scheduler.
       /cron stop - Stop cron scheduler.
-      /cron reload - Reload cron jobs from disk.
       /cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--session <sessionName>] -- <prompt...> - Add a cron job.
       /cron update <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--session <sessionName>] [-- <prompt...>] - Update a cron job.
       /cron list - List cron jobs.
@@ -766,10 +764,11 @@ test("message metadata", async () => {
   `);
 });
 
-test("cron reload command", async ({ onTestFinished }) => {
+test("cron auto reloads external cron file changes", async ({ onTestFinished }) => {
   // Timeline:
   // - 00:00 UTC / 07:00 Jakarta: runner starts with no jobs.
-  // - 00:00 UTC / 07:00 Jakarta: write file-job directly to cron.json, then reload.
+  // - 00:00 UTC / 07:00 Jakarta: write file-job directly to cron.json.
+  // - 00:00 UTC / 07:00 Jakarta: watcher polls, reloads, and refreshes the scheduler.
   // - 00:02 UTC / 07:02 Jakarta: file-job fires with hello-from-file.
   vi.useFakeTimers({
     now: Date.parse("2026-04-18T00:00:00Z"),
@@ -809,10 +808,7 @@ test("cron reload command", async ({ onTestFinished }) => {
     },
   });
 
-  expect(await session.request("/cron reload")).toMatchInlineSnapshot(`
-    "[⚙️ System]
-    Reloaded cron jobs."
-  `);
+  vi.advanceTimersByTime(1250);
   expect(await session.request("/cron list")).toMatchInlineSnapshot(`
     "[⚙️ System]
     - file-job [enabled]
@@ -824,13 +820,32 @@ test("cron reload command", async ({ onTestFinished }) => {
       last: none"
   `);
 
-  writeJsonFile(tester.config.cronFile, {
-    version: 12.34,
-    jobs: {},
-  });
-  expect(await session.request("/cron reload")).toContain(
-    "[⚙️ System]\nFailed to reload cron jobs:",
-  );
+  {
+    using consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    writeJsonFile(tester.config.cronFile, {
+      version: 12.34,
+      jobs: {},
+    });
+    vi.advanceTimersByTime(1250);
+    expect(consoleError.mock.calls).toMatchInlineSnapshot(`
+      [
+        [
+          "[cron] Failed to reload cron jobs after external cron file change: [
+        {
+          "code": "invalid_value",
+          "values": [
+            1
+          ],
+          "path": [
+            "version"
+          ],
+          "message": "Invalid input: expected 1"
+        }
+      ]",
+        ],
+      ]
+    `);
+  }
   expect(await session.request("/cron list")).toMatchInlineSnapshot(`
     "[⚙️ System]
     - file-job [enabled]
@@ -842,8 +857,7 @@ test("cron reload command", async ({ onTestFinished }) => {
       last: none"
   `);
 
-  vi.advanceTimersToNextTimer();
-  vi.advanceTimersToNextTimer();
+  vi.advanceTimersByTime(Date.parse("2026-04-18T00:02:00Z") - Date.now());
   expect(formatTime(Date.now(), tester.config.timezone)).toMatchInlineSnapshot(
     `"2026-04-18T07:02:00+07:00"`,
   );
@@ -950,7 +964,7 @@ test("cron command", async ({ onTestFinished }) => {
   `);
   expect(tester.cronDeliveries).toMatchInlineSnapshot(`[]`);
 
-  vi.advanceTimersToNextTimer();
+  vi.advanceTimersByTime(60 * 1000);
   expect(formatTime(Date.now(), tester.config.timezone)).toMatchInlineSnapshot(
     `"2026-04-18T07:01:00+07:00"`,
   );
@@ -1026,8 +1040,7 @@ test("cron command", async ({ onTestFinished }) => {
       last: none"
   `);
 
-  vi.advanceTimersToNextTimer();
-  vi.advanceTimersToNextTimer();
+  vi.advanceTimersByTime(2 * 60 * 1000);
   expect(formatTime(Date.now(), tester.config.timezone)).toMatchInlineSnapshot(
     `"2026-04-18T07:03:00+07:00"`,
   );
@@ -1085,7 +1098,7 @@ test("cron command", async ({ onTestFinished }) => {
     Updated cron job: other-job"
   `);
 
-  vi.advanceTimersToNextTimer();
+  vi.advanceTimersByTime(60 * 1000);
   expect(formatTime(Date.now(), tester.config.timezone)).toMatchInlineSnapshot(
     `"2026-04-18T07:04:00+07:00"`,
   );
@@ -1210,7 +1223,7 @@ test("cron error delivery", async ({ onTestFinished }) => {
   `);
   expect(tester.cronDeliveries).toMatchInlineSnapshot(`[]`);
 
-  vi.advanceTimersToNextTimer();
+  vi.advanceTimersByTime(60 * 1000);
   expect(formatTime(Date.now(), tester.config.timezone)).toMatchInlineSnapshot(
     `"2026-04-18T07:01:00+07:00"`,
   );

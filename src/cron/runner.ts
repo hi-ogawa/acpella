@@ -1,6 +1,7 @@
 import { formatError, formatTime } from "../lib/utils.ts";
 import type { CronJob, CronStore, CronDeliveryTarget } from "./store.ts";
 import { CronScheduler, type CronDueEvent } from "./timer.ts";
+import { CronFileWatcher } from "./watch.ts";
 
 export interface CronRunnerOptions {
   store: CronStore;
@@ -17,6 +18,7 @@ export interface CronRunnerAgentOptions {
 export class CronRunner {
   options: CronRunnerOptions;
   scheduler: CronScheduler;
+  watcher: CronFileWatcher;
 
   constructor(options: CronRunnerOptions) {
     this.options = { ...options };
@@ -24,14 +26,20 @@ export class CronRunner {
       entries: [],
       onDue: this.handleDueEvent.bind(this),
     });
+    this.watcher = new CronFileWatcher({
+      store: options.store,
+      runner: this,
+    });
   }
 
   start() {
     this.scheduler.start();
+    this.watcher.start();
     this.refresh();
   }
 
   stop() {
+    this.watcher.stop();
     this.scheduler.stop();
   }
 
