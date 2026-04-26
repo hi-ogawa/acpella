@@ -33,8 +33,14 @@ Test locally on checkout source
 
 ```sh
 pnpm i
+
+# with global ~/.config/acpella/.env
 pnpm cli repl
 pnpm cli exec /status
+
+# with local .env
+pnpm cli --env-file .env repl
+pnpm cli --env-file .env exec /status
 ```
 
 ## Docs
