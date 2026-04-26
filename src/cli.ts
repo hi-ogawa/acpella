@@ -354,7 +354,6 @@ async function runExec({ handler, text }: { handler: Handler; text: string }) {
     metadata: {
       promptMetadata: {
         timestamp: Date.now(),
-        conversation_kind: "repl",
       },
       cronDeliveryTarget: {
         repl: true,

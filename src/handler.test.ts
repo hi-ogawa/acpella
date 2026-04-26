@@ -773,7 +773,7 @@ test("message metadata", async () => {
     metadata: {
       promptMetadata: {
         timestamp: Date.UTC(2024, 0, 2, 3, 4, 5),
-        conversation_kind: "repl",
+        extraKey: "extraValue",
       },
     },
   });
@@ -785,7 +785,7 @@ test("message metadata", async () => {
     sender_timestamp: <timestamp>
     timezone: <timezone>
     session_name: test
-    conversation_kind: repl
+    extraKey: extraValue
     </message_metadata>
     __keep_metadata: ok"
   `);
