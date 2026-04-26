@@ -1,6 +1,9 @@
 {
   "name": "acpella",
   "private": true,
+  "bin": {
+    "acpella": "./src/cli.ts"
+  },
   "type": "module",
   "imports": {
     "#cli": "./src/cli.ts",
