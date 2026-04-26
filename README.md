@@ -9,8 +9,8 @@ pnpm install
 cp .env.example .env
 # edit .env using the Config section below
 
-pnpm cli              # run Telegram bot service
-pnpm repl             # run REPL
+pnpm cli serve        # run Telegram bot service
+pnpm cli repl         # run REPL
 pnpm cli exec /status # run one local admin command
 ```
 
