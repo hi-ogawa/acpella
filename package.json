@@ -16,8 +16,9 @@
     "test": "vitest --project=unit",
     "test-ci": "CI=true vitest --project=unit --coverage",
     "test-codex": "vitest --project=codex",
-    "lint": "vp check --fix",
-    "lint-check": "vp check"
+    "lint": "vp check --fix && pnpm lint-dead-code",
+    "lint-check": "vp check && pnpm lint-dead-code",
+    "lint-dead-code": "fallow dead-code --unused-exports"
   },
   "dependencies": {
     "@grammyjs/runner": "^2.0.3",
