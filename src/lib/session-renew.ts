@@ -34,23 +34,24 @@ export function renderSessionRenewPolicy(options: {
   return `daily at ${String(options.policy.atHour).padStart(2, "0")}:00 ${options.timezone}`;
 }
 
-export function shouldRenewSession(options: {
+export function shouldRenewSession({
+  session,
+  now,
+  timezone,
+}: {
   session: StateSession;
   now: number;
   timezone: string;
 }): boolean {
-  if (!options.session.agentSessionId || options.session.updatedAt === undefined) {
-    return false;
+  if (session.agentSessionId && session.updatedAt !== undefined && session.renew) {
+    const currentPeriodStart = getRenewalPeriodStartMs({
+      time: now,
+      timezone,
+      atHour: session.renew.atHour,
+    });
+    return session.updatedAt < currentPeriodStart;
   }
-  if (!options.session.renew) {
-    return false;
-  }
-  const currentPeriodStart = getRenewalPeriodStartMs({
-    time: options.now,
-    timezone: options.timezone,
-    atHour: options.session.renew.atHour,
-  });
-  return options.session.updatedAt < currentPeriodStart;
+  return false;
 }
 
 function getRenewalPeriodStartMs(options: {
