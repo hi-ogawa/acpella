@@ -94,8 +94,11 @@ import { useFs } from "./test/helper.ts";
 async function createHandlerTester() {
   const { root } = useFs({ prefix: "handler" });
   const config = loadConfig({
-    ACPELLA_HOME: root,
-    TEST_ACPELLA_TIMEZONE: "Asia/Jakarta",
+    envFile: false,
+    envOverride: {
+      ACPELLA_HOME: root,
+      TEST_ACPELLA_TIMEZONE: "Asia/Jakarta",
+    },
   });
 
   const cronStore = new CronStore({
@@ -229,6 +232,7 @@ test("basic", async () => {
     status: running
     version: v1.0.0-test
     default agent: test
+    env file: (none)
     home: <home>"
   `);
   expect(await session.request("hello")).toMatchInlineSnapshot(`"echo: hello"`);

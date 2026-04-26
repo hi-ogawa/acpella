@@ -14,6 +14,7 @@ test("help", async () => {
       exec <message...> Run one local message, then exit.
 
     Options:
+      --env-file <path> Use this env file for config resolution.
       -h, --help        Show this help.
 
     "
@@ -29,7 +30,7 @@ function sanitizeCliError(error: Error) {
 test("cli error", async () => {
   const cli = useCli();
   await expect(cli.cli("yay").catch(sanitizeCliError)).resolves.toThrowErrorMatchingInlineSnapshot(`
-    "Command failed: pnpm -s cli yay
+    "Command failed: pnpm -s dev yay
     Error: Unknown command: yay"
   `);
 });
@@ -87,7 +88,7 @@ describe("exec", async () => {
     const cli = useCli();
     await expect(cli.cli("exec", "/session load error-agent:error-session").catch(sanitizeCliError))
       .resolves.toMatchInlineSnapshot(`
-      "Command failed: pnpm -s cli exec /session load error-agent:error-session
+      "Command failed: pnpm -s dev exec /session load error-agent:error-session
       Error: Unknown agent: error-agent"
     `);
   });

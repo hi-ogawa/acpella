@@ -27,12 +27,13 @@ Commands:
   exec <message...> Run one local message, then exit.
 
 Options:
+  --env-file <path> Use this env file for config resolution.
   -h, --help        Show this help.
 `;
 
 async function main() {
   const cliArgv = process.argv.slice(2);
-  if (["-h", "--help"].includes(cliArgv[0])) {
+  if (cliArgv.some((arg) => ["-h", "--help"].includes(arg))) {
     console.log(CLI_HELP);
     return;
   }
@@ -57,7 +58,9 @@ Missing message for exec
 ${CLI_HELP}`);
   }
 
-  const config = loadConfig();
+  const config = loadConfig({
+    envFile: cli.envFile,
+  });
   const version = await getVersion({ cwd: path.join(import.meta.dirname, "..") });
   const cronStore = new CronStore({
     cronFile: config.cronFile,

@@ -1,11 +1,12 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { uniq } from "./utils.ts";
 
 export function handleSystemdInstall(): string {
   const unitContent = buildSystemdUnit({
-    workingDirectory: process.cwd(),
+    cliEntryPath: fileURLToPath(import.meta.resolve("#cli")),
     env: process.env,
     home: homedir(),
     nodeBin: process.execPath,
@@ -34,13 +35,12 @@ Logs:
 
 // https://github.com/openclaw/openclaw/blob/83f6a26d77ce2668b5d0cfba57667e1b0793a525/src/daemon/systemd-unit.ts
 export function buildSystemdUnit(options: {
-  workingDirectory: string;
+  cliEntryPath: string;
   env: NodeJS.ProcessEnv;
   home: string;
   nodeBin: string;
   tmpDir: string;
 }): string {
-  const envFile = resolve(options.workingDirectory, ".env");
   const serviceEnv = {
     HOME: options.home,
     TMPDIR: options.env.TMPDIR?.trim() || options.tmpDir,
@@ -59,10 +59,8 @@ Wants=network-online.target
 [Service]
 Type=simple
 SyslogIdentifier=${escapeSystemdValue("acpella")}
-WorkingDirectory=${escapeSystemdValue(options.workingDirectory)}
-EnvironmentFile=${escapeSystemdValue(envFile)}
 ${environmentLines}
-ExecStart=${escapeSystemdValue(options.nodeBin)} ${escapeSystemdValue(resolve(options.workingDirectory, "src/cli.ts"))}
+ExecStart=${escapeSystemdValue(options.nodeBin)} ${escapeSystemdValue(options.cliEntryPath)} serve
 Restart=always
 RestartSec=2
 KillMode=control-group

@@ -1,7 +1,11 @@
+import fs from "node:fs";
+import { homedir } from "node:os";
 import path from "node:path";
+import { loadEnvFile } from "node:process";
 import { z } from "zod";
 
 export interface AppConfig {
+  envFile?: string;
   home: string;
   stateFile: string;
   cronFile: string;
@@ -30,11 +34,31 @@ const envSchema = z
   })
   .loose();
 
-export function loadConfig(envOverride?: Record<string, string>): AppConfig {
-  const env = envSchema.parse({ ...process.env, ...envOverride });
+export function loadConfig(options: {
+  envFile?: string | false;
+  envOverride?: Record<string, string>;
+}): AppConfig {
+  let envFile: string | undefined;
+  if (options.envFile !== false) {
+    let resolvedEnvFile: string;
+    if (options.envFile) {
+      resolvedEnvFile = path.resolve(process.cwd(), options.envFile);
+    } else {
+      resolvedEnvFile = resolveDefaultEnvFile({ ...process.env, ...options.envOverride });
+    }
+    if (fs.existsSync(resolvedEnvFile)) {
+      loadEnvFile(resolvedEnvFile);
+      envFile = resolvedEnvFile;
+    } else if (options.envFile) {
+      throw new Error(`Env file not found: ${resolvedEnvFile}`);
+    }
+  }
+
+  const env = envSchema.parse({ ...process.env, ...options.envOverride });
   const home = env.ACPELLA_HOME ? path.resolve(env.ACPELLA_HOME) : process.cwd();
 
   return {
+    envFile,
     home,
     stateFile: path.join(home, ".acpella", "state.json"),
     cronFile: path.join(home, ".acpella", "cron.json"),
@@ -50,6 +74,13 @@ export function loadConfig(envOverride?: Record<string, string>): AppConfig {
       file: path.join(home, ".acpella", "AGENTS.md"),
     },
   };
+}
+
+function resolveDefaultEnvFile(env: NodeJS.ProcessEnv): string {
+  const configHome = env.XDG_CONFIG_HOME
+    ? path.resolve(env.XDG_CONFIG_HOME)
+    : path.join(homedir(), ".config");
+  return path.join(configHome, "acpella", ".env");
 }
 
 function parseIdList(value: string | undefined): number[] | undefined {

@@ -1,11 +1,18 @@
 {
   "name": "acpella",
   "private": true,
+  "bin": {
+    "acpella": "./src/bin/cli.ts"
+  },
   "type": "module",
+  "imports": {
+    "#cli": "./src/bin/cli.ts",
+    "#test-agent": "./src/lib/test-agent.ts"
+  },
   "scripts": {
     "prepare": "vp config",
-    "cli": "node --env-file-if-exists=.env src/cli.ts",
-    "repl": "node --env-file-if-exists=.env src/cli.ts repl",
+    "cli": "node ./src/bin/cli.ts",
+    "dev": "node ./src/bin/cli.ts --env-file .env.dev",
     "test": "vitest --project=unit",
     "test-ci": "CI=true vitest --project=unit --coverage",
     "test-codex": "vitest --project=codex",

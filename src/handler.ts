@@ -693,6 +693,7 @@ enabled jobs: ${enabledJobs.length}
 status: running
 version: ${handlerOptions.version ?? "(unknown)"}
 default agent: ${stateStore.get().defaultAgent}
+env file: ${config.envFile ?? "(none)"}
 home: ${config.home}
 `);
         },
