@@ -6,7 +6,7 @@ import { throttle, type Throttler } from "./utils.ts";
 type LogEntry = { type: string } & Record<string, unknown>;
 type TimedLogEntry = { t: number } & LogEntry;
 
-export interface JsonLoggerOptions {
+interface JsonLoggerOptions {
   file: string;
   flushThrottleMs?: number;
 }

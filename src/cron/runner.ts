@@ -3,7 +3,7 @@ import type { CronJob, CronStore, CronDeliveryTarget } from "./store.ts";
 import { CronScheduler, type CronDueEvent } from "./timer.ts";
 import { CronFileWatcher } from "./watch.ts";
 
-export interface CronRunnerOptions {
+interface CronRunnerOptions {
   store: CronStore;
   agent: CronRunnerAgentOptions;
   delivery: {

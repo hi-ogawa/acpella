@@ -20,7 +20,7 @@ ${customPrompt.trim()}
   return output;
 }
 
-export interface MessageMetadata {
+interface MessageMetadata {
   timestamp: number;
   timezone: string;
   sessionName: string;

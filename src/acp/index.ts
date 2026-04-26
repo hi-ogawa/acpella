@@ -66,7 +66,7 @@ export class AgentManager {
   }
 }
 
-export type AgentProcess = Awaited<ReturnType<typeof spawnAgent>>;
+type AgentProcess = Awaited<ReturnType<typeof spawnAgent>>;
 
 async function spawnAgent({ command, cwd }: { command: string; cwd: string }) {
   const [cmd, ...args] = command.trim().split(/\s+/);

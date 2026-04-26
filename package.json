@@ -18,7 +18,7 @@
     "test-codex": "vitest --project=codex",
     "lint": "vp check --fix && pnpm lint-dead-code",
     "lint-check": "vp check && pnpm lint-dead-code",
-    "lint-dead-code": "fallow dead-code --unused-exports"
+    "lint-dead-code": "fallow dead-code --unused-exports --unused-types"
   },
   "dependencies": {
     "@grammyjs/runner": "^2.0.3",
