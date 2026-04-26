@@ -2,16 +2,16 @@
   "name": "acpella",
   "private": true,
   "bin": {
-    "acpella": "./src/cli.ts"
+    "acpella": "./src/cli-bin.ts"
   },
   "type": "module",
   "imports": {
-    "#cli": "./src/cli.ts",
+    "#cli-bin": "./src/cli-bin.ts",
     "#test-agent": "./src/lib/test-agent.ts"
   },
   "scripts": {
     "prepare": "vp config",
-    "cli": "node -- src/cli.ts",
+    "cli": "./src/cli-bin.ts",
     "test": "vitest --project=unit",
     "test-ci": "CI=true vitest --project=unit --coverage",
     "test-codex": "vitest --project=codex",

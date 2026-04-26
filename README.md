@@ -6,12 +6,15 @@ Thin service that connects a messaging channel (Telegram) to AI agent via [ACP](
 
 ```bash
 pnpm install
-cp .env.example .env
-# edit .env using the Config section below
+pnpm link --global
 
-pnpm cli serve        # run Telegram bot service
-pnpm cli repl         # run REPL
-pnpm cli exec /status # run one local admin command
+# TODO: create acppela bootstrap command to suggest initial setup
+mkdir -p ~/.config/acpella
+cp .env.example ~/.config/acpella/.env
+
+acpella serve        # run Telegram bot service
+acpella repl         # run REPL
+acpella exec /status # run one local admin command
 ```
 
 ## Config
@@ -32,7 +35,7 @@ The default agent is the built-in `test` echo agent. See [`skills/acpella`](skil
 Test locally on checkout source
 
 ```sh
-pnpm i
+pnpm install
 
 # with global ~/.config/acpella/.env
 pnpm cli repl
