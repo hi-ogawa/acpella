@@ -382,27 +382,23 @@ renew: ${renderSessionRenewPolicy({ policy: stateSession.renew, timezone: config
       help: "/session renew <off|daily|daily:N> [sessionName] - Set session renewal policy.",
       withArgs: true,
       run: async ({ args, reply, sessionName }) => {
-        const [value, targetSession, extra] = args;
+        const [value, targetSession] = args;
         const usage = "Usage: /session renew <off|daily|daily:N> [sessionName]";
-        if (!value || extra) {
+        if (!value) {
           await reply.system(usage);
           return;
         }
-        if (value === "off") {
-          stateStore.setSession(targetSession ?? sessionName, { renew: undefined });
-          await reply.system("Session renewal: off");
-          return;
+        if (targetSession) {
+          if (!stateStore.get().sessions[targetSession]) {
+            await reply.system(`Unknown session: ${targetSession}`);
+            return;
+          }
+          sessionName = targetSession;
         }
         const policy = parseSessionRenewPolicy(value);
-        stateStore.setSession(targetSession ?? sessionName, {
-          renew: policy,
-        });
-        await reply.system(
-          `Session renewal: ${renderSessionRenewPolicy({
-            policy,
-            timezone: config.timezone,
-          })}`,
-        );
+        stateStore.setSession(sessionName, { renew: policy });
+        const output = renderSessionRenewPolicy({ policy, timezone: config.timezone });
+        await reply.system(`Session renewal: ${output}`);
       },
     },
   ];

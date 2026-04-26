@@ -9,7 +9,10 @@ export const sessionRenewPolicySchema = z.object({
 
 type SessionRenewPolicy = z.infer<typeof sessionRenewPolicySchema>;
 
-export function parseSessionRenewPolicy(value: string): SessionRenewPolicy {
+export function parseSessionRenewPolicy(value: string): SessionRenewPolicy | undefined {
+  if (value === "off") {
+    return undefined;
+  }
   if (value === "daily") {
     return { mode: "daily", atHour: DEFAULT_SESSION_RENEW_HOUR };
   }
