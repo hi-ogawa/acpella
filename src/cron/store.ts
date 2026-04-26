@@ -102,7 +102,6 @@ type CronJobFile = z.infer<typeof cronJobFileSchema>;
 type CronStateFile = z.infer<typeof cronStateFileSchema>;
 
 export type CronJob = z.infer<typeof cronJobSchema>;
-export type CronTarget = z.infer<typeof cronTargetSchema>;
 export type CronDeliveryTarget = z.infer<typeof CronDeliveryTargetSchema>;
 export type CronRun = z.infer<typeof cronRunSchema>;
 type CronRunExtra = CronRun & { cronId: string };

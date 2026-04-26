@@ -1,6 +1,6 @@
 import { Cron } from "croner";
 
-export interface CronTimerEntry {
+interface CronTimerEntry {
   id: string;
   schedule: string;
   timezone: string;
