@@ -6,9 +6,11 @@ Thin service that connects a messaging channel (Telegram) to AI agent via [ACP](
 
 ```bash
 pnpm install
+
+# Make `acpella` cli available globally
 pnpm link --global
 
-# TODO: create acppela bootstrap command to suggest initial setup
+# Edit .env using the Config section below
 mkdir -p ~/.config/acpella
 cp .env.example ~/.config/acpella/.env
 
@@ -37,13 +39,13 @@ Test locally on checkout source
 ```sh
 pnpm install
 
-# with global ~/.config/acpella/.env
+# run with .env.dev
+pnpm dev repl
+pnpm dev exec /status
+
+# run with global ~/.config/acpella/.env if exists
 pnpm cli repl
 pnpm cli exec /status
-
-# with local .env
-pnpm cli --env-file .env repl
-pnpm cli --env-file .env exec /status
 ```
 
 ## Docs

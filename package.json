@@ -12,6 +12,7 @@
   "scripts": {
     "prepare": "vp config",
     "cli": "./src/cli-bin.ts",
+    "dev": "./src/cli-bin.ts --env-file .env.dev",
     "test": "vitest --project=unit",
     "test-ci": "CI=true vitest --project=unit --coverage",
     "test-codex": "vitest --project=codex",
