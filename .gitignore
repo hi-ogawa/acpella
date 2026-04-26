@@ -7,3 +7,4 @@ acpella.config.json
 .acpella/
 !fixtures/*/.acpella
 .tmp
+.fallow/

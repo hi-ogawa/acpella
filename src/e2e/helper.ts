@@ -6,7 +6,7 @@ import { useFs } from "../test/helper.ts";
 
 export type TestService = ReturnType<typeof startService>;
 
-export const execFileAsync = promisify(execFile);
+const execFileAsync = promisify(execFile);
 
 export function startService(options?: { env?: Record<string, string>; sourceDir?: string }) {
   const { root } = useFs({
