@@ -20,13 +20,11 @@ ${customPrompt.trim()}
   return output;
 }
 
-export type MessageMetadataValue = string | number | boolean;
-
-export type MessageMetadata = Record<string, MessageMetadataValue>;
+export type MessageMetadata = Record<string, unknown>;
 
 export function buildMessageMetadataPrompt(metadata: MessageMetadata): string {
   const lines = Object.entries(metadata)
-    .map(([key, value]) => `${key}: ${value}`)
+    .map(([key, value]) => `${key}: ${String(value)}`)
     .join("\n");
   return `\
 <message_metadata>
