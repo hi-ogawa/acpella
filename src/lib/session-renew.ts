@@ -1,5 +1,13 @@
+import { z } from "zod";
+
 const DEFAULT_SESSION_RENEW_HOUR = 4;
-export type SessionRenewPolicy = { mode: "daily"; atHour: number };
+
+export const sessionRenewPolicySchema = z.object({
+  mode: z.literal("daily"),
+  atHour: z.number().int().min(0).max(23),
+});
+
+export type SessionRenewPolicy = z.infer<typeof sessionRenewPolicySchema>;
 
 export interface RenewableSession {
   agentSessionId?: string;
