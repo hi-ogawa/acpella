@@ -789,12 +789,12 @@ test("message metadata", async () => {
 
 test("cron auto reloads external cron file changes", async ({ onTestFinished }) => {
   // Timeline:
-  // - 00:00 UTC / 07:00 Jakarta: runner starts with no jobs.
-  // - 00:00 UTC / 07:00 Jakarta: write file-job directly to cron.json.
-  // - 00:00 UTC / 07:00 Jakarta: watcher polls, reloads, and refreshes the scheduler.
-  // - 00:02 UTC / 07:02 Jakarta: file-job fires with hello-from-file.
+  // - 07:00: runner starts with no jobs.
+  // - 07:00: write file-job directly to cron.json.
+  // - 07:00: watcher polls, reloads, and refreshes the scheduler.
+  // - 07:02: file-job fires with hello-from-file.
   vi.useFakeTimers({
-    now: Date.parse("2026-04-18T00:00:00Z"),
+    now: Date.parse("2026-04-18T07:00:00+07:00"),
   });
   onTestFinished(() => {
     vi.useRealTimers();
@@ -880,7 +880,7 @@ test("cron auto reloads external cron file changes", async ({ onTestFinished }) 
       last: none"
   `);
 
-  vi.advanceTimersByTime(Date.parse("2026-04-18T00:02:00Z") - Date.now());
+  vi.advanceTimersByTime(Date.parse("2026-04-18T07:02:00+07:00") - Date.now());
   expect(formatTime(Date.now(), tester.config.timezone)).toMatchInlineSnapshot(
     `"2026-04-18T07:02:00+07:00"`,
   );
@@ -904,14 +904,14 @@ test("cron auto reloads external cron file changes", async ({ onTestFinished }) 
 
 test("cron command", async ({ onTestFinished }) => {
   // Timeline:
-  // - 00:00 UTC / 07:00 Jakarta: add test-job for every minute.
-  // - 00:01 UTC / 07:01 Jakarta: test-job fires with hello-cron.
-  // - 00:01 UTC / 07:01 Jakarta: add other-job for minute 3, disable test-job.
-  // - 00:03 UTC / 07:03 Jakarta: other-job fires with its added prompt, hello-other.
-  // - 00:03 UTC / 07:03 Jakarta: update other-job to minute 4, then update its prompt.
-  // - 00:04 UTC / 07:04 Jakarta: other-job fires with its updated prompt, hello-updated.
+  // - 07:00: add test-job for every minute.
+  // - 07:01: test-job fires with hello-cron.
+  // - 07:01: add other-job for minute 3, disable test-job.
+  // - 07:03: other-job fires with its added prompt, hello-other.
+  // - 07:03: update other-job to minute 4, then update its prompt.
+  // - 07:04: other-job fires with its updated prompt, hello-updated.
   vi.useFakeTimers({
-    now: Date.parse("2026-04-18T00:00:00Z"),
+    now: Date.parse("2026-04-18T07:00:00+07:00"),
   });
   onTestFinished(() => {
     vi.useRealTimers();
@@ -1208,11 +1208,11 @@ test("cron command", async ({ onTestFinished }) => {
 
 test("cron error delivery", async ({ onTestFinished }) => {
   // Timeline:
-  // - 00:00 UTC / 07:00 Jakarta: add test-job for every minute with a failing prompt.
-  // - 00:01 UTC / 07:01 Jakarta: test-job starts and records a running state.
-  // - 00:01 UTC / 07:01 Jakarta: prompt fails, run records failure, delivery receives an error notice.
+  // - 07:00: add test-job for every minute with a failing prompt.
+  // - 07:01: test-job starts and records a running state.
+  // - 07:01: prompt fails, run records failure, delivery receives an error notice.
   vi.useFakeTimers({
-    now: Date.parse("2026-04-18T00:00:00Z"),
+    now: Date.parse("2026-04-18T07:00:00+07:00"),
   });
   onTestFinished(() => {
     vi.useRealTimers();
@@ -1301,7 +1301,7 @@ test("cron with session name", async ({ onTestFinished }) => {
   // - Add tg-job2 with --session tg-12345-678 and verify thread Telegram delivery.
   // - Add tg-job3 with a multi-word prompt and verify prompt parsing is preserved.
   vi.useFakeTimers({
-    now: Date.parse("2026-04-18T00:00:00Z"),
+    now: Date.parse("2026-04-18T07:00:00+07:00"),
   });
   onTestFinished(() => {
     vi.useRealTimers();
@@ -1399,9 +1399,9 @@ test("cron with session name", async ({ onTestFinished }) => {
 
 test("session renews stale chat prompt after daily boundary", async ({ onTestFinished }) => {
   // Timeline:
-  // - 20:30 UTC / 03:30 Jakarta: enable daily renewal at 04:00 and create __testSession1.
-  // - 20:50 UTC / 03:50 Jakarta: chat prompt stays on __testSession1 before the boundary.
-  // - 21:30 UTC / 04:30 Jakarta: chat prompt crosses the boundary and creates __testSession2.
+  // - 03:30: enable daily renewal at 04:00 and create __testSession1.
+  // - 03:50: chat prompt stays on __testSession1 before the boundary.
+  // - 04:30: chat prompt crosses the boundary and creates __testSession2.
   vi.useFakeTimers({
     now: Date.parse("2026-04-18T03:30:00+07:00"),
   });
@@ -1435,9 +1435,9 @@ test("session renews stale chat prompt after daily boundary", async ({ onTestFin
 
 test("cron runner renews stale session after daily boundary", async ({ onTestFinished }) => {
   // Timeline:
-  // - 20:30 UTC / 03:30 Jakarta: enable daily renewal at 04:00 and create __testSession1.
-  // - 20:30 UTC / 03:30 Jakarta: add renew-job for 04:30.
-  // - 21:30 UTC / 04:30 Jakarta: renew-job crosses the boundary and uses __testSession2.
+  // - 03:30: enable daily renewal at 04:00 and create __testSession1.
+  // - 03:30: add renew-job for 04:30.
+  // - 04:30: renew-job crosses the boundary and uses __testSession2.
   vi.useFakeTimers({
     now: Date.parse("2026-04-18T03:30:00+07:00"),
   });
