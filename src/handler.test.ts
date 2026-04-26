@@ -772,9 +772,7 @@ test("message metadata", async () => {
     text: `__keep_metadata: ok`,
     metadata: {
       promptMetadata: {
-        sender_timestamp: formatTime(Date.UTC(2024, 0, 2, 3, 4, 5), "Asia/Jakarta"),
-        timezone: "Asia/Jakarta",
-        session_name: "test",
+        timestamp: Date.UTC(2024, 0, 2, 3, 4, 5),
         conversation_kind: "repl",
       },
     },

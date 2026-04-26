@@ -80,7 +80,10 @@ export async function createHandler(
     let { reply, sessionName, metadata } = context;
     let promptText = "";
     if (metadata?.promptMetadata && Object.keys(metadata.promptMetadata).length > 0) {
-      promptText = buildMessageMetadataPrompt(metadata.promptMetadata);
+      promptText = buildMessageMetadataPrompt(metadata.promptMetadata, {
+        timezone: config.timezone,
+        sessionName,
+      });
     }
     promptText += context.text;
 

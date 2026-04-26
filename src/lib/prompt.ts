@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { addIndent } from "./utils.ts";
+import { addIndent, formatTime } from "./utils.ts";
 
 const INCLUDE_LINE_RE = /^[^\S\r\n]*@(\S+)[^\S\r\n]*$/gm;
 const ACP_DIRECTIVE_LINE_RE = /^[^\S\r\n]*::acpella\s+(\S+)(?:\s+(.+?))?[^\S\r\n]*$/gm;
@@ -20,11 +20,26 @@ ${customPrompt.trim()}
   return output;
 }
 
-export type MessageMetadata = Record<string, unknown>;
+export interface MessageMetadata {
+  timestamp: number;
+  [key: string]: unknown;
+}
 
-export function buildMessageMetadataPrompt(metadata: MessageMetadata): string {
-  const lines = Object.entries(metadata)
+export function buildMessageMetadataPrompt(
+  metadata: MessageMetadata,
+  context: { timezone: string; sessionName: string },
+): string {
+  const extraLines = Object.entries(metadata)
+    .filter(([key]) => key !== "timestamp")
     .map(([key, value]) => `${key}: ${String(value)}`)
+    .join("\n");
+  const lines = [
+    `sender_timestamp: ${formatTime(metadata.timestamp, context.timezone)}`,
+    `timezone: ${context.timezone}`,
+    `session_name: ${context.sessionName}`,
+    extraLines,
+  ]
+    .filter(Boolean)
     .join("\n");
   return `\
 <message_metadata>
