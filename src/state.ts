@@ -11,7 +11,7 @@ const agentKeySchema = z
   .min(1)
   .regex(/^[a-zA-Z0-9_-]+$/);
 
-export const DEFAULT_SESSION_RENEW_HOUR = 4;
+const DEFAULT_SESSION_RENEW_HOUR = 4;
 export type SessionRenewPolicyString = "off" | "daily" | `daily:${number}`;
 export type EffectiveSessionRenewPolicy = { mode: "off" } | { mode: "daily"; atHour: number };
 
@@ -144,7 +144,7 @@ export function renderSessionRenewPolicy(
   }
 }
 
-export function getSessionRenewBoundary(options: {
+function getSessionRenewBoundary(options: {
   now: number;
   timezone: string;
   atHour: number;
