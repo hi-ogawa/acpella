@@ -1,56 +1,34 @@
 const DEFAULT_SESSION_RENEW_HOUR = 4;
-export type SessionRenewPolicyString = "off" | "daily" | `daily:${number}`;
-export type EffectiveSessionRenewPolicy = { mode: "off" } | { mode: "daily"; atHour: number };
+export type SessionRenewPolicy = { mode: "daily"; atHour: number };
 
 export interface RenewableSession {
   agentSessionId?: string;
-  renew?: SessionRenewPolicyString;
+  renew?: SessionRenewPolicy;
   updatedAt?: number;
 }
 
-export function parseSessionRenewPolicy(value: string): EffectiveSessionRenewPolicy | undefined {
-  if (value === "off") {
-    return { mode: "off" };
-  }
+export function parseSessionRenewPolicy(value: string): SessionRenewPolicy {
   if (value === "daily") {
     return { mode: "daily", atHour: DEFAULT_SESSION_RENEW_HOUR };
   }
   const match = /^daily:(\d+)$/.exec(value);
-  if (!match) {
-    return;
-  }
-  const atHour = Number(match[1]);
-  if (!Number.isInteger(atHour) || atHour < 0 || atHour > 23) {
-    return;
-  }
-  return { mode: "daily", atHour };
-}
-
-export function resolveSessionRenewPolicy(
-  value: SessionRenewPolicyString | undefined,
-): EffectiveSessionRenewPolicy {
-  if (!value) {
-    return { mode: "daily", atHour: DEFAULT_SESSION_RENEW_HOUR };
-  }
-  const policy = parseSessionRenewPolicy(value);
-  if (!policy) {
-    throw new Error(`Invalid session renewal policy: ${value}`);
-  }
-  return policy;
-}
-
-export function renderSessionRenewPolicy(
-  policy: EffectiveSessionRenewPolicy,
-  timezone: string,
-): string {
-  switch (policy.mode) {
-    case "off": {
-      return "off";
-    }
-    case "daily": {
-      return `daily at ${String(policy.atHour).padStart(2, "0")}:00 ${timezone}`;
+  if (match) {
+    const atHour = Number(match[1]);
+    if (Number.isInteger(atHour) && atHour >= 0 && atHour <= 23) {
+      return { mode: "daily", atHour };
     }
   }
+  throw new Error(`Invalid session renewal policy: ${value}`);
+}
+
+export function renderSessionRenewPolicy(options: {
+  policy?: SessionRenewPolicy;
+  timezone: string;
+}): string {
+  if (!options.policy) {
+    return "off";
+  }
+  return `daily at ${String(options.policy.atHour).padStart(2, "0")}:00 ${options.timezone}`;
 }
 
 function getSessionRenewBoundary(options: {
@@ -81,8 +59,7 @@ export function shouldRenewSession(options: {
   if (!options.session.agentSessionId || options.session.updatedAt === undefined) {
     return false;
   }
-  const policy = resolveSessionRenewPolicy(options.session.renew);
-  if (policy.mode === "off") {
+  if (!options.session.renew) {
     return false;
   }
   return (
@@ -90,7 +67,7 @@ export function shouldRenewSession(options: {
     getSessionRenewBoundary({
       now: options.now,
       timezone: options.timezone,
-      atHour: policy.atHour,
+      atHour: options.session.renew.atHour,
     })
   );
 }

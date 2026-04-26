@@ -39,7 +39,7 @@ Common cases:
 - use `/session verbose on|off [sessionName]` to show or hide tool-call output for a session
 - use `/session renew off|daily|daily:<hour> [sessionName]` to change whether a session renews automatically
 
-By default, sessions renew lazily once per day at 04:00 in the acpella service timezone. Renewal is checked immediately before the next live or cron prompt for that acpella session name. acpella does not create fresh ACP sessions on a background timer, and inactive conversations are not touched.
+By default, sessions do not auto-renew. When daily renewal is enabled, acpella checks the boundary immediately before the next live or cron prompt for that acpella session name. acpella does not create fresh ACP sessions on a background timer, and inactive conversations are not touched.
 
 Examples:
 
@@ -49,7 +49,7 @@ Examples:
 /session renew daily:6
 ```
 
-`daily` means daily at 04:00. `daily:6` means daily at 06:00. Use `/session info` to confirm the effective policy.
+`daily` means daily at 04:00 in the acpella service timezone. `daily:6` means daily at 06:00. `off` disables automatic renewal. Use `/session info` to confirm the effective policy.
 
 ## Agent commands
 

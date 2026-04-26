@@ -19,9 +19,7 @@ import { MESSAGE_SPLIT_BUDGET, ReplyManager } from "./lib/reply.ts";
 import {
   parseSessionRenewPolicy,
   renderSessionRenewPolicy,
-  resolveSessionRenewPolicy,
   shouldRenewSession,
-  type SessionRenewPolicyString,
 } from "./lib/session-renew.ts";
 import { handleSystemdInstall } from "./lib/systemd.ts";
 import { parseTelegramSessionName } from "./lib/telegram/utils.ts";
@@ -217,13 +215,12 @@ export async function createHandler(
         const sessionName = arg ?? context.sessionName;
         const stateSession = stateStore.getSession(sessionName);
         const { verbose } = stateSession;
-        const renewPolicy = resolveSessionRenewPolicy(stateSession.renew);
         let output = `\
 session: ${sessionName}
 agent: ${stateSession.agentKey}
 agent session id: ${stateSession.agentSessionId ?? "none"}
 verbose: ${verbose ? "on" : "off"}
-renew: ${renderSessionRenewPolicy(renewPolicy, config.timezone)}
+renew: ${renderSessionRenewPolicy({ policy: stateSession.renew, timezone: config.timezone })}
 `;
         const usage = stateSession.agentSessionId
           ? stateStore.getAgentSessionUsage({
@@ -394,15 +391,25 @@ renew: ${renderSessionRenewPolicy(renewPolicy, config.timezone)}
       run: async ({ args, reply, sessionName }) => {
         const [value, targetSession, extra] = args;
         const usage = "Usage: /session renew <off|daily|daily:N> [sessionName]";
-        const policy = value ? parseSessionRenewPolicy(value) : undefined;
-        if (!value || !policy || extra) {
+        if (!value || extra) {
           await reply.system(usage);
           return;
         }
+        if (value === "off") {
+          stateStore.setSession(targetSession ?? sessionName, { renew: undefined });
+          await reply.system("Session renewal: off");
+          return;
+        }
+        const policy = parseSessionRenewPolicy(value);
         stateStore.setSession(targetSession ?? sessionName, {
-          renew: value as SessionRenewPolicyString,
+          renew: policy,
         });
-        await reply.system(`Session renewal: ${renderSessionRenewPolicy(policy, config.timezone)}`);
+        await reply.system(
+          `Session renewal: ${renderSessionRenewPolicy({
+            policy,
+            timezone: config.timezone,
+          })}`,
+        );
       },
     },
   ];

@@ -1,6 +1,5 @@
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
-import { parseSessionRenewPolicy, type SessionRenewPolicyString } from "./lib/session-renew.ts";
 import { FileStateManager } from "./lib/utils-node.ts";
 
 const agentSchema = z.object({
@@ -12,16 +11,16 @@ const agentKeySchema = z
   .min(1)
   .regex(/^[a-zA-Z0-9_-]+$/);
 
-const sessionRenewPolicySchema = z.custom<SessionRenewPolicyString>(
-  (value) => typeof value === "string" && parseSessionRenewPolicy(value) !== undefined,
-  { message: "renew must be off, daily, or daily:<0-23>" },
-);
-
 const stateSessionSchema = z.object({
   agentKey: agentKeySchema,
   agentSessionId: z.string().min(1).optional(),
   verbose: z.boolean().optional(),
-  renew: sessionRenewPolicySchema.optional(),
+  renew: z
+    .object({
+      mode: z.literal("daily"),
+      atHour: z.number().int().min(0).max(23),
+    })
+    .optional(),
   updatedAt: z.number().int().nonnegative().optional(),
 });
 

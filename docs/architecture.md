@@ -21,7 +21,7 @@ The messaging side handles identity, chat/thread context, and replies. The route
 
 Each Telegram conversation maps to one agent conversation. Direct chats and normal group chats use the chat id. Forum topics include the thread id so separate topics do not share context.
 
-acpella stores only the lightweight mapping needed to reconnect a messaging conversation to an agent conversation. Session mappings can renew lazily on prompt boundaries, by default daily at 04:00 in the service timezone, so long-running chats and scheduled prompts do not keep one ACP context forever. The agent owns its own memory, workspace state, tool execution, and resumability.
+acpella stores only the lightweight mapping needed to reconnect a messaging conversation to an agent conversation. Session mappings can optionally renew lazily on prompt boundaries, so long-running chats and scheduled prompts do not have to keep one ACP context forever. The agent owns its own memory, workspace state, tool execution, and resumability.
 
 ## Operational Model
 

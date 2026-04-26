@@ -424,7 +424,7 @@ test("session commands", async () => {
     agent: test
     agent session id: none
     verbose: off
-    renew: daily at 04:00 Asia/Jakarta"
+    renew: off"
   `);
   expect(await session.request("/session list")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -437,7 +437,7 @@ test("session commands", async () => {
     agent: test
     agent session id: __testSession1
     verbose: off
-    renew: daily at 04:00 Asia/Jakarta"
+    renew: off"
   `);
   expect(await session.request("/session list")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -458,7 +458,7 @@ test("session commands", async () => {
     agent: test
     agent session id: __testSession2
     verbose: off
-    renew: daily at 04:00 Asia/Jakarta"
+    renew: off"
   `);
   expect(await session.request("__session")).toMatchInlineSnapshot(`"session: __testSession2"`);
   expect(await session.request("/session list")).toMatchInlineSnapshot(`
@@ -481,7 +481,7 @@ test("session commands", async () => {
     agent: test
     agent session id: __testSession3
     verbose: off
-    renew: daily at 04:00 Asia/Jakarta"
+    renew: off"
   `);
   // /session info with explicit sessionName: does not exist
   expect(await session.request("/session info no-such-session")).toMatchInlineSnapshot(`
@@ -504,7 +504,7 @@ test("session context usage", async () => {
     agent: test
     agent session id: __testSession1
     verbose: off
-    renew: daily at 04:00 Asia/Jakarta"
+    renew: off"
   `);
 
   // Send a usage_update
@@ -519,7 +519,7 @@ test("session context usage", async () => {
     agent: test
     agent session id: __testSession1
     verbose: off
-    renew: daily at 04:00 Asia/Jakarta
+    renew: off
     context: 54321 / 200000 tokens (27%)"
   `);
   expect(readStateFile(tester.config)).toMatchInlineSnapshot(`
@@ -583,7 +583,7 @@ test("verbose command toggles tool call output", async () => {
     agent: test
     agent session id: __testSession1
     verbose: off
-    renew: daily at 04:00 Asia/Jakarta"
+    renew: off"
   `);
   expect(await session.request("/session verbose on")).toMatchInlineSnapshot(`
       "[⚙️ System]
@@ -672,7 +672,7 @@ test("agent command", async () => {
     agent: test-error
     agent session id: none
     verbose: off
-    renew: daily at 04:00 Asia/Jakarta"
+    renew: off"
   `);
   expect(await session.request("/agent remove test-error")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -690,7 +690,7 @@ test("agent command", async () => {
     agent: test2
     agent session id: __testSession1
     verbose: off
-    renew: daily at 04:00 Asia/Jakarta"
+    renew: off"
   `);
   expect(await session.request("/session list")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -734,7 +734,7 @@ test("agent command", async () => {
     agent: test
     agent session id: __testSession1
     verbose: off
-    renew: daily at 04:00 Asia/Jakarta"
+    renew: off"
   `);
   expect(await session.request("/session close test2:__testSession1")).toMatchInlineSnapshot(`
     "[⚙️ System]
