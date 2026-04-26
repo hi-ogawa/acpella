@@ -1,4 +1,4 @@
-import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { FileStateManager } from "./lib/utils-node.ts";
 
@@ -65,7 +65,7 @@ const stateSchema = z
     }
   });
 
-export const TEST_AGENT_COMMAND = `node ${path.join(import.meta.dirname, "lib/test-agent.ts")}`;
+export const TEST_AGENT_COMMAND = `node ${fileURLToPath(import.meta.resolve("#test-agent"))}`;
 
 function getStateSchemaDefault(): State {
   return {

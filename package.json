@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "imports": {
-    "#cli": "./src/cli.ts"
+    "#cli": "./src/cli.ts",
+    "#test-agent": "./src/lib/test-agent.ts"
   },
   "scripts": {
     "prepare": "vp config",
