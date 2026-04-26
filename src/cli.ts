@@ -15,7 +15,7 @@ import {
   normalizeUserMention,
   TelegramChatActionManager,
 } from "./lib/telegram/utils.ts";
-import { addIndent, sleep, truncateString } from "./lib/utils.ts";
+import { addIndent, formatTime, sleep, truncateString } from "./lib/utils.ts";
 import { getVersion } from "./lib/version.ts";
 
 const CLI_HELP = `\
@@ -114,7 +114,7 @@ ${CLI_HELP}`);
 
   if (cli.command === "exec") {
     try {
-      await runExec({ handler, text: cli.args.join(" ") });
+      await runExec({ config, handler, text: cli.args.join(" ") });
     } finally {
       cronRunner.stop();
     }
@@ -216,6 +216,11 @@ ${CLI_HELP}`);
     };
 
     try {
+      const conversationKind = ctx.message.message_thread_id
+        ? "topic"
+        : ctx.chat.type === "private"
+          ? "dm"
+          : "group";
       await handler.handle({
         sessionName,
         text: normalizeUserMention({
@@ -223,7 +228,12 @@ ${CLI_HELP}`);
           username: botUsername,
         }),
         metadata: {
-          timestamp: ctx.message.date * 1000,
+          promptMetadata: {
+            sender_timestamp: formatTime(ctx.message.date * 1000, config.timezone),
+            timezone: config.timezone,
+            session_name: sessionName,
+            conversation_kind: conversationKind,
+          },
           cronDeliveryTarget: {
             telegram: {
               chatId,
@@ -293,7 +303,7 @@ async function startRepl({
   async function sendMessage(text: string) {
     isHandling = true;
     try {
-      await runExec({ handler, text });
+      await runExec({ config, handler, text });
     } catch (error) {
       console.error(error);
     } finally {
@@ -339,12 +349,25 @@ async function startRepl({
 // make exitCode non-zero for soft errors (e.g. invalid command usages) on exec.
 // currently only hard errors can make exitCode = 1.
 // (plan: enhance context.send interface to include status semantics)
-async function runExec({ handler, text }: { handler: Handler; text: string }) {
+async function runExec({
+  config,
+  handler,
+  text,
+}: {
+  config: AppConfig;
+  handler: Handler;
+  text: string;
+}) {
   await handler.handle({
     sessionName: "repl",
     text,
     metadata: {
-      timestamp: Date.now(),
+      promptMetadata: {
+        sender_timestamp: formatTime(Date.now(), config.timezone),
+        timezone: config.timezone,
+        session_name: "repl",
+        conversation_kind: "repl",
+      },
       cronDeliveryTarget: {
         repl: true,
       },

@@ -1,6 +1,7 @@
 import path from "node:path";
 import { expect, test } from "vitest";
 import { buildFirstPrompt, buildMessageMetadataPrompt } from "./prompt.ts";
+import { formatTime } from "./utils.ts";
 
 test("basic", () => {
   const output = buildFirstPrompt(path.resolve("./fixtures/prompt-includes/AGENTS.md"));
@@ -70,15 +71,17 @@ test("acpella skills directive", () => {
 
 test("message metadata", () => {
   const output = buildMessageMetadataPrompt({
-    timestamp: Date.UTC(2024, 0, 2, 3, 4, 5),
+    sender_timestamp: formatTime(Date.UTC(2024, 0, 2, 3, 4, 5), "Asia/Tokyo"),
     timezone: "Asia/Tokyo",
-    sessionName: "my-session",
+    session_name: "my-session",
+    conversation_kind: "dm",
   });
   expect(output).toMatchInlineSnapshot(`
     "<message_metadata>
     sender_timestamp: 2024-01-02T12:04:05+09:00
     timezone: Asia/Tokyo
     session_name: my-session
+    conversation_kind: dm
     </message_metadata>
     "
   `);

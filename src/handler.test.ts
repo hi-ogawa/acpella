@@ -752,7 +752,12 @@ test("message metadata", async () => {
     sessionName: "test",
     text: `__keep_metadata: ok`,
     metadata: {
-      timestamp: Date.UTC(2024, 0, 2, 3, 4, 5),
+      promptMetadata: {
+        sender_timestamp: formatTime(Date.UTC(2024, 0, 2, 3, 4, 5), "Asia/Jakarta"),
+        timezone: "Asia/Jakarta",
+        session_name: "test",
+        conversation_kind: "repl",
+      },
     },
   });
   result = result
@@ -763,6 +768,7 @@ test("message metadata", async () => {
     sender_timestamp: <timestamp>
     timezone: <timezone>
     session_name: test
+    conversation_kind: repl
     </message_metadata>
     __keep_metadata: ok"
   `);
