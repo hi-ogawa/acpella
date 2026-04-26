@@ -16,19 +16,17 @@ import { CommandHandler, type CommandTree } from "./lib/command.ts";
 import { formatSessionUpdateLogEntry, JsonLogger } from "./lib/logger.ts";
 import { buildFirstPrompt, buildMessageMetadataPrompt } from "./lib/prompt.ts";
 import { MESSAGE_SPLIT_BUDGET, ReplyManager } from "./lib/reply.ts";
-import { handleSystemdInstall } from "./lib/systemd.ts";
-import { parseTelegramSessionName } from "./lib/telegram/utils.ts";
-import { AsyncLane, DefaultMap, formatError } from "./lib/utils.ts";
 import {
-  parseAgentSessionKey,
   parseSessionRenewPolicy,
   renderSessionRenewPolicy,
   resolveSessionRenewPolicy,
-  SessionStateStore,
   shouldRenewSession,
-  toAgentSessionKey,
   type SessionRenewPolicyString,
-} from "./state.ts";
+} from "./lib/session-renew.ts";
+import { handleSystemdInstall } from "./lib/systemd.ts";
+import { parseTelegramSessionName } from "./lib/telegram/utils.ts";
+import { AsyncLane, DefaultMap, formatError } from "./lib/utils.ts";
+import { parseAgentSessionKey, SessionStateStore, toAgentSessionKey } from "./state.ts";
 import type { StateAgentSession, StateSession } from "./state.ts";
 
 export interface Handler {
