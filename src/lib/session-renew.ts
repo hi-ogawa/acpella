@@ -39,24 +39,24 @@ export function renderSessionRenewPolicy(options: {
   return `daily at ${String(options.policy.atHour).padStart(2, "0")}:00 ${options.timezone}`;
 }
 
-function getSessionRenewBoundary(options: {
-  now: number;
+function getRenewalPeriodStartMs(options: {
+  time: number;
   timezone: string;
   atHour: number;
 }): number {
-  const instant = Temporal.Instant.fromEpochMilliseconds(options.now);
+  const instant = Temporal.Instant.fromEpochMilliseconds(options.time);
   const zoned = instant.toZonedDateTimeISO(options.timezone);
-  let boundary = Temporal.ZonedDateTime.from({
+  let periodStart = Temporal.ZonedDateTime.from({
     timeZone: options.timezone,
     year: zoned.year,
     month: zoned.month,
     day: zoned.day,
     hour: options.atHour,
   });
-  if (boundary.epochMilliseconds > options.now) {
-    boundary = boundary.subtract({ days: 1 });
+  if (periodStart.epochMilliseconds > options.time) {
+    periodStart = periodStart.subtract({ days: 1 });
   }
-  return boundary.epochMilliseconds;
+  return periodStart.epochMilliseconds;
 }
 
 export function shouldRenewSession(options: {
@@ -71,9 +71,13 @@ export function shouldRenewSession(options: {
     return false;
   }
   return (
-    options.session.updatedAt <
-    getSessionRenewBoundary({
-      now: options.now,
+    getRenewalPeriodStartMs({
+      time: options.session.updatedAt,
+      timezone: options.timezone,
+      atHour: options.session.renew.atHour,
+    }) <
+    getRenewalPeriodStartMs({
+      time: options.now,
       timezone: options.timezone,
       atHour: options.session.renew.atHour,
     })
