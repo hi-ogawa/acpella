@@ -44,15 +44,6 @@ interface HandlerExtraContext extends HandlerContext {
 
 type SystemCommandTree = CommandTree<HandlerExtraContext>;
 
-function formatConfigEnvFile(envFile: AppConfig["envFile"]): string {
-  if (!envFile.path) {
-    return "(disabled)";
-  }
-  const status = envFile.loaded ? "loaded" : "not found";
-  const source = envFile.explicit ? "explicit" : "default";
-  return `${envFile.path} (${status}, ${source})`;
-}
-
 export async function createHandler(
   config: AppConfig,
   handlerOptions: {
@@ -702,7 +693,7 @@ enabled jobs: ${enabledJobs.length}
 status: running
 version: ${handlerOptions.version ?? "(unknown)"}
 default agent: ${stateStore.get().defaultAgent}
-env file: ${formatConfigEnvFile(config.envFile)}
+env file: ${config.envFile ?? "(none)"}
 home: ${config.home}
 `);
         },

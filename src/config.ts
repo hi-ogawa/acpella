@@ -4,14 +4,8 @@ import path from "node:path";
 import { loadEnvFile } from "node:process";
 import { z } from "zod";
 
-export interface ConfigEnvFile {
-  path?: string;
-  loaded: boolean;
-  explicit: boolean;
-}
-
 export interface AppConfig {
-  envFile: ConfigEnvFile;
+  envFile?: string;
   home: string;
   stateFile: string;
   cronFile: string;
@@ -44,11 +38,19 @@ export function loadConfig(options: {
   envFile?: string | false;
   envOverride?: Record<string, string>;
 }): AppConfig {
-  const envForConfigFile = { ...process.env, ...options.envOverride };
-  const envFile = loadConfigEnvFile({
-    file: options.envFile,
-    env: envForConfigFile,
-  });
+  let envFile: string | undefined;
+  if (options.envFile !== false) {
+    const explicit = options.envFile !== undefined;
+    envFile = options.envFile
+      ? path.resolve(process.cwd(), options.envFile)
+      : resolveDefaultEnvFile({ ...process.env, ...options.envOverride });
+    if (fs.existsSync(envFile)) {
+      loadEnvFile(envFile);
+    } else if (explicit) {
+      throw new Error(`Env file not found: ${envFile}`);
+    }
+  }
+
   const env = envSchema.parse({ ...process.env, ...options.envOverride });
   const home = env.ACPELLA_HOME ? path.resolve(env.ACPELLA_HOME) : process.cwd();
 
@@ -68,41 +70,6 @@ export function loadConfig(options: {
     prompt: {
       file: path.join(home, ".acpella", "AGENTS.md"),
     },
-  };
-}
-
-function loadConfigEnvFile(options: {
-  file: string | false | undefined;
-  env: NodeJS.ProcessEnv;
-}): ConfigEnvFile {
-  if (options.file === false) {
-    return {
-      loaded: false,
-      explicit: false,
-    };
-  }
-
-  const explicit = options.file !== undefined;
-  const file = options.file
-    ? path.resolve(process.cwd(), options.file)
-    : resolveDefaultEnvFile(options.env);
-
-  if (!fs.existsSync(file)) {
-    if (explicit) {
-      throw new Error(`Env file not found: ${file}`);
-    }
-    return {
-      path: file,
-      loaded: false,
-      explicit,
-    };
-  }
-
-  loadEnvFile(file);
-  return {
-    path: file,
-    loaded: true,
-    explicit,
   };
 }
 
