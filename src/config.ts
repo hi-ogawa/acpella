@@ -40,15 +40,17 @@ export function loadConfig(options: {
 }): AppConfig {
   let envFile: string | undefined;
   if (options.envFile !== false) {
+    let resolvedEnvFile: string;
     if (options.envFile) {
-      envFile = path.resolve(process.cwd(), options.envFile);
+      resolvedEnvFile = path.resolve(process.cwd(), options.envFile);
     } else {
-      envFile = resolveDefaultEnvFile({ ...process.env, ...options.envOverride });
+      resolvedEnvFile = resolveDefaultEnvFile({ ...process.env, ...options.envOverride });
     }
-    if (fs.existsSync(envFile)) {
-      loadEnvFile(envFile);
+    if (fs.existsSync(resolvedEnvFile)) {
+      loadEnvFile(resolvedEnvFile);
+      envFile = resolvedEnvFile;
     } else if (options.envFile) {
-      throw new Error(`Env file not found: ${envFile}`);
+      throw new Error(`Env file not found: ${resolvedEnvFile}`);
     }
   }
 

@@ -27,6 +27,16 @@ pnpm cli exec /status # run one local admin command
 
 The default agent is the built-in `test` echo agent. See [`skills/acpella`](skills/acpella) for current agent registration, session, customization, cron, and service administration workflows.
 
+## Development
+
+Test locally on checkout source
+
+```sh
+pnpm i
+pnpm cli repl
+pnpm cli exec /status
+```
+
 ## Docs
 
 - [`skills/acpella`](skills/acpella) — maintained usage and administration guide for agents
