@@ -155,17 +155,9 @@ export async function createHandler(
       promptText += buildFirstPrompt(config.prompt.file);
     }
     promptText += text;
-    const currentStateSession: StateSession = {
-      ...stateSession,
-      agentSessionId: session.sessionId,
-      updatedAt: now,
-    };
 
     const logger = new JsonLogger({
-      file: path.join(
-        config.logsDir,
-        `acp/${currentStateSession.agentKey}/${session.sessionId}.jsonl`,
-      ),
+      file: path.join(config.logsDir, `acp/${stateSession.agentKey}/${session.sessionId}.jsonl`),
     });
 
     logger.log({ type: "prompt", text: promptText });
@@ -179,10 +171,10 @@ export async function createHandler(
         if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
           await options.onText(update.content.text);
         } else if (update.sessionUpdate === "tool_call") {
-          await options.onToolCall?.(update.title, currentStateSession);
+          await options.onToolCall?.(update.title, stateSession);
         } else if (update.sessionUpdate === "usage_update") {
           stateStore.setAgentSessionUsage(
-            { agentKey: currentStateSession.agentKey, agentSessionId: session.sessionId },
+            { agentKey: stateSession.agentKey, agentSessionId: session.sessionId },
             update,
           );
         }
