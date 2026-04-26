@@ -1,5 +1,4 @@
 import { z } from "zod";
-import type { StateSession } from "../state";
 
 const DEFAULT_SESSION_RENEW_HOUR = 4;
 
@@ -35,21 +34,23 @@ export function renderSessionRenewPolicy(options: {
 }
 
 export function shouldRenewSession({
-  session,
+  updatedAt,
+  renew,
   now,
   timezone,
 }: {
-  session: StateSession;
+  updatedAt?: number;
+  renew?: SessionRenewPolicy;
   now: number;
   timezone: string;
 }): boolean {
-  if (session.agentSessionId && session.updatedAt !== undefined && session.renew) {
+  if (updatedAt && renew) {
     const currentPeriodStart = getRenewalPeriodStartMs({
       time: now,
       timezone,
-      atHour: session.renew.atHour,
+      atHour: renew.atHour,
     });
-    return session.updatedAt < currentPeriodStart;
+    return updatedAt < currentPeriodStart;
   }
   return false;
 }

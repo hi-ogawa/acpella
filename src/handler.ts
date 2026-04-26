@@ -131,7 +131,8 @@ export async function createHandler(
     const createNewSession =
       !stateSession.agentSessionId ||
       shouldRenewSession({
-        session: stateSession,
+        updatedAt: stateSession.updatedAt,
+        renew: stateSession.renew,
         now,
         timezone: config.timezone,
       });
