@@ -10,9 +10,10 @@ export function loadEnv(options: { file?: string }) {
     : resolveDefaultEnvFile(env);
 
   if (!fs.existsSync(file)) {
-    if (options.file) {
+    if (options.file !== undefined) {
       throw new Error(`Env file not found: ${file}`);
     }
+    return;
   }
   loadEnvFile(file);
 }
