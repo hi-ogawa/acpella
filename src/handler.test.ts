@@ -1420,6 +1420,11 @@ test.todo("cron runner renews stale session after daily boundary", async ({ onTe
   });
 
   const tester = await createHandlerTester();
+  tester.cronRunner.start();
+  onTestFinished(() => {
+    tester.cronRunner.stop();
+  });
+
   const session = tester.createSession("test", {
     metadata: { cronDeliveryTarget: { repl: true } },
   });
@@ -1435,11 +1440,6 @@ test.todo("cron runner renews stale session after daily boundary", async ({ onTe
     "[⚙️ System]
     Added cron job: renew-job"
   `);
-
-  tester.cronRunner.start();
-  onTestFinished(() => {
-    tester.cronRunner.stop();
-  });
 
   vi.advanceTimersByTime(60 * 60 * 1000);
   expect(formatTime(Date.now(), tester.config.timezone)).toMatchInlineSnapshot(
