@@ -14,7 +14,7 @@ export function startService(options?: { env?: Record<string, string>; sourceDir
     sourceDir: options?.sourceDir,
   });
 
-  const child = spawn("pnpm", ["-s", "cli", "repl"], {
+  const child = spawn("pnpm", ["-s", "dev", "repl"], {
     cwd: path.join(import.meta.dirname, "../.."),
     env: {
       ...process.env,
@@ -160,7 +160,7 @@ export function useCli() {
     prefix: "e2e-cli",
   });
   function cli(...messages: string[]) {
-    return execFileAsync("pnpm", ["-s", "cli", ...messages], {
+    return execFileAsync("pnpm", ["-s", "dev", ...messages], {
       cwd: path.join(import.meta.dirname, "../.."),
       env: {
         ...process.env,

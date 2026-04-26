@@ -33,7 +33,7 @@ Options:
 
 async function main() {
   const cliArgv = process.argv.slice(2);
-  if (["-h", "--help"].includes(cliArgv[0])) {
+  if (cliArgv.some((arg) => ["-h", "--help"].includes(arg))) {
     console.log(CLI_HELP);
     return;
   }
