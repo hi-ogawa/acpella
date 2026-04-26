@@ -35,6 +35,21 @@ export function parseTelegramSessionName(sessionName: string) {
   return { chatId, messageThreadId };
 }
 
+export function formatTelegramConversationMetadata(context: Context): string {
+  const chat = context.chat;
+  if (!chat) {
+    return "telegram:unknown";
+  }
+  if (chat.type === "private") {
+    return "telegram:direct";
+  }
+  const messageThreadId = context.message?.message_thread_id;
+  if (messageThreadId !== undefined) {
+    return `telegram:group:${chat.title}:topic:${messageThreadId}`;
+  }
+  return `telegram:group:${chat.title}`;
+}
+
 export function getTelegramRetryAfter(error: unknown): number | undefined {
   if (error instanceof GrammyError && error.error_code === 429) {
     return error.parameters.retry_after;

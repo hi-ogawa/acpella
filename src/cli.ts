@@ -10,6 +10,7 @@ import { createHandler, type Handler } from "./handler.ts";
 import { parseCli } from "./lib/cli.ts";
 import { markdownToTelegramHtml } from "./lib/telegram/format-html.ts";
 import {
+  formatTelegramConversationMetadata,
   formatTelegramSessionName,
   getTelegramRetryAfter,
   normalizeUserMention,
@@ -225,7 +226,7 @@ ${CLI_HELP}`);
         metadata: {
           promptMetadata: {
             timestamp: ctx.message.date * 1000,
-            conversation_kind: ctx.chat.type === "private" ? "direct" : "group",
+            channel: formatTelegramConversationMetadata(ctx),
           },
           cronDeliveryTarget: {
             telegram: {
