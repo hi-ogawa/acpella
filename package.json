@@ -2,6 +2,9 @@
   "name": "acpella",
   "private": true,
   "type": "module",
+  "imports": {
+    "#cli": "./src/cli.ts"
+  },
   "scripts": {
     "prepare": "vp config",
     "cli": "node --env-file-if-exists=.env src/cli.ts",
