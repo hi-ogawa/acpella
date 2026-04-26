@@ -82,7 +82,7 @@ function getStateSchemaDefault(): State {
   };
 }
 
-export type State = z.infer<typeof stateSchema>;
+type State = z.infer<typeof stateSchema>;
 export type StateSession = State["sessions"][string];
 export interface StateAgentSession {
   agentKey: string;

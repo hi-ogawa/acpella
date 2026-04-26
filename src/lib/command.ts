@@ -1,6 +1,6 @@
 export type CommandTree<T> = Record<string, CommandSpec<T>[]>;
 
-export type CommandSpec<T> = {
+type CommandSpec<T> = {
   tokens: string[];
   help: string;
   withArgs?: boolean;
