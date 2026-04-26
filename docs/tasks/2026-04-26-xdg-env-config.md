@@ -4,7 +4,7 @@
 
 Different acpella entrypoints currently risk resolving configuration from different places. That makes it easy for `serve`, `repl`, and `exec` to accidentally operate on different `ACPELLA_HOME` directories, state files, cron jobs, sessions, or prompt customization.
 
-Define a single env-file strategy that every CLI command goes through before `loadConfig()`.
+Define a single env-file strategy inside `loadConfig()`.
 
 The default command-line behavior should load the XDG config env file:
 
@@ -34,17 +34,14 @@ This keeps normal CLI usage aligned by default while preserving checkout-local d
 
 ## Reference files/patterns to follow
 
-- `src/lib/env.ts`
-  - Own env-file path resolution and loading behavior.
+- `src/config.ts`
+  - Own env-file path resolution, loading behavior, env metadata, and conversion from environment variables into `AppConfig`.
 - `src/lib/cli.ts`
   - Own global CLI option parsing such as `--env-file`.
   - Keep global options before the command so `exec` can treat everything after `exec` as message text.
 - `src/cli.ts`
-  - Load env before calling `loadConfig()`.
+  - Pass the parsed env-file option into `loadConfig()`.
   - Keep `serve`, `repl`, and `exec` on the same config-loading path.
-- `src/config.ts`
-  - Remain the layer that turns environment variables into `AppConfig`.
-  - Do not make config know whether env came from XDG config, explicit override, or dev script.
 - `package.json`
   - Preserve `pnpm cli` and `pnpm repl` as source-checkout conveniences.
   - Stop relying on Node-level env-file flags long term; package scripts should select the dev env file through acpella's own CLI/env loading path.
@@ -69,7 +66,7 @@ This keeps normal CLI usage aligned by default while preserving checkout-local d
    - Do not load more than one env file in a single process by default.
 
 4. Wire all commands through the same loading path.
-   - `serve`, `repl`, and `exec` should all load env before config resolution.
+   - `serve`, `repl`, and `exec` should all pass through `loadConfig()`.
    - The default command should behave the same as `serve`.
    - `--env-file` should be accepted before the command only, for example `acpella --env-file /tmp/dev.env exec /status`.
 

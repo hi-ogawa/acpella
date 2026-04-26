@@ -1,7 +1,17 @@
+import fs from "node:fs";
+import { homedir } from "node:os";
 import path from "node:path";
+import { loadEnvFile } from "node:process";
 import { z } from "zod";
 
+export interface ConfigEnvFile {
+  path?: string;
+  loaded: boolean;
+  explicit: boolean;
+}
+
 export interface AppConfig {
+  envFile: ConfigEnvFile;
   home: string;
   stateFile: string;
   cronFile: string;
@@ -19,6 +29,11 @@ export interface AppConfig {
   };
 }
 
+export interface LoadConfigOptions {
+  envFile?: string | false;
+  envOverride?: Record<string, string>;
+}
+
 const envSchema = z
   .object({
     ACPELLA_HOME: z.string().optional(),
@@ -30,11 +45,17 @@ const envSchema = z
   })
   .loose();
 
-export function loadConfig(envOverride?: Record<string, string>): AppConfig {
-  const env = envSchema.parse({ ...process.env, ...envOverride });
+export function loadConfig(options: LoadConfigOptions = {}): AppConfig {
+  const envForConfigFile = { ...process.env, ...options.envOverride };
+  const envFile = loadConfigEnvFile({
+    file: options.envFile,
+    env: envForConfigFile,
+  });
+  const env = envSchema.parse({ ...process.env, ...options.envOverride });
   const home = env.ACPELLA_HOME ? path.resolve(env.ACPELLA_HOME) : process.cwd();
 
   return {
+    envFile,
     home,
     stateFile: path.join(home, ".acpella", "state.json"),
     cronFile: path.join(home, ".acpella", "cron.json"),
@@ -50,6 +71,48 @@ export function loadConfig(envOverride?: Record<string, string>): AppConfig {
       file: path.join(home, ".acpella", "AGENTS.md"),
     },
   };
+}
+
+function loadConfigEnvFile(options: {
+  file: string | false | undefined;
+  env: NodeJS.ProcessEnv;
+}): ConfigEnvFile {
+  if (options.file === false) {
+    return {
+      loaded: false,
+      explicit: false,
+    };
+  }
+
+  const explicit = options.file !== undefined;
+  const file = options.file
+    ? path.resolve(process.cwd(), options.file)
+    : resolveDefaultEnvFile(options.env);
+
+  if (!fs.existsSync(file)) {
+    if (explicit) {
+      throw new Error(`Env file not found: ${file}`);
+    }
+    return {
+      path: file,
+      loaded: false,
+      explicit,
+    };
+  }
+
+  loadEnvFile(file);
+  return {
+    path: file,
+    loaded: true,
+    explicit,
+  };
+}
+
+function resolveDefaultEnvFile(env: NodeJS.ProcessEnv): string {
+  const configHome = env.XDG_CONFIG_HOME
+    ? path.resolve(env.XDG_CONFIG_HOME)
+    : path.join(homedir(), ".config");
+  return path.join(configHome, "acpella", ".env");
 }
 
 function parseIdList(value: string | undefined): number[] | undefined {

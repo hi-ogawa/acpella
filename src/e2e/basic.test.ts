@@ -14,7 +14,7 @@ test("help", async () => {
       exec <message...> Run one local message, then exit.
 
     Options:
-      --env-file <path> Load an env file before config resolution.
+      --env-file <path> Use this env file for config resolution.
       -h, --help        Show this help.
 
     "

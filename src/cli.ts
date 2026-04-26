@@ -8,7 +8,6 @@ import { CronRunner } from "./cron/runner.ts";
 import { CronStore } from "./cron/store.ts";
 import { createHandler, type Handler } from "./handler.ts";
 import { parseCli } from "./lib/cli.ts";
-import { loadEnv } from "./lib/env.ts";
 import { markdownToTelegramHtml } from "./lib/telegram/format-html.ts";
 import {
   formatTelegramSessionName,
@@ -28,7 +27,7 @@ Commands:
   exec <message...> Run one local message, then exit.
 
 Options:
-  --env-file <path> Load an env file before config resolution.
+  --env-file <path> Use this env file for config resolution.
   -h, --help        Show this help.
 `;
 
@@ -59,11 +58,9 @@ Missing message for exec
 ${CLI_HELP}`);
   }
 
-  loadEnv({
-    file: cli.envFile,
+  const config = loadConfig({
+    envFile: cli.envFile,
   });
-
-  const config = loadConfig();
   const version = await getVersion({ cwd: path.join(import.meta.dirname, "..") });
   const cronStore = new CronStore({
     cronFile: config.cronFile,
