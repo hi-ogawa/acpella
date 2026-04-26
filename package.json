@@ -37,6 +37,7 @@
     "@vitest/ui": "^4.1.4",
     "@zed-industries/codex-acp": "^0.11.1",
     "acpx": "^0.5.3",
+    "fallow": "^2.50.0",
     "typescript": "^6.0.2",
     "vite-plus": "^0.1.16",
     "vitest": "^4.1.4"
