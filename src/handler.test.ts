@@ -1380,6 +1380,87 @@ test("cron with session name", async ({ onTestFinished }) => {
   `);
 });
 
-test.todo("session renews stale chat prompt after daily boundary");
+test.todo("session renews stale chat prompt after daily boundary", async ({ onTestFinished }) => {
+  // 2026-04-18 03:30 Asia/Jakarta, before the 04:00 daily renewal boundary.
+  vi.useFakeTimers({
+    now: Date.parse("2026-04-18T03:30:00+07:00"),
+  });
+  onTestFinished(() => {
+    vi.useRealTimers();
+  });
 
-test.todo("cron runner renews stale session after daily boundary");
+  const tester = await createHandlerTester();
+  const session = tester.createSession("test");
+
+  await session.request("/session renew daily:4");
+
+  expect(await session.request("__session")).toMatchInlineSnapshot(`"session: __testSession1"`);
+
+  vi.advanceTimersByTime(20 * 60 * 1000);
+  expect(formatTime(Date.now(), tester.config.timezone)).toMatchInlineSnapshot(
+    `"2026-04-18T03:50:00+07:00"`,
+  );
+  expect(await session.request("__session")).toMatchInlineSnapshot(`"session: __testSession1"`);
+
+  vi.advanceTimersByTime(40 * 60 * 1000);
+  expect(formatTime(Date.now(), tester.config.timezone)).toMatchInlineSnapshot(
+    `"2026-04-18T04:30:00+07:00"`,
+  );
+
+  expect(await session.request("__session")).toMatchInlineSnapshot(`"session: __testSession2"`);
+});
+
+test.todo("cron runner renews stale session after daily boundary", async ({ onTestFinished }) => {
+  // 2026-04-18 03:30 Asia/Jakarta, before the 04:00 daily renewal boundary.
+  vi.useFakeTimers({
+    now: Date.parse("2026-04-18T03:30:00+07:00"),
+  });
+  onTestFinished(() => {
+    vi.useRealTimers();
+  });
+
+  const tester = await createHandlerTester();
+  const session = tester.createSession("test", {
+    metadata: { cronDeliveryTarget: { repl: true } },
+  });
+
+  await session.request("/session renew daily:4");
+  expect(await session.request("__session")).toMatchInlineSnapshot(`"session: __testSession1"`);
+
+  expect(
+    await session.request(
+      "/cron add renew-job 30 4 * * * -- __include_session__ cron-after-boundary",
+    ),
+  ).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Added cron job: renew-job"
+  `);
+
+  tester.cronRunner.start();
+  onTestFinished(() => {
+    tester.cronRunner.stop();
+  });
+
+  vi.advanceTimersByTime(60 * 60 * 1000);
+  expect(formatTime(Date.now(), tester.config.timezone)).toMatchInlineSnapshot(
+    `"2026-04-18T04:30:00+07:00"`,
+  );
+
+  await vi.waitUntil(() => tester.cronDeliveries.length > 0);
+  expect(tester.cronDeliveries).toMatchInlineSnapshot(`
+    [
+      "session: __testSession2
+    <trigger_metadata>
+    trigger: cron
+    cron_id: renew-job
+    scheduled_at: 2026-04-18T04:30:00+07:00
+    started_at: 2026-04-18T04:30:00+07:00
+    timezone: Asia/Jakarta
+    session_name: test
+    </trigger_metadata>
+
+    cron-after-boundary
+    ",
+    ]
+  `);
+});
