@@ -31,7 +31,7 @@ export function buildMessageMetadataPrompt(
 ): string {
   const { timestamp, ...rest } = metadata;
   const extra = Object.entries(rest)
-    .map(([key, value]) => `${key}: ${String(value)}`)
+    .map((kv) => kv.join(": "))
     .join("\n");
   return `\
 <message_metadata>
