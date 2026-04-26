@@ -1398,7 +1398,10 @@ test("cron with session name", async ({ onTestFinished }) => {
 });
 
 test("session renews stale chat prompt after daily boundary", async ({ onTestFinished }) => {
-  // 2026-04-18 03:30 Asia/Jakarta, before the 04:00 daily renewal boundary.
+  // Timeline:
+  // - 20:30 UTC / 03:30 Jakarta: enable daily renewal at 04:00 and create __testSession1.
+  // - 20:50 UTC / 03:50 Jakarta: chat prompt stays on __testSession1 before the boundary.
+  // - 21:30 UTC / 04:30 Jakarta: chat prompt crosses the boundary and creates __testSession2.
   vi.useFakeTimers({
     now: Date.parse("2026-04-18T03:30:00+07:00"),
   });
@@ -1431,7 +1434,10 @@ test("session renews stale chat prompt after daily boundary", async ({ onTestFin
 });
 
 test("cron runner renews stale session after daily boundary", async ({ onTestFinished }) => {
-  // 2026-04-18 03:30 Asia/Jakarta, before the 04:00 daily renewal boundary.
+  // Timeline:
+  // - 20:30 UTC / 03:30 Jakarta: enable daily renewal at 04:00 and create __testSession1.
+  // - 20:30 UTC / 03:30 Jakarta: add renew-job for 04:30.
+  // - 21:30 UTC / 04:30 Jakarta: renew-job crosses the boundary and uses __testSession2.
   vi.useFakeTimers({
     now: Date.parse("2026-04-18T03:30:00+07:00"),
   });
