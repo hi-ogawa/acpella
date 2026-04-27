@@ -1,6 +1,6 @@
 ## Problem context and approach
 
-Telegram output currently flushes buffered reply text at tool-call boundaries and on final finish. That means the handler is wired around a tool-call-specific hook even though the short-term goal is broader: treat any non-message ACP session update as a boundary that can flush already-buffered message text.
+Telegram output currently flushes buffered reply text at tool-call boundaries and on final finish. That means the handler is wired around a tool-call-specific hook even though the short-term goal is broader: reason over the full ACP update stream and treat any non-message ACP session update as a boundary that can flush already-buffered message text.
 
 This change stays intentionally small. It does not attempt to solve the no-tool silent-turn problem yet. It only generalizes the current tool-call-specific callback into a non-message-update callback so the handler logic can flush on more ACP update types without baking that policy into a tool-call-only hook.
 
@@ -14,7 +14,8 @@ This change stays intentionally small. It does not attempt to solve the no-tool 
 
 ## Implementation plan
 
-1. Replace the `onToolCall` callback plumbing with a more general non-message-update callback.
-2. Call that callback for every `sessionUpdate !== "agent_message_chunk"` before any update-specific handling.
-3. Keep the current verbose tool-call output behavior inside the generalized callback.
-4. Leave tests and broader progress/thought behavior for follow-up work.
+1. Replace the `onToolCall` callback plumbing with a general `onUpdate` callback for the full ACP session-update stream.
+2. Keep `onText` as the narrow convenience hook for rendered text chunks.
+3. Let the handler-level callback treat `sessionUpdate !== "agent_message_chunk"` as a flush boundary.
+4. Keep the current verbose tool-call output behavior inside the generalized callback.
+5. Leave tests and broader progress/thought behavior for follow-up work.

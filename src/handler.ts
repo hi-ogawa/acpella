@@ -94,8 +94,10 @@ export async function createHandler(
       onText: async (chunk) => {
         await reply.write(chunk);
       },
-      onNonMessageUpdate: async (update, stateSession) => {
-        await reply.flush();
+      onUpdate: async (update, stateSession) => {
+        if (update.sessionUpdate !== "agent_message_chunk") {
+          await reply.flush();
+        }
         if (update.sessionUpdate === "tool_call" && stateSession.verbose) {
           await reply.write(`Tool: ${update.title}`);
           await reply.flush();
@@ -123,10 +125,7 @@ export async function createHandler(
     sessionName: string;
     text: string;
     onText: (text: string) => Promise<void> | void;
-    onNonMessageUpdate?: (
-      update: SessionUpdate,
-      stateSession: StateSession,
-    ) => Promise<void> | void;
+    onUpdate?: (update: SessionUpdate, stateSession: StateSession) => Promise<void> | void;
   }): Promise<{ cancelled: boolean }> {
     const { sessionName, text } = options;
     const stateSession = stateStore.getSession(sessionName);
@@ -172,16 +171,15 @@ export async function createHandler(
 
       for await (const update of result.consume()) {
         logger.queue(formatSessionUpdateLogEntry(update));
+        await options.onUpdate?.(update, stateSession);
         if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
           await options.onText(update.content.text);
-        } else {
-          await options.onNonMessageUpdate?.(update, stateSession);
-          if (update.sessionUpdate === "usage_update") {
-            stateStore.setAgentSessionUsage(
-              { agentKey: stateSession.agentKey, agentSessionId: session.sessionId },
-              update,
-            );
-          }
+        }
+        if (update.sessionUpdate === "usage_update") {
+          stateStore.setAgentSessionUsage(
+            { agentKey: stateSession.agentKey, agentSessionId: session.sessionId },
+            update,
+          );
         }
       }
       const cancelled = cancelledSessions.has(session);
