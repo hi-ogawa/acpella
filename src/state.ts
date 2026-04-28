@@ -12,10 +12,24 @@ const agentKeySchema = z
   .min(1)
   .regex(/^[a-zA-Z0-9_-]+$/);
 
+const verboseModeSchema = z
+  .union([z.boolean(), z.enum(["off", "tool", "thinking", "all"])])
+  .transform((value) => {
+    if (value === true) {
+      return "tool";
+    }
+    if (value === false) {
+      return "off";
+    }
+    return value;
+  });
+
+export type VerboseMode = z.infer<typeof verboseModeSchema>;
+
 const stateSessionSchema = z.object({
   agentKey: agentKeySchema,
   agentSessionId: z.string().min(1).optional(),
-  verbose: z.boolean().optional(),
+  verbose: verboseModeSchema.optional(),
   renew: sessionRenewPolicySchema.optional(),
   updatedAt: z.number().int().nonnegative().optional(),
 });
@@ -116,7 +130,7 @@ export class SessionStateStore {
     return {
       ...session,
       agentKey: session?.agentKey ?? state.defaultAgent,
-      verbose: session?.verbose ?? false,
+      verbose: session?.verbose ?? "off",
     };
   }
 

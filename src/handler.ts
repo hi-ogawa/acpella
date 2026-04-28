@@ -27,7 +27,7 @@ import { handleSystemdInstall } from "./lib/systemd.ts";
 import { parseTelegramSessionName } from "./lib/telegram/utils.ts";
 import { AsyncLane, DefaultMap, formatError } from "./lib/utils.ts";
 import { parseAgentSessionKey, SessionStateStore, toAgentSessionKey } from "./state.ts";
-import type { StateAgentSession, StateSession } from "./state.ts";
+import type { StateAgentSession, StateSession, VerboseMode } from "./state.ts";
 
 export interface Handler {
   handle: (context: HandlerContext) => Promise<void>;
@@ -79,6 +79,15 @@ export async function createHandler(
 
   async function handlePrompt(context: HandlerExtraContext): Promise<void> {
     let { reply, sessionName, metadata } = context;
+    let visibleUpdate: "message" | "thinking" | "tool" | undefined;
+    const switchVisibleUpdate = async (next: typeof visibleUpdate): Promise<boolean> => {
+      const changed = visibleUpdate !== next;
+      if (visibleUpdate && changed) {
+        await reply.flush();
+      }
+      visibleUpdate = next;
+      return changed;
+    };
     let promptText = "";
     if (metadata?.promptMetadata && Object.keys(metadata.promptMetadata).length > 0) {
       promptText = buildMessageMetadataPrompt(metadata.promptMetadata, {
@@ -92,15 +101,23 @@ export async function createHandler(
       sessionName,
       text: promptText,
       onText: async (chunk) => {
+        await switchVisibleUpdate("message");
         await reply.write(chunk);
       },
       onUpdate: async (update, stateSession) => {
-        if (update.sessionUpdate !== "agent_message_chunk") {
-          await reply.flush();
-        }
-        if (update.sessionUpdate === "tool_call" && stateSession.verbose) {
+        if (update.sessionUpdate === "tool_call" && shouldShowToolCall(stateSession.verbose)) {
+          await switchVisibleUpdate("tool");
           await reply.write(`Tool: ${update.title}`);
           await reply.flush();
+        } else if (
+          update.sessionUpdate === "agent_thought_chunk" &&
+          update.content.type === "text" &&
+          shouldShowThinking(stateSession.verbose)
+        ) {
+          const firstChunk = await switchVisibleUpdate("thinking");
+          await reply.write(firstChunk ? `[thinking] ${update.content.text}` : update.content.text);
+        } else if (update.sessionUpdate !== "agent_message_chunk") {
+          await switchVisibleUpdate(undefined);
         }
       },
     });
@@ -215,7 +232,7 @@ export async function createHandler(
 session: ${sessionName}
 agent: ${stateSession.agentKey}
 agent session id: ${stateSession.agentSessionId ?? "none"}
-verbose: ${verbose ? "on" : "off"}
+verbose: ${verbose}
 renew: ${renderSessionRenewPolicy({ policy: stateSession.renew, timezone: config.timezone })}
 `;
         const usage = stateSession.agentSessionId
@@ -357,27 +374,20 @@ renew: ${renderSessionRenewPolicy({ policy: stateSession.renew, timezone: config
       },
     },
     {
-      tokens: ["verbose", "on"],
-      help: "/session verbose on [sessionName] - Enable tool-call output.",
+      tokens: ["verbose"],
+      help: "/session verbose <off|tool|thinking|all|on> [sessionName] - Set internal progress output.",
       withArgs: true,
       run: async ({ args, reply, sessionName }) => {
-        const targetSession = args[0] ?? sessionName;
+        const [value, targetSession = sessionName] = args;
+        const verbose = parseVerboseMode(value);
+        if (!verbose) {
+          await reply.system("Usage: /session verbose <off|tool|thinking|all|on> [sessionName]");
+          return;
+        }
         stateStore.setSession(targetSession, {
-          verbose: true,
+          verbose,
         });
-        await reply.system("Tool call output: on");
-      },
-    },
-    {
-      tokens: ["verbose", "off"],
-      help: "/session verbose off [sessionName] - Disable tool-call output.",
-      withArgs: true,
-      run: async ({ args, reply, sessionName }) => {
-        const targetSession = args[0] ?? sessionName;
-        stateStore.setSession(targetSession, {
-          verbose: false,
-        });
-        await reply.system("Tool call output: off");
+        await reply.system(`Verbose output: ${verbose}`);
       },
     },
     {
@@ -840,4 +850,30 @@ home: ${config.home}
   };
 
   return { handle, prompt: handleCronPrompt, commands: systemCommandsMetadata };
+}
+
+function parseVerboseMode(value: string | undefined): VerboseMode | undefined {
+  switch (value) {
+    case "off": {
+      return "off";
+    }
+    case "on":
+    case "tool": {
+      return "tool";
+    }
+    case "thinking": {
+      return "thinking";
+    }
+    case "all": {
+      return "all";
+    }
+  }
+}
+
+function shouldShowToolCall(verbose: VerboseMode | undefined): boolean {
+  return verbose === "tool" || verbose === "all";
+}
+
+function shouldShowThinking(verbose: VerboseMode | undefined): boolean {
+  return verbose === "thinking" || verbose === "all";
 }
