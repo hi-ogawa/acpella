@@ -2,6 +2,7 @@ import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { sessionRenewPolicySchema } from "./lib/session-renew.ts";
 import { FileStateManager } from "./lib/utils-node.ts";
+import { verboseModeSchema } from "./lib/verbose.ts";
 
 const agentSchema = z.object({
   command: z.string().min(1),
@@ -15,7 +16,7 @@ const agentKeySchema = z
 const stateSessionSchema = z.object({
   agentKey: agentKeySchema,
   agentSessionId: z.string().min(1).optional(),
-  verbose: z.boolean().optional(),
+  verbose: verboseModeSchema.optional(),
   renew: sessionRenewPolicySchema.optional(),
   updatedAt: z.number().int().nonnegative().optional(),
 });
@@ -83,7 +84,7 @@ function getStateSchemaDefault(): State {
 }
 
 type State = z.infer<typeof stateSchema>;
-export type StateSession = State["sessions"][string];
+type StateSession = State["sessions"][string];
 export interface StateAgentSession {
   agentKey: string;
   agentSessionId: string;
@@ -116,7 +117,7 @@ export class SessionStateStore {
     return {
       ...session,
       agentKey: session?.agentKey ?? state.defaultAgent,
-      verbose: session?.verbose ?? false,
+      verbose: session?.verbose ?? "off",
     };
   }
 

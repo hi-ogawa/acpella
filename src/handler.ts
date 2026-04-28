@@ -26,8 +26,9 @@ import {
 import { handleSystemdInstall } from "./lib/systemd.ts";
 import { parseTelegramSessionName } from "./lib/telegram/utils.ts";
 import { AsyncLane, DefaultMap, formatError } from "./lib/utils.ts";
+import { getVerboseSessionUpdateTypes, parseVerboseMode } from "./lib/verbose.ts";
 import { parseAgentSessionKey, SessionStateStore, toAgentSessionKey } from "./state.ts";
-import type { StateAgentSession, StateSession } from "./state.ts";
+import type { StateAgentSession } from "./state.ts";
 
 export interface Handler {
   handle: (context: HandlerContext) => Promise<void>;
@@ -88,17 +89,34 @@ export async function createHandler(
     }
     promptText += context.text;
 
+    let lastUpdate: SessionUpdate | undefined;
+    const stateSession = stateStore.getSession(sessionName);
+    const verboseTypes = getVerboseSessionUpdateTypes(stateSession.verbose);
+
     const result = await handlePromptImpl({
       sessionName,
       text: promptText,
-      onText: async (chunk) => {
-        await reply.write(chunk);
-      },
-      onUpdate: async (update, stateSession) => {
-        if (update.sessionUpdate !== "agent_message_chunk") {
+      onUpdate: async (update) => {
+        const sessionUpdate = update.sessionUpdate;
+        const changed = sessionUpdate !== lastUpdate?.sessionUpdate;
+        lastUpdate = update;
+        if (changed) {
           await reply.flush();
         }
-        if (update.sessionUpdate === "tool_call" && stateSession.verbose) {
+        if (sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
+          await reply.write(update.content.text);
+        }
+        if (
+          sessionUpdate === "agent_thought_chunk" &&
+          update.content.type === "text" &&
+          verboseTypes.has(sessionUpdate)
+        ) {
+          if (changed) {
+            await reply.write("[thinking] ");
+          }
+          await reply.write(update.content.text);
+        }
+        if (sessionUpdate === "tool_call" && verboseTypes.has(sessionUpdate)) {
           await reply.write(`Tool: ${update.title}`);
           await reply.flush();
         }
@@ -124,8 +142,8 @@ export async function createHandler(
   async function handlePromptImplInner(options: {
     sessionName: string;
     text: string;
-    onText: (text: string) => Promise<void> | void;
-    onUpdate?: (update: SessionUpdate, stateSession: StateSession) => Promise<void> | void;
+    onText?: (text: string) => Promise<void> | void;
+    onUpdate?: (update: SessionUpdate) => Promise<void> | void;
   }): Promise<{ cancelled: boolean }> {
     const { sessionName, text } = options;
     const stateSession = stateStore.getSession(sessionName);
@@ -171,9 +189,9 @@ export async function createHandler(
 
       for await (const update of result.consume()) {
         logger.queue(formatSessionUpdateLogEntry(update));
-        await options.onUpdate?.(update, stateSession);
+        await options.onUpdate?.(update);
         if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
-          await options.onText(update.content.text);
+          await options.onText?.(update.content.text);
         }
         if (update.sessionUpdate === "usage_update") {
           stateStore.setAgentSessionUsage(
@@ -215,7 +233,7 @@ export async function createHandler(
 session: ${sessionName}
 agent: ${stateSession.agentKey}
 agent session id: ${stateSession.agentSessionId ?? "none"}
-verbose: ${verbose ? "on" : "off"}
+verbose: ${verbose}
 renew: ${renderSessionRenewPolicy({ policy: stateSession.renew, timezone: config.timezone })}
 `;
         const usage = stateSession.agentSessionId
@@ -357,27 +375,14 @@ renew: ${renderSessionRenewPolicy({ policy: stateSession.renew, timezone: config
       },
     },
     {
-      tokens: ["verbose", "on"],
-      help: "/session verbose on [sessionName] - Enable tool-call output.",
+      tokens: ["verbose"],
+      help: "/session verbose <off|tool|thinking|all> [sessionName] - Set internal progress output.",
       withArgs: true,
       run: async ({ args, reply, sessionName }) => {
-        const targetSession = args[0] ?? sessionName;
-        stateStore.setSession(targetSession, {
-          verbose: true,
-        });
-        await reply.system("Tool call output: on");
-      },
-    },
-    {
-      tokens: ["verbose", "off"],
-      help: "/session verbose off [sessionName] - Disable tool-call output.",
-      withArgs: true,
-      run: async ({ args, reply, sessionName }) => {
-        const targetSession = args[0] ?? sessionName;
-        stateStore.setSession(targetSession, {
-          verbose: false,
-        });
-        await reply.system("Tool call output: off");
+        const [value, targetSession = sessionName] = args;
+        const verbose = parseVerboseMode(value);
+        stateStore.setSession(targetSession, { verbose });
+        await reply.system(`Verbose output: ${verbose}`);
       },
     },
     {
