@@ -96,22 +96,23 @@ export async function createHandler(
       sessionName,
       text: promptText,
       onUpdate: async (update) => {
-        const changed = lastUpdate?.sessionUpdate !== update.sessionUpdate;
+        const sessionUpdate = update.sessionUpdate;
+        const changed = sessionUpdate !== lastUpdate?.sessionUpdate;
         lastUpdate = update;
         if (changed) {
           await reply.flush();
         }
-        if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
+        if (sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
           await reply.write(update.content.text);
         }
         if (
-          update.sessionUpdate === "agent_thought_chunk" &&
+          sessionUpdate === "agent_thought_chunk" &&
           update.content.type === "text" &&
           (verbose === "thinking" || verbose === "all")
         ) {
           await reply.write(`${changed ? "[thinking] " : ""}${update.content.text}`);
         }
-        if (update.sessionUpdate === "tool_call" && (verbose === "tool" || verbose === "all")) {
+        if (sessionUpdate === "tool_call" && (verbose === "tool" || verbose === "all")) {
           await reply.write(`Tool: ${update.title}`);
           await reply.flush();
         }
