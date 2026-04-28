@@ -1308,6 +1308,52 @@ test("cron error delivery", async ({ onTestFinished }) => {
   `);
 });
 
+test("cron suppresses NO_REPLY delivery", async ({ onTestFinished }) => {
+  // Timeline:
+  // - 07:00: add test-job for every minute with a raw NO_REPLY response.
+  // - 07:01: test-job fires, run succeeds, and delivery is suppressed.
+  vi.useFakeTimers({
+    now: Date.parse("2026-04-18T07:00:00+07:00"),
+  });
+  onTestFinished(() => {
+    vi.useRealTimers();
+  });
+
+  const tester = await createHandlerTester();
+  tester.cronRunner.start();
+  onTestFinished(() => {
+    tester.cronRunner.stop();
+  });
+
+  const session = tester.createSession("test", {
+    metadata: { cronDeliveryTarget: { repl: true } },
+  });
+  expect(await session.request("/cron add test-job * * * * * -- __raw:NO_REPLY"))
+    .toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Added cron job: test-job"
+  `);
+
+  vi.advanceTimersByTime(60 * 1000);
+  await vi.waitUntil(async () => {
+    const output = await session.request("/cron show test-job");
+    return output.includes("last: succeeded");
+  });
+  expect(await session.request("/cron show test-job")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    id: test-job
+    enabled: yes
+    schedule: * * * * *
+    timezone: Asia/Jakarta
+    target session: test
+    delivery target: repl
+    next: 2026-04-18T07:02:00+07:00
+    last: succeeded, scheduled 2026-04-18T00:01:00Z, finished 2026-04-18T00:01:00Z
+    prompt: __raw:NO_REPLY"
+  `);
+  expect(tester.cronDeliveries).toMatchInlineSnapshot(`[]`);
+});
+
 test("cron with session name", async ({ onTestFinished }) => {
   // Sequence:
   // - Create tg-12345 and tg-12345-678 sessions so --session can target known sessions.
