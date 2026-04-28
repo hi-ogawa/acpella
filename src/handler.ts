@@ -101,13 +101,14 @@ export async function createHandler(
       sessionName,
       text: promptText,
       onUpdate: async (update, stateSession) => {
-        const firstChunk = await switchUpdateBoundary(update);
         if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
+          await switchUpdateBoundary(update);
           await reply.write(update.content.text);
         } else if (
           update.sessionUpdate === "tool_call" &&
           shouldShowToolCall(stateSession.verbose)
         ) {
+          await switchUpdateBoundary(update);
           await reply.write(`Tool: ${update.title}`);
           await reply.flush();
         } else if (
@@ -115,7 +116,11 @@ export async function createHandler(
           update.content.type === "text" &&
           shouldShowThinking(stateSession.verbose)
         ) {
-          await reply.write(firstChunk ? `[thinking] ${update.content.text}` : update.content.text);
+          const showLabel = lastUpdate?.sessionUpdate !== update.sessionUpdate;
+          await switchUpdateBoundary(update);
+          await reply.write(showLabel ? `[thinking] ${update.content.text}` : update.content.text);
+        } else {
+          await switchUpdateBoundary(update);
         }
       },
     });
