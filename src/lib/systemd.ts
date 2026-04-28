@@ -84,6 +84,7 @@ function buildServicePath(options: { nodeBin: string; home: string }): string {
     resolve(home, ".volta/bin"),
     resolve(home, ".asdf/shims"),
     resolve(home, ".npm-global/bin"),
+    resolve(home, ".local/share/pnpm"),
     resolve(home, ".fnm/aliases/default/bin"),
     resolve(home, ".nvm/current/bin"),
     resolve(home, "bin"),
