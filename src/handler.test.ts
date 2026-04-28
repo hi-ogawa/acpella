@@ -462,6 +462,14 @@ test("session commands", async () => {
     "[⚙️ System]
     No sessions."
   `);
+  expect(await session.request("/session list --all")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Mapped sessions:
+    none
+
+    Unmapped acp sessions:
+    none"
+  `);
   expect(await session.request("hello")).toMatchInlineSnapshot(`"echo: hello"`);
   expect(await session.request("/session info")).toMatchInlineSnapshot(`
     "[⚙️ System]
