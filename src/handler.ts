@@ -26,8 +26,9 @@ import {
 import { handleSystemdInstall } from "./lib/systemd.ts";
 import { parseTelegramSessionName } from "./lib/telegram/utils.ts";
 import { AsyncLane, DefaultMap, formatError } from "./lib/utils.ts";
+import { hasVerboseOutput, parseVerboseMode } from "./lib/verbose.ts";
 import { parseAgentSessionKey, SessionStateStore, toAgentSessionKey } from "./state.ts";
-import type { StateAgentSession, StateSession, VerboseMode } from "./state.ts";
+import type { StateAgentSession, StateSession } from "./state.ts";
 
 export interface Handler {
   handle: (context: HandlerContext) => Promise<void>;
@@ -91,7 +92,6 @@ export async function createHandler(
     let lastUpdate: SessionUpdate | undefined;
     const stateSession = stateStore.getSession(sessionName);
     const verbose = stateSession.verbose;
-    const verboseSet = verbose === "all" ? ["tool", "thinking"] : [verbose];
 
     const result = await handlePromptImpl({
       sessionName,
@@ -109,11 +109,11 @@ export async function createHandler(
         if (
           sessionUpdate === "agent_thought_chunk" &&
           update.content.type === "text" &&
-          verboseSet.includes("thinking")
+          hasVerboseOutput(verbose, "thinking")
         ) {
           await reply.write(`${changed ? "[thinking] " : ""}${update.content.text}`);
         }
-        if (sessionUpdate === "tool_call" && verboseSet.includes("tool")) {
+        if (sessionUpdate === "tool_call" && hasVerboseOutput(verbose, "tool")) {
           await reply.write(`Tool: ${update.title}`);
           await reply.flush();
         }
@@ -848,22 +848,4 @@ home: ${config.home}
   };
 
   return { handle, prompt: handleCronPrompt, commands: systemCommandsMetadata };
-}
-
-function parseVerboseMode(value: string | undefined): VerboseMode | undefined {
-  switch (value) {
-    case "off": {
-      return "off";
-    }
-    case "on":
-    case "tool": {
-      return "tool";
-    }
-    case "thinking": {
-      return "thinking";
-    }
-    case "all": {
-      return "all";
-    }
-  }
 }

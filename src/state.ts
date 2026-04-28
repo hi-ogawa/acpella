@@ -2,6 +2,7 @@ import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { sessionRenewPolicySchema } from "./lib/session-renew.ts";
 import { FileStateManager } from "./lib/utils-node.ts";
+import { verboseModeSchema } from "./lib/verbose.ts";
 
 const agentSchema = z.object({
   command: z.string().min(1),
@@ -11,20 +12,6 @@ const agentKeySchema = z
   .string()
   .min(1)
   .regex(/^[a-zA-Z0-9_-]+$/);
-
-const verboseModeSchema = z
-  .union([z.boolean(), z.enum(["off", "tool", "thinking", "all"])])
-  .transform((value) => {
-    if (value === true) {
-      return "tool";
-    }
-    if (value === false) {
-      return "off";
-    }
-    return value;
-  });
-
-export type VerboseMode = z.infer<typeof verboseModeSchema>;
 
 const stateSessionSchema = z.object({
   agentKey: agentKeySchema,
