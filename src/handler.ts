@@ -63,21 +63,20 @@ export async function createHandler(
   },
 ): Promise<Handler> {
   const stateStore = new SessionStateStore(config.stateFile);
-  const reloadState = () => {
-    try {
-      stateStore.reload();
-      console.log("[state] Reloaded state from external state file change");
-    } catch (error) {
-      console.error(
-        `[state] Failed to reload state after external state file change: ${formatError(error)}`,
-      );
-    }
-  };
   const stateWatcher = new FileWatcher({
     file: config.stateFile,
     intervalMs: 1000,
     debounceMs: 250,
-    onChange: reloadState,
+    onChange: () => {
+      try {
+        stateStore.file.reload();
+        console.log("[state] Reloaded state from external state file change");
+      } catch (error) {
+        console.error(
+          `[state] Failed to reload state after external state file change: ${formatError(error)}`,
+        );
+      }
+    },
   });
   stateWatcher.start();
   const cronStore = handlerOptions.cronStore;
