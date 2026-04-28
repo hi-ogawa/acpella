@@ -79,6 +79,7 @@ export async function createHandler(
     },
   });
   stateWatcher.start();
+
   const cronStore = handlerOptions.cronStore;
   const activeSessions = new Map<string, AgentSessionProcess>();
   const cancelledSessions = new WeakSet<AgentSessionProcess>();
