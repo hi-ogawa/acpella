@@ -102,17 +102,17 @@ export async function createHandler(
         if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
           await reply.write(update.content.text);
         } else if (
-          update.sessionUpdate === "tool_call" &&
-          (stateSession.verbose === "tool" || stateSession.verbose === "all")
-        ) {
-          await reply.write(`Tool: ${update.title}`);
-          await reply.flush();
-        } else if (
           update.sessionUpdate === "agent_thought_chunk" &&
           update.content.type === "text" &&
           (stateSession.verbose === "thinking" || stateSession.verbose === "all")
         ) {
           await reply.write(`${changed ? "[thinking] " : ""}${update.content.text}`);
+        } else if (
+          update.sessionUpdate === "tool_call" &&
+          (stateSession.verbose === "tool" || stateSession.verbose === "all")
+        ) {
+          await reply.write(`Tool: ${update.title}`);
+          await reply.flush();
         }
       },
     });
