@@ -283,18 +283,17 @@ renew: ${renderSessionRenewPolicy({ policy: stateSession.renew, timezone: config
             );
           }
         }
+        let mappedOutput = "";
+        for (const [agentSessionKey, sessionName] of stateAgentSessions) {
+          mappedOutput += `- ${sessionName} -> ${agentSessionKey}`;
+          if (!activeAgentSessions.has(agentSessionKey)) {
+            mappedOutput += " (not found)";
+          }
+          mappedOutput += "\n";
+        }
         if (showAll) {
           let output = "Mapped sessions:\n";
-          for (const [agentSessionKey, sessionName] of stateAgentSessions) {
-            output += `- ${sessionName} -> ${agentSessionKey}`;
-            if (!activeAgentSessions.has(agentSessionKey)) {
-              output += " (not found)";
-            }
-            output += "\n";
-          }
-          if (stateAgentSessions.size === 0) {
-            output += "none\n";
-          }
+          output += mappedOutput || "none\n";
           output += "\nUnmapped backend sessions:\n";
           const unmapped = [...activeAgentSessions].filter((k) => !stateAgentSessions.has(k));
           if (unmapped.length === 0) {
@@ -306,15 +305,7 @@ renew: ${renderSessionRenewPolicy({ policy: stateSession.renew, timezone: config
           }
           await reply.system(output);
         } else {
-          let output = "";
-          for (const [agentSessionKey, sessionName] of stateAgentSessions) {
-            output += `- ${sessionName} -> ${agentSessionKey}`;
-            if (!activeAgentSessions.has(agentSessionKey)) {
-              output += " (not found)";
-            }
-            output += "\n";
-          }
-          await reply.system(output || "No sessions.");
+          await reply.system(mappedOutput || "No sessions.");
         }
       },
     },
