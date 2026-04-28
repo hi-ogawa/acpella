@@ -100,12 +100,14 @@ export async function createHandler(
     const result = await handlePromptImpl({
       sessionName,
       text: promptText,
-      onText: async (chunk) => {
-        await switchVisibleUpdate("message");
-        await reply.write(chunk);
-      },
       onUpdate: async (update, stateSession) => {
-        if (update.sessionUpdate === "tool_call" && shouldShowToolCall(stateSession.verbose)) {
+        if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
+          await switchVisibleUpdate("message");
+          await reply.write(update.content.text);
+        } else if (
+          update.sessionUpdate === "tool_call" &&
+          shouldShowToolCall(stateSession.verbose)
+        ) {
           await switchVisibleUpdate("tool");
           await reply.write(`Tool: ${update.title}`);
           await reply.flush();
@@ -141,7 +143,7 @@ export async function createHandler(
   async function handlePromptImplInner(options: {
     sessionName: string;
     text: string;
-    onText: (text: string) => Promise<void> | void;
+    onText?: (text: string) => Promise<void> | void;
     onUpdate?: (update: SessionUpdate, stateSession: StateSession) => Promise<void> | void;
   }): Promise<{ cancelled: boolean }> {
     const { sessionName, text } = options;
@@ -190,7 +192,7 @@ export async function createHandler(
         logger.queue(formatSessionUpdateLogEntry(update));
         await options.onUpdate?.(update, stateSession);
         if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
-          await options.onText(update.content.text);
+          await options.onText?.(update.content.text);
         }
         if (update.sessionUpdate === "usage_update") {
           stateStore.setAgentSessionUsage(
