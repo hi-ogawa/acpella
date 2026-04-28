@@ -18,19 +18,17 @@ export class FileWatcher {
   options: {
     file: string;
     intervalMs: number;
-    debounceMs?: number;
+    debounceMs: number;
     onChange: () => void;
   };
   started = false;
   previousStats?: fs.Stats;
   interval?: ReturnType<typeof setInterval>;
-  onChangeDebouncer?: Debouncer;
+  onChangeDebouncer: Debouncer;
 
   constructor(options: FileWatcher["options"]) {
     this.options = options;
-    if (typeof options.debounceMs === "number") {
-      this.onChangeDebouncer = debounce(options.onChange, options.debounceMs);
-    }
+    this.onChangeDebouncer = debounce(options.onChange, options.debounceMs);
   }
 
   start(): void {
@@ -54,18 +52,14 @@ export class FileWatcher {
       clearInterval(this.interval);
       this.interval = undefined;
     }
-    this.onChangeDebouncer?.cancel();
+    this.onChangeDebouncer.cancel();
     this.previousStats = undefined;
   }
 
   poll(): void {
     const currentStats = readStats(this.options.file);
     if (didStatsChange(currentStats, this.previousStats)) {
-      if (this.onChangeDebouncer) {
-        this.onChangeDebouncer.schedule();
-      } else {
-        this.options.onChange();
-      }
+      this.onChangeDebouncer.schedule();
     }
     this.previousStats = currentStats;
   }
