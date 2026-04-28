@@ -381,13 +381,7 @@ renew: ${renderSessionRenewPolicy({ policy: stateSession.renew, timezone: config
       run: async ({ args, reply, sessionName }) => {
         const [value, targetSession = sessionName] = args;
         const verbose = parseVerboseMode(value);
-        if (!verbose) {
-          await reply.system("Usage: /session verbose <off|tool|thinking|all> [sessionName]");
-          return;
-        }
-        stateStore.setSession(targetSession, {
-          verbose,
-        });
+        stateStore.setSession(targetSession, { verbose });
         await reply.system(`Verbose output: ${verbose}`);
       },
     },

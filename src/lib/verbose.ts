@@ -15,9 +15,8 @@ export const verboseModeSchema = z.union([z.boolean(), verboseStringSchema]).tra
 
 type VerboseMode = z.infer<typeof verboseModeSchema>;
 
-export function parseVerboseMode(value: string | undefined): VerboseMode | undefined {
-  const result = verboseStringSchema.safeParse(value);
-  return result.success ? result.data : undefined;
+export function parseVerboseMode(value: string | undefined): VerboseMode {
+  return verboseStringSchema.parse(value);
 }
 
 type SessionUpdateType = SessionUpdate["sessionUpdate"];
