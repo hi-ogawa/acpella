@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { debounce, type Debouncer } from "./utils.ts";
 
 export function writeJsonFile(file: string, value: unknown): void {
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -11,6 +12,89 @@ export function readJsonFile<T>(file: string, defaultValue?: () => T): T {
     return JSON.parse(fs.readFileSync(file, "utf8")) as T;
   }
   return defaultValue();
+}
+
+export class FileWatcher {
+  options: {
+    file: string;
+    intervalMs: number;
+    debounceMs?: number;
+    onChange: () => void;
+  };
+  started = false;
+  previousStats?: fs.Stats;
+  interval?: ReturnType<typeof setInterval>;
+  onChangeDebouncer?: Debouncer;
+
+  constructor(options: FileWatcher["options"]) {
+    this.options = options;
+    if (typeof options.debounceMs === "number") {
+      this.onChangeDebouncer = debounce(options.onChange, options.debounceMs);
+    }
+  }
+
+  start(): void {
+    if (this.started) {
+      return;
+    }
+    this.started = true;
+    this.previousStats = readStats(this.options.file);
+    this.interval = setInterval(() => {
+      this.poll();
+    }, this.options.intervalMs);
+    this.interval.unref?.();
+  }
+
+  stop(): void {
+    if (!this.started) {
+      return;
+    }
+    this.started = false;
+    if (this.interval) {
+      clearInterval(this.interval);
+      this.interval = undefined;
+    }
+    this.onChangeDebouncer?.cancel();
+    this.previousStats = undefined;
+  }
+
+  poll(): void {
+    const currentStats = readStats(this.options.file);
+    if (didStatsChange(currentStats, this.previousStats)) {
+      if (this.onChangeDebouncer) {
+        this.onChangeDebouncer.schedule();
+      } else {
+        this.options.onChange();
+      }
+    }
+    this.previousStats = currentStats;
+  }
+}
+
+function readStats(file: string): fs.Stats | undefined {
+  try {
+    return fs.statSync(file);
+  } catch (error) {
+    if (isFileNotFoundError(error)) {
+      return undefined;
+    }
+    throw error;
+  }
+}
+
+function didStatsChange(current: fs.Stats | undefined, previous: fs.Stats | undefined): boolean {
+  if (!current || !previous) {
+    return current !== previous;
+  }
+  return (
+    current.mtimeMs !== previous.mtimeMs ||
+    current.ctimeMs !== previous.ctimeMs ||
+    current.size !== previous.size
+  );
+}
+
+function isFileNotFoundError(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
 }
 
 export class FileStateManager<T> {

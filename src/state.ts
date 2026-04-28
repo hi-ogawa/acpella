@@ -107,6 +107,10 @@ export class SessionStateStore {
     return this.file.state;
   }
 
+  reload(): void {
+    this.file.reload();
+  }
+
   set(updater: (state: State) => void): void {
     this.file.set(updater);
   }

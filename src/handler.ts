@@ -25,6 +25,7 @@ import {
 } from "./lib/session-renew.ts";
 import { handleSystemdInstall } from "./lib/systemd.ts";
 import { parseTelegramSessionName } from "./lib/telegram/utils.ts";
+import { FileWatcher } from "./lib/utils-node.ts";
 import { AsyncLane, DefaultMap, formatError } from "./lib/utils.ts";
 import { getVerboseSessionUpdateTypes, parseVerboseMode } from "./lib/verbose.ts";
 import { parseAgentSessionKey, SessionStateStore, toAgentSessionKey } from "./state.ts";
@@ -62,6 +63,23 @@ export async function createHandler(
   },
 ): Promise<Handler> {
   const stateStore = new SessionStateStore(config.stateFile);
+  const reloadState = () => {
+    try {
+      stateStore.reload();
+      console.log("[state] Reloaded state from external state file change");
+    } catch (error) {
+      console.error(
+        `[state] Failed to reload state after external state file change: ${formatError(error)}`,
+      );
+    }
+  };
+  const stateWatcher = new FileWatcher({
+    file: config.stateFile,
+    intervalMs: 1000,
+    debounceMs: 250,
+    onChange: reloadState,
+  });
+  stateWatcher.start();
   const cronStore = handlerOptions.cronStore;
   const activeSessions = new Map<string, AgentSessionProcess>();
   const cancelledSessions = new WeakSet<AgentSessionProcess>();
@@ -784,6 +802,7 @@ ${inFlightSessions ? `in-flight sessions:\n${inFlightSessions}` : ""}
         help: "/service exit - Exit acpella.",
         run: async ({ reply }) => {
           await reply.system("Exiting acpella.");
+          stateWatcher.stop();
           handlerOptions.onServiceExit();
         },
       },
