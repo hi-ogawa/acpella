@@ -28,7 +28,7 @@ import { parseTelegramSessionName } from "./lib/telegram/utils.ts";
 import { AsyncLane, DefaultMap, formatError } from "./lib/utils.ts";
 import { getVerboseSessionUpdateTypes, parseVerboseMode } from "./lib/verbose.ts";
 import { parseAgentSessionKey, SessionStateStore, toAgentSessionKey } from "./state.ts";
-import type { StateAgentSession, StateSession } from "./state.ts";
+import type { StateAgentSession } from "./state.ts";
 
 export interface Handler {
   handle: (context: HandlerContext) => Promise<void>;
@@ -112,7 +112,7 @@ export async function createHandler(
           verboseTypes.has(sessionUpdate)
         ) {
           if (changed) {
-            reply.write("[thinking] ");
+            await reply.write("[thinking] ");
           }
           await reply.write(update.content.text);
         }
@@ -143,7 +143,7 @@ export async function createHandler(
     sessionName: string;
     text: string;
     onText?: (text: string) => Promise<void> | void;
-    onUpdate?: (update: SessionUpdate, stateSession: StateSession) => Promise<void> | void;
+    onUpdate?: (update: SessionUpdate) => Promise<void> | void;
   }): Promise<{ cancelled: boolean }> {
     const { sessionName, text } = options;
     const stateSession = stateStore.getSession(sessionName);
@@ -189,7 +189,7 @@ export async function createHandler(
 
       for await (const update of result.consume()) {
         logger.queue(formatSessionUpdateLogEntry(update));
-        await options.onUpdate?.(update, stateSession);
+        await options.onUpdate?.(update);
         if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
           await options.onText?.(update.content.text);
         }
