@@ -89,11 +89,13 @@ export async function createHandler(
     promptText += context.text;
 
     let lastUpdate: SessionUpdate | undefined;
+    const stateSession = stateStore.getSession(sessionName);
+    const verbose = stateSession.verbose;
 
     const result = await handlePromptImpl({
       sessionName,
       text: promptText,
-      onUpdate: async (update, stateSession) => {
+      onUpdate: async (update) => {
         const changed = lastUpdate?.sessionUpdate !== update.sessionUpdate;
         lastUpdate = update;
         if (changed) {
@@ -101,16 +103,15 @@ export async function createHandler(
         }
         if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
           await reply.write(update.content.text);
-        } else if (
+        }
+        if (
           update.sessionUpdate === "agent_thought_chunk" &&
           update.content.type === "text" &&
-          (stateSession.verbose === "thinking" || stateSession.verbose === "all")
+          (verbose === "thinking" || verbose === "all")
         ) {
           await reply.write(`${changed ? "[thinking] " : ""}${update.content.text}`);
-        } else if (
-          update.sessionUpdate === "tool_call" &&
-          (stateSession.verbose === "tool" || stateSession.verbose === "all")
-        ) {
+        }
+        if (update.sessionUpdate === "tool_call" && (verbose === "tool" || verbose === "all")) {
           await reply.write(`Tool: ${update.title}`);
           await reply.flush();
         }
