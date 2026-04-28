@@ -737,13 +737,24 @@ enabled jobs: ${enabledJobs.length}
       {
         tokens: [],
         help: "/status - Show service status.",
-        run: async ({ reply }) => {
+        run: async ({ reply, sessionName }) => {
+          const inFlightSessions = [...activeSessions.entries()]
+            .map(([sessionName, session]) => {
+              const stateSession = stateStore.getSession(sessionName);
+              return `- ${sessionName} -> ${toAgentSessionKey({
+                agentKey: stateSession.agentKey,
+                agentSessionId: session.sessionId,
+              })}`;
+            })
+            .join("\n");
           await reply.system(`\
 status: running
 version: ${handlerOptions.version ?? "(unknown)"}
 default agent: ${stateStore.get().defaultAgent}
 env file: ${config.envFile ?? "(none)"}
 home: ${config.home}
+current session: ${sessionName}
+${inFlightSessions ? `in-flight sessions:\n${inFlightSessions}` : ""}
 `);
         },
       },
