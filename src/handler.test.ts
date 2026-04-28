@@ -33,7 +33,7 @@ Coverage checklist:
   - [ ] list with multiple agents
   - [ ] list marks stored inactive sessions as not active
   - [ ] list tolerates listSessions failure for one agent
-  - [x] verbose on
+  - [x] verbose tool
   - [x] verbose off
   - [x] verbose suppresses tool call output
   - [x] verbose includes tool call output when enabled
@@ -208,8 +208,7 @@ test("basic", async () => {
       /session new [agent] - Start a new agent session.
       /session load <sessionId|agent:sessionId> - Load an existing agent session.
       /session close [sessionId|agent:sessionId] - Close an agent session.
-      /session verbose on [sessionName] - Enable tool-call output.
-      /session verbose off [sessionName] - Disable tool-call output.
+      /session verbose <off|tool|thinking|all> [sessionName] - Set internal progress output.
       /session renew <off|daily|daily:N> [sessionName] - Set session renewal policy.
 
     /agent
@@ -252,7 +251,7 @@ test("basic", async () => {
         "test": {
           "agentKey": "test",
           "agentSessionId": "__testSession1",
-          "verbose": false,
+          "verbose": "off",
           "updatedAt": <time>
         }
       },
@@ -402,8 +401,7 @@ test("session commands", async () => {
       /session new [agent] - Start a new agent session.
       /session load <sessionId|agent:sessionId> - Load an existing agent session.
       /session close [sessionId|agent:sessionId] - Close an agent session.
-      /session verbose on [sessionName] - Enable tool-call output.
-      /session verbose off [sessionName] - Disable tool-call output.
+      /session verbose <off|tool|thinking|all> [sessionName] - Set internal progress output.
       /session renew <off|daily|daily:N> [sessionName] - Set session renewal policy."
   `);
   expect(await session.request("/session help")).toMatchInlineSnapshot(`
@@ -414,8 +412,7 @@ test("session commands", async () => {
       /session new [agent] - Start a new agent session.
       /session load <sessionId|agent:sessionId> - Load an existing agent session.
       /session close [sessionId|agent:sessionId] - Close an agent session.
-      /session verbose on [sessionName] - Enable tool-call output.
-      /session verbose off [sessionName] - Disable tool-call output.
+      /session verbose <off|tool|thinking|all> [sessionName] - Set internal progress output.
       /session renew <off|daily|daily:N> [sessionName] - Set session renewal policy."
   `);
   expect(await session.request("/session info")).toMatchInlineSnapshot(`
@@ -535,7 +532,7 @@ test("session context usage", async () => {
         "test": {
           "agentKey": "test",
           "agentSessionId": "__testSession1",
-          "verbose": false,
+          "verbose": "off",
           "updatedAt": <time>
         }
       },
@@ -558,9 +555,9 @@ test("verbose command toggles tool call output", async () => {
   const tester = await createHandlerTester();
   const session = tester.createSession("test");
 
-  expect(await session.request("/session verbose on")).toMatchInlineSnapshot(`
+  expect(await session.request("/session verbose tool")).toMatchInlineSnapshot(`
       "[⚙️ System]
-      Tool call output: on"
+      Verbose output: tool"
     `);
   expect(await session.request("__tool:Read files")).toMatchInlineSnapshot(`
       "Tool: Read files
@@ -568,7 +565,7 @@ test("verbose command toggles tool call output", async () => {
     `);
   expect(await session.request("/session verbose off")).toMatchInlineSnapshot(`
       "[⚙️ System]
-      Tool call output: off"
+      Verbose output: off"
     `);
   expect(await session.request("__tool:Search docs")).toMatchInlineSnapshot(
     `"echo: __tool:Search docs"`,
@@ -585,9 +582,9 @@ test("verbose command toggles tool call output", async () => {
     verbose: off
     renew: off"
   `);
-  expect(await session.request("/session verbose on")).toMatchInlineSnapshot(`
+  expect(await session.request("/session verbose tool")).toMatchInlineSnapshot(`
       "[⚙️ System]
-      Tool call output: on"
+      Verbose output: tool"
     `);
   expect(await session.request("__tool:Edit file")).toMatchInlineSnapshot(`
       "Tool: Edit file
@@ -717,7 +714,7 @@ test("agent command", async () => {
         "test": {
           "agentKey": "test2",
           "agentSessionId": "__testSession1",
-          "verbose": false,
+          "verbose": "off",
           "updatedAt": <time>
         }
       },
@@ -756,7 +753,7 @@ test("agent command", async () => {
         "test": {
           "agentKey": "test",
           "agentSessionId": "__testSession1",
-          "verbose": false,
+          "verbose": "off",
           "updatedAt": <time>
         }
       },

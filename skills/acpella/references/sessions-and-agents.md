@@ -24,8 +24,7 @@ Use:
 - `/session new [agent]`
 - `/session load <sessionId|agent:sessionId>`
 - `/session close [sessionId|agent:sessionId]`
-- `/session verbose on [sessionName]`
-- `/session verbose off [sessionName]`
+- `/session verbose (all|tool|thinking|off) [sessionName]`
 - `/session renew off [sessionName]`
 - `/session renew daily [sessionName]`
 - `/session renew daily:<hour> [sessionName]`
@@ -36,7 +35,7 @@ Common cases:
 - if you want a clean start, run `/session new`
 - if you know an older ACP session id, use `/session load ...`
 - use `/session info [sessionName]` to inspect the selected agent, agent session id, verbose setting, renewal policy, and context usage
-- use `/session verbose on|off [sessionName]` to show or hide tool-call output for a session
+- use `/session verbose off|tool|thinking|all [sessionName]` to control internal progress output for a session
 - use `/session renew off|daily|daily:<hour> [sessionName]` to change whether a session renews automatically
 
 By default, sessions do not auto-renew. When daily renewal is enabled, acpella checks the boundary immediately before the next live or cron prompt for that acpella session name. acpella does not create fresh ACP sessions on a background timer, and inactive conversations are not touched.

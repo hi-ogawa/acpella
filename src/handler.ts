@@ -376,13 +376,13 @@ renew: ${renderSessionRenewPolicy({ policy: stateSession.renew, timezone: config
     },
     {
       tokens: ["verbose"],
-      help: "/session verbose <off|tool|thinking|all|on> [sessionName] - Set internal progress output.",
+      help: "/session verbose <off|tool|thinking|all> [sessionName] - Set internal progress output.",
       withArgs: true,
       run: async ({ args, reply, sessionName }) => {
         const [value, targetSession = sessionName] = args;
         const verbose = parseVerboseMode(value);
         if (!verbose) {
-          await reply.system("Usage: /session verbose <off|tool|thinking|all|on> [sessionName]");
+          await reply.system("Usage: /session verbose <off|tool|thinking|all> [sessionName]");
           return;
         }
         stateStore.setSession(targetSession, {
