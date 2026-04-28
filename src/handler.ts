@@ -79,15 +79,6 @@ export async function createHandler(
 
   async function handlePrompt(context: HandlerExtraContext): Promise<void> {
     let { reply, sessionName, metadata } = context;
-    let lastUpdate: SessionUpdate | undefined;
-    const switchUpdateBoundary = async (update: SessionUpdate): Promise<boolean> => {
-      const changed = lastUpdate?.sessionUpdate !== update.sessionUpdate;
-      if (lastUpdate && changed) {
-        await reply.flush();
-      }
-      lastUpdate = update;
-      return changed;
-    };
     let promptText = "";
     if (metadata?.promptMetadata && Object.keys(metadata.promptMetadata).length > 0) {
       promptText = buildMessageMetadataPrompt(metadata.promptMetadata, {
@@ -97,12 +88,17 @@ export async function createHandler(
     }
     promptText += context.text;
 
+    let lastUpdate: SessionUpdate | undefined;
+
     const result = await handlePromptImpl({
       sessionName,
       text: promptText,
       onUpdate: async (update, stateSession) => {
-        const showLabel = lastUpdate?.sessionUpdate !== update.sessionUpdate;
-        await switchUpdateBoundary(update);
+        const changed = lastUpdate?.sessionUpdate !== update.sessionUpdate;
+        lastUpdate = update;
+        if (changed) {
+          await reply.flush();
+        }
         if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
           await reply.write(update.content.text);
         } else if (
@@ -116,7 +112,7 @@ export async function createHandler(
           update.content.type === "text" &&
           (stateSession.verbose === "thinking" || stateSession.verbose === "all")
         ) {
-          await reply.write(showLabel ? `[thinking] ${update.content.text}` : update.content.text);
+          await reply.write(`${changed ? "[thinking] " : ""}${update.content.text}`);
         }
       },
     });
