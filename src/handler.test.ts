@@ -574,12 +574,26 @@ test("verbose command toggles tool call output", async () => {
       "before
       after"
     `);
+  expect(await session.request("__thinking:Hidden thought")).toMatchInlineSnapshot(
+    `"echo: __thinking:Hidden thought"`,
+  );
+  expect(await session.request("/session verbose thinking")).toMatchInlineSnapshot(`
+      "[⚙️ System]
+      Verbose output: thinking"
+    `);
+  expect(await session.request("__thinking:Review plan")).toMatchInlineSnapshot(`
+      "[thinking] Review plan
+      echo: __thinking:Review plan"
+    `);
+  expect(await session.request("__tool:Search docs")).toMatchInlineSnapshot(
+    `"echo: __tool:Search docs"`,
+  );
   expect(await session.request("/session info")).toMatchInlineSnapshot(`
     "[⚙️ System]
     session: test
     agent: test
     agent session id: __testSession1
-    verbose: off
+    verbose: thinking
     renew: off"
   `);
   expect(await session.request("/session verbose tool")).toMatchInlineSnapshot(`
