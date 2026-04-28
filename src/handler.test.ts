@@ -3,6 +3,7 @@ Coverage checklist:
 
 - /status
   - [x] output, including default agent
+  - [x] shows in-flight sessions
 - /service
   - [x] usage output
   - [x] exit calls onServiceExit
@@ -235,7 +236,8 @@ test("basic", async () => {
     version: v1.0.0-test
     default agent: test
     env file: (none)
-    home: <home>"
+    home: <home>
+    current session: test"
   `);
   expect(await session.request("hello")).toMatchInlineSnapshot(`"echo: hello"`);
   expect(readStateFile(tester.config)).toMatchInlineSnapshot(`
@@ -349,6 +351,39 @@ test("cancel command", async () => {
       "[⚙️ System]
     Agent turn cancelled.",
     ]
+  `);
+});
+
+test("status shows in-flight sessions", async () => {
+  const tester = await createHandlerTester();
+  const session = tester.createSession("test");
+
+  const result = session.requestStream("__wait_cancel__");
+  await expect.poll(() => result.replies).toMatchObject({ length: 1 });
+
+  expect(await session.request("/status")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    status: running
+    version: v1.0.0-test
+    default agent: test
+    env file: (none)
+    home: <home>
+    current session: test
+    in-flight sessions:
+    - test -> test:__testSession1"
+  `);
+
+  await session.request("/cancel");
+  await result.promise;
+
+  expect(await session.request("/status")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    status: running
+    version: v1.0.0-test
+    default agent: test
+    env file: (none)
+    home: <home>
+    current session: test"
   `);
 });
 
