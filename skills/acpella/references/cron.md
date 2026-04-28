@@ -6,8 +6,6 @@ Use this reference for scheduled prompts in acpella.
 
 Cron lets acpella send a prompt to a target conversation on a schedule. This is useful for recurring reminders, recurring checks, or automated prompts tied to a specific chat or thread.
 
-If a cron agent response is exactly `NO_REPLY` after trimming whitespace, acpella treats the run as successful and suppresses outbound delivery. This convention is cron-only; interactive replies still deliver ordinary `NO_REPLY` text.
-
 ## Main commands
 
 Use:
