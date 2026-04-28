@@ -14,6 +14,48 @@ export function readJsonFile<T>(file: string, defaultValue?: () => T): T {
   return defaultValue();
 }
 
+export class FileStateManager<T> {
+  options: {
+    file: string;
+    parse: (data: unknown) => T;
+    defaultValue: () => T;
+  };
+  state: T;
+
+  constructor(options: FileStateManager<T>["options"]) {
+    this.options = options;
+    this.state = this.read();
+  }
+
+  read(options?: { strict: boolean }): T {
+    const { file, defaultValue } = this.options;
+    try {
+      return this.options.parse(readJsonFile(file, defaultValue));
+    } catch (e) {
+      if (options?.strict) {
+        throw e;
+      }
+      console.error(`[FileStateManager] failed to read ${file}:`, e);
+      return defaultValue();
+    }
+  }
+
+  reload() {
+    const { file, defaultValue } = this.options;
+    const newData = readJsonFile(file, defaultValue);
+    this.state = this.options.parse(newData);
+  }
+
+  set(updater: (data: T) => void): void {
+    // mutate a clone so invalid data won't become in-memory state
+    // nor be written to a file.
+    const clone = structuredClone(this.state);
+    updater(clone);
+    this.state = this.options.parse(clone);
+    writeJsonFile(this.options.file, this.state);
+  }
+}
+
 export class FileWatcher {
   options: {
     file: string;
@@ -89,46 +131,4 @@ function didStatsChange(current: fs.Stats | undefined, previous: fs.Stats | unde
 
 function isFileNotFoundError(error: unknown): boolean {
   return typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
-}
-
-export class FileStateManager<T> {
-  options: {
-    file: string;
-    parse: (data: unknown) => T;
-    defaultValue: () => T;
-  };
-  state: T;
-
-  constructor(options: FileStateManager<T>["options"]) {
-    this.options = options;
-    this.state = this.read();
-  }
-
-  read(options?: { strict: boolean }): T {
-    const { file, defaultValue } = this.options;
-    try {
-      return this.options.parse(readJsonFile(file, defaultValue));
-    } catch (e) {
-      if (options?.strict) {
-        throw e;
-      }
-      console.error(`[FileStateManager] failed to read ${file}:`, e);
-      return defaultValue();
-    }
-  }
-
-  reload() {
-    const { file, defaultValue } = this.options;
-    const newData = readJsonFile(file, defaultValue);
-    this.state = this.options.parse(newData);
-  }
-
-  set(updater: (data: T) => void): void {
-    // mutate a clone so invalid data won't become in-memory state
-    // nor be written to a file.
-    const clone = structuredClone(this.state);
-    updater(clone);
-    this.state = this.options.parse(clone);
-    writeJsonFile(this.options.file, this.state);
-  }
 }
