@@ -1,3 +1,4 @@
+import type { SessionUpdate } from "@agentclientprotocol/sdk";
 import { z } from "zod";
 
 const verboseStringSchema = z.enum(["off", "tool", "thinking", "all"]);
@@ -13,7 +14,6 @@ export const verboseModeSchema = z.union([z.boolean(), verboseStringSchema]).tra
 });
 
 type VerboseMode = z.infer<typeof verboseModeSchema>;
-type VerboseOutput = "tool" | "thinking";
 
 export function parseVerboseMode(value: string | undefined): VerboseMode | undefined {
   switch (value) {
@@ -33,6 +33,24 @@ export function parseVerboseMode(value: string | undefined): VerboseMode | undef
   }
 }
 
-export function hasVerboseOutput(mode: VerboseMode | undefined, output: VerboseOutput): boolean {
-  return mode === output || mode === "all";
+type SessionUpdateType = SessionUpdate["sessionUpdate"];
+
+export function getVerboseSessionUpdateTypes(
+  mode: VerboseMode | undefined,
+): Set<SessionUpdateType> {
+  switch (mode) {
+    case "tool": {
+      return new Set(["tool_call"]);
+    }
+    case "thinking": {
+      return new Set(["agent_thought_chunk"]);
+    }
+    case "all": {
+      return new Set(["tool_call", "agent_thought_chunk"]);
+    }
+    case "off":
+    case undefined: {
+      return new Set();
+    }
+  }
 }

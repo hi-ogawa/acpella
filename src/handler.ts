@@ -26,7 +26,7 @@ import {
 import { handleSystemdInstall } from "./lib/systemd.ts";
 import { parseTelegramSessionName } from "./lib/telegram/utils.ts";
 import { AsyncLane, DefaultMap, formatError } from "./lib/utils.ts";
-import { hasVerboseOutput, parseVerboseMode } from "./lib/verbose.ts";
+import { getVerboseSessionUpdateTypes, parseVerboseMode } from "./lib/verbose.ts";
 import { parseAgentSessionKey, SessionStateStore, toAgentSessionKey } from "./state.ts";
 import type { StateAgentSession, StateSession } from "./state.ts";
 
@@ -91,7 +91,7 @@ export async function createHandler(
 
     let lastUpdate: SessionUpdate | undefined;
     const stateSession = stateStore.getSession(sessionName);
-    const verbose = stateSession.verbose;
+    const verboseSessionUpdateTypes = getVerboseSessionUpdateTypes(stateSession.verbose);
 
     const result = await handlePromptImpl({
       sessionName,
@@ -109,11 +109,14 @@ export async function createHandler(
         if (
           sessionUpdate === "agent_thought_chunk" &&
           update.content.type === "text" &&
-          hasVerboseOutput(verbose, "thinking")
+          verboseSessionUpdateTypes.has(sessionUpdate)
         ) {
-          await reply.write(`${changed ? "[thinking] " : ""}${update.content.text}`);
+          if (changed) {
+            reply.write("[thinking] ");
+          }
+          await reply.write(update.content.text);
         }
-        if (sessionUpdate === "tool_call" && hasVerboseOutput(verbose, "tool")) {
+        if (sessionUpdate === "tool_call" && verboseSessionUpdateTypes.has(sessionUpdate)) {
           await reply.write(`Tool: ${update.title}`);
           await reply.flush();
         }
