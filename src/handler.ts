@@ -79,13 +79,13 @@ export async function createHandler(
 
   async function handlePrompt(context: HandlerExtraContext): Promise<void> {
     let { reply, sessionName, metadata } = context;
-    let visibleUpdate: "message" | "thinking" | "tool" | undefined;
-    const switchVisibleUpdate = async (next: typeof visibleUpdate): Promise<boolean> => {
-      const changed = visibleUpdate !== next;
-      if (visibleUpdate && changed) {
+    let lastUpdate: SessionUpdate | undefined;
+    const switchUpdateBoundary = async (update: SessionUpdate): Promise<boolean> => {
+      const changed = lastUpdate?.sessionUpdate !== update.sessionUpdate;
+      if (lastUpdate && changed) {
         await reply.flush();
       }
-      visibleUpdate = next;
+      lastUpdate = update;
       return changed;
     };
     let promptText = "";
@@ -101,14 +101,13 @@ export async function createHandler(
       sessionName,
       text: promptText,
       onUpdate: async (update, stateSession) => {
+        const firstChunk = await switchUpdateBoundary(update);
         if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
-          await switchVisibleUpdate("message");
           await reply.write(update.content.text);
         } else if (
           update.sessionUpdate === "tool_call" &&
           shouldShowToolCall(stateSession.verbose)
         ) {
-          await switchVisibleUpdate("tool");
           await reply.write(`Tool: ${update.title}`);
           await reply.flush();
         } else if (
@@ -116,10 +115,7 @@ export async function createHandler(
           update.content.type === "text" &&
           shouldShowThinking(stateSession.verbose)
         ) {
-          const firstChunk = await switchVisibleUpdate("thinking");
           await reply.write(firstChunk ? `[thinking] ${update.content.text}` : update.content.text);
-        } else if (update.sessionUpdate !== "agent_message_chunk") {
-          await switchVisibleUpdate(undefined);
         }
       },
     });
