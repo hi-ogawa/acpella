@@ -21,6 +21,7 @@ Use:
 
 - `/session info [sessionName]`
 - `/session list`
+- `/session list --all`
 - `/session new [agent]`
 - `/session load <sessionId|agent:sessionId>`
 - `/session close [sessionId|agent:sessionId]`
@@ -35,6 +36,7 @@ Common cases:
 - if you want a clean start, run `/session new`
 - if you know an older ACP session id, use `/session load ...`
 - use `/session info [sessionName]` to inspect the selected agent, agent session id, verbose setting, renewal policy, and context usage
+- use `/session list` to see all mapped acpella sessions; add `--all` to also show unmapped backend sessions
 - use `/session verbose off|tool|thinking|all [sessionName]` to control internal progress output for a session
 - use `/session renew off|daily|daily:<hour> [sessionName]` to change whether a session renews automatically
 

@@ -205,7 +205,7 @@ test("basic", async () => {
 
     /session
       /session info [sessionName] - Show info about a session.
-      /session list - List known agent sessions.
+      /session list [--all] - List known agent sessions.
       /session new [agent] - Start a new agent session.
       /session load <sessionId|agent:sessionId> - Load an existing agent session.
       /session close [sessionId|agent:sessionId] - Close an agent session.
@@ -432,7 +432,7 @@ test("session commands", async () => {
     "[⚙️ System]
     /session
       /session info [sessionName] - Show info about a session.
-      /session list - List known agent sessions.
+      /session list [--all] - List known agent sessions.
       /session new [agent] - Start a new agent session.
       /session load <sessionId|agent:sessionId> - Load an existing agent session.
       /session close [sessionId|agent:sessionId] - Close an agent session.
@@ -443,7 +443,7 @@ test("session commands", async () => {
     "[⚙️ System]
     /session
       /session info [sessionName] - Show info about a session.
-      /session list - List known agent sessions.
+      /session list [--all] - List known agent sessions.
       /session new [agent] - Start a new agent session.
       /session load <sessionId|agent:sessionId> - Load an existing agent session.
       /session close [sessionId|agent:sessionId] - Close an agent session.
@@ -462,6 +462,14 @@ test("session commands", async () => {
     "[⚙️ System]
     No sessions."
   `);
+  expect(await session.request("/session list --all")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Mapped sessions:
+    none
+
+    Unmapped acp sessions:
+    none"
+  `);
   expect(await session.request("hello")).toMatchInlineSnapshot(`"echo: hello"`);
   expect(await session.request("/session info")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -473,7 +481,7 @@ test("session commands", async () => {
   `);
   expect(await session.request("/session list")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    - test -> test:__testSession1 (active)"
+    - test -> test:__testSession1"
   `);
   expect(await session.request("/session load")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -495,8 +503,15 @@ test("session commands", async () => {
   expect(await session.request("__session")).toMatchInlineSnapshot(`"session: __testSession2"`);
   expect(await session.request("/session list")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    - test -> test:__testSession2 (active)
-    - (unknown) -> test:__testSession1 (active)"
+    - test -> test:__testSession2"
+  `);
+  expect(await session.request("/session list --all")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Mapped sessions:
+    - test -> test:__testSession2
+
+    Unmapped acp sessions:
+    - test:__testSession1"
   `);
   expect(await session.request("/session new no-such-agent")).toMatchInlineSnapshot(
     `
@@ -740,8 +755,7 @@ test("agent command", async () => {
   `);
   expect(await session.request("/session list")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    - test -> test2:__testSession1 (active)
-    - (unknown) -> test:__testSession1 (active)"
+    - test -> test2:__testSession1"
   `);
   expect(await session.request("/agent remove test-error")).toMatchInlineSnapshot(`
     "[⚙️ System]

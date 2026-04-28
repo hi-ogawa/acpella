@@ -251,8 +251,9 @@ renew: ${renderSessionRenewPolicy({ policy: stateSession.renew, timezone: config
     },
     {
       tokens: ["list"],
-      help: "/session list - List known agent sessions.",
-      run: async ({ reply }) => {
+      help: "/session list [--all] - List known agent sessions.",
+      withArgs: true,
+      run: async ({ reply, args }) => {
         const state = stateStore.get();
         const activeAgentSessions = new Set<string>();
         for (const [agentKey] of Object.entries(state.agents)) {
@@ -281,22 +282,32 @@ renew: ${renderSessionRenewPolicy({ policy: stateSession.renew, timezone: config
             );
           }
         }
-        let output = "";
+        let mappedOutput = "";
         for (const [agentSessionKey, sessionName] of stateAgentSessions) {
-          output += `- ${sessionName} -> ${agentSessionKey}`;
-          if (activeAgentSessions.has(agentSessionKey)) {
-            output += " (active)";
+          mappedOutput += `- ${sessionName} -> ${agentSessionKey}`;
+          if (!activeAgentSessions.has(agentSessionKey)) {
+            mappedOutput += " (not found)";
+          }
+          mappedOutput += "\n";
+        }
+        if (args.includes("--all")) {
+          let output = `\
+Mapped sessions:
+${mappedOutput || "none\n"}
+Unmapped acp sessions:
+`;
+          const unmapped = [...activeAgentSessions].filter((k) => !stateAgentSessions.has(k));
+          if (unmapped.length === 0) {
+            output += "none\n";
           } else {
-            output += " (not active)";
+            for (const agentSessionKey of unmapped) {
+              output += `- ${agentSessionKey}\n`;
+            }
           }
-          output += "\n";
+          await reply.system(output);
+        } else {
+          await reply.system(mappedOutput || "No sessions.");
         }
-        for (const agentSessionKey of activeAgentSessions) {
-          if (!stateAgentSessions.has(agentSessionKey)) {
-            output += `- (unknown) -> ${agentSessionKey} (active)\n`;
-          }
-        }
-        await reply.system(output || "No sessions.");
       },
     },
     {
