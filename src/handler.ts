@@ -254,7 +254,6 @@ renew: ${renderSessionRenewPolicy({ policy: stateSession.renew, timezone: config
       help: "/session list [--all] - List known agent sessions.",
       withArgs: true,
       run: async ({ reply, args }) => {
-        const showAll = args.includes("--all");
         const state = stateStore.get();
         const activeAgentSessions = new Set<string>();
         for (const [agentKey] of Object.entries(state.agents)) {
@@ -291,7 +290,7 @@ renew: ${renderSessionRenewPolicy({ policy: stateSession.renew, timezone: config
           }
           mappedOutput += "\n";
         }
-        if (showAll) {
+        if (args.includes("--all")) {
           let output = `\
 Mapped sessions:
 ${mappedOutput || "none\n"}
