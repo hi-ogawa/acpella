@@ -93,13 +93,9 @@ export class CronRunner {
       });
       if (response.trim() === "NO_REPLY") {
         console.log(`[cron] Suppressed delivery for cron '${job.id}': NO_REPLY`);
-        store.updateRun(run.id, {
-          finishedAt: formatTime(Date.now()),
-          status: "succeeded",
-        });
-        return;
+      } else {
+        await this.options.delivery.send({ target: job.target.delivery, text: response });
       }
-      await this.options.delivery.send({ target: job.target.delivery, text: response });
       store.updateRun(run.id, {
         finishedAt: formatTime(Date.now()),
         status: "succeeded",
