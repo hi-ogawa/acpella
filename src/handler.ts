@@ -91,7 +91,7 @@ export async function createHandler(
 
     let lastUpdate: SessionUpdate | undefined;
     const stateSession = stateStore.getSession(sessionName);
-    const verboseSessionUpdateTypes = getVerboseSessionUpdateTypes(stateSession.verbose);
+    const verboseTypes = getVerboseSessionUpdateTypes(stateSession.verbose);
 
     const result = await handlePromptImpl({
       sessionName,
@@ -109,14 +109,14 @@ export async function createHandler(
         if (
           sessionUpdate === "agent_thought_chunk" &&
           update.content.type === "text" &&
-          verboseSessionUpdateTypes.has(sessionUpdate)
+          verboseTypes.has(sessionUpdate)
         ) {
           if (changed) {
             reply.write("[thinking] ");
           }
           await reply.write(update.content.text);
         }
-        if (sessionUpdate === "tool_call" && verboseSessionUpdateTypes.has(sessionUpdate)) {
+        if (sessionUpdate === "tool_call" && verboseTypes.has(sessionUpdate)) {
           await reply.write(`Tool: ${update.title}`);
           await reply.flush();
         }
