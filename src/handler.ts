@@ -106,7 +106,7 @@ export async function createHandler(
           await reply.write(update.content.text);
         } else if (
           update.sessionUpdate === "tool_call" &&
-          shouldShowToolCall(stateSession.verbose)
+          (stateSession.verbose === "tool" || stateSession.verbose === "all")
         ) {
           await switchUpdateBoundary(update);
           await reply.write(`Tool: ${update.title}`);
@@ -114,7 +114,7 @@ export async function createHandler(
         } else if (
           update.sessionUpdate === "agent_thought_chunk" &&
           update.content.type === "text" &&
-          shouldShowThinking(stateSession.verbose)
+          (stateSession.verbose === "thinking" || stateSession.verbose === "all")
         ) {
           const showLabel = lastUpdate?.sessionUpdate !== update.sessionUpdate;
           await switchUpdateBoundary(update);
@@ -871,12 +871,4 @@ function parseVerboseMode(value: string | undefined): VerboseMode | undefined {
       return "all";
     }
   }
-}
-
-function shouldShowToolCall(verbose: VerboseMode | undefined): boolean {
-  return verbose === "tool" || verbose === "all";
-}
-
-function shouldShowThinking(verbose: VerboseMode | undefined): boolean {
-  return verbose === "thinking" || verbose === "all";
 }
