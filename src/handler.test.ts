@@ -205,7 +205,7 @@ test("basic", async () => {
 
     /session
       /session info [sessionName] - Show info about a session.
-      /session list - List known agent sessions.
+      /session list [--all] - List known agent sessions.
       /session new [agent] - Start a new agent session.
       /session load <sessionId|agent:sessionId> - Load an existing agent session.
       /session close [sessionId|agent:sessionId] - Close an agent session.
@@ -502,7 +502,7 @@ test("session commands", async () => {
     Mapped sessions:
     - test -> test:__testSession2
 
-    Unmapped backend sessions:
+    Unmapped acp sessions:
     - test:__testSession1"
   `);
   expect(await session.request("/session new no-such-agent")).toMatchInlineSnapshot(
@@ -747,8 +747,7 @@ test("agent command", async () => {
   `);
   expect(await session.request("/session list")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    - test -> test2:__testSession1 (active)
-    - (unknown) -> test:__testSession1 (active)"
+    - test -> test2:__testSession1"
   `);
   expect(await session.request("/agent remove test-error")).toMatchInlineSnapshot(`
     "[⚙️ System]

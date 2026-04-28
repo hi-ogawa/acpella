@@ -292,9 +292,11 @@ renew: ${renderSessionRenewPolicy({ policy: stateSession.renew, timezone: config
           mappedOutput += "\n";
         }
         if (showAll) {
-          let output = "Mapped sessions:\n";
-          output += mappedOutput || "none\n";
-          output += "\nUnmapped backend sessions:\n";
+          let output = `\
+Mapped sessions:
+${mappedOutput || "none\n"}
+Unmapped acp sessions:
+`;
           const unmapped = [...activeAgentSessions].filter((k) => !stateAgentSessions.has(k));
           if (unmapped.length === 0) {
             output += "none\n";
