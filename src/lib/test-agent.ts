@@ -179,7 +179,11 @@ class EchoAgent implements Agent {
     }
 
     let reportText: string;
-    if (text.startsWith("__env:")) {
+    const rawMarker = "__raw:";
+    const rawMarkerIndex = text.indexOf(rawMarker);
+    if (rawMarkerIndex >= 0) {
+      reportText = text.slice(rawMarkerIndex + rawMarker.length).trim();
+    } else if (text.startsWith("__env:")) {
       const key = text.slice(6);
       const value = process.env[key] ?? "(unset)";
       reportText = `env: ${key}=${value}`;
