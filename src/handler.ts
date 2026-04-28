@@ -251,8 +251,10 @@ renew: ${renderSessionRenewPolicy({ policy: stateSession.renew, timezone: config
     },
     {
       tokens: ["list"],
-      help: "/session list - List known agent sessions.",
-      run: async ({ reply }) => {
+      help: "/session list [--all] - List known agent sessions.",
+      withArgs: true,
+      run: async ({ reply, args }) => {
+        const showAll = args.includes("--all");
         const state = stateStore.get();
         const activeAgentSessions = new Set<string>();
         for (const [agentKey] of Object.entries(state.agents)) {
@@ -281,22 +283,39 @@ renew: ${renderSessionRenewPolicy({ policy: stateSession.renew, timezone: config
             );
           }
         }
-        let output = "";
-        for (const [agentSessionKey, sessionName] of stateAgentSessions) {
-          output += `- ${sessionName} -> ${agentSessionKey}`;
-          if (activeAgentSessions.has(agentSessionKey)) {
-            output += " (active)";
+        if (showAll) {
+          let output = "Mapped sessions:\n";
+          for (const [agentSessionKey, sessionName] of stateAgentSessions) {
+            output += `- ${sessionName} -> ${agentSessionKey}`;
+            if (!activeAgentSessions.has(agentSessionKey)) {
+              output += " (not found)";
+            }
+            output += "\n";
+          }
+          if (stateAgentSessions.size === 0) {
+            output += "none\n";
+          }
+          output += "\nUnmapped backend sessions:\n";
+          const unmapped = [...activeAgentSessions].filter((k) => !stateAgentSessions.has(k));
+          if (unmapped.length === 0) {
+            output += "none\n";
           } else {
-            output += " (not active)";
+            for (const agentSessionKey of unmapped) {
+              output += `- ${agentSessionKey}\n`;
+            }
           }
-          output += "\n";
-        }
-        for (const agentSessionKey of activeAgentSessions) {
-          if (!stateAgentSessions.has(agentSessionKey)) {
-            output += `- (unknown) -> ${agentSessionKey} (active)\n`;
+          await reply.system(output);
+        } else {
+          let output = "";
+          for (const [agentSessionKey, sessionName] of stateAgentSessions) {
+            output += `- ${sessionName} -> ${agentSessionKey}`;
+            if (!activeAgentSessions.has(agentSessionKey)) {
+              output += " (not found)";
+            }
+            output += "\n";
           }
+          await reply.system(output || "No sessions.");
         }
-        await reply.system(output || "No sessions.");
       },
     },
     {
