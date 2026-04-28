@@ -1,4 +1,5 @@
 import path from "node:path";
+import type { SessionUpdate } from "@agentclientprotocol/sdk";
 import { AgentManager } from "./acp/index.ts";
 import type { AgentSessionProcess } from "./acp/index.ts";
 import type { AppConfig } from "./config.ts";
@@ -93,10 +94,12 @@ export async function createHandler(
       onText: async (chunk) => {
         await reply.write(chunk);
       },
-      onToolCall: async (title, stateSession) => {
-        await reply.flush();
-        if (stateSession.verbose) {
-          await reply.write(`Tool: ${title}`);
+      onUpdate: async (update, stateSession) => {
+        if (update.sessionUpdate !== "agent_message_chunk") {
+          await reply.flush();
+        }
+        if (update.sessionUpdate === "tool_call" && stateSession.verbose) {
+          await reply.write(`Tool: ${update.title}`);
           await reply.flush();
         }
       },
@@ -122,7 +125,7 @@ export async function createHandler(
     sessionName: string;
     text: string;
     onText: (text: string) => Promise<void> | void;
-    onToolCall?: (title: string, stateSession: StateSession) => Promise<void> | void;
+    onUpdate?: (update: SessionUpdate, stateSession: StateSession) => Promise<void> | void;
   }): Promise<{ cancelled: boolean }> {
     const { sessionName, text } = options;
     const stateSession = stateStore.getSession(sessionName);
@@ -168,11 +171,11 @@ export async function createHandler(
 
       for await (const update of result.consume()) {
         logger.queue(formatSessionUpdateLogEntry(update));
+        await options.onUpdate?.(update, stateSession);
         if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
           await options.onText(update.content.text);
-        } else if (update.sessionUpdate === "tool_call") {
-          await options.onToolCall?.(update.title, stateSession);
-        } else if (update.sessionUpdate === "usage_update") {
+        }
+        if (update.sessionUpdate === "usage_update") {
           stateStore.setAgentSessionUsage(
             { agentKey: stateSession.agentKey, agentSessionId: session.sessionId },
             update,
