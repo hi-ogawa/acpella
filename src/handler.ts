@@ -65,8 +65,6 @@ export async function createHandler(
   const stateStore = new SessionStateStore(config.stateFile);
   const stateWatcher = new FileWatcher({
     file: config.stateFile,
-    intervalMs: 1000,
-    debounceMs: 250,
     onChange: () => {
       try {
         stateStore.file.reload();

@@ -56,11 +56,12 @@ export class FileStateManager<T> {
   }
 }
 
+const WATCH_RELOAD_DEBOUNCE_MS = 250;
+const WATCH_INTERVAL_MS = 1000;
+
 export class FileWatcher {
   options: {
     file: string;
-    intervalMs: number;
-    debounceMs: number;
     onChange: () => void;
   };
   started = false;
@@ -70,7 +71,7 @@ export class FileWatcher {
 
   constructor(options: FileWatcher["options"]) {
     this.options = options;
-    this.onChangeDebouncer = debounce(options.onChange, options.debounceMs);
+    this.onChangeDebouncer = debounce(options.onChange, WATCH_RELOAD_DEBOUNCE_MS);
   }
 
   start(): void {
@@ -81,7 +82,7 @@ export class FileWatcher {
     this.previousStats = readStats(this.options.file);
     this.interval = setInterval(() => {
       this.poll();
-    }, this.options.intervalMs);
+    }, WATCH_INTERVAL_MS);
     this.interval.unref?.();
   }
 

@@ -3,9 +3,6 @@ import { formatError } from "../lib/utils.ts";
 import type { CronRunner } from "./runner.ts";
 import type { CronStore } from "./store.ts";
 
-const RELOAD_DEBOUNCE_MS = 250;
-const WATCH_INTERVAL_MS = 1000;
-
 export class CronFileWatcher {
   options: {
     store: CronStore;
@@ -18,8 +15,6 @@ export class CronFileWatcher {
     this.options = options;
     this.watcher = new FileWatcher({
       file: this.options.store.options.cronFile,
-      intervalMs: WATCH_INTERVAL_MS,
-      debounceMs: RELOAD_DEBOUNCE_MS,
       onChange: () => this.reload(),
     });
   }
