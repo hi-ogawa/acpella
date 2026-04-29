@@ -121,6 +121,7 @@ class OpencodeAgent implements Agent {
     await getClient(session.cwd, async (client) => {
       const abort = new AbortController();
       const startedTools = new Set<string>();
+      const messagePartTypes = new Map<string, "text" | "reasoning">();
       let sawBusy = false;
       const lifecycle = Promise.withResolvers<void>();
       const sendToolUpdate = async (part: ToolPart) => {
@@ -178,11 +179,11 @@ class OpencodeAgent implements Agent {
               if (props.part.type === "tool") {
                 await sendToolUpdate(props.part);
               } else if (props.part.type === "text") {
-                // TODO: updated vs delta?
-                // props.part.text;
+                messagePartTypes.set(`${props.part.messageID}:${props.part.id}`, props.part.type);
               } else if (props.part.type === "reasoning") {
-                // props.part.text;
+                messagePartTypes.set(`${props.part.messageID}:${props.part.id}`, props.part.type);
               } else if (props.part.type === "compaction") {
+                // TODO
               }
             }
             continue;
@@ -190,32 +191,18 @@ class OpencodeAgent implements Agent {
 
           if (payload.type === "message.part.delta") {
             const props = payload.properties;
-            if (props.sessionID === params.sessionId && props.field === "text" && props.delta) {
-              const message = await client.session
-                .message(
-                  {
-                    sessionID: props.sessionID,
-                    messageID: props.messageID,
-                    directory: session.cwd,
+            if (props.sessionID === params.sessionId) {
+              const partType = messagePartTypes.get(`${props.messageID}:${props.partID}`);
+              if (partType) {
+                await this.connection.sessionUpdate({
+                  sessionId: params.sessionId,
+                  update: {
+                    sessionUpdate:
+                      partType === "reasoning" ? "agent_thought_chunk" : "agent_message_chunk",
+                    messageId: props.messageID,
+                    content: { type: "text", text: props.delta },
                   },
-                  { throwOnError: true },
-                )
-                .then((result) => result.data)
-                // TODO: log error
-                .catch(() => undefined);
-              if (message?.info.role === "assistant") {
-                const part = message.parts.find((item) => item.id === props.partID);
-                if (part?.type === "text" || part?.type === "reasoning") {
-                  await this.connection.sessionUpdate({
-                    sessionId: params.sessionId,
-                    update: {
-                      sessionUpdate:
-                        part.type === "reasoning" ? "agent_thought_chunk" : "agent_message_chunk",
-                      messageId: props.messageID,
-                      content: { type: "text", text: props.delta },
-                    },
-                  });
-                }
+                });
               }
             }
           }
