@@ -1,4 +1,4 @@
-import { formatError, formatTime } from "../lib/utils.ts";
+import { formatError, formatTime } from "../../utils/index.ts";
 import type { CronJob, CronStore, CronDeliveryTarget } from "./store.ts";
 import { CronScheduler, type CronDueEvent } from "./timer.ts";
 import { CronFileWatcher } from "./watch.ts";

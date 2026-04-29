@@ -16,7 +16,7 @@ export default defineConfig({
       provider: "v8",
       reportsDirectory: ".vitest/coverage",
       include: ["src/**/*.ts"],
-      exclude: ["src/**/*.test.ts", "src/test/**", "src/e2e/**"],
+      exclude: ["src/**/*.test.ts", "src/test/**"],
     },
     setupFiles: ["./src/test/setup.ts"],
     projects: [

@@ -1,54 +1,62 @@
 import fs from "node:fs";
-import { debounce, formatError, type Debouncer } from "../lib/utils.ts";
-import type { CronRunner } from "./runner.ts";
-import type { CronStore } from "./store.ts";
+import path from "node:path";
+import { debounce, type Debouncer } from "./timing.ts";
 
-export class CronFileWatcher {
+export function writeJsonFile(file: string, value: unknown): void {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify(value, null, 2));
+}
+
+export function readJsonFile<T>(file: string, defaultValue?: () => T): T {
+  if (!defaultValue || fs.existsSync(file)) {
+    return JSON.parse(fs.readFileSync(file, "utf8")) as T;
+  }
+  return defaultValue();
+}
+
+export class FileStateManager<T> {
   options: {
-    store: CronStore;
-    runner: CronRunner;
+    file: string;
+    parse: (data: unknown) => T;
+    defaultValue: () => T;
   };
-  started = false;
-  watcher: FileWatcher;
+  state: T;
 
-  constructor(options: CronFileWatcher["options"]) {
+  constructor(options: FileStateManager<T>["options"]) {
     this.options = options;
-    this.watcher = new FileWatcher({
-      file: this.options.store.options.cronFile,
-      onChange: () => this.reload(),
-    });
+    this.state = this.read();
   }
 
-  start(): void {
-    if (this.started) {
-      return;
-    }
-    this.started = true;
-    this.watcher.start();
-  }
-
-  stop(): void {
-    if (!this.started) {
-      return;
-    }
-    this.started = false;
-    this.watcher.stop();
-  }
-
-  reload(): void {
+  read(options?: { strict: boolean }): T {
+    const { file, defaultValue } = this.options;
     try {
-      this.options.store.reload();
-      this.options.runner.refresh();
-      console.log("[cron] Reloaded cron jobs from external cron file change");
-    } catch (error) {
-      console.error(
-        `[cron] Failed to reload cron jobs after external cron file change: ${formatError(error)}`,
-      );
+      return this.options.parse(readJsonFile(file, defaultValue));
+    } catch (e) {
+      if (options?.strict) {
+        throw e;
+      }
+      console.error(`[FileStateManager] failed to read ${file}:`, e);
+      return defaultValue();
     }
+  }
+
+  reload() {
+    const { file, defaultValue } = this.options;
+    const newData = readJsonFile(file, defaultValue);
+    this.state = this.options.parse(newData);
+  }
+
+  set(updater: (data: T) => void): void {
+    // mutate a clone so invalid data won't become in-memory state
+    // nor be written to a file.
+    const clone = structuredClone(this.state);
+    updater(clone);
+    this.state = this.options.parse(clone);
+    writeJsonFile(this.options.file, this.state);
   }
 }
 
-const WATCH_RELOAD_DEBOUNCE_MS = 250;
+const RELOAD_DEBOUNCE_MS = 250;
 const WATCH_INTERVAL_MS = 1000;
 
 export class FileWatcher {
@@ -59,11 +67,11 @@ export class FileWatcher {
   started = false;
   previousStats?: fs.Stats;
   interval?: ReturnType<typeof setInterval>;
-  onChangeDebouncer: Debouncer;
+  changeDebouncer: Debouncer;
 
   constructor(options: FileWatcher["options"]) {
     this.options = options;
-    this.onChangeDebouncer = debounce(options.onChange, WATCH_RELOAD_DEBOUNCE_MS);
+    this.changeDebouncer = debounce(() => this.options.onChange(), RELOAD_DEBOUNCE_MS);
   }
 
   start(): void {
@@ -87,14 +95,14 @@ export class FileWatcher {
       clearInterval(this.interval);
       this.interval = undefined;
     }
-    this.onChangeDebouncer.cancel();
+    this.changeDebouncer.cancel();
     this.previousStats = undefined;
   }
 
   poll(): void {
     const currentStats = readStats(this.options.file);
     if (didStatsChange(currentStats, this.previousStats)) {
-      this.onChangeDebouncer.schedule();
+      this.changeDebouncer.schedule();
     }
     this.previousStats = currentStats;
   }

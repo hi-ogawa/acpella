@@ -1,5 +1,5 @@
 import { expect, test, vi } from "vitest";
-import { formatTime } from "../lib/utils.ts";
+import { formatTime } from "../../utils/index.ts";
 import {
   CronTimer,
   getNextCronSchedule,

@@ -2,7 +2,7 @@ import { execFile, spawn } from "node:child_process";
 import path from "node:path";
 import { promisify } from "node:util";
 import { onTestFinished, TestRunner, vi, type TestContext } from "vitest";
-import { useFs } from "../test/helper.ts";
+import { useFs } from "../helper.ts";
 
 export type TestService = ReturnType<typeof startService>;
 
@@ -15,7 +15,7 @@ export function startService(options?: { env?: Record<string, string>; sourceDir
   });
 
   const child = spawn("pnpm", ["-s", "dev", "repl"], {
-    cwd: path.join(import.meta.dirname, "../.."),
+    cwd: path.join(import.meta.dirname, "../../.."),
     env: {
       ...process.env,
       ACPELLA_HOME: root,
@@ -161,7 +161,7 @@ export function useCli() {
   });
   function cli(...messages: string[]) {
     return execFileAsync("pnpm", ["-s", "dev", ...messages], {
-      cwd: path.join(import.meta.dirname, "../.."),
+      cwd: path.join(import.meta.dirname, "../../.."),
       env: {
         ...process.env,
         ACPELLA_HOME: root,

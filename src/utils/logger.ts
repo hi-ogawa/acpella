@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { SessionUpdate } from "@agentclientprotocol/sdk";
-import { throttle, type Throttler } from "./utils.ts";
+import { throttle, type Throttler } from "./timing.ts";
 
 type LogEntry = { type: string } & Record<string, unknown>;
 type TimedLogEntry = { t: number } & LogEntry;

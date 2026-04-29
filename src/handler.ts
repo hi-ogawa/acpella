@@ -1,8 +1,9 @@
 import path from "node:path";
 import type { SessionUpdate } from "@agentclientprotocol/sdk";
-import { AgentManager } from "./acp/index.ts";
-import type { AgentSessionProcess } from "./acp/index.ts";
 import type { AppConfig } from "./config.ts";
+import { AgentManager } from "./lib/acp/index.ts";
+import type { AgentSessionProcess } from "./lib/acp/index.ts";
+import { CommandHandler, type CommandTree } from "./lib/command.ts";
 import {
   CRON_ADD_USAGE,
   CRON_UPDATE_USAGE,
@@ -10,12 +11,9 @@ import {
   parseCronIdArg,
   renderCronList,
   renderCronShow,
-} from "./cron/command.ts";
-import type { CronRunner, CronRunnerAgentOptions } from "./cron/runner.ts";
-import type { CronDeliveryTarget, CronJob, CronStore } from "./cron/store.ts";
-import { FileWatcher } from "./cron/watch.ts";
-import { CommandHandler, type CommandTree } from "./lib/command.ts";
-import { formatSessionUpdateLogEntry, JsonLogger } from "./lib/logger.ts";
+} from "./lib/cron/command.ts";
+import type { CronRunner, CronRunnerAgentOptions } from "./lib/cron/runner.ts";
+import type { CronDeliveryTarget, CronJob, CronStore } from "./lib/cron/store.ts";
 import type { MessageMetadata } from "./lib/prompt.ts";
 import { buildFirstPrompt, buildMessageMetadataPrompt } from "./lib/prompt.ts";
 import { MESSAGE_SPLIT_BUDGET, ReplyManager } from "./lib/reply.ts";
@@ -26,10 +24,12 @@ import {
 } from "./lib/session-renew.ts";
 import { handleSystemdInstall } from "./lib/systemd.ts";
 import { parseTelegramSessionName } from "./lib/telegram/utils.ts";
-import { AsyncLane, DefaultMap, formatError } from "./lib/utils.ts";
 import { getVerboseSessionUpdateTypes, parseVerboseMode } from "./lib/verbose.ts";
 import { parseAgentSessionKey, SessionStateStore, toAgentSessionKey } from "./state.ts";
 import type { StateAgentSession } from "./state.ts";
+import { FileWatcher } from "./utils/fs.ts";
+import { AsyncLane, DefaultMap, formatError } from "./utils/index.ts";
+import { formatSessionUpdateLogEntry, JsonLogger } from "./utils/logger.ts";
 
 export interface Handler {
   handle: (context: HandlerContext) => Promise<void>;

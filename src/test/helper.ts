@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { onTestFinished } from "vitest";
+import { onTestFinished, vi } from "vitest";
 
 export function useFs(options?: { prefix?: string; sourceDir?: string }) {
   const prefix = options?.prefix ?? "test";
@@ -14,4 +14,38 @@ export function useFs(options?: { prefix?: string; sourceDir?: string }) {
     fs.rmSync(root, { recursive: true, force: true });
   });
   return { root };
+}
+
+export function advanceTimersTo(time: string) {
+  const target = Date.parse(time);
+  if (Number.isNaN(target)) {
+    throw new Error(`Invalid timer target: ${time}`);
+  }
+
+  const delta = target - Date.now();
+  if (delta < 0) {
+    throw new Error(`Cannot advance timers backwards to ${new Date(target).toISOString()}`);
+  }
+
+  vi.advanceTimersByTime(delta);
+}
+
+const realDateNow = Date.now.bind(Date);
+const realSetTimeout = setTimeout;
+
+// Vitest's vi.waitUntil advances fake timers while polling. This helper waits
+// on real time so fake clock timestamps stay fixed after advanceTimersTo().
+export async function waitUntil(predicate: () => boolean | Promise<boolean>) {
+  const interval = 50;
+  const timeout = 1000;
+  const deadline = realDateNow() + timeout;
+
+  while (realDateNow() <= deadline) {
+    if (await predicate()) {
+      return;
+    }
+    await new Promise<void>((resolve) => realSetTimeout(resolve, interval));
+  }
+
+  throw new Error("Timed out waiting for condition");
 }
