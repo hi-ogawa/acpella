@@ -378,16 +378,6 @@ function toolUpdate(
         status: "completed",
         rawInput: part.state.input,
         rawOutput: { output: part.state.output, metadata: part.state.metadata },
-        ...(part.state.output
-          ? {
-              content: [
-                {
-                  type: "content",
-                  content: { type: "text", text: part.state.output },
-                },
-              ],
-            }
-          : {}),
       };
     }
     case "error": {
@@ -399,16 +389,6 @@ function toolUpdate(
         status: "failed",
         rawInput: part.state.input,
         rawOutput: { error: part.state.error, metadata: part.state.metadata },
-        ...(part.state.error
-          ? {
-              content: [
-                {
-                  type: "content",
-                  content: { type: "text", text: part.state.error },
-                },
-              ],
-            }
-          : {}),
       };
     }
   }
