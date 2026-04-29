@@ -194,3 +194,49 @@ Correlation notes:
 - The `sync` event shape differs from normal bus events: it has `payload.syncEvent` rather than `payload.properties`.
 
 No model prompt was sent. This is the last structural no-token check before testing a real `session.prompt` turn and comparing prompt response timing against streamed message/part events.
+
+## Next pivot: minimal ACP agent shell
+
+After the no-token SDK checks, the next step is to move from standalone SDK probing to an experimental ACP agent process that acpella can register and dogfood.
+
+Rationale:
+
+- The public SDK/server boundary is now sufficiently proven for initial iteration.
+- ACP is the real boundary acpella cares about, so testing it early reduces throwaway probe work.
+- Starting with an echo-only ACP agent lets us validate acpella process/session/reply behavior before mixing in OpenCode prompt streaming.
+- The OpenCode-backed implementation can then replace the echo internals incrementally while keeping the same ACP harness.
+
+Planned shape:
+
+- Add `experiments/opencode-acp-agent/agent.ts`.
+- Use `src/lib/test-agent.ts` as the local echo-agent reference.
+- Use `@agentclientprotocol/sdk` directly for ACP stdio.
+- Initially implement only:
+  - initialize/client connection setup
+  - in-memory session mapping for `newSession`/`loadSession` shape needed by acpella
+  - `prompt` that emits `agent_message_chunk` with an echo response
+  - `end_turn`
+  - basic/no-op `cancel` only if required by the interface
+- Start or prepare the OpenCode SDK client/server in the process only after the echo ACP shell works.
+
+First dogfood target:
+
+1. Run the experimental agent directly with `node experiments/opencode-acp-agent/agent.ts` under acpella's normal agent process manager.
+2. Register it as a separate acpella agent, e.g. `opencode-experimental`.
+3. Switch only a scratch session to it.
+4. Verify one echo turn through acpella/Telegram.
+5. Inspect acpella ACP trace logs for the minimal turn shape.
+
+Non-goals for the first ACP shell:
+
+- No OpenCode `session.prompt` call yet.
+- No model/provider configuration.
+- No permissions, file edits, commands, MCP mapping, or tool-call fidelity.
+- No replacement of existing `opencode` or `opencode-gpt` agents.
+
+Success criteria:
+
+- acpella can spawn the experimental ACP agent.
+- acpella can create/load an ACP session for it.
+- A prompt returns an echoed assistant message and `end_turn`.
+- The trace log is simple enough to use as the harness for the next OpenCode-backed prompt-ordering test.
