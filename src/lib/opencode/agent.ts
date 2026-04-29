@@ -21,8 +21,8 @@ import {
   type PromptResponse,
   type SetSessionModeRequest,
   type SetSessionModeResponse,
-  type SessionUpdate,
   type ToolKind,
+  type ToolCall,
 } from "@agentclientprotocol/sdk";
 import {
   createOpencodeClient,
@@ -124,17 +124,19 @@ class OpencodeAgent implements Agent {
       let sawBusy = false;
       const lifecycle = Promise.withResolvers<void>();
       const sendToolUpdate = async (part: ToolPart) => {
-        if (!startedTools.has(part.callID)) {
-          startedTools.add(part.callID);
-          await this.connection.sessionUpdate({
-            sessionId: params.sessionId,
-            update: formatToolCall(part, "tool_call"),
-          });
-        }
-
+        const sessionUpdate = (() => {
+          if (!startedTools.has(part.callID)) {
+            startedTools.add(part.callID);
+            return "tool_call";
+          }
+          return "tool_call_update";
+        })();
         await this.connection.sessionUpdate({
           sessionId: params.sessionId,
-          update: formatToolCall(part, "tool_call_update"),
+          update: {
+            sessionUpdate: sessionUpdate as "tool_call",
+            ...formatToolCall(part),
+          },
         });
       };
       const subscription = await client.global.event({ signal: abort.signal });
@@ -251,24 +253,19 @@ class OpencodeAgent implements Agent {
 
 const TOOL_KIND_BY_NAME: Record<string, ToolKind> = {
   bash: "execute",
-  edit: "edit",
   glob: "search",
   grep: "search",
-  patch: "edit",
   read: "read",
   webfetch: "fetch",
   write: "edit",
+  edit: "edit",
+  patch: "edit",
 };
 
-function formatToolCall(
-  part: ToolPart,
-  sessionUpdate: "tool_call" | "tool_call_update",
-): SessionUpdate {
-  const kind = TOOL_KIND_BY_NAME[part.tool.toLowerCase()] ?? "other";
-  const base = {
-    sessionUpdate,
+function formatToolCall(part: ToolPart): ToolCall {
+  const base: Pick<ToolCall, "toolCallId" | "kind" | "rawInput"> = {
+    kind: TOOL_KIND_BY_NAME[part.tool.toLowerCase()] ?? "other",
     toolCallId: part.callID,
-    kind,
     rawInput: part.state.input,
   };
   switch (part.state.status) {
