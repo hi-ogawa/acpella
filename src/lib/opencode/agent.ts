@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 import { Readable, Writable } from "node:stream";
 import {
   AgentSideConnection,
@@ -42,7 +40,7 @@ async function withOpenCode<T>(cwd: string, callback: (client: OpencodeClient) =
   }
 }
 
-class OpenCodeExperimentAgent implements Agent {
+class OpencodeAgent implements Agent {
   private connection: AgentSideConnection;
   private sessions = new Map<string, { cwd: string }>();
 
@@ -60,7 +58,7 @@ class OpenCodeExperimentAgent implements Agent {
   async newSession(params: NewSessionRequest): Promise<NewSessionResponse> {
     return await withOpenCode(params.cwd, async (client) => {
       const session = await client.session
-        .create({ directory: params.cwd, title: "OpenCode ACP experiment" }, { throwOnError: true })
+        .create({ directory: params.cwd, title: "Acpella OpenCode ACP" }, { throwOnError: true })
         .then((response) => response.data!);
       this.sessions.set(session.id, { cwd: params.cwd });
       return { sessionId: session.id };
@@ -193,9 +191,11 @@ class OpenCodeExperimentAgent implements Agent {
   async cancel(_params: CancelNotification): Promise<void> {}
 }
 
-const input = Writable.toWeb(process.stdout);
-const output = Readable.toWeb(process.stdin) as ReadableStream<Uint8Array>;
-new AgentSideConnection(
-  (connection) => new OpenCodeExperimentAgent(connection),
-  ndJsonStream(input, output),
-);
+function main() {
+  const input = Writable.toWeb(process.stdout);
+  const output = Readable.toWeb(process.stdin) as ReadableStream<Uint8Array>;
+  const stream = ndJsonStream(input, output);
+  new AgentSideConnection((conn) => new OpencodeAgent(conn), stream);
+}
+
+main();

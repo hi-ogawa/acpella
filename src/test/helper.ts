@@ -49,3 +49,11 @@ export async function waitUntil(predicate: () => boolean | Promise<boolean>) {
 
   throw new Error("Timed out waiting for condition");
 }
+
+export async function arrayFromAsyncIterator<T>(iter: AsyncIterable<T>): Promise<T[]> {
+  const result: T[] = [];
+  for await (const item of iter) {
+    result.push(item);
+  }
+  return result;
+}

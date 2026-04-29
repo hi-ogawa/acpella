@@ -1,16 +1,16 @@
-import path from "node:path";
+import { fileURLToPath } from "node:url";
 import type { SessionUpdate } from "@agentclientprotocol/sdk";
 import { describe, expect, it, onTestFinished } from "vitest";
-import { useFs } from "../../test/helper.ts";
+import { arrayFromAsyncIterator, useFs } from "../../test/helper.ts";
 import { AgentManager } from "../acp/index.ts";
 
-const OPENCODE_EXPERIMENT_AGENT_COMMAND = `node ${path.join(import.meta.dirname, "agent.ts")}`;
+const OPENCODE_ACP_COMMAND = `node ${fileURLToPath(import.meta.resolve("#opencode-acp"))}`;
 
-describe("OpenCode experimental ACP agent", () => {
+describe("OpenCode ACP agent", () => {
   it("supports the basic ACP session and prompt shape", async () => {
     const { root } = useFs({ prefix: "opencode-acp" });
     const manager = new AgentManager({
-      command: OPENCODE_EXPERIMENT_AGENT_COMMAND,
+      command: OPENCODE_ACP_COMMAND,
       cwd: root,
     });
 
@@ -23,7 +23,6 @@ describe("OpenCode experimental ACP agent", () => {
         {
           sessionId: session.sessionId,
           cwd: root,
-          title: "OpenCode ACP experiment",
         },
       ],
     });
@@ -42,7 +41,7 @@ describe("OpenCode experimental ACP agent", () => {
   it("loads an existing OpenCode session", async () => {
     const { root } = useFs({ prefix: "opencode-acp-load" });
     const manager = new AgentManager({
-      command: OPENCODE_EXPERIMENT_AGENT_COMMAND,
+      command: OPENCODE_ACP_COMMAND,
       cwd: root,
     });
 
@@ -68,12 +67,4 @@ function textFromUpdates(updates: SessionUpdate[]) {
       return update.content.text;
     })
     .join("");
-}
-
-async function arrayFromAsyncIterator<T>(iter: AsyncIterable<T>): Promise<T[]> {
-  const result: T[] = [];
-  for await (const item of iter) {
-    result.push(item);
-  }
-  return result;
 }
