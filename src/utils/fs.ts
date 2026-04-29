@@ -83,7 +83,6 @@ export class FileWatcher {
     this.interval = setInterval(() => {
       this.poll();
     }, WATCH_INTERVAL_MS);
-    this.interval.unref?.();
   }
 
   stop(): void {
