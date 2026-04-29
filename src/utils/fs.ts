@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { debounce, type Debouncer } from "./timing.ts";
 
 export function writeJsonFile(file: string, value: unknown): void {
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -55,18 +56,22 @@ export class FileStateManager<T> {
   }
 }
 
+const RELOAD_DEBOUNCE_MS = 250;
+const WATCH_INTERVAL_MS = 1000;
+
 export class FileWatcher {
   options: {
     file: string;
-    intervalMs: number;
     onChange: () => void;
   };
   started = false;
   previousStats?: fs.Stats;
   interval?: ReturnType<typeof setInterval>;
+  changeDebouncer: Debouncer;
 
   constructor(options: FileWatcher["options"]) {
     this.options = options;
+    this.changeDebouncer = debounce(() => this.options.onChange(), RELOAD_DEBOUNCE_MS);
   }
 
   start(): void {
@@ -77,7 +82,7 @@ export class FileWatcher {
     this.previousStats = readStats(this.options.file);
     this.interval = setInterval(() => {
       this.poll();
-    }, this.options.intervalMs);
+    }, WATCH_INTERVAL_MS);
   }
 
   stop(): void {
@@ -89,13 +94,14 @@ export class FileWatcher {
       clearInterval(this.interval);
       this.interval = undefined;
     }
+    this.changeDebouncer.cancel();
     this.previousStats = undefined;
   }
 
   poll(): void {
     const currentStats = readStats(this.options.file);
     if (didStatsChange(currentStats, this.previousStats)) {
-      this.options.onChange();
+      this.changeDebouncer.schedule();
     }
     this.previousStats = currentStats;
   }

@@ -1,10 +1,7 @@
 import { FileWatcher } from "../../utils/fs.ts";
-import { debounce, type Debouncer, formatError } from "../../utils/index.ts";
+import { formatError } from "../../utils/index.ts";
 import type { CronRunner } from "./runner.ts";
 import type { CronStore } from "./store.ts";
-
-const RELOAD_DEBOUNCE_MS = 250;
-const WATCH_INTERVAL_MS = 1000;
 
 export class CronFileWatcher {
   options: {
@@ -12,17 +9,14 @@ export class CronFileWatcher {
     runner: CronRunner;
   };
   started = false;
-  reloadDebouncer: Debouncer;
   watcher: FileWatcher;
 
   constructor(options: CronFileWatcher["options"]) {
     this.options = options;
-    this.reloadDebouncer = debounce(() => this.reload(), RELOAD_DEBOUNCE_MS);
     this.watcher = new FileWatcher({
       file: this.options.store.options.cronFile,
-      intervalMs: WATCH_INTERVAL_MS,
       onChange: () => {
-        this.reloadDebouncer.schedule();
+        this.reload();
       },
     });
   }
@@ -41,7 +35,6 @@ export class CronFileWatcher {
     }
     this.started = false;
     this.watcher.stop();
-    this.reloadDebouncer.cancel();
   }
 
   reload(): void {
