@@ -116,3 +116,35 @@ Pending server smoke test:
 - `opencode` is not currently on `PATH` in this shell.
 - `/home/hiroshi/code/others/opencode` is available as source reference, but its package dependencies/runtime are not currently installed here (`bun` and package `node_modules` were not available in the checked shell).
 - Next step is to choose a local OpenCode invocation path, then run the probe with `OPENCODE_BASE_URL` or an explicit URL and verify `global.health` plus `session.list` without sending a model prompt.
+
+## 2026-04-29 SDK server helper smoke test
+
+Follow-up result: the SDK also provides a third-party server lifecycle helper, but it shells out to an `opencode` binary on `PATH`.
+
+Evidence:
+
+- `@opencode-ai/sdk/v2` exports `createOpencodeServer` and `createOpencode`.
+- Local source: `/home/hiroshi/code/others/opencode/packages/sdk/js/src/v2/server.ts`.
+- `createOpencodeServer` runs `cross-spawn("opencode", ["serve", "--hostname=...", "--port=..."])`, parses `opencode server listening on ...`, and returns `{ url, close() }`.
+- This is a usable third-party API, but callers must ensure the desired `opencode` binary is discoverable on `PATH`.
+
+Probe update:
+
+- `experiments/opencode-sdk-probe/probe.ts` now prepends `/home/hiroshi/.opencode/bin` to `PATH` for this local experiment.
+- It supports `node experiments/opencode-sdk-probe/probe.ts server`, which starts a temporary OpenCode server through `createOpencodeServer({ port: 0 })`, runs `global.health` and `session.list`, then closes the server.
+
+Verification:
+
+```sh
+node experiments/opencode-sdk-probe/probe.ts server
+```
+
+Observed output included:
+
+```json
+{ "serverUrl": "http://127.0.0.1:41503" }
+{ "health": { "healthy": true, "version": "1.14.28" } }
+{ "sessionListOk": true, "sessionCount": 0 }
+```
+
+No model prompt was sent. This verifies that a third-party script can use the published SDK to spawn/connect to a real OpenCode server and call basic APIs without private imports.
