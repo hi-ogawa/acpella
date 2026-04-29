@@ -43,6 +43,7 @@ async function withOpenCode<T>(cwd: string, callback: (client: OpencodeClient) =
 class OpencodeAgent implements Agent {
   private connection: AgentSideConnection;
   private sessions = new Map<string, { cwd: string }>();
+  private activePrompts = new Map<string, { cwd: string; abort: AbortController }>();
 
   constructor(connection: AgentSideConnection) {
     this.connection = connection;
@@ -119,6 +120,7 @@ class OpencodeAgent implements Agent {
 
     const responseText = await withOpenCode(session.cwd, async (client) => {
       const abort = new AbortController();
+      this.activePrompts.set(params.sessionId, { cwd: session.cwd, abort });
       const emitted = new Map<string, string>();
       const subscription = await client.global.event({ signal: abort.signal });
       const reader = (async () => {
@@ -154,25 +156,29 @@ class OpencodeAgent implements Agent {
         }
       });
 
-      const response = await client.session
-        .prompt(
-          {
-            sessionID: params.sessionId,
-            directory: session.cwd,
-            parts: [{ type: "text", text }],
-          },
-          { throwOnError: true },
-        )
-        .then((result) => result.data!);
+      try {
+        const response = await client.session
+          .prompt(
+            {
+              sessionID: params.sessionId,
+              directory: session.cwd,
+              parts: [{ type: "text", text }],
+            },
+            { throwOnError: true },
+          )
+          .then((result) => result.data!);
 
-      abort.abort();
-      await reader;
-      return (
-        response.parts
-          .map((part: Part) => (part.type === "text" || part.type === "reasoning" ? part.text : ""))
-          .filter(Boolean)
-          .join("") || "(empty)"
-      );
+        return (
+          response.parts
+            .map((part: Part) => (part.type === "text" || part.type === "reasoning" ? part.text : ""))
+            .filter(Boolean)
+            .join("") || "(empty)"
+        );
+      } finally {
+        this.activePrompts.delete(params.sessionId);
+        abort.abort();
+        await reader;
+      }
     });
 
     if (responseText) {
@@ -188,7 +194,21 @@ class OpencodeAgent implements Agent {
     return { stopReason: "end_turn" };
   }
 
-  async cancel(_params: CancelNotification): Promise<void> {}
+  async cancel(params: CancelNotification): Promise<void> {
+    const active = this.activePrompts.get(params.sessionId);
+    const session = active ?? this.sessions.get(params.sessionId);
+    if (!session) {
+      return;
+    }
+
+    active?.abort.abort();
+    await withOpenCode(session.cwd, async (client) => {
+      await client.session.abort(
+        { sessionID: params.sessionId, directory: session.cwd },
+        { throwOnError: true },
+      );
+    });
+  }
 }
 
 function main() {
