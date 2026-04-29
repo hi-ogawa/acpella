@@ -338,10 +338,10 @@ Unmapped acp sessions:
       usage: "/session load <sessionId|agent:sessionId>",
       description: "Load an existing agent session.",
       withArgs: true,
-      run: async ({ args, reply, sessionName }) => {
+      run: async ({ args, reply, sessionName, usage }) => {
         const sessionIdArg = args[0];
         if (!sessionIdArg) {
-          await reply.system("Usage: /session load <sessionId|agent:sessionId>");
+          await reply.system(usage);
           return;
         }
         const stateSession = stateStore.getSession(sessionName);
@@ -409,9 +409,8 @@ Unmapped acp sessions:
       usage: "/session renew <off|daily|daily:N> [sessionName]",
       description: "Set session renewal policy.",
       withArgs: true,
-      run: async ({ args, reply, sessionName }) => {
+      run: async ({ args, reply, sessionName, usage }) => {
         const [value, targetSession] = args;
-        const usage = "Usage: /session renew <off|daily|daily:N> [sessionName]";
         if (!value) {
           await reply.system(usage);
           return;
@@ -451,11 +450,11 @@ Unmapped acp sessions:
       usage: "/agent new <name> <command...>",
       description: "Save a new agent.",
       withArgs: true,
-      run: async ({ args, reply }) => {
+      run: async ({ args, reply, usage }) => {
         const [name, ...commandParts] = args;
         const command = commandParts.join(" ");
         if (!name || !command) {
-          await reply.system("Usage: /agent new <name> <command...>");
+          await reply.system(usage);
           return;
         }
         stateStore.set((state) => {
@@ -469,11 +468,11 @@ Unmapped acp sessions:
       usage: "/agent remove <name>",
       description: "Remove an agent.",
       withArgs: true,
-      run: async ({ args, reply }) => {
+      run: async ({ args, reply, usage }) => {
         const name = args[0];
         const state = stateStore.get();
         if (!name) {
-          await reply.system("Usage: /agent remove <name>");
+          await reply.system(usage);
           return;
         }
         if (!state.agents[name]) {
@@ -674,8 +673,8 @@ enabled jobs: ${enabledJobs.length}
       usage: "/cron show <id>",
       description: "Show a cron job.",
       withArgs: true,
-      run: async ({ args, reply }) => {
-        const parsed = parseCronIdArg(args, "Usage: /cron show <id>");
+      run: async ({ args, reply, usage }) => {
+        const parsed = parseCronIdArg(args, usage);
         if (!parsed.ok) {
           await reply.system(parsed.value);
           return;
@@ -694,8 +693,8 @@ enabled jobs: ${enabledJobs.length}
       usage: "/cron enable <id>",
       description: "Enable a cron job.",
       withArgs: true,
-      run: async ({ args, reply }) => {
-        const parsed = parseCronIdArg(args, "Usage: /cron enable <id>");
+      run: async ({ args, reply, usage }) => {
+        const parsed = parseCronIdArg(args, usage);
         if (!parsed.ok) {
           await reply.system(parsed.value);
           return;
@@ -719,8 +718,8 @@ enabled jobs: ${enabledJobs.length}
       usage: "/cron disable <id>",
       description: "Disable a cron job.",
       withArgs: true,
-      run: async ({ args, reply }) => {
-        const parsed = parseCronIdArg(args, "Usage: /cron disable <id>");
+      run: async ({ args, reply, usage }) => {
+        const parsed = parseCronIdArg(args, usage);
         if (!parsed.ok) {
           await reply.system(parsed.value);
           return;
@@ -744,8 +743,8 @@ enabled jobs: ${enabledJobs.length}
       usage: "/cron delete <id>",
       description: "Delete a cron job.",
       withArgs: true,
-      run: async ({ args, reply }) => {
-        const parsed = parseCronIdArg(args, "Usage: /cron delete <id>");
+      run: async ({ args, reply, usage }) => {
+        const parsed = parseCronIdArg(args, usage);
         if (!parsed.ok) {
           await reply.system(parsed.value);
           return;
