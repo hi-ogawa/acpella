@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import { debounce, type Debouncer, formatError } from "../lib/utils.ts";
+import { debounce, type Debouncer, formatError } from "../../utils/index.ts";
 import type { CronRunner } from "./runner.ts";
 import type { CronStore } from "./store.ts";
 
