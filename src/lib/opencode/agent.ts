@@ -21,14 +21,18 @@ import {
   type PromptResponse,
   type SetSessionModeRequest,
   type SetSessionModeResponse,
+  type ToolKind,
 } from "@agentclientprotocol/sdk";
 import {
+  type AssistantMessage,
   createOpencodeClient,
   createOpencodeServer,
   type EventMessagePartDelta,
+  type EventMessagePartUpdated,
   type GlobalEvent,
   type OpencodeClient,
   type Part,
+  type ToolPart,
 } from "@opencode-ai/sdk/v2";
 
 async function withOpenCode<T>(cwd: string, callback: (client: OpencodeClient) => Promise<T>) {
@@ -122,10 +126,19 @@ class OpencodeAgent implements Agent {
       const abort = new AbortController();
       this.activePrompts.set(params.sessionId, { cwd: session.cwd, abort });
       const emitted = new Map<string, string>();
+      const startedTools = new Set<string>();
       const subscription = await client.global.event({ signal: abort.signal });
       const reader = (async () => {
         for await (const event of subscription.stream) {
           const payload = (event as GlobalEvent).payload;
+          if (payload.type === "message.part.updated") {
+            const props: EventMessagePartUpdated["properties"] = payload.properties;
+            if (props.sessionID === params.sessionId && props.part.type === "tool") {
+              await this.sendToolUpdate(params.sessionId, props.part, startedTools);
+            }
+            continue;
+          }
+
           if (payload.type !== "message.part.delta") {
             continue;
           }
@@ -134,6 +147,20 @@ class OpencodeAgent implements Agent {
             continue;
           }
           if (!props.delta) {
+            continue;
+          }
+          const message = await client.session
+            .message(
+              { sessionID: props.sessionID, messageID: props.messageID, directory: session.cwd },
+              { throwOnError: true },
+            )
+            .then((result) => result.data)
+            .catch(() => undefined);
+          if (!message || message.info.role !== "assistant") {
+            continue;
+          }
+          const part = message.parts.find((item) => item.id === props.partID);
+          if (part?.type !== "text" && part?.type !== "reasoning") {
             continue;
           }
           const previous = emitted.get(props.partID) ?? "";
@@ -145,7 +172,9 @@ class OpencodeAgent implements Agent {
           await this.connection.sessionUpdate({
             sessionId: params.sessionId,
             update: {
-              sessionUpdate: "agent_message_chunk",
+              sessionUpdate:
+                part.type === "reasoning" ? "agent_thought_chunk" : "agent_message_chunk",
+              messageId: props.messageID,
               content: { type: "text", text: props.delta },
             },
           });
@@ -168,12 +197,16 @@ class OpencodeAgent implements Agent {
           )
           .then((result) => result.data!);
 
-        return (
-          response.parts
-            .map((part: Part) => (part.type === "text" || part.type === "reasoning" ? part.text : ""))
-            .filter(Boolean)
-            .join("") || "(empty)"
-        );
+        return {
+          text:
+            response.parts
+              .map((part: Part) =>
+                part.type === "text" || part.type === "reasoning" ? part.text : "",
+              )
+              .filter(Boolean)
+              .join("") || "(empty)",
+          info: response.info,
+        };
       } finally {
         this.activePrompts.delete(params.sessionId);
         abort.abort();
@@ -181,12 +214,14 @@ class OpencodeAgent implements Agent {
       }
     });
 
-    if (responseText) {
+    await this.sendUsageUpdate(params.sessionId, responseText.info);
+
+    if (responseText.text) {
       await this.connection.sessionUpdate({
         sessionId: params.sessionId,
         update: {
           sessionUpdate: "agent_message_chunk",
-          content: { type: "text", text: responseText },
+          content: { type: "text", text: responseText.text },
         },
       });
     }
@@ -208,6 +243,113 @@ class OpencodeAgent implements Agent {
         { throwOnError: true },
       );
     });
+  }
+
+  private async sendToolUpdate(sessionId: string, part: ToolPart, startedTools: Set<string>) {
+    if (!startedTools.has(part.callID)) {
+      startedTools.add(part.callID);
+      await this.connection.sessionUpdate({
+        sessionId,
+        update: {
+          sessionUpdate: "tool_call",
+          toolCallId: part.callID,
+          title: toolTitle(part),
+          kind: toolKind(part.tool),
+          status: toolStatus(part),
+          rawInput: part.state.input,
+        },
+      });
+    }
+
+    await this.connection.sessionUpdate({
+      sessionId,
+      update: {
+        sessionUpdate: "tool_call_update",
+        toolCallId: part.callID,
+        title: toolTitle(part),
+        kind: toolKind(part.tool),
+        status: toolStatus(part),
+        rawInput: part.state.input,
+        rawOutput: toolOutput(part),
+        content: toolContent(part),
+      },
+    });
+  }
+
+  private async sendUsageUpdate(sessionId: string, info: AssistantMessage) {
+    const used = info.tokens.input + info.tokens.cache.read;
+    const total = used + info.tokens.output + info.tokens.reasoning;
+    await this.connection.sessionUpdate({
+      sessionId,
+      update: {
+        sessionUpdate: "usage_update",
+        used,
+        size: Math.max(used, total),
+        cost: { amount: info.cost, currency: "USD" },
+      },
+    });
+  }
+}
+
+function toolTitle(part: ToolPart) {
+  if ("title" in part.state && part.state.title) {
+    return part.state.title;
+  }
+  return part.tool;
+}
+
+function toolStatus(part: ToolPart) {
+  switch (part.state.status) {
+    case "pending":
+      return "pending";
+    case "running":
+      return "in_progress";
+    case "completed":
+      return "completed";
+    case "error":
+      return "failed";
+  }
+}
+
+function toolOutput(part: ToolPart) {
+  if (part.state.status === "completed") {
+    return { output: part.state.output, metadata: part.state.metadata };
+  }
+  if (part.state.status === "error") {
+    return { error: part.state.error, metadata: part.state.metadata };
+  }
+}
+
+function toolContent(part: ToolPart) {
+  if (part.state.status === "completed" && part.state.output) {
+    return [
+      { type: "content" as const, content: { type: "text" as const, text: part.state.output } },
+    ];
+  }
+  if (part.state.status === "error" && part.state.error) {
+    return [
+      { type: "content" as const, content: { type: "text" as const, text: part.state.error } },
+    ];
+  }
+}
+
+function toolKind(tool: string): ToolKind {
+  switch (tool.toLowerCase()) {
+    case "bash":
+      return "execute";
+    case "webfetch":
+      return "fetch";
+    case "edit":
+    case "patch":
+    case "write":
+      return "edit";
+    case "grep":
+    case "glob":
+      return "search";
+    case "read":
+      return "read";
+    default:
+      return "other";
   }
 }
 
