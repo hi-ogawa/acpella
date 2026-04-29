@@ -240,13 +240,13 @@ class OpencodeAgent implements Agent {
       startedTools.add(part.callID);
       await this.connection.sessionUpdate({
         sessionId,
-        update: toolUpdate(part, "tool_call"),
+        update: formatToolCall(part, "tool_call"),
       });
     }
 
     await this.connection.sessionUpdate({
       sessionId,
-      update: toolUpdate(part, "tool_call_update"),
+      update: formatToolCall(part, "tool_call_update"),
     });
   }
 
@@ -324,7 +324,7 @@ const TOOL_KIND_BY_NAME: Record<string, ToolKind> = {
   write: "edit",
 };
 
-function toolUpdate(
+function formatToolCall(
   part: ToolPart,
   sessionUpdate: "tool_call" | "tool_call_update",
 ): SessionUpdate {
