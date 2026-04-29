@@ -29,6 +29,7 @@ import {
   createOpencodeServer,
   type OpencodeClient,
   type ToolPart,
+  type SessionStatus,
 } from "@opencode-ai/sdk/v2";
 
 async function withOpenCode<T>(cwd: string, callback: (client: OpencodeClient) => Promise<T>) {
@@ -256,7 +257,7 @@ function createSessionLifecycleBarrier() {
 
   return {
     done,
-    observe(status: "idle" | "busy" | "retry") {
+    observe(status: SessionStatus["type"]) {
       if (settled) {
         return;
       }
