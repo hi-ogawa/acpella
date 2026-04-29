@@ -1,4 +1,5 @@
 import { fileURLToPath } from "node:url";
+import type { SessionUpdate } from "@agentclientprotocol/sdk";
 import { describe, expect, it, onTestFinished } from "vitest";
 import { arrayFromAsyncIterator, useFs } from "../../test/helper.ts";
 import { AgentManager } from "../acp/index.ts";
@@ -29,19 +30,41 @@ describe("OpenCode ACP agent", () => {
     const result = session.prompt("Say exactly: ok");
     const updates = await arrayFromAsyncIterator(result.consume());
     await expect(result.promise).resolves.toEqual({ stopReason: "end_turn" });
-    const text = updates
-      .map((update) => {
-        if (update.sessionUpdate !== "agent_message_chunk" || update.content.type !== "text") {
-          return "";
-        }
-        return update.content.text;
-      })
-      .join("");
-    expect(text.toLowerCase()).toContain("ok");
+    expect(textFromUpdates(updates).toLowerCase()).toContain("ok");
     if (updates.length < 1) {
       throw new Error("expected at least one text agent_message_chunk");
     }
 
     await manager.closeSession({ sessionId: session.sessionId });
   });
+
+  it("loads an existing OpenCode session", async () => {
+    const { root } = useFs({ prefix: "opencode-acp-load" });
+    const manager = new AgentManager({
+      command: OPENCODE_ACP_COMMAND,
+      cwd: root,
+    });
+
+    const created = await manager.newSession({ sessionCwd: root });
+    onTestFinished(() => created.stop());
+
+    const loaded = await manager.loadSession({ sessionId: created.sessionId, sessionCwd: root });
+    onTestFinished(() => loaded.stop());
+
+    const result = loaded.prompt("Say exactly: ok");
+    const updates = await arrayFromAsyncIterator(result.consume());
+    await expect(result.promise).resolves.toEqual({ stopReason: "end_turn" });
+    expect(textFromUpdates(updates).toLowerCase()).toContain("ok");
+  });
 });
+
+function textFromUpdates(updates: SessionUpdate[]) {
+  return updates
+    .map((update) => {
+      if (update.sessionUpdate !== "agent_message_chunk" || update.content.type !== "text") {
+        return "";
+      }
+      return update.content.text;
+    })
+    .join("");
+}

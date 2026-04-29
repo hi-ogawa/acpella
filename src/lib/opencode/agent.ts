@@ -65,7 +65,14 @@ class OpencodeAgent implements Agent {
     });
   }
 
-  async loadSession(_params: LoadSessionRequest): Promise<LoadSessionResponse> {
+  async loadSession(params: LoadSessionRequest): Promise<LoadSessionResponse> {
+    await withOpenCode(params.cwd, async (client) => {
+      await client.session.get(
+        { sessionID: params.sessionId, directory: params.cwd },
+        { throwOnError: true },
+      );
+    });
+    this.sessions.set(params.sessionId, { cwd: params.cwd });
     return {};
   }
 
