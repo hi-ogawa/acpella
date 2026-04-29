@@ -29,7 +29,7 @@ Coverage checklist:
 
 import { expect, test, vi } from "vitest";
 import { writeJsonFile } from "../utils/fs.ts";
-import { formatTime } from "../utils/index.ts";
+import { advanceTimersTo } from "./helper.ts";
 import { createHandlerTester } from "./tester.ts";
 
 test("cron auto reloads external cron file changes", async ({ onTestFinished }) => {
@@ -125,10 +125,7 @@ test("cron auto reloads external cron file changes", async ({ onTestFinished }) 
       last: none"
   `);
 
-  vi.advanceTimersByTime(Date.parse("2026-04-18T07:02:00+07:00") - Date.now());
-  expect(formatTime(Date.now(), tester.config.timezone)).toMatchInlineSnapshot(
-    `"2026-04-18T07:02:00+07:00"`,
-  );
+  advanceTimersTo("2026-04-18T07:02:00+07:00");
   await vi.waitUntil(() => tester.cronDeliveries.length > 0);
   expect(tester.cronDeliveries).toMatchInlineSnapshot(`
     [
@@ -232,10 +229,7 @@ test("cron command", async ({ onTestFinished }) => {
   `);
   expect(tester.cronDeliveries).toMatchInlineSnapshot(`[]`);
 
-  vi.advanceTimersByTime(60 * 1000);
-  expect(formatTime(Date.now(), tester.config.timezone)).toMatchInlineSnapshot(
-    `"2026-04-18T07:01:00+07:00"`,
-  );
+  advanceTimersTo("2026-04-18T07:01:00+07:00");
   expect(tester.cronDeliveries).toMatchInlineSnapshot(`[]`);
   expect(await session.request("/cron show test-job")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -308,10 +302,7 @@ test("cron command", async ({ onTestFinished }) => {
       last: none"
   `);
 
-  vi.advanceTimersByTime(2 * 60 * 1000);
-  expect(formatTime(Date.now(), tester.config.timezone)).toMatchInlineSnapshot(
-    `"2026-04-18T07:03:00+07:00"`,
-  );
+  advanceTimersTo("2026-04-18T07:03:00+07:00");
   expect(tester.cronDeliveries).toMatchInlineSnapshot(`[]`);
   expect(await session.request("/cron show other-job")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -366,10 +357,7 @@ test("cron command", async ({ onTestFinished }) => {
     Updated cron job: other-job"
   `);
 
-  vi.advanceTimersByTime(60 * 1000);
-  expect(formatTime(Date.now(), tester.config.timezone)).toMatchInlineSnapshot(
-    `"2026-04-18T07:04:00+07:00"`,
-  );
+  advanceTimersTo("2026-04-18T07:04:00+07:00");
   expect(tester.cronDeliveries).toMatchInlineSnapshot(`[]`);
   expect(await session.request("/cron show other-job")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -491,10 +479,7 @@ test("cron error delivery", async ({ onTestFinished }) => {
   `);
   expect(tester.cronDeliveries).toMatchInlineSnapshot(`[]`);
 
-  vi.advanceTimersByTime(60 * 1000);
-  expect(formatTime(Date.now(), tester.config.timezone)).toMatchInlineSnapshot(
-    `"2026-04-18T07:01:00+07:00"`,
-  );
+  advanceTimersTo("2026-04-18T07:01:00+07:00");
   expect(tester.cronDeliveries).toMatchInlineSnapshot(`[]`);
   expect(await session.request("/cron show test-job")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -564,7 +549,7 @@ test("cron suppresses NO_REPLY delivery", async ({ onTestFinished }) => {
     Added cron job: test-job"
   `);
 
-  vi.advanceTimersByTime(60 * 1000);
+  advanceTimersTo("2026-04-18T07:01:00+07:00");
   await vi.waitUntil(async () => {
     const output = await session.request("/cron show test-job");
     return output.includes("last: succeeded");
@@ -725,10 +710,7 @@ test("cron runner renews stale session after daily boundary", async ({ onTestFin
     Added cron job: renew-job"
   `);
 
-  vi.advanceTimersByTime(60 * 60 * 1000);
-  expect(formatTime(Date.now(), tester.config.timezone)).toMatchInlineSnapshot(
-    `"2026-04-18T04:30:00+07:00"`,
-  );
+  advanceTimersTo("2026-04-18T04:30:00+07:00");
 
   await vi.waitUntil(() => tester.cronDeliveries.length > 0);
   expect(tester.cronDeliveries).toMatchInlineSnapshot(`

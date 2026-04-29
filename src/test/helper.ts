@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { onTestFinished } from "vitest";
+import { onTestFinished, vi } from "vitest";
 
 export function useFs(options?: { prefix?: string; sourceDir?: string }) {
   const prefix = options?.prefix ?? "test";
@@ -14,4 +14,18 @@ export function useFs(options?: { prefix?: string; sourceDir?: string }) {
     fs.rmSync(root, { recursive: true, force: true });
   });
   return { root };
+}
+
+export function advanceTimersTo(time: string) {
+  const target = Date.parse(time);
+  if (Number.isNaN(target)) {
+    throw new Error(`Invalid timer target: ${time}`);
+  }
+
+  const delta = target - Date.now();
+  if (delta < 0) {
+    throw new Error(`Cannot advance timers backwards to ${new Date(target).toISOString()}`);
+  }
+
+  vi.advanceTimersByTime(delta);
 }

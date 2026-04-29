@@ -62,7 +62,7 @@ Coverage checklist:
 import fs from "node:fs";
 import { expect, test, vi } from "vitest";
 import { TEST_AGENT_COMMAND } from "../state.ts";
-import { formatTime } from "../utils/index.ts";
+import { advanceTimersTo } from "./helper.ts";
 import { createHandlerTester, sanitizeOutput } from "./tester.ts";
 
 test("basic", async () => {
@@ -753,16 +753,9 @@ test("session renews stale chat prompt after daily boundary", async ({ onTestFin
 
   expect(await session.request("__session")).toMatchInlineSnapshot(`"session: __testSession1"`);
 
-  vi.advanceTimersByTime(20 * 60 * 1000);
-  expect(formatTime(Date.now(), tester.config.timezone)).toMatchInlineSnapshot(
-    `"2026-04-18T03:50:00+07:00"`,
-  );
+  advanceTimersTo("2026-04-18T03:50:00+07:00");
   expect(await session.request("__session")).toMatchInlineSnapshot(`"session: __testSession1"`);
 
-  vi.advanceTimersByTime(40 * 60 * 1000);
-  expect(formatTime(Date.now(), tester.config.timezone)).toMatchInlineSnapshot(
-    `"2026-04-18T04:30:00+07:00"`,
-  );
-
+  advanceTimersTo("2026-04-18T04:30:00+07:00");
   expect(await session.request("__session")).toMatchInlineSnapshot(`"session: __testSession2"`);
 });
