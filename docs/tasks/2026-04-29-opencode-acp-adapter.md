@@ -261,7 +261,7 @@ Implemented the first ACP-first shell:
 
 - Added `experiments/opencode-acp-agent/agent.ts`.
 - It is a self-contained ACP stdio agent using `AgentSideConnection` and `ndJsonStream`.
-- It persists minimal session state under `.acpella/.opencode-acp-agent.json` in the test cwd so it works with acpella's process-per-session `AgentManager` shape.
+- It initially used minimal local session state so it worked with acpella's process-per-session `AgentManager` shape.
 - It currently implements echo-only `prompt` and returns `stopReason: "end_turn"`.
 
 Added ACP harness coverage:
@@ -306,6 +306,43 @@ Test update:
 
 - `src/lib/acp/opencode-experiment.test.ts` now expects `manager.listSessions()` to return `{ sessions: [] }` for the fresh temporary test cwd.
 - This intentionally proves real OpenCode enumeration succeeds without depending on the fake echo `newSession` state.
+
+Verification:
+
+```sh
+pnpm vitest --project=unit src/lib/acp/opencode-experiment.test.ts
+```
+
+Result:
+
+```text
+1 test passed
+```
+
+## 2026-04-29 OpenCode-backed `newSession`
+
+Implemented only `newSession` against real OpenCode, on top of the existing real `listSessions` slice.
+
+Rationale:
+
+- OpenCode session IDs can be ACP session IDs directly.
+- No custom ACP-to-OpenCode session mapping is needed for this path.
+- Keep `prompt` echo-only until session lifecycle is proven.
+- Keep `closeSession` as a no-op for this slice; deletion semantics can be decided separately.
+
+Implementation shape:
+
+- Added shared `withOpenCode(cwd, callback)` helper in `experiments/opencode-acp-agent/agent.ts`.
+- `newSession` now calls `client.session.create({ directory: params.cwd, title: "OpenCode ACP experiment" })`.
+- It returns `{ sessionId: session.id }`, where `session.id` is the OpenCode `ses_...` id.
+- `listSessions` still calls real `client.session.list({ directory: cwd, roots: true })`.
+- `loadSession`, `prompt`, and `closeSession` remain non-OpenCode-backed for now.
+
+Test update:
+
+- `src/lib/acp/opencode-experiment.test.ts` now asserts `newSession` returns a `ses_...` id.
+- It verifies `manager.listSessions()` sees that same OpenCode session for the temp cwd.
+- The prompt assertion still verifies the echo-only ACP shell.
 
 Verification:
 

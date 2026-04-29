@@ -1,9 +1,7 @@
 #!/usr/bin/env node
 
-import fs from "node:fs"
-import path from "node:path"
 import { Readable, Writable } from "node:stream"
-import { createOpencodeClient, createOpencodeServer } from "@opencode-ai/sdk/v2"
+import { createOpencodeClient, createOpencodeServer, type OpencodeClient } from "@opencode-ai/sdk/v2"
 import {
   AgentSideConnection,
   ndJsonStream,
@@ -30,25 +28,13 @@ import {
 
 process.env.PATH = `/home/hiroshi/.opencode/bin:${process.env.PATH ?? ""}`
 
-type ExperimentState = {
-  nextSessionNumber: number
-  sessions: Array<{ sessionId: string; cwd: string }>
-}
-
-function getStateFile(cwd: string) {
-  return path.join(cwd, ".acpella/.opencode-acp-agent.json")
-}
-
-function readState(cwd: string): ExperimentState {
-  const stateFile = getStateFile(cwd)
-  if (!fs.existsSync(stateFile)) return { nextSessionNumber: 1, sessions: [] }
-  return JSON.parse(fs.readFileSync(stateFile, "utf8")) as ExperimentState
-}
-
-function writeState(cwd: string, state: ExperimentState) {
-  const stateFile = getStateFile(cwd)
-  fs.mkdirSync(path.dirname(stateFile), { recursive: true })
-  fs.writeFileSync(stateFile, JSON.stringify(state, null, 2))
+async function withOpenCode<T>(cwd: string, callback: (client: OpencodeClient) => Promise<T>) {
+  const server = await createOpencodeServer({ port: 0, timeout: 10000 })
+  try {
+    return await callback(createOpencodeClient({ baseUrl: server.url, directory: cwd }))
+  } finally {
+    server.close()
+  }
 }
 
 class OpenCodeExperimentAgent implements Agent {
@@ -66,27 +52,21 @@ class OpenCodeExperimentAgent implements Agent {
   }
 
   async newSession(params: NewSessionRequest): Promise<NewSessionResponse> {
-    const state = readState(params.cwd)
-    const sessionId = `opencode-experiment-${state.nextSessionNumber}`
-    state.nextSessionNumber += 1
-    state.sessions.push({ sessionId, cwd: params.cwd })
-    writeState(params.cwd, state)
-    return { sessionId }
+    return await withOpenCode(params.cwd, async (client) => {
+      const session = await client.session
+        .create({ directory: params.cwd, title: "OpenCode ACP experiment" }, { throwOnError: true })
+        .then((response) => response.data!)
+      return { sessionId: session.id }
+    })
   }
 
-  async loadSession(params: LoadSessionRequest): Promise<LoadSessionResponse> {
-    const state = readState(params.cwd)
-    if (!state.sessions.some((session) => session.sessionId === params.sessionId)) {
-      throw new Error(`unknown session: ${params.sessionId}`)
-    }
+  async loadSession(_params: LoadSessionRequest): Promise<LoadSessionResponse> {
     return {}
   }
 
   async listSessions(params: ListSessionsRequest): Promise<ListSessionsResponse> {
     const cwd = params.cwd ?? process.cwd()
-    const server = await createOpencodeServer({ port: 0, timeout: 10000 })
-    try {
-      const client = createOpencodeClient({ baseUrl: server.url, directory: cwd })
+    return await withOpenCode(cwd, async (client) => {
       const sessions = await client.session
         .list({ directory: cwd, roots: true }, { throwOnError: true })
         .then((response) => response.data ?? [])
@@ -98,18 +78,10 @@ class OpenCodeExperimentAgent implements Agent {
           updatedAt: new Date(session.time.updated).toISOString(),
         })),
       }
-    } finally {
-      server.close()
-    }
+    })
   }
 
-  async unstable_closeSession(params: CloseSessionRequest): Promise<CloseSessionResponse> {
-    const cwd = process.cwd()
-    const state = readState(cwd)
-    writeState(cwd, {
-      ...state,
-      sessions: state.sessions.filter((session) => session.sessionId !== params.sessionId),
-    })
+  async unstable_closeSession(_params: CloseSessionRequest): Promise<CloseSessionResponse> {
     return {}
   }
 
