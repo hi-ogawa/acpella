@@ -21,6 +21,7 @@ import {
   type PromptResponse,
   type SetSessionModeRequest,
   type SetSessionModeResponse,
+  type SessionUpdate,
   type ToolKind,
 } from "@agentclientprotocol/sdk";
 import {
@@ -239,29 +240,13 @@ class OpencodeAgent implements Agent {
       startedTools.add(part.callID);
       await this.connection.sessionUpdate({
         sessionId,
-        update: {
-          sessionUpdate: "tool_call",
-          toolCallId: part.callID,
-          title: toolTitle(part),
-          kind: toolKind(part.tool),
-          status: toolStatus(part),
-          rawInput: part.state.input,
-        },
+        update: toolUpdate(part, "tool_call"),
       });
     }
 
     await this.connection.sessionUpdate({
       sessionId,
-      update: {
-        sessionUpdate: "tool_call_update",
-        toolCallId: part.callID,
-        title: toolTitle(part),
-        kind: toolKind(part.tool),
-        status: toolStatus(part),
-        rawInput: part.state.input,
-        rawOutput: toolOutput(part),
-        content: toolContent(part),
-      },
+      update: toolUpdate(part, "tool_call_update"),
     });
   }
 
@@ -328,65 +313,105 @@ async function sleep(ms: number) {
   await new Promise((resolve) => setTimeout(resolve, Math.max(0, ms)));
 }
 
-function toolTitle(part: ToolPart) {
-  if ("title" in part.state && part.state.title) {
-    return part.state.title;
-  }
-  return part.tool;
-}
-
-function toolStatus(part: ToolPart) {
-  switch (part.state.status) {
-    case "pending":
-      return "pending";
-    case "running":
-      return "in_progress";
-    case "completed":
-      return "completed";
-    case "error":
-      return "failed";
-  }
-}
-
-function toolOutput(part: ToolPart) {
-  if (part.state.status === "completed") {
-    return { output: part.state.output, metadata: part.state.metadata };
-  }
-  if (part.state.status === "error") {
-    return { error: part.state.error, metadata: part.state.metadata };
-  }
-}
-
-function toolContent(part: ToolPart) {
-  if (part.state.status === "completed" && part.state.output) {
-    return [
-      { type: "content" as const, content: { type: "text" as const, text: part.state.output } },
-    ];
-  }
-  if (part.state.status === "error" && part.state.error) {
-    return [
-      { type: "content" as const, content: { type: "text" as const, text: part.state.error } },
-    ];
-  }
-}
-
-function toolKind(tool: string): ToolKind {
-  switch (tool.toLowerCase()) {
-    case "bash":
-      return "execute";
-    case "webfetch":
-      return "fetch";
+function toolUpdate(
+  part: ToolPart,
+  sessionUpdate: "tool_call" | "tool_call_update",
+): SessionUpdate {
+  const title = "title" in part.state && part.state.title ? part.state.title : part.tool;
+  let kind: ToolKind;
+  switch (part.tool.toLowerCase()) {
+    case "bash": {
+      kind = "execute";
+      break;
+    }
+    case "webfetch": {
+      kind = "fetch";
+      break;
+    }
     case "edit":
     case "patch":
-    case "write":
-      return "edit";
+    case "write": {
+      kind = "edit";
+      break;
+    }
     case "grep":
-    case "glob":
-      return "search";
-    case "read":
-      return "read";
-    default:
-      return "other";
+    case "glob": {
+      kind = "search";
+      break;
+    }
+    case "read": {
+      kind = "read";
+      break;
+    }
+    default: {
+      kind = "other";
+      break;
+    }
+  }
+
+  switch (part.state.status) {
+    case "pending": {
+      return {
+        sessionUpdate,
+        toolCallId: part.callID,
+        title,
+        kind,
+        status: "pending",
+        rawInput: part.state.input,
+      };
+    }
+    case "running": {
+      return {
+        sessionUpdate,
+        toolCallId: part.callID,
+        title,
+        kind,
+        status: "in_progress",
+        rawInput: part.state.input,
+      };
+    }
+    case "completed": {
+      return {
+        sessionUpdate,
+        toolCallId: part.callID,
+        title,
+        kind,
+        status: "completed",
+        rawInput: part.state.input,
+        rawOutput: { output: part.state.output, metadata: part.state.metadata },
+        ...(part.state.output
+          ? {
+              content: [
+                {
+                  type: "content",
+                  content: { type: "text", text: part.state.output },
+                },
+              ],
+            }
+          : {}),
+      };
+    }
+    case "error": {
+      return {
+        sessionUpdate,
+        toolCallId: part.callID,
+        title,
+        kind,
+        status: "failed",
+        rawInput: part.state.input,
+        rawOutput: { error: part.state.error, metadata: part.state.metadata },
+        ...(part.state.error
+          ? {
+              content: [
+                {
+                  type: "content",
+                  content: { type: "text", text: part.state.error },
+                },
+              ],
+            }
+          : {}),
+      };
+    }
   }
 }
 
