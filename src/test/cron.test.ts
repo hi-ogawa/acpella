@@ -46,10 +46,6 @@ test("cron auto reloads external cron file changes", async ({ onTestFinished }) 
   });
 
   const tester = await createHandlerTester();
-  tester.cronRunner.start();
-  onTestFinished(() => {
-    tester.cronRunner.stop();
-  });
 
   const session = tester.createSession("test", {
     metadata: { cronDeliveryTarget: { repl: true } },
@@ -160,10 +156,6 @@ test("cron command", async ({ onTestFinished }) => {
   });
 
   const tester = await createHandlerTester();
-  tester.cronRunner.start();
-  onTestFinished(() => {
-    tester.cronRunner.stop();
-  });
 
   const session = tester.createSession("test", {
     metadata: { cronDeliveryTarget: { repl: true } },
@@ -452,10 +444,6 @@ test("cron error delivery", async ({ onTestFinished }) => {
   });
 
   const tester = await createHandlerTester();
-  tester.cronRunner.start();
-  onTestFinished(() => {
-    tester.cronRunner.stop();
-  });
 
   const session = tester.createSession("test", {
     metadata: { cronDeliveryTarget: { repl: true } },
@@ -535,10 +523,6 @@ test("cron suppresses NO_REPLY delivery", async ({ onTestFinished }) => {
   });
 
   const tester = await createHandlerTester();
-  tester.cronRunner.start();
-  onTestFinished(() => {
-    tester.cronRunner.stop();
-  });
 
   const session = tester.createSession("test", {
     metadata: { cronDeliveryTarget: { repl: true } },
@@ -686,10 +670,6 @@ test("cron runner renews stale session after daily boundary", async ({ onTestFin
   });
 
   const tester = await createHandlerTester();
-  tester.cronRunner.start();
-  onTestFinished(() => {
-    tester.cronRunner.stop();
-  });
 
   const session = tester.createSession("test", {
     metadata: { cronDeliveryTarget: { repl: true } },

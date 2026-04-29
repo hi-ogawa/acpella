@@ -41,7 +41,9 @@ export async function createHandlerTester() {
     getCronRunner: () => cronRunner,
   });
   handler.start();
+  cronRunner.start();
   onTestFinished(() => {
+    cronRunner.stop();
     handler.stop();
   });
 
