@@ -25,7 +25,6 @@ import {
   type ToolKind,
 } from "@agentclientprotocol/sdk";
 import {
-  type AssistantMessage,
   createOpencodeClient,
   createOpencodeServer,
   type OpencodeClient,
@@ -214,7 +213,18 @@ class OpencodeAgent implements Agent {
       }
     });
 
-    await this.sendUsageUpdate(params.sessionId, response.info);
+    const info = response.info;
+    const used = info.tokens.input + info.tokens.cache.read;
+    const total = used + info.tokens.output + info.tokens.reasoning;
+    await this.connection.sessionUpdate({
+      sessionId: params.sessionId,
+      update: {
+        sessionUpdate: "usage_update",
+        used,
+        size: Math.max(used, total),
+        cost: { amount: info.cost, currency: "USD" },
+      },
+    });
 
     return { stopReason: "end_turn" };
   }
@@ -245,20 +255,6 @@ class OpencodeAgent implements Agent {
     await this.connection.sessionUpdate({
       sessionId,
       update: formatToolCall(part, "tool_call_update"),
-    });
-  }
-
-  private async sendUsageUpdate(sessionId: string, info: AssistantMessage) {
-    const used = info.tokens.input + info.tokens.cache.read;
-    const total = used + info.tokens.output + info.tokens.reasoning;
-    await this.connection.sessionUpdate({
-      sessionId,
-      update: {
-        sessionUpdate: "usage_update",
-        used,
-        size: Math.max(used, total),
-        cost: { amount: info.cost, currency: "USD" },
-      },
     });
   }
 
