@@ -30,6 +30,7 @@ import {
   type EventMessagePartDelta,
   type GlobalEvent,
   type OpencodeClient,
+  type Part,
 } from "@opencode-ai/sdk/v2";
 
 async function withOpenCode<T>(cwd: string, callback: (client: OpencodeClient) => Promise<T>) {
@@ -161,7 +162,12 @@ class OpenCodeExperimentAgent implements Agent {
 
       abort.abort();
       await reader;
-      return response.parts.map(partText).filter(Boolean).join("") || "(empty)";
+      return (
+        response.parts
+          .map((part: Part) => (part.type === "text" || part.type === "reasoning" ? part.text : ""))
+          .filter(Boolean)
+          .join("") || "(empty)"
+      );
     });
 
     if (responseText) {
@@ -178,20 +184,6 @@ class OpenCodeExperimentAgent implements Agent {
   }
 
   async cancel(_params: CancelNotification): Promise<void> {}
-}
-
-function partText(part: unknown): string {
-  if (!part || typeof part !== "object") {
-    return "";
-  }
-  const record = part as Record<string, unknown>;
-  if (typeof record.text === "string") {
-    return record.text;
-  }
-  if (typeof record.content === "string") {
-    return record.content;
-  }
-  return "";
 }
 
 const input = Writable.toWeb(process.stdout);
