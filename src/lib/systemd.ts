@@ -79,6 +79,7 @@ function buildServicePath(options: { nodeBin: string; home: string }): string {
   const dirs = [
     dirname(nodeBin),
     resolve(home, ".local/bin"),
+    resolve(home, ".opencode/bin"),
     resolve(home, ".cargo/bin"),
     resolve(home, ".bun/bin"),
     resolve(home, ".volta/bin"),
