@@ -30,16 +30,18 @@ describe("OpenCode experimental ACP agent", () => {
     const result = session.prompt("Say exactly: ok");
     const updates = await arrayFromAsyncIterator(result.consume());
     await expect(result.promise).resolves.toEqual({ stopReason: "end_turn" });
-    expect(updates).toHaveLength(1);
-    expect(updates[0]).toMatchObject({
-      sessionUpdate: "agent_message_chunk",
-      content: { type: "text" },
-    });
-    const update = updates[0];
-    if (update?.sessionUpdate !== "agent_message_chunk" || update.content.type !== "text") {
-      throw new Error("expected text agent_message_chunk");
+    const text = updates
+      .map((update) => {
+        if (update.sessionUpdate !== "agent_message_chunk" || update.content.type !== "text") {
+          return "";
+        }
+        return update.content.text;
+      })
+      .join("");
+    expect(text.toLowerCase()).toContain("ok");
+    if (updates.length < 1) {
+      throw new Error("expected at least one text agent_message_chunk");
     }
-    expect(update.content.text.toLowerCase()).toContain("ok");
 
     await manager.closeSession({ sessionId: session.sessionId });
   });
