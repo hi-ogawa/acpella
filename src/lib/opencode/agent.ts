@@ -29,7 +29,6 @@ import {
   createOpencodeServer,
   type OpencodeClient,
   type ToolPart,
-  type SessionStatus,
 } from "@opencode-ai/sdk/v2";
 
 async function getClient<T>(cwd: string, callback: (client: OpencodeClient) => Promise<T>) {
@@ -122,7 +121,8 @@ class OpencodeAgent implements Agent {
     await getClient(session.cwd, async (client) => {
       const abort = new AbortController();
       const startedTools = new Set<string>();
-      const lifecycle = createSessionLifecycleBarrier();
+      let sawBusy = false;
+      const lifecycle = Promise.withResolvers<void>();
       const sendToolUpdate = async (part: ToolPart) => {
         if (!startedTools.has(part.callID)) {
           startedTools.add(part.callID);
@@ -145,7 +145,12 @@ class OpencodeAgent implements Agent {
           if (payload.type === "session.status") {
             const props = payload.properties;
             if (props.sessionID === params.sessionId) {
-              lifecycle.observe(props.status.type);
+              if (props.status.type === "busy") {
+                sawBusy = true;
+              }
+              if (props.status.type === "idle" && sawBusy) {
+                lifecycle.resolve();
+              }
             }
             continue;
           }
@@ -207,7 +212,7 @@ class OpencodeAgent implements Agent {
           { throwOnError: true },
         );
 
-        await lifecycle.done;
+        await lifecycle.promise;
         const info = response.data.info;
         const used = info.tokens.input + info.tokens.cache.read;
         const total = used + info.tokens.output + info.tokens.reasoning;
@@ -242,36 +247,6 @@ class OpencodeAgent implements Agent {
       );
     });
   }
-}
-
-function createSessionLifecycleBarrier() {
-  let sawBusy = false;
-  let settled = false;
-  const { promise: done, resolve, reject } = Promise.withResolvers<void>();
-
-  return {
-    done,
-    observe(status: SessionStatus["type"]) {
-      if (settled) {
-        return;
-      }
-      if (status === "busy") {
-        sawBusy = true;
-        return;
-      }
-      if (status === "idle" && sawBusy) {
-        settled = true;
-        resolve();
-      }
-    },
-    reject(error: unknown) {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      reject(error);
-    },
-  };
 }
 
 const TOOL_KIND_BY_NAME: Record<string, ToolKind> = {
