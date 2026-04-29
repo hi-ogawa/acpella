@@ -44,7 +44,8 @@ systemctl status sleep.target suspend.target hibernate.target hybrid-sleep.targe
 systemd-inhibit --list
 ```
 
-One blunt systemd-level option is masking sleep targets:
+For an always-on host, disable system sleep. One systemd-level option is masking
+sleep targets:
 
 ```bash
 sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
