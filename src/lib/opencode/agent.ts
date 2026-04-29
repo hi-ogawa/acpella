@@ -157,39 +157,36 @@ class OpencodeAgent implements Agent {
             continue;
           }
 
-          if (payload.type !== "message.part.delta") {
-            continue;
+          if (payload.type === "message.part.delta") {
+            const props = payload.properties;
+            if (props.sessionID === params.sessionId && props.field === "text" && props.delta) {
+              const message = await client.session
+                .message(
+                  {
+                    sessionID: props.sessionID,
+                    messageID: props.messageID,
+                    directory: session.cwd,
+                  },
+                  { throwOnError: true },
+                )
+                .then((result) => result.data)
+                .catch(() => undefined);
+              if (message?.info.role === "assistant") {
+                const part = message.parts.find((item) => item.id === props.partID);
+                if (part?.type === "text" || part?.type === "reasoning") {
+                  await this.connection.sessionUpdate({
+                    sessionId: params.sessionId,
+                    update: {
+                      sessionUpdate:
+                        part.type === "reasoning" ? "agent_thought_chunk" : "agent_message_chunk",
+                      messageId: props.messageID,
+                      content: { type: "text", text: props.delta },
+                    },
+                  });
+                }
+              }
+            }
           }
-          const props = payload.properties;
-          if (props.sessionID !== params.sessionId || props.field !== "text") {
-            continue;
-          }
-          if (!props.delta) {
-            continue;
-          }
-          const message = await client.session
-            .message(
-              { sessionID: props.sessionID, messageID: props.messageID, directory: session.cwd },
-              { throwOnError: true },
-            )
-            .then((result) => result.data)
-            .catch(() => undefined);
-          if (!message || message.info.role !== "assistant") {
-            continue;
-          }
-          const part = message.parts.find((item) => item.id === props.partID);
-          if (part?.type !== "text" && part?.type !== "reasoning") {
-            continue;
-          }
-          await this.connection.sessionUpdate({
-            sessionId: params.sessionId,
-            update: {
-              sessionUpdate:
-                part.type === "reasoning" ? "agent_thought_chunk" : "agent_message_chunk",
-              messageId: props.messageID,
-              content: { type: "text", text: props.delta },
-            },
-          });
         }
       })().catch((error) => {
         if (!abort.signal.aborted) {
