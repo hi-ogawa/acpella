@@ -28,8 +28,6 @@ import {
   type AssistantMessage,
   createOpencodeClient,
   createOpencodeServer,
-  type EventMessagePartDelta,
-  type EventMessagePartUpdated,
   type OpencodeClient,
   type Part,
   type ToolPart,
@@ -132,7 +130,7 @@ class OpencodeAgent implements Agent {
         for await (const event of subscription.stream) {
           const payload = event.payload;
           if (payload.type === "message.part.updated") {
-            const props: EventMessagePartUpdated["properties"] = payload.properties;
+            const props = payload.properties;
             if (props.sessionID === params.sessionId && props.part.type === "tool") {
               lastRelevantEventAt = Date.now();
               await this.sendToolUpdate(params.sessionId, props.part, startedTools);
@@ -143,7 +141,7 @@ class OpencodeAgent implements Agent {
           if (payload.type !== "message.part.delta") {
             continue;
           }
-          const props: EventMessagePartDelta["properties"] = payload.properties;
+          const props = payload.properties;
           if (props.sessionID !== params.sessionId || props.field !== "text") {
             continue;
           }
@@ -181,7 +179,7 @@ class OpencodeAgent implements Agent {
             },
           });
         }
-      })().catch((error: unknown) => {
+      })().catch((error) => {
         if (!abort.signal.aborted) {
           throw error;
         }
