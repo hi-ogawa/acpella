@@ -186,9 +186,11 @@ class OpenCodeExperimentAgent implements Agent {
   async cancel(_params: CancelNotification): Promise<void> {}
 }
 
-const input = Writable.toWeb(process.stdout);
-const output = Readable.toWeb(process.stdin) as ReadableStream<Uint8Array>;
-new AgentSideConnection(
-  (connection) => new OpenCodeExperimentAgent(connection),
-  ndJsonStream(input, output),
-);
+function main() {
+  const input = Writable.toWeb(process.stdout);
+  const output = Readable.toWeb(process.stdin) as ReadableStream<Uint8Array>;
+  const stream = ndJsonStream(input, output);
+  new AgentSideConnection((conn) => new OpenCodeExperimentAgent(conn), stream);
+}
+
+main();
