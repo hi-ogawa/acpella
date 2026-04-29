@@ -254,3 +254,32 @@ Important test insight:
 - The queue finishes when `agent.connection.prompt()` resolves.
 - That means this harness directly models the bug class we care about: if an adapter resolves ACP `prompt()` / returns `end_turn` before all streamed chunks are emitted, `consume()` will close early.
 - Therefore the existing ACP test infra is the right place to verify the future OpenCode completion barrier.
+
+## 2026-04-29 Experimental ACP shell
+
+Implemented the first ACP-first shell:
+
+- Added `experiments/opencode-acp-agent/agent.ts`.
+- It is a self-contained ACP stdio agent using `AgentSideConnection` and `ndJsonStream`.
+- It persists minimal session state under `.acpella/.opencode-acp-agent.json` in the test cwd so it works with acpella's process-per-session `AgentManager` shape.
+- It currently implements echo-only `prompt` and returns `stopReason: "end_turn"`.
+
+Added ACP harness coverage:
+
+- Added `src/lib/acp/opencode-experiment.test.ts`.
+- The test uses `AgentManager` directly with command `node experiments/opencode-acp-agent/agent.ts`.
+- It verifies `newSession`, `listSessions`, `prompt` update consumption, `end_turn`, and `closeSession`.
+
+Verification:
+
+```sh
+pnpm vitest --project=unit src/lib/acp/opencode-experiment.test.ts
+```
+
+Result:
+
+```text
+1 test passed
+```
+
+Next implementation step: replace the echo body behind the same ACP shell with OpenCode SDK client/server initialization, then add a prompt-ordering test that can compare emitted ACP chunks against `prompt()` resolution.
