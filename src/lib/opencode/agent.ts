@@ -174,8 +174,16 @@ class OpencodeAgent implements Agent {
 
           if (payload.type === "message.part.updated") {
             const props = payload.properties;
-            if (props.sessionID === params.sessionId && props.part.type === "tool") {
-              await sendToolUpdate(props.part);
+            if (props.sessionID === params.sessionId) {
+              if (props.part.type === "tool") {
+                await sendToolUpdate(props.part);
+              } else if (props.part.type === "text") {
+                // TODO: updated vs delta?
+                // props.part.text;
+              } else if (props.part.type === "reasoning") {
+                // props.part.text;
+              } else if (props.part.type === "compaction") {
+              }
             }
             continue;
           }
