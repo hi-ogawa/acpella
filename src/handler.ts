@@ -27,7 +27,6 @@ import { parseTelegramSessionName } from "./lib/telegram/utils.ts";
 import { getVerboseSessionUpdateTypes, parseVerboseMode } from "./lib/verbose.ts";
 import { parseAgentSessionKey, SessionStateStore, toAgentSessionKey } from "./state.ts";
 import type { StateAgentSession } from "./state.ts";
-import { FileWatcher } from "./utils/fs.ts";
 import { AsyncLane, DefaultMap, formatError } from "./utils/index.ts";
 import { formatSessionUpdateLogEntry, JsonLogger } from "./utils/logger.ts";
 
@@ -64,21 +63,7 @@ export async function createHandler(
   },
 ): Promise<Handler> {
   const stateStore = new SessionStateStore(config.stateFile);
-  const stateWatcher = new FileWatcher({
-    file: config.stateFile,
-    onChange: () => {
-      try {
-        if (stateStore.file.reload()) {
-          console.log("[state] Reloaded state from external state file change");
-        }
-      } catch (error) {
-        console.error(
-          `[state] Failed to reload state after external state file change: ${formatError(error)}`,
-        );
-      }
-    },
-  });
-  stateWatcher.start();
+  stateStore.watcher.start();
 
   const cronStore = handlerOptions.cronStore;
   const activeSessions = new Map<string, AgentSessionProcess>();
@@ -802,7 +787,7 @@ ${inFlightSessions ? `in-flight sessions:\n${inFlightSessions}` : ""}
         help: "/service exit - Exit acpella.",
         run: async ({ reply }) => {
           await reply.system("Exiting acpella.");
-          stateWatcher.stop();
+          stop();
           handlerOptions.onServiceExit();
         },
       },
@@ -891,7 +876,7 @@ ${inFlightSessions ? `in-flight sessions:\n${inFlightSessions}` : ""}
       return;
     }
     stopped = true;
-    stateWatcher.stop();
+    stateStore.watcher.stop();
     for (const session of activeSessions.values()) {
       session.stop();
     }

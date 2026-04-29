@@ -2,7 +2,8 @@ import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { sessionRenewPolicySchema } from "./lib/session-renew.ts";
 import { verboseModeSchema } from "./lib/verbose.ts";
-import { FileStateManager } from "./utils/fs.ts";
+import { FileStateManager, FileWatcher } from "./utils/fs.ts";
+import { formatError } from "./utils/index.ts";
 
 const agentSchema = z.object({
   command: z.string().min(1),
@@ -94,12 +95,27 @@ type AgentSessionUsage = NonNullable<AgentSessionData["usage"]>;
 
 export class SessionStateStore {
   file: FileStateManager<State>;
+  watcher: FileWatcher;
 
   constructor(file: string) {
     this.file = new FileStateManager<State>({
       file,
       parse: stateSchema.parse.bind(stateSchema),
       defaultValue: getStateSchemaDefault,
+    });
+    this.watcher = new FileWatcher({
+      file,
+      onChange: () => {
+        try {
+          if (this.file.reload()) {
+            console.log("[state] Reloaded state from external state file change");
+          }
+        } catch (error) {
+          console.error(
+            `[state] Failed to reload state after external state file change: ${formatError(error)}`,
+          );
+        }
+      },
     });
   }
 
