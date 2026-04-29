@@ -112,6 +112,7 @@ class OpencodeAgent implements Agent {
       throw new Error(`unknown session: ${params.sessionId}`);
     }
 
+    // TODO: log unsupported part types
     const text =
       params.prompt
         .filter((part) => part.type === "text")
@@ -170,6 +171,7 @@ class OpencodeAgent implements Agent {
                   { throwOnError: true },
                 )
                 .then((result) => result.data)
+                // TODO: log error
                 .catch(() => undefined);
               if (message?.info.role === "assistant") {
                 const part = message.parts.find((item) => item.id === props.partID);
