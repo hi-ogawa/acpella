@@ -44,6 +44,7 @@ Coverage checklist:
   - [x] list
   - [x] bare usage output
   - [x] new
+  - [x] auto reloads external state file changes
   - [ ] new usage when name is missing
   - [ ] new usage when command is missing
   - [ ] new preserves multi-word commands
@@ -62,6 +63,7 @@ Coverage checklist:
 import fs from "node:fs";
 import { expect, test, vi } from "vitest";
 import { TEST_AGENT_COMMAND } from "../state.ts";
+import { writeJsonFile } from "../utils/fs.ts";
 import { advanceTimersTo } from "./helper.ts";
 import { createHandlerTester, sanitizeOutput } from "./tester.ts";
 
@@ -728,6 +730,76 @@ test("message metadata", async () => {
     extraKey: extraValue
     </message_metadata>
     __keep_metadata: ok"
+  `);
+});
+
+test("state auto reloads external state file changes", async ({ onTestFinished }) => {
+  vi.useFakeTimers({
+    now: Date.parse("2026-04-18T07:00:00+07:00"),
+  });
+  onTestFinished(() => {
+    vi.useRealTimers();
+  });
+
+  const tester = await createHandlerTester();
+  const session = tester.createSession("test");
+  expect(await session.request("/agent list")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    - test -> node <cwd>/src/lib/test-agent.ts (default)"
+  `);
+
+  writeJsonFile(tester.config.stateFile, {
+    version: 2,
+    defaultAgent: "test",
+    agents: {
+      test: { command: TEST_AGENT_COMMAND },
+      "file-agent": { command: "file-agent-command" },
+    },
+    sessions: {},
+    agentSessions: {},
+  });
+
+  vi.advanceTimersByTime(1250);
+  expect(await session.request("/agent list")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    - test -> node <cwd>/src/lib/test-agent.ts (default)
+    - file-agent -> file-agent-command"
+  `);
+
+  {
+    using consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    writeJsonFile(tester.config.stateFile, {
+      version: 12.34,
+      defaultAgent: "test",
+      agents: {},
+      sessions: {},
+      agentSessions: {},
+    });
+    vi.advanceTimersByTime(1250);
+    expect(consoleError.mock.calls).toMatchInlineSnapshot(`
+      [
+        [
+          "[state] Failed to reload state after external state file change: [
+        {
+          "code": "invalid_value",
+          "values": [
+            2
+          ],
+          "path": [
+            "version"
+          ],
+          "message": "Invalid input: expected 2"
+        }
+      ]",
+        ],
+      ]
+    `);
+  }
+
+  expect(await session.request("/agent list")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    - test -> node <cwd>/src/lib/test-agent.ts (default)
+    - file-agent -> file-agent-command"
   `);
 });
 

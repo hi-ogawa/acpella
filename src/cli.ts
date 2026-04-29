@@ -103,12 +103,18 @@ ${CLI_HELP}`);
     // docs/tasks/2026-04-19-agent-session-service-architecture.md
     getCronRunner: () => cronRunner,
   });
+  handler.start();
+
+  function cleanup() {
+    handler.stop();
+    cronRunner.stop();
+  }
 
   if (cli.command === "repl") {
     try {
       await startRepl({ config, handler, version });
     } finally {
-      cronRunner.stop();
+      cleanup();
     }
     return;
   }
@@ -117,7 +123,7 @@ ${CLI_HELP}`);
     try {
       await runExec({ handler, text: cli.args.join(" ") });
     } finally {
-      cronRunner.stop();
+      cleanup();
     }
     return;
   }
@@ -278,7 +284,7 @@ ${CLI_HELP}`);
   try {
     await runner.task();
   } finally {
-    cronRunner.stop();
+    cleanup();
   }
 }
 

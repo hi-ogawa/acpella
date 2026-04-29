@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import { vi } from "vitest";
+import { onTestFinished, vi } from "vitest";
 import { loadConfig, type AppConfig } from "../config.ts";
 import { createHandler, type HandlerContext } from "../handler.ts";
 import { CronRunner } from "../lib/cron/runner.ts";
@@ -39,6 +39,10 @@ export async function createHandlerTester() {
     onServiceExit,
     cronStore,
     getCronRunner: () => cronRunner,
+  });
+  handler.start();
+  onTestFinished(() => {
+    handler.stop();
   });
 
   async function request(context: Omit<HandlerContext, "send">) {

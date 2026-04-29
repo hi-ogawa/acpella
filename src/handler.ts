@@ -34,6 +34,8 @@ export interface Handler {
   handle: (context: HandlerContext) => Promise<void>;
   prompt: CronRunnerAgentOptions["prompt"];
   commands: Record<string, string>;
+  start: () => void;
+  stop: () => void;
 }
 
 export interface HandlerContext {
@@ -784,6 +786,7 @@ ${inFlightSessions ? `in-flight sessions:\n${inFlightSessions}` : ""}
         help: "/service exit - Exit acpella.",
         run: async ({ reply }) => {
           await reply.system("Exiting acpella.");
+          handler.stop();
           handlerOptions.onServiceExit();
         },
       },
@@ -866,5 +869,28 @@ ${inFlightSessions ? `in-flight sessions:\n${inFlightSessions}` : ""}
     return chunks.join("");
   };
 
-  return { handle, prompt: handleCronPrompt, commands: systemCommandsMetadata };
+  let started = false;
+
+  const handler: Handler = {
+    start() {
+      if (!started) {
+        started = true;
+        stateStore.watcher.start();
+      }
+    },
+    stop() {
+      if (started) {
+        started = false;
+        stateStore.watcher.stop();
+        for (const session of activeSessions.values()) {
+          session.stop();
+        }
+      }
+    },
+    handle,
+    prompt: handleCronPrompt,
+    commands: systemCommandsMetadata,
+  };
+
+  return handler;
 }
