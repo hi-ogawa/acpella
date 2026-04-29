@@ -3,6 +3,7 @@
 import fs from "node:fs"
 import path from "node:path"
 import { Readable, Writable } from "node:stream"
+import { createOpencodeClient, createOpencodeServer } from "@opencode-ai/sdk/v2"
 import {
   AgentSideConnection,
   ndJsonStream,
@@ -26,6 +27,8 @@ import {
   type SetSessionModeRequest,
   type SetSessionModeResponse,
 } from "@agentclientprotocol/sdk"
+
+process.env.PATH = `/home/hiroshi/.opencode/bin:${process.env.PATH ?? ""}`
 
 type ExperimentState = {
   nextSessionNumber: number
@@ -81,7 +84,23 @@ class OpenCodeExperimentAgent implements Agent {
 
   async listSessions(params: ListSessionsRequest): Promise<ListSessionsResponse> {
     const cwd = params.cwd ?? process.cwd()
-    return { sessions: readState(cwd).sessions.filter((session) => session.cwd === cwd) }
+    const server = await createOpencodeServer({ port: 0, timeout: 10000 })
+    try {
+      const client = createOpencodeClient({ baseUrl: server.url, directory: cwd })
+      const sessions = await client.session
+        .list({ directory: cwd, roots: true }, { throwOnError: true })
+        .then((response) => response.data ?? [])
+      return {
+        sessions: sessions.map((session) => ({
+          sessionId: session.id,
+          cwd: session.directory,
+          title: session.title,
+          updatedAt: new Date(session.time.updated).toISOString(),
+        })),
+      }
+    } finally {
+      server.close()
+    }
   }
 
   async unstable_closeSession(params: CloseSessionRequest): Promise<CloseSessionResponse> {

@@ -283,3 +283,38 @@ Result:
 ```
 
 Next implementation step: replace the echo body behind the same ACP shell with OpenCode SDK client/server initialization, then add a prompt-ordering test that can compare emitted ACP chunks against `prompt()` resolution.
+
+## 2026-04-29 OpenCode-backed `listSessions`
+
+Implemented only `listSessions` against real OpenCode, keeping `newSession`, `loadSession`, `prompt`, and `closeSession` in the current echo/fake shape.
+
+Rationale:
+
+- OpenCode already exposes session enumeration per cwd via `sdk.session.list({ directory, roots: true })`.
+- The adapter should not invent an ACP-to-OpenCode session mapping unless needed.
+- OpenCode's own ACP adapter uses OpenCode session IDs directly as ACP session IDs.
+
+Implementation shape:
+
+- `experiments/opencode-acp-agent/agent.ts` prepends `/home/hiroshi/.opencode/bin` to `PATH`.
+- `listSessions` starts a temporary OpenCode server with `createOpencodeServer({ port: 0 })`.
+- It creates a client with `createOpencodeClient({ baseUrl: server.url, directory: cwd })`.
+- It returns ACP `sessions` mapped from OpenCode sessions: `sessionId`, `cwd`, `title`, `updatedAt`.
+- It closes the temporary server in `finally`.
+
+Test update:
+
+- `src/lib/acp/opencode-experiment.test.ts` now expects `manager.listSessions()` to return `{ sessions: [] }` for the fresh temporary test cwd.
+- This intentionally proves real OpenCode enumeration succeeds without depending on the fake echo `newSession` state.
+
+Verification:
+
+```sh
+pnpm vitest --project=unit src/lib/acp/opencode-experiment.test.ts
+```
+
+Result:
+
+```text
+1 test passed
+```

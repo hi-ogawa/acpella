@@ -19,9 +19,7 @@ describe("OpenCode experimental ACP agent", () => {
     const session = await manager.newSession({ sessionCwd: root });
     onTestFinished(() => session.stop());
 
-    await expect(manager.listSessions()).resolves.toEqual({
-      sessions: [{ sessionId: "opencode-experiment-1", cwd: root }],
-    });
+    await expect(manager.listSessions()).resolves.toEqual({ sessions: [] });
 
     const result = session.prompt("hello");
     const updates = await arrayFromAsyncIterator(result.consume());
