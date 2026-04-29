@@ -104,11 +104,16 @@ ${CLI_HELP}`);
     getCronRunner: () => cronRunner,
   });
 
+  function cleanup() {
+    handler.stop();
+    cronRunner.stop();
+  }
+
   if (cli.command === "repl") {
     try {
       await startRepl({ config, handler, version });
     } finally {
-      cronRunner.stop();
+      cleanup();
     }
     return;
   }
@@ -117,7 +122,7 @@ ${CLI_HELP}`);
     try {
       await runExec({ handler, text: cli.args.join(" ") });
     } finally {
-      cronRunner.stop();
+      cleanup();
     }
     return;
   }
@@ -278,7 +283,7 @@ ${CLI_HELP}`);
   try {
     await runner.task();
   } finally {
-    cronRunner.stop();
+    cleanup();
   }
 }
 

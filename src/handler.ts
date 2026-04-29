@@ -35,6 +35,7 @@ export interface Handler {
   handle: (context: HandlerContext) => Promise<void>;
   prompt: CronRunnerAgentOptions["prompt"];
   commands: Record<string, string>;
+  stop: () => void;
 }
 
 export interface HandlerContext {
@@ -884,5 +885,17 @@ ${inFlightSessions ? `in-flight sessions:\n${inFlightSessions}` : ""}
     return chunks.join("");
   };
 
-  return { handle, prompt: handleCronPrompt, commands: systemCommandsMetadata };
+  let stopped = false;
+  const stop: Handler["stop"] = () => {
+    if (stopped) {
+      return;
+    }
+    stopped = true;
+    stateWatcher.stop();
+    for (const session of activeSessions.values()) {
+      session.stop();
+    }
+  };
+
+  return { handle, prompt: handleCronPrompt, commands: systemCommandsMetadata, stop };
 }
