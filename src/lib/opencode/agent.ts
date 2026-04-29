@@ -248,12 +248,7 @@ class OpencodeAgent implements Agent {
 function createSessionLifecycleBarrier() {
   let sawBusy = false;
   let settled = false;
-  let resolve!: () => void;
-  let reject!: (error: unknown) => void;
-  const done = new Promise<void>((resolvePromise, rejectPromise) => {
-    resolve = resolvePromise;
-    reject = rejectPromise;
-  });
+  const { promise: done, resolve, reject } = Promise.withResolvers<void>();
 
   return {
     done,
