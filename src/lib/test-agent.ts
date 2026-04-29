@@ -30,7 +30,7 @@ import {
   type CancelNotification,
 } from "@agentclientprotocol/sdk";
 import { z } from "zod";
-import { readJsonFile } from "../../utils/fs.ts";
+import { readJsonFile } from "../utils/fs.ts";
 
 const testAgentStateSchema = z.object({
   nextSessionNumber: z.number().int().min(1),
