@@ -127,6 +127,8 @@ class OpencodeAgent implements Agent {
       const subscription = await client.global.event({ signal: abort.signal });
       const reader = (async () => {
         for await (const event of subscription.stream) {
+          // TODO: surface EventSessionCompacted
+          // TODO: how about EventSessionIdle?
           const payload = event.payload;
           if (payload.type === "message.part.updated") {
             const props = payload.properties;
