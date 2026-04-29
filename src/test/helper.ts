@@ -33,6 +33,8 @@ export function advanceTimersTo(time: string) {
 const realDateNow = Date.now.bind(Date);
 const realSetTimeout = setTimeout;
 
+// Vitest's vi.waitUntil advances fake timers while polling. This helper waits
+// on real time so fake clock timestamps stay fixed after advanceTimersTo().
 export async function waitUntil(predicate: () => boolean | Promise<boolean>) {
   const interval = 50;
   const timeout = 1000;
