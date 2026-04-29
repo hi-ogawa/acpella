@@ -25,6 +25,9 @@ Keep the live service checkout `/home/hiroshi/code/personal/acpella` untouched u
   - https://github.com/anomalyco/opencode/issues/24494
 - Existing ACP client implementation:
   - `src/acp/*`
+  - `src/lib/acp/index.ts`
+  - `src/lib/acp/index.test.ts`
+  - `src/lib/test-agent.ts`
   - `docs/tasks/2026-04-10-acp-sdk-client.md`
 - Repo conventions:
   - `AGENTS.md`
@@ -222,11 +225,12 @@ Planned shape:
 
 First ACP harness target:
 
-1. Run the experimental agent directly with `node experiments/opencode-acp-agent/agent.ts`.
-2. Verify it with the smallest practical ACP client/harness, using acpella's ACP client utilities if convenient.
-3. Validate protocol behavior: session creation/load, prompt, streamed chunk notification, and `end_turn` ordering.
-4. Keep the harness local and protocol-focused before involving Telegram/acpella UX.
-5. Registering it as a separate acpella agent, e.g. `opencode-experimental`, is useful later but not the main milestone.
+1. Run the experimental agent through acpella's existing ACP test harness, not through Telegram.
+2. Use `src/lib/acp/index.ts` `AgentManager` directly with a command like `node experiments/opencode-acp-agent/agent.ts`.
+3. Follow `src/lib/acp/index.test.ts` patterns for `newSession`, `loadSession`, `listSessions`, `closeSession`, `prompt`, update collection, and `cancel`.
+4. Use `src/lib/test-agent.ts` as the agent-side protocol reference for `AgentSideConnection`, `ndJsonStream`, session state, chunks, tool calls, thoughts, usage updates, and cancellation.
+5. Validate protocol behavior: session creation/load, prompt, streamed chunk notification, and `end_turn` ordering.
+6. Registering it as a separate acpella agent, e.g. `opencode-experimental`, is useful later but not the main milestone.
 
 Non-goals for the first ACP shell:
 
@@ -238,7 +242,15 @@ Non-goals for the first ACP shell:
 
 Success criteria:
 
-- A local ACP client/harness can spawn or connect to the experimental ACP agent.
+- `AgentManager` can spawn the experimental ACP agent from a test.
 - The agent can create/load an ACP session.
 - A prompt returns an echoed assistant message chunk and `end_turn` in the correct order.
 - The ACP skeleton is simple enough to become the harness for the next OpenCode-backed prompt-ordering test.
+
+Important test insight:
+
+- `AgentSessionProcess.prompt()` in `src/lib/acp/index.ts` returns `{ promise, consume }`.
+- `consume()` yields `SessionUpdate`s collected through `client.sessionUpdate`.
+- The queue finishes when `agent.connection.prompt()` resolves.
+- That means this harness directly models the bug class we care about: if an adapter resolves ACP `prompt()` / returns `end_turn` before all streamed chunks are emitted, `consume()` will close early.
+- Therefore the existing ACP test infra is the right place to verify the future OpenCode completion barrier.
