@@ -313,40 +313,22 @@ async function sleep(ms: number) {
   await new Promise((resolve) => setTimeout(resolve, Math.max(0, ms)));
 }
 
+const TOOL_KIND_BY_NAME: Record<string, ToolKind> = {
+  bash: "execute",
+  edit: "edit",
+  glob: "search",
+  grep: "search",
+  patch: "edit",
+  read: "read",
+  webfetch: "fetch",
+  write: "edit",
+};
+
 function toolUpdate(
   part: ToolPart,
   sessionUpdate: "tool_call" | "tool_call_update",
 ): SessionUpdate {
-  let kind: ToolKind;
-  switch (part.tool.toLowerCase()) {
-    case "bash": {
-      kind = "execute";
-      break;
-    }
-    case "webfetch": {
-      kind = "fetch";
-      break;
-    }
-    case "edit":
-    case "patch":
-    case "write": {
-      kind = "edit";
-      break;
-    }
-    case "grep":
-    case "glob": {
-      kind = "search";
-      break;
-    }
-    case "read": {
-      kind = "read";
-      break;
-    }
-    default: {
-      kind = "other";
-      break;
-    }
-  }
+  const kind = TOOL_KIND_BY_NAME[part.tool.toLowerCase()] ?? "other";
 
   switch (part.state.status) {
     case "pending": {
