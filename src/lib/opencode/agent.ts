@@ -117,10 +117,24 @@ class OpencodeAgent implements Agent {
         .map((part) => part.text)
         .join("") || "(empty)";
 
-    const response = await withOpenCode(session.cwd, async (client) => {
+    await withOpenCode(session.cwd, async (client) => {
       const abort = new AbortController();
       const startedTools = new Set<string>();
       const lifecycle = createSessionLifecycleBarrier();
+      const sendToolUpdate = async (part: ToolPart) => {
+        if (!startedTools.has(part.callID)) {
+          startedTools.add(part.callID);
+          await this.connection.sessionUpdate({
+            sessionId: params.sessionId,
+            update: formatToolCall(part, "tool_call"),
+          });
+        }
+
+        await this.connection.sessionUpdate({
+          sessionId: params.sessionId,
+          update: formatToolCall(part, "tool_call_update"),
+        });
+      };
       const subscription = await client.global.event({ signal: abort.signal });
       const reader = (async () => {
         for await (const event of subscription.stream) {
@@ -137,7 +151,7 @@ class OpencodeAgent implements Agent {
           if (payload.type === "message.part.updated") {
             const props = payload.properties;
             if (props.sessionID === params.sessionId && props.part.type === "tool") {
-              await this.sendToolUpdate(params.sessionId, props.part, startedTools);
+              await sendToolUpdate(props.part);
             }
             continue;
           }
@@ -194,24 +208,23 @@ class OpencodeAgent implements Agent {
         );
 
         await lifecycle.done;
+        const info = response.data.info;
+        const used = info.tokens.input + info.tokens.cache.read;
+        const total = used + info.tokens.output + info.tokens.reasoning;
+        await this.connection.sessionUpdate({
+          sessionId: params.sessionId,
+          update: {
+            sessionUpdate: "usage_update",
+            used,
+            size: Math.max(used, total),
+            cost: { amount: info.cost, currency: "USD" },
+          },
+        });
         return response;
       } finally {
         abort.abort();
         await reader;
       }
-    });
-
-    const info = response.data.info;
-    const used = info.tokens.input + info.tokens.cache.read;
-    const total = used + info.tokens.output + info.tokens.reasoning;
-    await this.connection.sessionUpdate({
-      sessionId: params.sessionId,
-      update: {
-        sessionUpdate: "usage_update",
-        used,
-        size: Math.max(used, total),
-        cost: { amount: info.cost, currency: "USD" },
-      },
     });
 
     return { stopReason: "end_turn" };
@@ -228,21 +241,6 @@ class OpencodeAgent implements Agent {
         { sessionID: params.sessionId, directory: session.cwd },
         { throwOnError: true },
       );
-    });
-  }
-
-  private async sendToolUpdate(sessionId: string, part: ToolPart, startedTools: Set<string>) {
-    if (!startedTools.has(part.callID)) {
-      startedTools.add(part.callID);
-      await this.connection.sessionUpdate({
-        sessionId,
-        update: formatToolCall(part, "tool_call"),
-      });
-    }
-
-    await this.connection.sessionUpdate({
-      sessionId,
-      update: formatToolCall(part, "tool_call_update"),
     });
   }
 }
