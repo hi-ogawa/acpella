@@ -105,10 +105,11 @@ class OpenCodeExperimentAgent implements Agent {
       throw new Error(`unknown session: ${params.sessionId}`);
     }
 
-    const text = params.prompt
-      .filter((part) => part.type === "text")
-      .map((part) => part.text)
-      .join("") || "(empty)";
+    const text =
+      params.prompt
+        .filter((part) => part.type === "text")
+        .map((part) => part.text)
+        .join("") || "(empty)";
 
     const responseText = await withOpenCode(session.cwd, async (client) => {
       const abort = new AbortController();
@@ -117,14 +118,22 @@ class OpenCodeExperimentAgent implements Agent {
       const reader = (async () => {
         for await (const event of subscription.stream) {
           const part = eventPartForSession(event, params.sessionId);
-          if (!part?.id) continue;
+          if (!part?.id) {
+            continue;
+          }
           const text = partText(part);
-          if (!text) continue;
+          if (!text) {
+            continue;
+          }
           const previous = emitted.get(part.id) ?? "";
-          if (text === previous) continue;
+          if (text === previous) {
+            continue;
+          }
           const delta = text.startsWith(previous) ? text.slice(previous.length) : text;
           emitted.set(part.id, text);
-          if (!delta) continue;
+          if (!delta) {
+            continue;
+          }
           await this.connection.sessionUpdate({
             sessionId: params.sessionId,
             update: {
@@ -134,7 +143,9 @@ class OpenCodeExperimentAgent implements Agent {
           });
         }
       })().catch((error: unknown) => {
-        if (!abort.signal.aborted) throw error;
+        if (!abort.signal.aborted) {
+          throw error;
+        }
       });
 
       const response = await client.session
@@ -170,23 +181,42 @@ class OpenCodeExperimentAgent implements Agent {
 }
 
 function partText(part: unknown): string {
-  if (!part || typeof part !== "object") return "";
+  if (!part || typeof part !== "object") {
+    return "";
+  }
   const record = part as Record<string, unknown>;
-  if (typeof record.text === "string") return record.text;
-  if (typeof record.content === "string") return record.content;
+  if (typeof record.text === "string") {
+    return record.text;
+  }
+  if (typeof record.content === "string") {
+    return record.content;
+  }
   return "";
 }
 
-function eventPartForSession(event: unknown, sessionId: string): { id?: string; text?: string; content?: string } | undefined {
-  if (!event || typeof event !== "object") return;
+function eventPartForSession(
+  event: unknown,
+  sessionId: string,
+): { id?: string; text?: string; content?: string } | undefined {
+  if (!event || typeof event !== "object") {
+    return;
+  }
   const payload = (event as Record<string, unknown>).payload;
-  if (!payload || typeof payload !== "object") return;
+  if (!payload || typeof payload !== "object") {
+    return;
+  }
   const properties = (payload as Record<string, unknown>).properties;
-  if (!properties || typeof properties !== "object") return;
+  if (!properties || typeof properties !== "object") {
+    return;
+  }
   const record = properties as Record<string, unknown>;
-  if (record.sessionID !== sessionId) return;
+  if (record.sessionID !== sessionId) {
+    return;
+  }
   const part = record.part;
-  if (!part || typeof part !== "object") return;
+  if (!part || typeof part !== "object") {
+    return;
+  }
   return part as { id?: string; text?: string; content?: string };
 }
 
