@@ -29,3 +29,21 @@ export function advanceTimersTo(time: string) {
 
   vi.advanceTimersByTime(delta);
 }
+
+const realDateNow = Date.now.bind(Date);
+const realSetTimeout = setTimeout;
+
+export async function waitUntil(predicate: () => boolean | Promise<boolean>) {
+  const interval = 50;
+  const timeout = 1000;
+  const deadline = realDateNow() + timeout;
+
+  while (realDateNow() <= deadline) {
+    if (await predicate()) {
+      return;
+    }
+    await new Promise<void>((resolve) => realSetTimeout(resolve, interval));
+  }
+
+  throw new Error("Timed out waiting for condition");
+}

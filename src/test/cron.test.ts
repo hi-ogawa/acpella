@@ -29,7 +29,7 @@ Coverage checklist:
 
 import { expect, test, vi } from "vitest";
 import { writeJsonFile } from "../utils/fs.ts";
-import { advanceTimersTo } from "./helper.ts";
+import { advanceTimersTo, waitUntil } from "./helper.ts";
 import { createHandlerTester } from "./tester.ts";
 
 test("cron auto reloads external cron file changes", async ({ onTestFinished }) => {
@@ -126,7 +126,7 @@ test("cron auto reloads external cron file changes", async ({ onTestFinished }) 
   `);
 
   advanceTimersTo("2026-04-18T07:02:00+07:00");
-  await vi.waitUntil(() => tester.cronDeliveries.length > 0);
+  await waitUntil(() => tester.cronDeliveries.length > 0);
   expect(tester.cronDeliveries).toMatchInlineSnapshot(`
     [
       "echo: <trigger_metadata>
@@ -244,7 +244,7 @@ test("cron command", async ({ onTestFinished }) => {
     prompt: hello-cron"
   `);
 
-  await vi.waitUntil(() => tester.cronDeliveries.length > 0);
+  await waitUntil(() => tester.cronDeliveries.length > 0);
   expect(tester.cronDeliveries).toMatchInlineSnapshot(`
     [
       "echo: <trigger_metadata>
@@ -317,7 +317,7 @@ test("cron command", async ({ onTestFinished }) => {
     prompt: hello-other"
   `);
 
-  await vi.waitUntil(() => tester.cronDeliveries.length > 0);
+  await waitUntil(() => tester.cronDeliveries.length > 0);
   expect(tester.cronDeliveries).toMatchInlineSnapshot(`
     [
       "echo: <trigger_metadata>
@@ -372,7 +372,7 @@ test("cron command", async ({ onTestFinished }) => {
     prompt: hello-updated"
   `);
 
-  await vi.waitUntil(() => tester.cronDeliveries.length > 0);
+  await waitUntil(() => tester.cronDeliveries.length > 0);
   expect(tester.cronDeliveries).toMatchInlineSnapshot(`
     [
       "echo: <trigger_metadata>
@@ -494,7 +494,7 @@ test("cron error delivery", async ({ onTestFinished }) => {
     prompt: __throw_error__"
   `);
 
-  await vi.waitUntil(() => tester.cronDeliveries.length > 0);
+  await waitUntil(() => tester.cronDeliveries.length > 0);
   expect(tester.cronDeliveries).toMatchInlineSnapshot(`
     [
       "[cron] test-job failed
@@ -550,7 +550,7 @@ test("cron suppresses NO_REPLY delivery", async ({ onTestFinished }) => {
   `);
 
   advanceTimersTo("2026-04-18T07:01:00+07:00");
-  await vi.waitUntil(async () => {
+  await waitUntil(async () => {
     const output = await session.request("/cron show test-job");
     return output.includes("last: succeeded");
   });
@@ -712,7 +712,7 @@ test("cron runner renews stale session after daily boundary", async ({ onTestFin
 
   advanceTimersTo("2026-04-18T04:30:00+07:00");
 
-  await vi.waitUntil(() => tester.cronDeliveries.length > 0);
+  await waitUntil(() => tester.cronDeliveries.length > 0);
   expect(tester.cronDeliveries).toMatchInlineSnapshot(`
     [
       "session: __testSession2
