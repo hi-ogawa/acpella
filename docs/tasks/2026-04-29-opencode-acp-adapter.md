@@ -195,16 +195,17 @@ Correlation notes:
 
 No model prompt was sent. This is the last structural no-token check before testing a real `session.prompt` turn and comparing prompt response timing against streamed message/part events.
 
-## Next pivot: minimal ACP agent shell
+## Next pivot: ACP-first adapter shell
 
-After the no-token SDK checks, the next step is to move from standalone SDK probing to an experimental ACP agent process that acpella can register and dogfood.
+After the no-token SDK checks, the next step is to move from standalone SDK probing to an experimental ACP agent process. The reason is not primarily acpella end-to-end dogfooding. The reason is that ACP itself is the right model for iterating the custom OpenCode adapter boundary.
 
 Rationale:
 
 - The public SDK/server boundary is now sufficiently proven for initial iteration.
-- ACP is the real boundary acpella cares about, so testing it early reduces throwaway probe work.
-- Starting with an echo-only ACP agent lets us validate acpella process/session/reply behavior before mixing in OpenCode prompt streaming.
-- The OpenCode-backed implementation can then replace the echo internals incrementally while keeping the same ACP harness.
+- ACP already models the important adapter concepts: sessions, prompt turns, streamed assistant/thought chunks, tool-call updates, cancellation, and `end_turn`.
+- Iterating inside the ACP shape avoids ad-hoc probe code that will be thrown away when the adapter becomes real.
+- Starting with an echo-only ACP agent validates the protocol skeleton before mixing in OpenCode prompt streaming.
+- The OpenCode-backed implementation can then replace the echo internals incrementally while keeping the same ACP interface and tests.
 
 Planned shape:
 
@@ -219,13 +220,13 @@ Planned shape:
   - basic/no-op `cancel` only if required by the interface
 - Start or prepare the OpenCode SDK client/server in the process only after the echo ACP shell works.
 
-First dogfood target:
+First ACP harness target:
 
-1. Run the experimental agent directly with `node experiments/opencode-acp-agent/agent.ts` under acpella's normal agent process manager.
-2. Register it as a separate acpella agent, e.g. `opencode-experimental`.
-3. Switch only a scratch session to it.
-4. Verify one echo turn through acpella/Telegram.
-5. Inspect acpella ACP trace logs for the minimal turn shape.
+1. Run the experimental agent directly with `node experiments/opencode-acp-agent/agent.ts`.
+2. Verify it with the smallest practical ACP client/harness, using acpella's ACP client utilities if convenient.
+3. Validate protocol behavior: session creation/load, prompt, streamed chunk notification, and `end_turn` ordering.
+4. Keep the harness local and protocol-focused before involving Telegram/acpella UX.
+5. Registering it as a separate acpella agent, e.g. `opencode-experimental`, is useful later but not the main milestone.
 
 Non-goals for the first ACP shell:
 
@@ -233,10 +234,11 @@ Non-goals for the first ACP shell:
 - No model/provider configuration.
 - No permissions, file edits, commands, MCP mapping, or tool-call fidelity.
 - No replacement of existing `opencode` or `opencode-gpt` agents.
+- No requirement to wire through acpella/Telegram for the first shell.
 
 Success criteria:
 
-- acpella can spawn the experimental ACP agent.
-- acpella can create/load an ACP session for it.
-- A prompt returns an echoed assistant message and `end_turn`.
-- The trace log is simple enough to use as the harness for the next OpenCode-backed prompt-ordering test.
+- A local ACP client/harness can spawn or connect to the experimental ACP agent.
+- The agent can create/load an ACP session.
+- A prompt returns an echoed assistant message chunk and `end_turn` in the correct order.
+- The ACP skeleton is simple enough to become the harness for the next OpenCode-backed prompt-ordering test.
