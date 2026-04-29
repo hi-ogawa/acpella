@@ -27,15 +27,17 @@ describe("OpenCode experimental ACP agent", () => {
       ],
     });
 
-    const result = session.prompt("hello");
+    const result = session.prompt('Say exactly: ok');
     const updates = await arrayFromAsyncIterator(result.consume());
     await expect(result.promise).resolves.toEqual({ stopReason: "end_turn" });
-    expect(updates).toEqual([
-      {
-        sessionUpdate: "agent_message_chunk",
-        content: { type: "text", text: "opencode-experiment echo: hello" },
-      },
-    ]);
+    expect(updates).toHaveLength(1);
+    expect(updates[0]).toMatchObject({
+      sessionUpdate: "agent_message_chunk",
+      content: { type: "text" },
+    });
+    expect(updates[0]?.sessionUpdate === "agent_message_chunk" ? updates[0].content.text.toLowerCase() : "").toContain(
+      "ok",
+    );
 
     await manager.closeSession({ sessionId: session.sessionId });
   });

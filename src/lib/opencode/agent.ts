@@ -43,6 +43,7 @@ async function withOpenCode<T>(cwd: string, callback: (client: OpencodeClient) =
 
 class OpenCodeExperimentAgent implements Agent {
   private connection: AgentSideConnection;
+  private sessions = new Map<string, { cwd: string }>();
 
   constructor(connection: AgentSideConnection) {
     this.connection = connection;
@@ -60,6 +61,7 @@ class OpenCodeExperimentAgent implements Agent {
       const session = await client.session
         .create({ directory: params.cwd, title: "OpenCode ACP experiment" }, { throwOnError: true })
         .then((response) => response.data!);
+      this.sessions.set(session.id, { cwd: params.cwd });
       return { sessionId: session.id };
     });
   }
@@ -98,16 +100,36 @@ class OpenCodeExperimentAgent implements Agent {
   }
 
   async prompt(params: PromptRequest): Promise<PromptResponse> {
+    const session = this.sessions.get(params.sessionId);
+    if (!session) {
+      throw new Error(`unknown session: ${params.sessionId}`);
+    }
+
     const text = params.prompt
       .filter((part) => part.type === "text")
       .map((part) => part.text)
-      .join("");
+      .join("") || "(empty)";
+
+    const responseText = await withOpenCode(session.cwd, async (client) => {
+      const response = await client.session
+        .prompt(
+          {
+            sessionID: params.sessionId,
+            directory: session.cwd,
+            parts: [{ type: "text", text }],
+          },
+          { throwOnError: true },
+        )
+        .then((result) => result.data!);
+
+      return response.parts.map(partText).filter(Boolean).join("") || "(empty)";
+    });
 
     await this.connection.sessionUpdate({
       sessionId: params.sessionId,
       update: {
         sessionUpdate: "agent_message_chunk",
-        content: { type: "text", text: `opencode-experiment echo: ${text || "(empty)"}` },
+        content: { type: "text", text: responseText },
       },
     });
 
@@ -115,6 +137,14 @@ class OpenCodeExperimentAgent implements Agent {
   }
 
   async cancel(_params: CancelNotification): Promise<void> {}
+}
+
+function partText(part: unknown): string {
+  if (!part || typeof part !== "object") return "";
+  const record = part as Record<string, unknown>;
+  if (typeof record.text === "string") return record.text;
+  if (typeof record.content === "string") return record.content;
+  return "";
 }
 
 const input = Writable.toWeb(process.stdout);
