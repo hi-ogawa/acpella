@@ -35,6 +35,7 @@ import {
   type Part,
   type ToolPart,
 } from "@opencode-ai/sdk/v2";
+import { sleep } from "../../utils/index.ts";
 
 async function withOpenCode<T>(cwd: string, callback: (client: OpencodeClient) => Promise<T>) {
   const server = await createOpencodeServer({ port: 0, timeout: 10000 });
@@ -307,10 +308,6 @@ async function waitForEventIdle(
     }
     await sleep(Math.min(idleMs - idleFor, maxMs - elapsed));
   }
-}
-
-async function sleep(ms: number) {
-  await new Promise((resolve) => setTimeout(resolve, Math.max(0, ms)));
 }
 
 const TOOL_KIND_BY_NAME: Record<string, ToolKind> = {
