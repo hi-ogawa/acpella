@@ -148,3 +148,49 @@ Observed output included:
 ```
 
 No model prompt was sent. This verifies that a third-party script can use the published SDK to spawn/connect to a real OpenCode server and call basic APIs without private imports.
+
+## 2026-04-29 No-prompt event/session smoke test
+
+Follow-up result: `global.event()` is usable from the published SDK and carries enough session identity for basic correlation.
+
+Probe update:
+
+- `experiments/opencode-sdk-probe/probe.ts` now supports `events` mode.
+- The mode starts a temporary server with `createOpencodeServer({ port: 0 })`.
+- It subscribes to `client.global.event()` with an `AbortController`.
+- It creates a titled session with `session.create({ title })`.
+- It reads empty history with `session.messages({ sessionID })`.
+- It logs summarized event shape and closes the server.
+
+Verification:
+
+```sh
+node experiments/opencode-sdk-probe/probe.ts events
+```
+
+Observed event sequence included:
+
+```text
+server.connected
+project.updated
+session.created  properties: sessionID, info
+sync             payload keys: type, syncEvent
+session.updated  properties: sessionID, info
+```
+
+Observed session and message checks:
+
+```json
+{ "sessionCreated": { "id": "ses_2270d50d0ffex6hAM7UGYSRwXx", "title": "sdk-probe-1777461276289" } }
+{ "messagesOk": true, "messageCount": 0 }
+{ "eventCount": 5 }
+```
+
+Correlation notes:
+
+- Session events include top-level `directory` and `project`.
+- `session.created` and `session.updated` include `payload.properties.sessionID`.
+- This is enough to filter global events down to a target session before testing prompt/message/part events.
+- The `sync` event shape differs from normal bus events: it has `payload.syncEvent` rather than `payload.properties`.
+
+No model prompt was sent. This is the last structural no-token check before testing a real `session.prompt` turn and comparing prompt response timing against streamed message/part events.

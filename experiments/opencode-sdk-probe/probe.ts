@@ -26,6 +26,28 @@ function summarizeClient(client: OpencodeClient) {
   }
 }
 
+function summarizeEvent(event: unknown) {
+  if (!event || typeof event !== "object") return event
+  const record = event as Record<string, unknown>
+  const payload = record.payload
+  if (!payload || typeof payload !== "object") return record
+  const payloadRecord = payload as Record<string, unknown>
+  const properties = payloadRecord.properties
+  const propertiesRecord = properties && typeof properties === "object" ? (properties as Record<string, unknown>) : undefined
+  return {
+    directory: record.directory,
+    project: record.project,
+    workspace: record.workspace,
+    type: payloadRecord.type,
+    sessionID: propertiesRecord?.sessionID,
+    messageID: propertiesRecord?.messageID,
+    partID: propertiesRecord?.partID,
+    keys: Object.keys(record),
+    payloadKeys: Object.keys(payloadRecord),
+    propertyKeys: propertiesRecord ? Object.keys(propertiesRecord) : undefined,
+  }
+}
+
 const mode = process.argv[2] ?? "import"
 const baseUrl = process.argv[3] ?? process.env.OPENCODE_BASE_URL
 const client = createOpencodeClient({
@@ -43,21 +65,55 @@ async function smoke(next: OpencodeClient) {
   console.log(JSON.stringify({ sessionListOk: true, sessionCount: sessions.data?.length ?? 0 }, null, 2))
 }
 
+async function withServer(callback: (next: OpencodeClient, url: string) => Promise<void>) {
+  const server = await createOpencodeServer({ port: 0, timeout: 10000 })
+  try {
+    console.log(JSON.stringify({ serverUrl: server.url }, null, 2))
+    await callback(
+      createOpencodeClient({
+        baseUrl: server.url,
+        directory: process.cwd(),
+      }),
+      server.url,
+    )
+  } finally {
+    server.close()
+  }
+}
+
 if (baseUrl) {
   await smoke(client)
 }
 
 if (mode === "server") {
-  const server = await createOpencodeServer({ port: 0, timeout: 10000 })
-  try {
-    console.log(JSON.stringify({ serverUrl: server.url }, null, 2))
-    await smoke(
-      createOpencodeClient({
-        baseUrl: server.url,
-        directory: process.cwd(),
-      }),
-    )
-  } finally {
-    server.close()
-  }
+  await withServer((next) => smoke(next))
+}
+
+if (mode === "events") {
+  await withServer(async (next) => {
+    const abort = new AbortController()
+    const events: unknown[] = []
+    const subscription = await next.global.event({ signal: abort.signal })
+    const reader = (async () => {
+      for await (const event of subscription.stream) {
+        events.push(event)
+        console.log(JSON.stringify({ event: summarizeEvent(event) }, null, 2))
+        if (events.length >= 10) abort.abort()
+      }
+    })().catch((error: unknown) => {
+      if (!abort.signal.aborted) throw error
+    })
+
+    const title = `sdk-probe-${Date.now()}`
+    const session = await next.session.create({ title }, { throwOnError: true })
+    console.log(JSON.stringify({ sessionCreated: { id: session.data.id, title: session.data.title } }, null, 2))
+
+    const messages = await next.session.messages({ sessionID: session.data.id }, { throwOnError: true })
+    console.log(JSON.stringify({ messagesOk: true, messageCount: messages.data?.length ?? 0 }, null, 2))
+
+    await new Promise((resolve) => setTimeout(resolve, 2000))
+    abort.abort()
+    await reader
+    console.log(JSON.stringify({ eventCount: events.length }, null, 2))
+  })
 }
