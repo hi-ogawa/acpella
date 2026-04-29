@@ -1,12 +1,9 @@
 import path from "node:path";
 import { describe, expect, it, onTestFinished } from "vitest";
 import { useFs } from "../../test/helper.ts";
-import { AgentManager } from "./index.ts";
+import { AgentManager } from "../acp/index.ts";
 
-const OPENCODE_EXPERIMENT_AGENT_COMMAND = `node ${path.join(
-  import.meta.dirname,
-  "../../../experiments/opencode-acp-agent/agent.ts",
-)}`;
+const OPENCODE_EXPERIMENT_AGENT_COMMAND = `node ${path.join(import.meta.dirname, "agent.ts")}`;
 
 describe("OpenCode experimental ACP agent", () => {
   it("supports the basic ACP session and prompt shape", async () => {

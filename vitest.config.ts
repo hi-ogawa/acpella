@@ -24,7 +24,7 @@ export default defineConfig({
         extends: true,
         test: {
           name: "unit",
-          exclude: [...defaultExclude, "**/codex/**"],
+          exclude: [...defaultExclude, "**/codex/**", "**/opencode/**"],
         },
       },
       {
@@ -32,6 +32,14 @@ export default defineConfig({
         test: {
           name: "codex",
           include: ["**/codex/**/*.test.ts"],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "opencode",
+          include: ["**/opencode/**/*.test.ts"],
+          testTimeout: 15_000,
         },
       },
     ],

@@ -53,7 +53,7 @@ If this topology is accurate, a standalone experimental adapter should be able t
    - Verify event APIs: `global.event()` SSE shape, event names, payload IDs, and completion/status signals.
 
 2. Build a tiny SDK probe before any ACP adapter work.
-   - Place it under an obviously experimental path, such as `experiments/opencode-sdk-probe/`.
+   - Place it under the OpenCode implementation area, such as `src/lib/opencode/probe.ts`.
    - Start or connect to an OpenCode server.
    - Create a session.
    - Subscribe to raw global events.
@@ -111,8 +111,8 @@ Evidence:
 Local probe:
 
 - Added `@opencode-ai/sdk` as a dev dependency for this experiment branch.
-- Added `experiments/opencode-sdk-probe/probe.ts`.
-- Verified with `node experiments/opencode-sdk-probe/probe.ts` that Node can import `@opencode-ai/sdk/v2`, construct a client, and see the expected method surface without private imports.
+- Added `src/lib/opencode/probe.ts`.
+- Verified with `node src/lib/opencode/probe.ts` that Node can import `@opencode-ai/sdk/v2`, construct a client, and see the expected method surface without private imports.
 
 Pending server smoke test:
 
@@ -133,13 +133,13 @@ Evidence:
 
 Probe update:
 
-- `experiments/opencode-sdk-probe/probe.ts` now prepends `/home/hiroshi/.opencode/bin` to `PATH` for this local experiment.
-- It supports `node experiments/opencode-sdk-probe/probe.ts server`, which starts a temporary OpenCode server through `createOpencodeServer({ port: 0 })`, runs `global.health` and `session.list`, then closes the server.
+- `src/lib/opencode/probe.ts` now prepends `/home/hiroshi/.opencode/bin` to `PATH` for this local experiment.
+- It supports `node src/lib/opencode/probe.ts server`, which starts a temporary OpenCode server through `createOpencodeServer({ port: 0 })`, runs `global.health` and `session.list`, then closes the server.
 
 Verification:
 
 ```sh
-node experiments/opencode-sdk-probe/probe.ts server
+node src/lib/opencode/probe.ts server
 ```
 
 Observed output included:
@@ -158,7 +158,7 @@ Follow-up result: `global.event()` is usable from the published SDK and carries 
 
 Probe update:
 
-- `experiments/opencode-sdk-probe/probe.ts` now supports `events` mode.
+- `src/lib/opencode/probe.ts` now supports `events` mode.
 - The mode starts a temporary server with `createOpencodeServer({ port: 0 })`.
 - It subscribes to `client.global.event()` with an `AbortController`.
 - It creates a titled session with `session.create({ title })`.
@@ -168,7 +168,7 @@ Probe update:
 Verification:
 
 ```sh
-node experiments/opencode-sdk-probe/probe.ts events
+node src/lib/opencode/probe.ts events
 ```
 
 Observed event sequence included:
@@ -212,7 +212,7 @@ Rationale:
 
 Planned shape:
 
-- Add `experiments/opencode-acp-agent/agent.ts`.
+- Add `src/lib/opencode/agent.ts`.
 - Use `src/lib/test-agent.ts` as the local echo-agent reference.
 - Use `@agentclientprotocol/sdk` directly for ACP stdio.
 - Initially implement only:
@@ -226,7 +226,7 @@ Planned shape:
 First ACP harness target:
 
 1. Run the experimental agent through acpella's existing ACP test harness, not through Telegram.
-2. Use `src/lib/acp/index.ts` `AgentManager` directly with a command like `node experiments/opencode-acp-agent/agent.ts`.
+2. Use `src/lib/acp/index.ts` `AgentManager` directly with a command like `node src/lib/opencode/agent.ts`.
 3. Follow `src/lib/acp/index.test.ts` patterns for `newSession`, `loadSession`, `listSessions`, `closeSession`, `prompt`, update collection, and `cancel`.
 4. Use `src/lib/test-agent.ts` as the agent-side protocol reference for `AgentSideConnection`, `ndJsonStream`, session state, chunks, tool calls, thoughts, usage updates, and cancellation.
 5. Validate protocol behavior: session creation/load, prompt, streamed chunk notification, and `end_turn` ordering.
@@ -259,21 +259,21 @@ Important test insight:
 
 Implemented the first ACP-first shell:
 
-- Added `experiments/opencode-acp-agent/agent.ts`.
+- Added `src/lib/opencode/agent.ts`.
 - It is a self-contained ACP stdio agent using `AgentSideConnection` and `ndJsonStream`.
 - It initially used minimal local session state so it worked with acpella's process-per-session `AgentManager` shape.
 - It currently implements echo-only `prompt` and returns `stopReason: "end_turn"`.
 
 Added ACP harness coverage:
 
-- Added `src/lib/acp/opencode-experiment.test.ts`.
-- The test uses `AgentManager` directly with command `node experiments/opencode-acp-agent/agent.ts`.
+- Added `src/lib/opencode/agent.test.ts`.
+- The test uses `AgentManager` directly with command `node src/lib/opencode/agent.ts`.
 - It verifies `newSession`, `listSessions`, `prompt` update consumption, `end_turn`, and `closeSession`.
 
 Verification:
 
 ```sh
-pnpm vitest --project=unit src/lib/acp/opencode-experiment.test.ts
+pnpm test-opencode
 ```
 
 Result:
@@ -296,7 +296,7 @@ Rationale:
 
 Implementation shape:
 
-- `experiments/opencode-acp-agent/agent.ts` prepends `/home/hiroshi/.opencode/bin` to `PATH`.
+- `src/lib/opencode/agent.ts` prepends `/home/hiroshi/.opencode/bin` to `PATH`.
 - `listSessions` starts a temporary OpenCode server with `createOpencodeServer({ port: 0 })`.
 - It creates a client with `createOpencodeClient({ baseUrl: server.url, directory: cwd })`.
 - It returns ACP `sessions` mapped from OpenCode sessions: `sessionId`, `cwd`, `title`, `updatedAt`.
@@ -304,13 +304,13 @@ Implementation shape:
 
 Test update:
 
-- `src/lib/acp/opencode-experiment.test.ts` now expects `manager.listSessions()` to return `{ sessions: [] }` for the fresh temporary test cwd.
+- `src/lib/opencode/agent.test.ts` expects `manager.listSessions()` to return `{ sessions: [] }` for the fresh temporary test cwd in that intermediate slice.
 - This intentionally proves real OpenCode enumeration succeeds without depending on the fake echo `newSession` state.
 
 Verification:
 
 ```sh
-pnpm vitest --project=unit src/lib/acp/opencode-experiment.test.ts
+pnpm test-opencode
 ```
 
 Result:
@@ -332,7 +332,7 @@ Rationale:
 
 Implementation shape:
 
-- Added shared `withOpenCode(cwd, callback)` helper in `experiments/opencode-acp-agent/agent.ts`.
+- Added shared `withOpenCode(cwd, callback)` helper in `src/lib/opencode/agent.ts`.
 - `newSession` now calls `client.session.create({ directory: params.cwd, title: "OpenCode ACP experiment" })`.
 - It returns `{ sessionId: session.id }`, where `session.id` is the OpenCode `ses_...` id.
 - `listSessions` still calls real `client.session.list({ directory: cwd, roots: true })`.
@@ -340,14 +340,36 @@ Implementation shape:
 
 Test update:
 
-- `src/lib/acp/opencode-experiment.test.ts` now asserts `newSession` returns a `ses_...` id.
+- `src/lib/opencode/agent.test.ts` asserts `newSession` returns a `ses_...` id.
 - It verifies `manager.listSessions()` sees that same OpenCode session for the temp cwd.
 - The prompt assertion still verifies the echo-only ACP shell.
 
 Verification:
 
 ```sh
-pnpm vitest --project=unit src/lib/acp/opencode-experiment.test.ts
+pnpm test-opencode
+
+## 2026-04-29 Source restructure
+
+Moved the OpenCode experiment from disposable experiment paths into `src/lib/opencode` now that the direction looks promising.
+
+Current layout:
+
+- `src/lib/opencode/agent.ts` — experimental ACP agent backed incrementally by OpenCode SDK.
+- `src/lib/opencode/probe.ts` — SDK/server/event probe utility retained for manual investigation.
+- `src/lib/opencode/agent.test.ts` — ACP harness test for the experimental agent.
+
+Vitest project split:
+
+- Added dedicated `opencode` project in `vitest.config.ts` with `include: ["**/opencode/**/*.test.ts"]`.
+- Updated `unit` project to exclude `**/opencode/**`, matching the existing `codex` split.
+- Added `pnpm test-opencode` script.
+
+Rationale:
+
+- Unit tests should not require the local OpenCode binary or spawn OpenCode servers.
+- OpenCode-specific tests are still easy to run explicitly.
+- Keeping both probe and ACP agent under `src/lib/opencode` makes the experiment discoverable as the emerging implementation area.
 ```
 
 Result:

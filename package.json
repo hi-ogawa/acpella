@@ -16,6 +16,7 @@
     "test": "vitest --project=unit",
     "test-ci": "CI=true vitest --project=unit --coverage",
     "test-codex": "vitest --project=codex",
+    "test-opencode": "vitest --project=opencode",
     "lint": "vp check --fix && pnpm lint-dead-code",
     "lint-check": "vp check && pnpm lint-dead-code",
     "lint-dead-code": "fallow dead-code --unused-exports --unused-types"
