@@ -36,8 +36,23 @@ services earlier than expected. Keep the unit headless and avoid assumptions
 about `DISPLAY`, Wayland, desktop session targets, or an unlocked keyring.
 
 Lingering does not prevent suspend. For an always-on laptop or closed-lid bot,
-also configure the machine not to sleep; otherwise all services stop while the
-machine is suspended.
+also configure the host not to sleep; otherwise all services stop while the
+machine is suspended. Common checks:
+
+```bash
+systemctl status sleep.target suspend.target hibernate.target hybrid-sleep.target
+systemd-inhibit --list
+```
+
+One blunt systemd-level option is masking sleep targets:
+
+```bash
+sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
+```
+
+Another option is configuring lid behavior in `/etc/systemd/logind.conf`, such
+as `HandleLidSwitch=ignore`, then restarting `systemd-logind`. Treat these as
+host power-policy choices, not acpella configuration.
 
 ## After updating the unit
 
