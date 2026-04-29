@@ -12,7 +12,8 @@ describe(CommandHandler, () => {
       ping: [
         {
           tokens: [],
-          help: "/ping - Ping the service.",
+          usage: "/ping",
+          description: "Ping the service.",
           run: async ({ prefix }) => {
             events.push(`${prefix}:pong`);
           },
@@ -21,17 +22,30 @@ describe(CommandHandler, () => {
       config: [
         {
           tokens: ["show"],
-          help: "/config show - Show config.",
+          usage: "/config show",
+          description: "Show config.",
           run: async ({ prefix }) => {
             events.push(`${prefix}:config`);
           },
         },
         {
           tokens: ["set"],
-          help: "/config set <value...> - Set config.",
+          usage: "/config set <value...>",
+          description: "Set config.",
           withArgs: true,
           run: async ({ args, prefix }) => {
             events.push(`${prefix}:set:${args.join(" ")}`);
+          },
+        },
+      ],
+      test: [
+        {
+          tokens: [],
+          usage: "/test <value...>",
+          description: "Run test command.",
+          withArgs: true,
+          run: async ({ usage }) => {
+            events.push(usage);
           },
         },
       ],
@@ -56,6 +70,7 @@ describe(CommandHandler, () => {
     expect(await commandHandler.handle({ text: "/config help", context })).toBe(true);
     expect(await commandHandler.handle({ text: "/config missing", context })).toBe(true);
     expect(await commandHandler.handle({ text: "/config set theme dark", context })).toBe(true);
+    expect(await commandHandler.handle({ text: "/test hello", context })).toBe(true);
     expect(await commandHandler.handle({ text: "/help", context })).toBe(true);
 
     expect(events).toMatchInlineSnapshot(`
@@ -74,6 +89,7 @@ describe(CommandHandler, () => {
         /config set <value...> - Set config.
       ",
         "test:set:theme dark",
+        "Usage: /test <value...>",
         "Commands:
       /help - Show command help.
 
@@ -83,6 +99,9 @@ describe(CommandHandler, () => {
       /config
         /config show - Show config.
         /config set <value...> - Set config.
+
+      /test
+        /test <value...> - Run test command.
 
       ",
       ]
