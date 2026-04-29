@@ -13,6 +13,7 @@ import {
 } from "./cron/command.ts";
 import type { CronRunner, CronRunnerAgentOptions } from "./cron/runner.ts";
 import type { CronDeliveryTarget, CronJob, CronStore } from "./cron/store.ts";
+import { FileWatcher } from "./cron/watch.ts";
 import { CommandHandler, type CommandTree } from "./lib/command.ts";
 import { formatSessionUpdateLogEntry, JsonLogger } from "./lib/logger.ts";
 import type { MessageMetadata } from "./lib/prompt.ts";
@@ -25,7 +26,6 @@ import {
 } from "./lib/session-renew.ts";
 import { handleSystemdInstall } from "./lib/systemd.ts";
 import { parseTelegramSessionName } from "./lib/telegram/utils.ts";
-import { FileWatcher } from "./lib/utils-node.ts";
 import { AsyncLane, DefaultMap, formatError } from "./lib/utils.ts";
 import { getVerboseSessionUpdateTypes, parseVerboseMode } from "./lib/verbose.ts";
 import { parseAgentSessionKey, SessionStateStore, toAgentSessionKey } from "./state.ts";
