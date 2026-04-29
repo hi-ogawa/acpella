@@ -5,8 +5,6 @@ export function truncateString(s: string, limit: number) {
   return s;
 }
 
-export * from "./timing.ts";
-
 export function addIndent({ text, indent }: { text: string; indent: string }): string {
   return text
     .split(/\r?\n/)
