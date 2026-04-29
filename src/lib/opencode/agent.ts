@@ -30,8 +30,6 @@ import {
   type OpencodeClient,
 } from "@opencode-ai/sdk/v2";
 
-process.env.PATH = `/home/hiroshi/.opencode/bin:${process.env.PATH ?? ""}`;
-
 async function withOpenCode<T>(cwd: string, callback: (client: OpencodeClient) => Promise<T>) {
   const server = await createOpencodeServer({ port: 0, timeout: 10000 });
   try {
