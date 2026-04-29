@@ -1,7 +1,7 @@
+import { FileWatcher } from "../../utils/fs.ts";
 import { formatError, formatTime } from "../../utils/index.ts";
 import type { CronJob, CronStore, CronDeliveryTarget } from "./store.ts";
 import { CronScheduler, type CronDueEvent } from "./timer.ts";
-import { CronFileWatcher } from "./watch.ts";
 
 interface CronRunnerOptions {
   store: CronStore;
@@ -18,7 +18,7 @@ export interface CronRunnerAgentOptions {
 export class CronRunner {
   options: CronRunnerOptions;
   scheduler: CronScheduler;
-  watcher: CronFileWatcher;
+  watcher: FileWatcher;
 
   constructor(options: CronRunnerOptions) {
     this.options = { ...options };
@@ -26,9 +26,20 @@ export class CronRunner {
       entries: [],
       onDue: this.handleDueEvent.bind(this),
     });
-    this.watcher = new CronFileWatcher({
-      store: options.store,
-      runner: this,
+    this.watcher = new FileWatcher({
+      file: options.store.options.cronFile,
+      onChange: () => {
+        try {
+          if (this.options.store.reload()) {
+            this.refresh();
+            console.log("[cron] Reloaded cron jobs from external cron file change");
+          }
+        } catch (error) {
+          console.error(
+            `[cron] Failed to reload cron jobs after external cron file change: ${formatError(error)}`,
+          );
+        }
+      },
     });
   }
 

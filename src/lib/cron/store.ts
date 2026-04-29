@@ -129,10 +129,11 @@ export class CronStore {
   }
 
   reload() {
-    const jobFile = this.jobFile.read({ strict: true });
-    const stateFile = this.stateFile.read({ strict: true });
-    this.jobFile.state = jobFile;
-    this.stateFile.state = stateFile;
+    const changed = this.jobFile.reload();
+    if (changed) {
+      this.stateFile.reload();
+    }
+    return changed;
   }
 
   listJobs(): CronJob[] {
