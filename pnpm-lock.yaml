@@ -11,6 +11,9 @@ importers:
       '@grammyjs/runner':
         specifier: ^2.0.3
         version: 2.0.3(grammy@1.42.0)
+      '@opencode-ai/sdk':
+        specifier: ^1.14.29
+        version: 1.14.29
       croner:
         specifier: ^10.0.1
         version: 10.0.1
@@ -36,9 +39,6 @@ importers:
       '@agentclientprotocol/sdk':
         specifier: ^0.18.2
         version: 0.18.2(zod@4.3.6)
-      '@opencode-ai/sdk':
-        specifier: ^1.14.29
-        version: 1.14.29
       '@types/mdast':
         specifier: ^4.0.4
         version: 4.0.4
