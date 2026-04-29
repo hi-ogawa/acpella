@@ -92,3 +92,27 @@ Produce a raw event-ordering note from the SDK probe that answers:
 2. Can it correlate one submitted prompt to the matching assistant message and parts?
 3. Is there a reliable completion signal before returning ACP `end_turn`?
 4. Does the current truncation hypothesis reproduce as `session.prompt` resolving before all SSE deltas are observed?
+
+## 2026-04-29 SDK usability check
+
+Initial result: the package boundary appears intentionally consumable by third-party code.
+
+Evidence:
+
+- Published `@opencode-ai/sdk@1.14.29` exports `./v2`, `./v2/client`, `./v2/server`, and `./v2/gen/client` with `dist/*.d.ts` types.
+- Local OpenCode source at `/home/hiroshi/code/others/opencode/packages/sdk/js/package.json` has the matching source exports.
+- `packages/opencode/src/cli/cmd/acp.ts` imports `createOpencodeClient` from `@opencode-ai/sdk/v2` and constructs it against the in-process server URL.
+- `packages/opencode/src/acp/agent.ts` uses only the SDK client for the ACP bridge path, including `sdk.global.event(...)` and `sdk.session.prompt(...)`.
+- Generated v2 SDK has the core methods needed for the experiment: `global.health`, `global.event`, `session.list`, `session.create`, `session.messages`, `session.message`, `session.prompt`, `session.promptAsync`, and `session.status`.
+
+Local probe:
+
+- Added `@opencode-ai/sdk` as a dev dependency for this experiment branch.
+- Added `experiments/opencode-sdk-probe/probe.ts`.
+- Verified with `node experiments/opencode-sdk-probe/probe.ts` that Node can import `@opencode-ai/sdk/v2`, construct a client, and see the expected method surface without private imports.
+
+Pending server smoke test:
+
+- `opencode` is not currently on `PATH` in this shell.
+- `/home/hiroshi/code/others/opencode` is available as source reference, but its package dependencies/runtime are not currently installed here (`bun` and package `node_modules` were not available in the checked shell).
+- Next step is to choose a local OpenCode invocation path, then run the probe with `OPENCODE_BASE_URL` or an explicit URL and verify `global.health` plus `session.list` without sending a model prompt.
