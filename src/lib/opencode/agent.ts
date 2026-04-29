@@ -185,35 +185,30 @@ class OpencodeAgent implements Agent {
       });
 
       try {
-        const response = await client.session
-          .prompt(
-            {
-              sessionID: params.sessionId,
-              directory: session.cwd,
-              parts: [{ type: "text", text }],
-            },
-            { throwOnError: true },
-          )
-          .then((result) => result.data!);
+        const response = await client.session.prompt(
+          {
+            sessionID: params.sessionId,
+            directory: session.cwd,
+            parts: [{ type: "text", text }],
+          },
+          { throwOnError: true },
+        );
 
         await waitForEventIdle(() => lastRelevantEventAt, abort.signal);
         await this.emitMissingResponseSuffixes(
           params.sessionId,
-          response.info.id,
-          response.parts,
+          response.data.info.id,
+          response.data.parts,
           emitted,
         );
-
-        return {
-          info: response.info,
-        };
+        return response;
       } finally {
         abort.abort();
         await reader;
       }
     });
 
-    const info = response.info;
+    const info = response.data.info;
     const used = info.tokens.input + info.tokens.cache.read;
     const total = used + info.tokens.output + info.tokens.reasoning;
     await this.connection.sessionUpdate({
