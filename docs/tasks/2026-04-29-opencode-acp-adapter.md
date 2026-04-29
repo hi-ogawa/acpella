@@ -1,379 +1,135 @@
 # OpenCode ACP Adapter Exploration
 
-## Problem context and approach
+## Context
 
-While dogfooding `opencode acp` as an acpella backend, assistant replies can appear truncated even though the ACP turn completes normally. The current hypothesis is an ordering bug in OpenCode's ACP adapter: `sdk.session.prompt(...)` can resolve and return ACP `end_turn` before the separate `sdk.global.event()` SSE subscription has flushed all assistant `message.part.delta` events.
+While dogfooding `opencode acp` as an acpella backend, assistant replies can appear truncated even though the ACP turn completes normally. The working hypothesis is an ordering bug around OpenCode's ACP adapter boundary: `sdk.session.prompt(...)` may resolve and return ACP `end_turn` before the separate `sdk.global.event()` SSE subscription has flushed all assistant part updates.
 
-This task is an exploration, not a production rewrite. The first goal is to verify whether OpenCode's public SDK/server boundary is sufficient for a third-party ACP adapter. If it is, build the smallest possible local prototype that proves a reliable completion barrier before returning ACP `end_turn`.
+This branch explores whether acpella can use a smaller custom OpenCode ACP adapter, built over OpenCode's public SDK/server boundary, to make turn completion explicit and testable.
 
-Work in this dedicated worktree and branch:
+Work area:
 
 - Worktree: `/home/hiroshi/code/personal/acpella-opencode-acp`
 - Branch: `explore/opencode-acp-adapter`
+- PR: https://github.com/hi-ogawa/acpella/pull/163
+- Tracking issue: https://github.com/hi-ogawa/acpella/issues/150
 
 Keep the live service checkout `/home/hiroshi/code/personal/acpella` untouched unless explicitly asked.
 
-## Reference files/patterns to follow
+## References
 
-- Tracking issue: https://github.com/hi-ogawa/acpella/issues/150
-- Related acpella issues:
-  - https://github.com/hi-ogawa/acpella/issues/143
-  - https://github.com/hi-ogawa/acpella/issues/144
-- Related upstream OpenCode issues:
-  - https://github.com/anomalyco/opencode/issues/17505
-  - https://github.com/anomalyco/opencode/issues/15613
-  - https://github.com/anomalyco/opencode/issues/24494
-- Existing ACP client implementation:
-  - `src/acp/*`
-  - `src/lib/acp/index.ts`
-  - `src/lib/acp/index.test.ts`
-  - `src/lib/test-agent.ts`
-  - `docs/tasks/2026-04-10-acp-sdk-client.md`
-- Repo conventions:
-  - `AGENTS.md`
-  - `docs/tasks/2026-04-29-source-layout-direction.md`
+- OpenCode source reference: `/home/hiroshi/code/others/opencode`
+- OpenCode ACP command: `/home/hiroshi/code/others/opencode/packages/opencode/src/cli/cmd/acp.ts`
+- OpenCode ACP agent: `/home/hiroshi/code/others/opencode/packages/opencode/src/acp/agent.ts`
+- OpenCode ACP session manager: `/home/hiroshi/code/others/opencode/packages/opencode/src/acp/session.ts`
+- OpenCode SDK package: `/home/hiroshi/code/others/opencode/packages/sdk/js`
+- Acpella ACP client harness: `src/lib/acp/index.ts`
+- Acpella ACP harness tests: `src/lib/acp/index.test.ts`
+- Acpella test agent reference: `src/lib/test-agent.ts`
 
-Expected OpenCode topology to verify:
+Related issues:
 
-```text
-ACP stdio
-  <-> OpenCode ACP adapter
-  <-> @opencode-ai/sdk/v2 HTTP/SSE client
-  <-> localhost OpenCode server
-  <-> OpenCode internals
-```
+- https://github.com/anomalyco/opencode/issues/17505
+- https://github.com/anomalyco/opencode/issues/15613
+- https://github.com/anomalyco/opencode/issues/24494
+- https://github.com/hi-ogawa/acpella/issues/143
+- https://github.com/hi-ogawa/acpella/issues/144
 
-If this topology is accurate, a standalone experimental adapter should be able to start or connect to `opencode serve` and use `@opencode-ai/sdk/v2` as the integration layer without forking OpenCode.
+## Current Direction
 
-## Initial action list
+The experiment has moved from throwaway probes to a small OpenCode implementation area:
 
-1. Inspect OpenCode's published SDK surface.
-   - Confirm package name, import paths, generated types, and whether `@opencode-ai/sdk/v2` is intended for third-party use.
-   - Verify session APIs: create, load/list if available, prompt, messages/history.
-   - Verify event APIs: `global.event()` SSE shape, event names, payload IDs, and completion/status signals.
+- `src/lib/opencode/agent.ts` — experimental ACP stdio agent backed incrementally by OpenCode SDK.
+- `src/lib/opencode/probe.ts` — manual SDK/server/event probe utility.
+- `src/lib/opencode/agent.test.ts` — dedicated ACP harness test for the experimental agent.
 
-2. Build a tiny SDK probe before any ACP adapter work.
-   - Place it under the OpenCode implementation area, such as `src/lib/opencode/probe.ts`.
-   - Start or connect to an OpenCode server.
-   - Create a session.
-   - Subscribe to raw global events.
-   - Send one prompt.
-   - Log prompt response timing versus SSE event timing.
-   - Record whether deltas can arrive after `session.prompt` resolves.
+Tests are split so normal unit tests do not require local OpenCode:
 
-3. Decide whether the SDK exposes enough information for a completion barrier.
-   - Prefer an explicit assistant message or part completion event if available.
-   - Otherwise check whether message history/status can confirm final output.
-   - Treat idle-timeout-only barriers as fallback evidence, not a satisfying final design.
+- `pnpm test` runs the `unit` project and excludes `**/opencode/**`.
+- `pnpm test-opencode` runs the dedicated `opencode` Vitest project.
 
-4. Only after the SDK probe passes, implement a minimal ACP adapter prototype.
-   - Keep initially: `initialize`, `newSession`, `loadSession`, `prompt`, assistant text chunks, thought chunks, minimal tool call/update forwarding, and maybe basic `cancel`.
-   - Drop initially: permission flow, file edits, model picker/config, commands, MCP mapping, fork/resume, history replay, resource/image/file blocks, fancy locations/diffs, and auth terminal flow.
+This keeps OpenCode-specific behavior explicit while allowing fast acpella unit tests to remain independent of `/home/hiroshi/.opencode/bin/opencode`.
 
-5. Register and dogfood as a separate experimental acpella agent.
-   - Do not replace existing agents.
-   - Compare the same prompts through upstream `opencode acp` and the prototype.
-   - Use acpella trace logs to compare event ordering and final delivered text.
+## Findings So Far
 
-6. Decide the outcome.
-   - If the SDK is sufficient, keep polishing the local experiment or prepare a standalone package direction.
-   - If the SDK is insufficient, document the missing API precisely and use the evidence for an upstream OpenCode issue or PR.
+OpenCode's public SDK boundary is usable for third-party integration:
 
-## Non-goals
+- Published `@opencode-ai/sdk@1.14.29` exports `./v2`, `./v2/client`, `./v2/server`, and generated client/types.
+- `@opencode-ai/sdk/v2` exposes the APIs needed for the adapter experiment: `global.event`, `global.health`, `session.create`, `session.list`, `session.get`, `session.messages`, `session.prompt`, `session.promptAsync`, and `session.status`.
+- `createOpencodeServer({ port: 0 })` can spawn `opencode serve`, parse the server URL, and expose `{ url, close() }`.
+- The helper shells out to `opencode` on `PATH`, so this local experiment prepends `/home/hiroshi/.opencode/bin`.
+- `global.event()` works from the SDK and carries session identity on normal session events.
+- `sync` events have a different shape (`payload.syncEvent`) and should not be treated as normal `payload.properties` events.
+
+OpenCode's own ACP adapter uses OpenCode session IDs directly as ACP session IDs:
+
+- `newSession` calls `sdk.session.create({ directory: cwd })` and returns `session.id`.
+- `loadSession` calls `sdk.session.get({ sessionID, directory: cwd })`.
+- `listSessions` calls `sdk.session.list({ directory: cwd, roots: true })`.
+- The adapter keeps only ephemeral in-process state for cwd/model/mode/etc.; it does not maintain a persisted ACP-to-OpenCode session mapping.
+
+This is the direction this experiment should follow unless a concrete blocker appears.
+
+## Current Agent State
+
+`src/lib/opencode/agent.ts` currently supports:
+
+- ACP initialization via `AgentSideConnection` and `ndJsonStream`.
+- `newSession` backed by real OpenCode `session.create`.
+- `listSessions` backed by real OpenCode `session.list`.
+- `prompt` backed by real OpenCode `session.prompt`.
+- Naive event-stream forwarding from `global.event()` to ACP `agent_message_chunk` updates.
+- Final response fallback using `session.prompt` returned parts.
+
+Still intentionally incomplete:
+
+- `loadSession` is still a no-op.
+- `closeSession` is still a no-op while deletion/close semantics are undecided.
+- Prompt streaming is naive and not yet a correct completion-barrier implementation.
+- Permission flow, file edits, tool call fidelity, model picker/config, modes, MCP mapping, history replay, and resource/image/file blocks are out of scope for this early prototype.
+
+## Important Harness Insight
+
+`AgentSessionProcess.prompt()` in `src/lib/acp/index.ts` is the key test harness:
+
+- It returns `{ promise, consume }`.
+- `consume()` yields ACP `SessionUpdate`s received through `client.sessionUpdate`.
+- The queue finishes when `agent.connection.prompt()` resolves.
+
+That means the harness directly models the bug class this branch is investigating. If the experimental adapter returns ACP `end_turn` before all streamed chunks have been emitted, `consume()` will close early and the test can catch it.
+
+## Streaming Risk
+
+The naive streaming implementation subscribes to `global.event()` inside `prompt`, filters events by `sessionID`, converts part snapshots into suffix deltas, emits ACP `agent_message_chunk`, then emits a final fallback chunk from the `session.prompt` response.
+
+Known risks:
+
+- Event part updates may be snapshots, not deltas, so suffix tracking must be correct per `part.id`.
+- Event payload shape still needs to be confirmed against real prompt events.
+- The current final fallback can duplicate already-streamed text unless reconciled against emitted part state.
+- There is not yet a reliable flush barrier after `session.prompt` resolves.
+- Aborting the event stream immediately after `session.prompt` resolves may reproduce the upstream truncation/order bug.
+
+The next iteration should focus on observing and tightening this path, not adding broad ACP feature parity.
+
+## Next Iteration Plan
+
+1. Run `pnpm test-opencode` and inspect the behavior of the current real-prompt test.
+2. If the test fails, first determine whether the issue is event shape, final response extraction, model output nondeterminism, or prompt/session lifecycle.
+3. Add minimal instrumentation in `src/lib/opencode/agent.ts` or `src/lib/opencode/probe.ts` to summarize real prompt event types and part shapes.
+4. Fix text extraction and duplicate handling before adding more features.
+5. Add an explicit completion-barrier experiment:
+   - subscribe before `session.prompt`,
+   - track emitted part snapshots,
+   - await `session.prompt`,
+   - wait for either a real completion signal or a short event-idle window,
+   - emit any missing final suffix from response parts,
+   - only then return `end_turn`.
+6. Once the barrier is credible, compare the experimental adapter against upstream `opencode acp` on prompts that previously showed truncation.
+
+## Non-Goals
 
 - Do not fork OpenCode unless the SDK/server boundary proves insufficient.
-- Do not pursue full feature parity with upstream `opencode acp` initially.
-- Do not wire the prototype into production acpella service state during the first exploration.
-- Do not solve acpella session model/config UX in this task; issue #143 tracks that separately.
+- Do not pursue feature parity with upstream `opencode acp` in this branch.
+- Do not replace existing `opencode` or `opencode-gpt` agents yet.
+- Do not solve acpella session model/config UX here; issue #143 tracks that separately.
 - Do not document wrapper-based model overrides here; issue #144 tracks that separately.
-
-## First milestone
-
-Produce a raw event-ordering note from the SDK probe that answers:
-
-1. Can a third-party script use `@opencode-ai/sdk/v2` against `opencode serve` without private imports?
-2. Can it correlate one submitted prompt to the matching assistant message and parts?
-3. Is there a reliable completion signal before returning ACP `end_turn`?
-4. Does the current truncation hypothesis reproduce as `session.prompt` resolving before all SSE deltas are observed?
-
-## 2026-04-29 SDK usability check
-
-Initial result: the package boundary appears intentionally consumable by third-party code.
-
-Evidence:
-
-- Published `@opencode-ai/sdk@1.14.29` exports `./v2`, `./v2/client`, `./v2/server`, and `./v2/gen/client` with `dist/*.d.ts` types.
-- Local OpenCode source at `/home/hiroshi/code/others/opencode/packages/sdk/js/package.json` has the matching source exports.
-- `packages/opencode/src/cli/cmd/acp.ts` imports `createOpencodeClient` from `@opencode-ai/sdk/v2` and constructs it against the in-process server URL.
-- `packages/opencode/src/acp/agent.ts` uses only the SDK client for the ACP bridge path, including `sdk.global.event(...)` and `sdk.session.prompt(...)`.
-- Generated v2 SDK has the core methods needed for the experiment: `global.health`, `global.event`, `session.list`, `session.create`, `session.messages`, `session.message`, `session.prompt`, `session.promptAsync`, and `session.status`.
-
-Local probe:
-
-- Added `@opencode-ai/sdk` as a dev dependency for this experiment branch.
-- Added `src/lib/opencode/probe.ts`.
-- Verified with `node src/lib/opencode/probe.ts` that Node can import `@opencode-ai/sdk/v2`, construct a client, and see the expected method surface without private imports.
-
-Pending server smoke test:
-
-- `opencode` is not currently on `PATH` in this shell.
-- `/home/hiroshi/code/others/opencode` is available as source reference, but its package dependencies/runtime are not currently installed here (`bun` and package `node_modules` were not available in the checked shell).
-- Next step is to choose a local OpenCode invocation path, then run the probe with `OPENCODE_BASE_URL` or an explicit URL and verify `global.health` plus `session.list` without sending a model prompt.
-
-## 2026-04-29 SDK server helper smoke test
-
-Follow-up result: the SDK also provides a third-party server lifecycle helper, but it shells out to an `opencode` binary on `PATH`.
-
-Evidence:
-
-- `@opencode-ai/sdk/v2` exports `createOpencodeServer` and `createOpencode`.
-- Local source: `/home/hiroshi/code/others/opencode/packages/sdk/js/src/v2/server.ts`.
-- `createOpencodeServer` runs `cross-spawn("opencode", ["serve", "--hostname=...", "--port=..."])`, parses `opencode server listening on ...`, and returns `{ url, close() }`.
-- This is a usable third-party API, but callers must ensure the desired `opencode` binary is discoverable on `PATH`.
-
-Probe update:
-
-- `src/lib/opencode/probe.ts` now prepends `/home/hiroshi/.opencode/bin` to `PATH` for this local experiment.
-- It supports `node src/lib/opencode/probe.ts server`, which starts a temporary OpenCode server through `createOpencodeServer({ port: 0 })`, runs `global.health` and `session.list`, then closes the server.
-
-Verification:
-
-```sh
-node src/lib/opencode/probe.ts server
-```
-
-Observed output included:
-
-```json
-{ "serverUrl": "http://127.0.0.1:41503" }
-{ "health": { "healthy": true, "version": "1.14.28" } }
-{ "sessionListOk": true, "sessionCount": 0 }
-```
-
-No model prompt was sent. This verifies that a third-party script can use the published SDK to spawn/connect to a real OpenCode server and call basic APIs without private imports.
-
-## 2026-04-29 No-prompt event/session smoke test
-
-Follow-up result: `global.event()` is usable from the published SDK and carries enough session identity for basic correlation.
-
-Probe update:
-
-- `src/lib/opencode/probe.ts` now supports `events` mode.
-- The mode starts a temporary server with `createOpencodeServer({ port: 0 })`.
-- It subscribes to `client.global.event()` with an `AbortController`.
-- It creates a titled session with `session.create({ title })`.
-- It reads empty history with `session.messages({ sessionID })`.
-- It logs summarized event shape and closes the server.
-
-Verification:
-
-```sh
-node src/lib/opencode/probe.ts events
-```
-
-Observed event sequence included:
-
-```text
-server.connected
-project.updated
-session.created  properties: sessionID, info
-sync             payload keys: type, syncEvent
-session.updated  properties: sessionID, info
-```
-
-Observed session and message checks:
-
-```json
-{ "sessionCreated": { "id": "ses_2270d50d0ffex6hAM7UGYSRwXx", "title": "sdk-probe-1777461276289" } }
-{ "messagesOk": true, "messageCount": 0 }
-{ "eventCount": 5 }
-```
-
-Correlation notes:
-
-- Session events include top-level `directory` and `project`.
-- `session.created` and `session.updated` include `payload.properties.sessionID`.
-- This is enough to filter global events down to a target session before testing prompt/message/part events.
-- The `sync` event shape differs from normal bus events: it has `payload.syncEvent` rather than `payload.properties`.
-
-No model prompt was sent. This is the last structural no-token check before testing a real `session.prompt` turn and comparing prompt response timing against streamed message/part events.
-
-## Next pivot: ACP-first adapter shell
-
-After the no-token SDK checks, the next step is to move from standalone SDK probing to an experimental ACP agent process. The reason is not primarily acpella end-to-end dogfooding. The reason is that ACP itself is the right model for iterating the custom OpenCode adapter boundary.
-
-Rationale:
-
-- The public SDK/server boundary is now sufficiently proven for initial iteration.
-- ACP already models the important adapter concepts: sessions, prompt turns, streamed assistant/thought chunks, tool-call updates, cancellation, and `end_turn`.
-- Iterating inside the ACP shape avoids ad-hoc probe code that will be thrown away when the adapter becomes real.
-- Starting with an echo-only ACP agent validates the protocol skeleton before mixing in OpenCode prompt streaming.
-- The OpenCode-backed implementation can then replace the echo internals incrementally while keeping the same ACP interface and tests.
-
-Planned shape:
-
-- Add `src/lib/opencode/agent.ts`.
-- Use `src/lib/test-agent.ts` as the local echo-agent reference.
-- Use `@agentclientprotocol/sdk` directly for ACP stdio.
-- Initially implement only:
-  - initialize/client connection setup
-  - in-memory session mapping for `newSession`/`loadSession` shape needed by acpella
-  - `prompt` that emits `agent_message_chunk` with an echo response
-  - `end_turn`
-  - basic/no-op `cancel` only if required by the interface
-- Start or prepare the OpenCode SDK client/server in the process only after the echo ACP shell works.
-
-First ACP harness target:
-
-1. Run the experimental agent through acpella's existing ACP test harness, not through Telegram.
-2. Use `src/lib/acp/index.ts` `AgentManager` directly with a command like `node src/lib/opencode/agent.ts`.
-3. Follow `src/lib/acp/index.test.ts` patterns for `newSession`, `loadSession`, `listSessions`, `closeSession`, `prompt`, update collection, and `cancel`.
-4. Use `src/lib/test-agent.ts` as the agent-side protocol reference for `AgentSideConnection`, `ndJsonStream`, session state, chunks, tool calls, thoughts, usage updates, and cancellation.
-5. Validate protocol behavior: session creation/load, prompt, streamed chunk notification, and `end_turn` ordering.
-6. Registering it as a separate acpella agent, e.g. `opencode-experimental`, is useful later but not the main milestone.
-
-Non-goals for the first ACP shell:
-
-- No OpenCode `session.prompt` call yet.
-- No model/provider configuration.
-- No permissions, file edits, commands, MCP mapping, or tool-call fidelity.
-- No replacement of existing `opencode` or `opencode-gpt` agents.
-- No requirement to wire through acpella/Telegram for the first shell.
-
-Success criteria:
-
-- `AgentManager` can spawn the experimental ACP agent from a test.
-- The agent can create/load an ACP session.
-- A prompt returns an echoed assistant message chunk and `end_turn` in the correct order.
-- The ACP skeleton is simple enough to become the harness for the next OpenCode-backed prompt-ordering test.
-
-Important test insight:
-
-- `AgentSessionProcess.prompt()` in `src/lib/acp/index.ts` returns `{ promise, consume }`.
-- `consume()` yields `SessionUpdate`s collected through `client.sessionUpdate`.
-- The queue finishes when `agent.connection.prompt()` resolves.
-- That means this harness directly models the bug class we care about: if an adapter resolves ACP `prompt()` / returns `end_turn` before all streamed chunks are emitted, `consume()` will close early.
-- Therefore the existing ACP test infra is the right place to verify the future OpenCode completion barrier.
-
-## 2026-04-29 Experimental ACP shell
-
-Implemented the first ACP-first shell:
-
-- Added `src/lib/opencode/agent.ts`.
-- It is a self-contained ACP stdio agent using `AgentSideConnection` and `ndJsonStream`.
-- It initially used minimal local session state so it worked with acpella's process-per-session `AgentManager` shape.
-- It currently implements echo-only `prompt` and returns `stopReason: "end_turn"`.
-
-Added ACP harness coverage:
-
-- Added `src/lib/opencode/agent.test.ts`.
-- The test uses `AgentManager` directly with command `node src/lib/opencode/agent.ts`.
-- It verifies `newSession`, `listSessions`, `prompt` update consumption, `end_turn`, and `closeSession`.
-
-Verification:
-
-```sh
-pnpm test-opencode
-```
-
-Result:
-
-```text
-1 test passed
-```
-
-Next implementation step: replace the echo body behind the same ACP shell with OpenCode SDK client/server initialization, then add a prompt-ordering test that can compare emitted ACP chunks against `prompt()` resolution.
-
-## 2026-04-29 OpenCode-backed `listSessions`
-
-Implemented only `listSessions` against real OpenCode, keeping `newSession`, `loadSession`, `prompt`, and `closeSession` in the current echo/fake shape.
-
-Rationale:
-
-- OpenCode already exposes session enumeration per cwd via `sdk.session.list({ directory, roots: true })`.
-- The adapter should not invent an ACP-to-OpenCode session mapping unless needed.
-- OpenCode's own ACP adapter uses OpenCode session IDs directly as ACP session IDs.
-
-Implementation shape:
-
-- `src/lib/opencode/agent.ts` prepends `/home/hiroshi/.opencode/bin` to `PATH`.
-- `listSessions` starts a temporary OpenCode server with `createOpencodeServer({ port: 0 })`.
-- It creates a client with `createOpencodeClient({ baseUrl: server.url, directory: cwd })`.
-- It returns ACP `sessions` mapped from OpenCode sessions: `sessionId`, `cwd`, `title`, `updatedAt`.
-- It closes the temporary server in `finally`.
-
-Test update:
-
-- `src/lib/opencode/agent.test.ts` expects `manager.listSessions()` to return `{ sessions: [] }` for the fresh temporary test cwd in that intermediate slice.
-- This intentionally proves real OpenCode enumeration succeeds without depending on the fake echo `newSession` state.
-
-Verification:
-
-```sh
-pnpm test-opencode
-```
-
-Result:
-
-```text
-1 test passed
-```
-
-## 2026-04-29 OpenCode-backed `newSession`
-
-Implemented only `newSession` against real OpenCode, on top of the existing real `listSessions` slice.
-
-Rationale:
-
-- OpenCode session IDs can be ACP session IDs directly.
-- No custom ACP-to-OpenCode session mapping is needed for this path.
-- Keep `prompt` echo-only until session lifecycle is proven.
-- Keep `closeSession` as a no-op for this slice; deletion semantics can be decided separately.
-
-Implementation shape:
-
-- Added shared `withOpenCode(cwd, callback)` helper in `src/lib/opencode/agent.ts`.
-- `newSession` now calls `client.session.create({ directory: params.cwd, title: "OpenCode ACP experiment" })`.
-- It returns `{ sessionId: session.id }`, where `session.id` is the OpenCode `ses_...` id.
-- `listSessions` still calls real `client.session.list({ directory: cwd, roots: true })`.
-- `loadSession`, `prompt`, and `closeSession` remain non-OpenCode-backed for now.
-
-Test update:
-
-- `src/lib/opencode/agent.test.ts` asserts `newSession` returns a `ses_...` id.
-- It verifies `manager.listSessions()` sees that same OpenCode session for the temp cwd.
-- The prompt assertion still verifies the echo-only ACP shell.
-
-Verification:
-
-```sh
-pnpm test-opencode
-
-## 2026-04-29 Source restructure
-
-Moved the OpenCode experiment from disposable experiment paths into `src/lib/opencode` now that the direction looks promising.
-
-Current layout:
-
-- `src/lib/opencode/agent.ts` — experimental ACP agent backed incrementally by OpenCode SDK.
-- `src/lib/opencode/probe.ts` — SDK/server/event probe utility retained for manual investigation.
-- `src/lib/opencode/agent.test.ts` — ACP harness test for the experimental agent.
-
-Vitest project split:
-
-- Added dedicated `opencode` project in `vitest.config.ts` with `include: ["**/opencode/**/*.test.ts"]`.
-- Updated `unit` project to exclude `**/opencode/**`, matching the existing `codex` split.
-- Added `pnpm test-opencode` script.
-
-Rationale:
-
-- Unit tests should not require the local OpenCode binary or spawn OpenCode servers.
-- OpenCode-specific tests are still easy to run explicitly.
-- Keeping both probe and ACP agent under `src/lib/opencode` makes the experiment discoverable as the emerging implementation area.
-```
-
-Result:
-
-```text
-1 test passed
-```
