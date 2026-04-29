@@ -7,7 +7,7 @@
   "type": "module",
   "imports": {
     "#cli": "./src/bin/cli.ts",
-    "#test-agent": "./src/lib/test-agent.ts"
+    "#test-agent": "./src/lib/acp/test-agent.ts"
   },
   "scripts": {
     "prepare": "vp config",

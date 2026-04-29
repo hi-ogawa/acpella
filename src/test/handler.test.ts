@@ -246,7 +246,7 @@ test("basic", async () => {
       "defaultAgent": "test",
       "agents": {
         "test": {
-          "command": "node <cwd>/src/lib/test-agent.ts"
+          "command": "node <cwd>/src/lib/acp/test-agent.ts"
         }
       },
       "sessions": {
@@ -575,7 +575,7 @@ test("session context usage", async () => {
       "defaultAgent": "test",
       "agents": {
         "test": {
-          "command": "node <cwd>/src/lib/test-agent.ts"
+          "command": "node <cwd>/src/lib/acp/test-agent.ts"
         }
       },
       "sessions": {
@@ -669,7 +669,7 @@ test("agent command", async () => {
   `);
   expect(await session.request("/agent list")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    - test -> node <cwd>/src/lib/test-agent.ts (default)"
+    - test -> node <cwd>/src/lib/acp/test-agent.ts (default)"
   `);
   expect(await session.request("/agent new test-error no-such-command")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -708,7 +708,7 @@ test("agent command", async () => {
   `);
   expect(await session.request("/agent list")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    - test -> node <cwd>/src/lib/test-agent.ts (default)
+    - test -> node <cwd>/src/lib/acp/test-agent.ts (default)
     - test-error -> no-such-command"
   `);
   expect(await session.request(`/agent new test2 ${TEST_AGENT_COMMAND}`)).toMatchInlineSnapshot(`
@@ -767,10 +767,10 @@ test("agent command", async () => {
       "defaultAgent": "test2",
       "agents": {
         "test": {
-          "command": "node <cwd>/src/lib/test-agent.ts"
+          "command": "node <cwd>/src/lib/acp/test-agent.ts"
         },
         "test2": {
-          "command": "node <cwd>/src/lib/test-agent.ts"
+          "command": "node <cwd>/src/lib/acp/test-agent.ts"
         }
       },
       "sessions": {
@@ -806,10 +806,10 @@ test("agent command", async () => {
       "defaultAgent": "test2",
       "agents": {
         "test": {
-          "command": "node <cwd>/src/lib/test-agent.ts"
+          "command": "node <cwd>/src/lib/acp/test-agent.ts"
         },
         "test2": {
-          "command": "node <cwd>/src/lib/test-agent.ts"
+          "command": "node <cwd>/src/lib/acp/test-agent.ts"
         }
       },
       "sessions": {
