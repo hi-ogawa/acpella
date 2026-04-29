@@ -27,6 +27,8 @@ import {
 import {
   createOpencodeClient,
   createOpencodeServer,
+  type EventMessagePartDelta,
+  type GlobalEvent,
   type OpencodeClient,
 } from "@opencode-ai/sdk/v2";
 
@@ -115,28 +117,28 @@ class OpenCodeExperimentAgent implements Agent {
       const subscription = await client.global.event({ signal: abort.signal });
       const reader = (async () => {
         for await (const event of subscription.stream) {
-          const part = eventPartForSession(event, params.sessionId);
-          if (!part?.id) {
+          const payload = (event as GlobalEvent).payload;
+          if (payload.type !== "message.part.delta") {
             continue;
           }
-          const text = partText(part);
-          if (!text) {
+          const props: EventMessagePartDelta["properties"] = payload.properties;
+          if (props.sessionID !== params.sessionId || props.field !== "text") {
             continue;
           }
-          const previous = emitted.get(part.id) ?? "";
-          if (text === previous) {
+          if (!props.delta) {
             continue;
           }
-          const delta = text.startsWith(previous) ? text.slice(previous.length) : text;
-          emitted.set(part.id, text);
-          if (!delta) {
+          const previous = emitted.get(props.partID) ?? "";
+          const next = previous + props.delta;
+          if (next === previous) {
             continue;
           }
+          emitted.set(props.partID, next);
           await this.connection.sessionUpdate({
             sessionId: params.sessionId,
             update: {
               sessionUpdate: "agent_message_chunk",
-              content: { type: "text", text: delta },
+              content: { type: "text", text: props.delta },
             },
           });
         }
@@ -190,32 +192,6 @@ function partText(part: unknown): string {
     return record.content;
   }
   return "";
-}
-
-function eventPartForSession(
-  event: unknown,
-  sessionId: string,
-): { id?: string; text?: string; content?: string } | undefined {
-  if (!event || typeof event !== "object") {
-    return;
-  }
-  const payload = (event as Record<string, unknown>).payload;
-  if (!payload || typeof payload !== "object") {
-    return;
-  }
-  const properties = (payload as Record<string, unknown>).properties;
-  if (!properties || typeof properties !== "object") {
-    return;
-  }
-  const record = properties as Record<string, unknown>;
-  if (record.sessionID !== sessionId) {
-    return;
-  }
-  const part = record.part;
-  if (!part || typeof part !== "object") {
-    return;
-  }
-  return part as { id?: string; text?: string; content?: string };
 }
 
 const input = Writable.toWeb(process.stdout);
