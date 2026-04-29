@@ -30,7 +30,6 @@ import {
   createOpencodeServer,
   type EventMessagePartDelta,
   type EventMessagePartUpdated,
-  type GlobalEvent,
   type OpencodeClient,
   type Part,
   type ToolPart,
@@ -131,7 +130,7 @@ class OpencodeAgent implements Agent {
       const subscription = await client.global.event({ signal: abort.signal });
       const reader = (async () => {
         for await (const event of subscription.stream) {
-          const payload = (event as GlobalEvent).payload;
+          const payload = event.payload;
           if (payload.type === "message.part.updated") {
             const props: EventMessagePartUpdated["properties"] = payload.properties;
             if (props.sessionID === params.sessionId && props.part.type === "tool") {
