@@ -14,7 +14,6 @@ import {
 } from "./lib/cron/command.ts";
 import type { CronRunner, CronRunnerAgentOptions } from "./lib/cron/runner.ts";
 import type { CronDeliveryTarget, CronJob, CronStore } from "./lib/cron/store.ts";
-import { formatSessionUpdateLogEntry, JsonLogger } from "./lib/logger.ts";
 import type { MessageMetadata } from "./lib/prompt.ts";
 import { buildFirstPrompt, buildMessageMetadataPrompt } from "./lib/prompt.ts";
 import { MESSAGE_SPLIT_BUDGET, ReplyManager } from "./lib/reply.ts";
@@ -29,6 +28,7 @@ import { getVerboseSessionUpdateTypes, parseVerboseMode } from "./lib/verbose.ts
 import { parseAgentSessionKey, SessionStateStore, toAgentSessionKey } from "./state.ts";
 import type { StateAgentSession } from "./state.ts";
 import { AsyncLane, DefaultMap, formatError } from "./utils/index.ts";
+import { formatSessionUpdateLogEntry, JsonLogger } from "./utils/logger.ts";
 
 export interface Handler {
   handle: (context: HandlerContext) => Promise<void>;
