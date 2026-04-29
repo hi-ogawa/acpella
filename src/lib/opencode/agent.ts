@@ -329,47 +329,40 @@ function toolUpdate(
   sessionUpdate: "tool_call" | "tool_call_update",
 ): SessionUpdate {
   const kind = TOOL_KIND_BY_NAME[part.tool.toLowerCase()] ?? "other";
-
+  const base = {
+    sessionUpdate,
+    toolCallId: part.callID,
+    kind,
+    rawInput: part.state.input,
+  };
   switch (part.state.status) {
     case "pending": {
       return {
-        sessionUpdate,
-        toolCallId: part.callID,
+        ...base,
         title: part.tool,
-        kind,
         status: "pending",
-        rawInput: part.state.input,
       };
     }
     case "running": {
       return {
-        sessionUpdate,
-        toolCallId: part.callID,
+        ...base,
         title: part.state.title || part.tool,
-        kind,
         status: "in_progress",
-        rawInput: part.state.input,
       };
     }
     case "completed": {
       return {
-        sessionUpdate,
-        toolCallId: part.callID,
+        ...base,
         title: part.state.title,
-        kind,
         status: "completed",
-        rawInput: part.state.input,
         rawOutput: { output: part.state.output, metadata: part.state.metadata },
       };
     }
     case "error": {
       return {
-        sessionUpdate,
-        toolCallId: part.callID,
+        ...base,
         title: part.tool,
-        kind,
         status: "failed",
-        rawInput: part.state.input,
         rawOutput: { error: part.state.error, metadata: part.state.metadata },
       };
     }
