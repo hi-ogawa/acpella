@@ -63,7 +63,7 @@ import fs from "node:fs";
 import { expect, test, vi } from "vitest";
 import { TEST_AGENT_COMMAND } from "../state.ts";
 import { formatTime } from "../utils/index.ts";
-import { createHandlerTester, readStateFile, sanitizeOutput } from "./tester.ts";
+import { createHandlerTester, sanitizeOutput } from "./tester.ts";
 
 test("basic", async () => {
   const tester = await createHandlerTester();
@@ -120,7 +120,7 @@ test("basic", async () => {
     current session: test"
   `);
   expect(await session.request("hello")).toMatchInlineSnapshot(`"echo: hello"`);
-  expect(readStateFile(tester.config)).toMatchInlineSnapshot(`
+  expect(tester.readStateFile()).toMatchInlineSnapshot(`
     "{
       "version": 2,
       "defaultAgent": "test",
@@ -449,7 +449,7 @@ test("session context usage", async () => {
     renew: off
     context: 54321 / 200000 tokens (27%)"
   `);
-  expect(readStateFile(tester.config)).toMatchInlineSnapshot(`
+  expect(tester.readStateFile()).toMatchInlineSnapshot(`
     "{
       "version": 2,
       "defaultAgent": "test",
@@ -641,7 +641,7 @@ test("agent command", async () => {
     "[⚙️ System]
     Removed agent: test-error"
   `);
-  expect(readStateFile(tester.config)).toMatchInlineSnapshot(`
+  expect(tester.readStateFile()).toMatchInlineSnapshot(`
     "{
       "version": 2,
       "defaultAgent": "test2",
@@ -680,7 +680,7 @@ test("agent command", async () => {
     "[⚙️ System]
     Session closed: test2:__testSession1."
   `);
-  expect(readStateFile(tester.config)).toMatchInlineSnapshot(`
+  expect(tester.readStateFile()).toMatchInlineSnapshot(`
     "{
       "version": 2,
       "defaultAgent": "test2",

@@ -69,11 +69,20 @@ export async function createHandlerTester() {
     };
   }
 
+  function readStateFile() {
+    const stateFile = config.stateFile;
+    if (!fs.existsSync(stateFile)) {
+      return null;
+    }
+    return sanitizeOutput(fs.readFileSync(stateFile, "utf8"), config);
+  }
+
   return {
     config,
     request,
     requestStream,
     createSession,
+    readStateFile,
     onServiceExit,
     cronStore,
     cronRunner,
@@ -87,12 +96,4 @@ export function sanitizeOutput(output: string, config: AppConfig) {
     .replaceAll(process.cwd(), () => "<cwd>")
     .replaceAll(/"t":(\d+|"[^"]+")/g, `"t":"<time>"`)
     .replaceAll(/"updatedAt": \d+/g, `"updatedAt": <time>`);
-}
-
-export function readStateFile(config: AppConfig) {
-  const stateFile = config.stateFile;
-  if (!fs.existsSync(stateFile)) {
-    return null;
-  }
-  return sanitizeOutput(fs.readFileSync(stateFile, "utf8"), config);
 }
