@@ -34,6 +34,7 @@ export interface Handler {
   handle: (context: HandlerContext) => Promise<void>;
   prompt: CronRunnerAgentOptions["prompt"];
   commands: Record<string, string>;
+  start: () => void;
   stop: () => void;
 }
 
@@ -63,8 +64,6 @@ export async function createHandler(
   },
 ): Promise<Handler> {
   const stateStore = new SessionStateStore(config.stateFile);
-  stateStore.watcher.start();
-
   const cronStore = handlerOptions.cronStore;
   const activeSessions = new Map<string, AgentSessionProcess>();
   const cancelledSessions = new WeakSet<AgentSessionProcess>();
@@ -787,7 +786,7 @@ ${inFlightSessions ? `in-flight sessions:\n${inFlightSessions}` : ""}
         help: "/service exit - Exit acpella.",
         run: async ({ reply }) => {
           await reply.system("Exiting acpella.");
-          stop();
+          handler.stop();
           handlerOptions.onServiceExit();
         },
       },
@@ -870,17 +869,28 @@ ${inFlightSessions ? `in-flight sessions:\n${inFlightSessions}` : ""}
     return chunks.join("");
   };
 
-  let stopped = false;
-  const stop: Handler["stop"] = () => {
-    if (stopped) {
-      return;
-    }
-    stopped = true;
-    stateStore.watcher.stop();
-    for (const session of activeSessions.values()) {
-      session.stop();
-    }
+  let started = false;
+
+  const handler: Handler = {
+    start() {
+      if (!started) {
+        started = true;
+        stateStore.watcher.start();
+      }
+    },
+    stop() {
+      if (started) {
+        started = false;
+        stateStore.watcher.stop();
+        for (const session of activeSessions.values()) {
+          session.stop();
+        }
+      }
+    },
+    handle,
+    prompt: handleCronPrompt,
+    commands: systemCommandsMetadata,
   };
 
-  return { handle, prompt: handleCronPrompt, commands: systemCommandsMetadata, stop };
+  return handler;
 }

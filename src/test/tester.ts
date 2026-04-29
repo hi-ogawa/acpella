@@ -40,6 +40,7 @@ export async function createHandlerTester() {
     cronStore,
     getCronRunner: () => cronRunner,
   });
+  handler.start();
   onTestFinished(() => {
     handler.stop();
   });
