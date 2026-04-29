@@ -122,11 +122,12 @@ class OpencodeAgent implements Agent {
         .map((part) => part.text)
         .join("") || "(empty)";
 
-    const responseText = await withOpenCode(session.cwd, async (client) => {
+    const response = await withOpenCode(session.cwd, async (client) => {
       const abort = new AbortController();
       this.activePrompts.set(params.sessionId, { cwd: session.cwd, abort });
       const emitted = new Map<string, string>();
       const startedTools = new Set<string>();
+      let lastRelevantEventAt = Date.now();
       const subscription = await client.global.event({ signal: abort.signal });
       const reader = (async () => {
         for await (const event of subscription.stream) {
@@ -134,6 +135,7 @@ class OpencodeAgent implements Agent {
           if (payload.type === "message.part.updated") {
             const props: EventMessagePartUpdated["properties"] = payload.properties;
             if (props.sessionID === params.sessionId && props.part.type === "tool") {
+              lastRelevantEventAt = Date.now();
               await this.sendToolUpdate(params.sessionId, props.part, startedTools);
             }
             continue;
@@ -169,6 +171,7 @@ class OpencodeAgent implements Agent {
             continue;
           }
           emitted.set(props.partID, next);
+          lastRelevantEventAt = Date.now();
           await this.connection.sessionUpdate({
             sessionId: params.sessionId,
             update: {
@@ -197,14 +200,15 @@ class OpencodeAgent implements Agent {
           )
           .then((result) => result.data!);
 
+        await waitForEventIdle(() => lastRelevantEventAt, abort.signal);
+        await this.emitMissingResponseSuffixes(
+          params.sessionId,
+          response.info.id,
+          response.parts,
+          emitted,
+        );
+
         return {
-          text:
-            response.parts
-              .map((part: Part) =>
-                part.type === "text" || part.type === "reasoning" ? part.text : "",
-              )
-              .filter(Boolean)
-              .join("") || "(empty)",
           info: response.info,
         };
       } finally {
@@ -214,17 +218,7 @@ class OpencodeAgent implements Agent {
       }
     });
 
-    await this.sendUsageUpdate(params.sessionId, responseText.info);
-
-    if (responseText.text) {
-      await this.connection.sessionUpdate({
-        sessionId: params.sessionId,
-        update: {
-          sessionUpdate: "agent_message_chunk",
-          content: { type: "text", text: responseText.text },
-        },
-      });
-    }
+    await this.sendUsageUpdate(params.sessionId, response.info);
 
     return { stopReason: "end_turn" };
   }
@@ -289,6 +283,54 @@ class OpencodeAgent implements Agent {
       },
     });
   }
+
+  private async emitMissingResponseSuffixes(
+    sessionId: string,
+    messageId: string,
+    parts: Part[],
+    emitted: Map<string, string>,
+  ) {
+    for (const part of parts) {
+      if (part.type !== "text" && part.type !== "reasoning") {
+        continue;
+      }
+      const previous = emitted.get(part.id) ?? "";
+      const suffix = part.text.startsWith(previous) ? part.text.slice(previous.length) : part.text;
+      if (!suffix) {
+        continue;
+      }
+      emitted.set(part.id, previous + suffix);
+      await this.connection.sessionUpdate({
+        sessionId,
+        update: {
+          sessionUpdate: part.type === "reasoning" ? "agent_thought_chunk" : "agent_message_chunk",
+          messageId,
+          content: { type: "text", text: suffix },
+        },
+      });
+    }
+  }
+}
+
+async function waitForEventIdle(
+  getLastEventAt: () => number,
+  signal: AbortSignal,
+  idleMs = 250,
+  maxMs = 1500,
+) {
+  const startedAt = Date.now();
+  while (!signal.aborted) {
+    const elapsed = Date.now() - startedAt;
+    const idleFor = Date.now() - getLastEventAt();
+    if (idleFor >= idleMs || elapsed >= maxMs) {
+      return;
+    }
+    await sleep(Math.min(idleMs - idleFor, maxMs - elapsed));
+  }
+}
+
+async function sleep(ms: number) {
+  await new Promise((resolve) => setTimeout(resolve, Math.max(0, ms)));
 }
 
 function toolTitle(part: ToolPart) {
