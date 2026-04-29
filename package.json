@@ -2,11 +2,13 @@
   "name": "acpella",
   "private": true,
   "bin": {
-    "acpella": "./src/bin/cli.ts"
+    "acpella": "./src/bin/cli.ts",
+    "acpella-opencode-acp": "./src/bin/opencode-acp.ts"
   },
   "type": "module",
   "imports": {
     "#cli": "./src/bin/cli.ts",
+    "#opencode-acp": "./src/bin/opencode-acp.ts",
     "#test-agent": "./src/lib/test-agent.ts"
   },
   "scripts": {
