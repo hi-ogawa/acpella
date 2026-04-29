@@ -47,7 +47,6 @@ async function withOpenCode<T>(cwd: string, callback: (client: OpencodeClient) =
 class OpencodeAgent implements Agent {
   private connection: AgentSideConnection;
   private sessions = new Map<string, { cwd: string }>();
-  private activePrompts = new Map<string, { cwd: string; abort: AbortController }>();
 
   constructor(connection: AgentSideConnection) {
     this.connection = connection;
@@ -124,7 +123,6 @@ class OpencodeAgent implements Agent {
 
     const response = await withOpenCode(session.cwd, async (client) => {
       const abort = new AbortController();
-      this.activePrompts.set(params.sessionId, { cwd: session.cwd, abort });
       const emitted = new Map<string, string>();
       const startedTools = new Set<string>();
       let lastRelevantEventAt = Date.now();
@@ -212,7 +210,6 @@ class OpencodeAgent implements Agent {
           info: response.info,
         };
       } finally {
-        this.activePrompts.delete(params.sessionId);
         abort.abort();
         await reader;
       }
@@ -224,13 +221,11 @@ class OpencodeAgent implements Agent {
   }
 
   async cancel(params: CancelNotification): Promise<void> {
-    const active = this.activePrompts.get(params.sessionId);
-    const session = active ?? this.sessions.get(params.sessionId);
+    const session = this.sessions.get(params.sessionId);
     if (!session) {
       return;
     }
 
-    active?.abort.abort();
     await withOpenCode(session.cwd, async (client) => {
       await client.session.abort(
         { sessionID: params.sessionId, directory: session.cwd },
