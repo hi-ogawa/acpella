@@ -28,10 +28,8 @@ import {
   createOpencodeClient,
   createOpencodeServer,
   type OpencodeClient,
-  type Part,
   type ToolPart,
 } from "@opencode-ai/sdk/v2";
-import { sleep } from "../../utils/index.ts";
 
 async function withOpenCode<T>(cwd: string, callback: (client: OpencodeClient) => Promise<T>) {
   const server = await createOpencodeServer({ port: 0, timeout: 10000 });
@@ -121,19 +119,24 @@ class OpencodeAgent implements Agent {
 
     const response = await withOpenCode(session.cwd, async (client) => {
       const abort = new AbortController();
-      const emitted = new Map<string, string>();
       const startedTools = new Set<string>();
-      let lastRelevantEventAt = Date.now();
+      const lifecycle = createSessionLifecycleBarrier();
       const subscription = await client.global.event({ signal: abort.signal });
       const reader = (async () => {
         for await (const event of subscription.stream) {
           // TODO: surface EventSessionCompacted
-          // TODO: how about EventSessionIdle?
           const payload = event.payload;
+          if (payload.type === "session.status") {
+            const props = payload.properties;
+            if (props.sessionID === params.sessionId) {
+              lifecycle.observe(props.status.type);
+            }
+            continue;
+          }
+
           if (payload.type === "message.part.updated") {
             const props = payload.properties;
             if (props.sessionID === params.sessionId && props.part.type === "tool") {
-              lastRelevantEventAt = Date.now();
               await this.sendToolUpdate(params.sessionId, props.part, startedTools);
             }
             continue;
@@ -163,13 +166,6 @@ class OpencodeAgent implements Agent {
           if (part?.type !== "text" && part?.type !== "reasoning") {
             continue;
           }
-          const previous = emitted.get(props.partID) ?? "";
-          const next = previous + props.delta;
-          if (next === previous) {
-            continue;
-          }
-          emitted.set(props.partID, next);
-          lastRelevantEventAt = Date.now();
           await this.connection.sessionUpdate({
             sessionId: params.sessionId,
             update: {
@@ -182,6 +178,7 @@ class OpencodeAgent implements Agent {
         }
       })().catch((error) => {
         if (!abort.signal.aborted) {
+          lifecycle.reject(error);
           throw error;
         }
       });
@@ -196,13 +193,7 @@ class OpencodeAgent implements Agent {
           { throwOnError: true },
         );
 
-        await waitForEventIdle(() => lastRelevantEventAt, abort.signal);
-        await this.emitMissingResponseSuffixes(
-          params.sessionId,
-          response.data.info.id,
-          response.data.parts,
-          emitted,
-        );
+        await lifecycle.done;
         return response;
       } finally {
         abort.abort();
@@ -254,50 +245,41 @@ class OpencodeAgent implements Agent {
       update: formatToolCall(part, "tool_call_update"),
     });
   }
-
-  private async emitMissingResponseSuffixes(
-    sessionId: string,
-    messageId: string,
-    parts: Part[],
-    emitted: Map<string, string>,
-  ) {
-    for (const part of parts) {
-      if (part.type !== "text" && part.type !== "reasoning") {
-        continue;
-      }
-      const previous = emitted.get(part.id) ?? "";
-      const suffix = part.text.startsWith(previous) ? part.text.slice(previous.length) : part.text;
-      if (!suffix) {
-        continue;
-      }
-      emitted.set(part.id, previous + suffix);
-      await this.connection.sessionUpdate({
-        sessionId,
-        update: {
-          sessionUpdate: part.type === "reasoning" ? "agent_thought_chunk" : "agent_message_chunk",
-          messageId,
-          content: { type: "text", text: suffix },
-        },
-      });
-    }
-  }
 }
 
-async function waitForEventIdle(
-  getLastEventAt: () => number,
-  signal: AbortSignal,
-  idleMs = 250,
-  maxMs = 1500,
-) {
-  const startedAt = Date.now();
-  while (!signal.aborted) {
-    const elapsed = Date.now() - startedAt;
-    const idleFor = Date.now() - getLastEventAt();
-    if (idleFor >= idleMs || elapsed >= maxMs) {
-      return;
-    }
-    await sleep(Math.min(idleMs - idleFor, maxMs - elapsed));
-  }
+function createSessionLifecycleBarrier() {
+  let sawBusy = false;
+  let settled = false;
+  let resolve!: () => void;
+  let reject!: (error: unknown) => void;
+  const done = new Promise<void>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+
+  return {
+    done,
+    observe(status: "idle" | "busy" | "retry") {
+      if (settled) {
+        return;
+      }
+      if (status === "busy") {
+        sawBusy = true;
+        return;
+      }
+      if (status === "idle" && sawBusy) {
+        settled = true;
+        resolve();
+      }
+    },
+    reject(error: unknown) {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      reject(error);
+    },
+  };
 }
 
 const TOOL_KIND_BY_NAME: Record<string, ToolKind> = {
