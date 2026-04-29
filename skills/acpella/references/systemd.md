@@ -50,9 +50,7 @@ One blunt systemd-level option is masking sleep targets:
 sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
 ```
 
-Another option is configuring lid behavior in `/etc/systemd/logind.conf`, such
-as `HandleLidSwitch=ignore`, then restarting `systemd-logind`. Treat these as
-host power-policy choices, not acpella configuration.
+Treat this as a host power-policy choice, not acpella configuration.
 
 ## After updating the unit
 
