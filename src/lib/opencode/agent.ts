@@ -142,7 +142,6 @@ class OpencodeAgent implements Agent {
       const subscription = await client.global.event({ signal: abort.signal });
       const reader = (async () => {
         for await (const event of subscription.stream) {
-          // TODO: surface EventSessionCompacted
           const payload = event.payload;
           if (payload.type === "session.status") {
             const props = payload.properties;
@@ -153,6 +152,22 @@ class OpencodeAgent implements Agent {
               if (props.status.type === "idle" && sawBusy) {
                 lifecycle.resolve();
               }
+            }
+            continue;
+          }
+
+          if (payload.type === "session.compacted") {
+            const props = payload.properties;
+            if (props.sessionID === params.sessionId) {
+              // TODO: surface compaction
+              // await this.connection.sessionUpdate({
+              //   sessionId: params.sessionId,
+              //   update: {
+              //     sessionUpdate: "usage_update",
+              //     used: 0,
+              //     size: 0,
+              //   },
+              // });
             }
             continue;
           }
@@ -222,6 +237,7 @@ class OpencodeAgent implements Agent {
           sessionId: params.sessionId,
           update: {
             sessionUpdate: "usage_update",
+            // TODO
             used,
             size: Math.max(used, total),
             cost: { amount: info.cost, currency: "USD" },
