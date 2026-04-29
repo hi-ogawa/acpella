@@ -220,7 +220,6 @@ class OpencodeAgent implements Agent {
             cost: { amount: info.cost, currency: "USD" },
           },
         });
-        return response;
       } finally {
         abort.abort();
         await reader;
