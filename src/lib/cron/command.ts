@@ -2,11 +2,6 @@ import { formatTime, Result } from "../../utils/index.ts";
 import { type CronJob, type CronRun, type CronStore, cronIdSchema } from "./store.ts";
 import { getNextCronSchedule, validateCronSchedule } from "./timer.ts";
 
-export const CRON_ADD_USAGE =
-  "/cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--session <sessionName>] -- <prompt...>";
-export const CRON_UPDATE_USAGE =
-  "/cron update <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--session <sessionName>] [-- <prompt...>]";
-
 export function parseCronArgs(args: string[], timezone: string) {
   const [id, minute, hour, dayOfMonth, month, dayOfWeek, ...restArgs] = args;
   if (!id || !minute || !hour || !dayOfMonth || !month || !dayOfWeek) {

@@ -5,8 +5,6 @@ import { AgentManager } from "./lib/acp/index.ts";
 import type { AgentSessionProcess } from "./lib/acp/index.ts";
 import { CommandHandler, type CommandTree } from "./lib/command.ts";
 import {
-  CRON_ADD_USAGE,
-  CRON_UPDATE_USAGE,
   parseCronArgs,
   parseCronIdArg,
   renderCronList,
@@ -570,7 +568,8 @@ enabled jobs: ${enabledJobs.length}
     },
     {
       tokens: ["add"],
-      usage: CRON_ADD_USAGE,
+      usage:
+        "/cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--session <sessionName>] -- <prompt...>",
       description: "Add a cron job.",
       withArgs: true,
       run: async ({ args, reply, sessionName, metadata }) => {
@@ -618,7 +617,8 @@ enabled jobs: ${enabledJobs.length}
     },
     {
       tokens: ["update"],
-      usage: CRON_UPDATE_USAGE,
+      usage:
+        "/cron update <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--session <sessionName>] [-- <prompt...>]",
       description: "Update a cron job.",
       withArgs: true,
       run: async ({ args, reply }) => {
