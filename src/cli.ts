@@ -4,10 +4,10 @@ import { createInterface } from "node:readline/promises";
 import { run, sequentialize } from "@grammyjs/runner";
 import { Bot } from "grammy";
 import { loadConfig, type AppConfig } from "./config.ts";
-import { CronRunner } from "./cron/runner.ts";
-import { CronStore } from "./cron/store.ts";
 import { createHandler, type Handler } from "./handler.ts";
 import { parseCli } from "./lib/cli.ts";
+import { CronRunner } from "./lib/cron/runner.ts";
+import { CronStore } from "./lib/cron/store.ts";
 import { markdownToTelegramHtml } from "./lib/telegram/format-html.ts";
 import {
   formatTelegramConversationMetadata,
@@ -16,8 +16,8 @@ import {
   normalizeUserMention,
   TelegramChatActionManager,
 } from "./lib/telegram/utils.ts";
-import { addIndent, sleep, truncateString } from "./lib/utils.ts";
 import { getVersion } from "./lib/version.ts";
+import { addIndent, sleep, truncateString } from "./utils/index.ts";
 
 const CLI_HELP = `\
 Usage: acpella [command]

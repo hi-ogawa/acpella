@@ -9,7 +9,7 @@ import {
   type ListSessionsResponse,
   type PromptRequest,
 } from "@agentclientprotocol/sdk";
-import { objectPickBy, AsyncIterableQueue } from "../lib/utils.ts";
+import { objectPickBy, AsyncIterableQueue } from "../../utils/index.ts";
 
 // we spawn a process per session instead of per acp command for simplicity.
 // this is likey more robust without acp agent capability assumption

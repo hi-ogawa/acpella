@@ -1,8 +1,8 @@
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { sessionRenewPolicySchema } from "./lib/session-renew.ts";
-import { FileStateManager } from "./lib/utils-node.ts";
 import { verboseModeSchema } from "./lib/verbose.ts";
+import { FileStateManager } from "./utils/fs.ts";
 
 const agentSchema = z.object({
   command: z.string().min(1),

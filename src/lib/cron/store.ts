@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { FileStateManager } from "../lib/utils-node.ts";
+import { FileStateManager } from "../../utils/fs.ts";
 import { validateCronSchedule } from "./timer.ts";
 
 const CRON_FILE_VERSION = 1;

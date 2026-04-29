@@ -1,4 +1,4 @@
-import { formatTime, Result } from "../lib/utils.ts";
+import { formatTime, Result } from "../../utils/index.ts";
 import { type CronJob, type CronRun, type CronStore, cronIdSchema } from "./store.ts";
 import { getNextCronSchedule, validateCronSchedule } from "./timer.ts";
 

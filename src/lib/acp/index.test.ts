@@ -1,6 +1,6 @@
 import { describe, it, expect, onTestFinished } from "vitest";
-import { TEST_AGENT_COMMAND } from "../state.ts";
-import { useFs } from "../test/helper.ts";
+import { TEST_AGENT_COMMAND } from "../../state.ts";
+import { useFs } from "../../test/helper.ts";
 import { AgentManager } from "./index.ts";
 
 describe(AgentManager, () => {

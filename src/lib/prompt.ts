@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { addIndent, formatTime } from "./utils.ts";
+import { addIndent, formatTime } from "../utils/index.ts";
 
 const INCLUDE_LINE_RE = /^[^\S\r\n]*@(\S+)[^\S\r\n]*$/gm;
 const ACP_DIRECTIVE_LINE_RE = /^[^\S\r\n]*::acpella\s+(\S+)(?:\s+(.+?))?[^\S\r\n]*$/gm;
