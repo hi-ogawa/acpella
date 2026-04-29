@@ -67,8 +67,9 @@ export async function createHandler(
     file: config.stateFile,
     onChange: () => {
       try {
-        stateStore.file.reload();
-        console.log("[state] Reloaded state from external state file change");
+        if (stateStore.file.reload()) {
+          console.log("[state] Reloaded state from external state file change");
+        }
       } catch (error) {
         console.error(
           `[state] Failed to reload state after external state file change: ${formatError(error)}`,

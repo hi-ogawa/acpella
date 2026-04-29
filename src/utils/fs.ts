@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { isDeepStrictEqual } from "node:util";
 import { debounce, type Debouncer } from "./timing.ts";
 
 export function writeJsonFile(file: string, value: unknown): void {
@@ -40,10 +41,15 @@ export class FileStateManager<T> {
     }
   }
 
-  reload() {
+  reload(): boolean {
     const { file, defaultValue } = this.options;
     const newData = readJsonFile(file, defaultValue);
-    this.state = this.options.parse(newData);
+    const newState = this.options.parse(newData);
+    const changed = !isDeepStrictEqual(this.state, newState);
+    if (changed) {
+      this.state = newState;
+    }
+    return changed;
   }
 
   set(updater: (data: T) => void): void {
