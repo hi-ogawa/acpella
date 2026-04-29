@@ -220,7 +220,8 @@ export async function createHandler(
   const systemSessionCommands: SystemCommandTree[string] = [
     {
       tokens: ["info"],
-      help: "/session info [sessionName] - Show info about a session.",
+      usage: "/session info [sessionName]",
+      description: "Show info about a session.",
       withArgs: true,
       run: async ({ args, reply, ...context }) => {
         let arg = args[0];
@@ -253,7 +254,8 @@ renew: ${renderSessionRenewPolicy({ policy: stateSession.renew, timezone: config
     },
     {
       tokens: ["list"],
-      help: "/session list [--all] - List known agent sessions.",
+      usage: "/session list [--all]",
+      description: "List known agent sessions.",
       withArgs: true,
       run: async ({ reply, args }) => {
         const state = stateStore.get();
@@ -314,7 +316,8 @@ Unmapped acp sessions:
     },
     {
       tokens: ["new"],
-      help: "/session new [agent] - Start a new agent session.",
+      usage: "/session new [agent]",
+      description: "Start a new agent session.",
       withArgs: true,
       run: async (context) => {
         const { args, reply, sessionName } = context;
@@ -332,7 +335,8 @@ Unmapped acp sessions:
     },
     {
       tokens: ["load"],
-      help: "/session load <sessionId|agent:sessionId> - Load an existing agent session.",
+      usage: "/session load <sessionId|agent:sessionId>",
+      description: "Load an existing agent session.",
       withArgs: true,
       run: async ({ args, reply, sessionName }) => {
         const sessionIdArg = args[0];
@@ -362,7 +366,8 @@ Unmapped acp sessions:
     },
     {
       tokens: ["close"],
-      help: "/session close [sessionId|agent:sessionId] - Close an agent session.",
+      usage: "/session close [sessionId|agent:sessionId]",
+      description: "Close an agent session.",
       withArgs: true,
       run: async ({ args, reply, sessionName }) => {
         const stateSession = stateStore.getSession(sessionName);
@@ -389,7 +394,8 @@ Unmapped acp sessions:
     },
     {
       tokens: ["verbose"],
-      help: "/session verbose <off|tool|thinking|all> [sessionName] - Set internal progress output.",
+      usage: "/session verbose <off|tool|thinking|all> [sessionName]",
+      description: "Set internal progress output.",
       withArgs: true,
       run: async ({ args, reply, sessionName }) => {
         const [value, targetSession = sessionName] = args;
@@ -400,7 +406,8 @@ Unmapped acp sessions:
     },
     {
       tokens: ["renew"],
-      help: "/session renew <off|daily|daily:N> [sessionName] - Set session renewal policy.",
+      usage: "/session renew <off|daily|daily:N> [sessionName]",
+      description: "Set session renewal policy.",
       withArgs: true,
       run: async ({ args, reply, sessionName }) => {
         const [value, targetSession] = args;
@@ -427,7 +434,8 @@ Unmapped acp sessions:
   const systemAgentCommands: SystemCommandTree[string] = [
     {
       tokens: ["list"],
-      help: "/agent list - List configured agents.",
+      usage: "/agent list",
+      description: "List configured agents.",
       run: async ({ reply }) => {
         const state = stateStore.get();
         let response = "";
@@ -440,7 +448,8 @@ Unmapped acp sessions:
     },
     {
       tokens: ["new"],
-      help: "/agent new <name> <command...> - Save a new agent.",
+      usage: "/agent new <name> <command...>",
+      description: "Save a new agent.",
       withArgs: true,
       run: async ({ args, reply }) => {
         const [name, ...commandParts] = args;
@@ -457,7 +466,8 @@ Unmapped acp sessions:
     },
     {
       tokens: ["remove"],
-      help: "/agent remove <name> - Remove an agent.",
+      usage: "/agent remove <name>",
+      description: "Remove an agent.",
       withArgs: true,
       run: async ({ args, reply }) => {
         const name = args[0];
@@ -492,7 +502,8 @@ ${referencedSessions.length} session(s) still reference it.
     },
     {
       tokens: ["default"],
-      help: "/agent default [name] - Show or set the default agent.",
+      usage: "/agent default [name]",
+      description: "Show or set the default agent.",
       withArgs: true,
       run: async ({ args, reply }) => {
         const name = args[0];
@@ -517,7 +528,8 @@ ${referencedSessions.length} session(s) still reference it.
   const systemCronCommands: SystemCommandTree[string] = [
     {
       tokens: ["status"],
-      help: "/cron status - Show cron scheduler status.",
+      usage: "/cron status",
+      description: "Show cron scheduler status.",
       run: async ({ reply }) => {
         const cronRunner = getCronRunner();
         const jobs = cronStore.listJobs();
@@ -531,7 +543,8 @@ enabled jobs: ${enabledJobs.length}
     },
     {
       tokens: ["start"],
-      help: "/cron start - Start cron scheduler.",
+      usage: "/cron start",
+      description: "Start cron scheduler.",
       run: async ({ reply }) => {
         const cronRunner = getCronRunner();
         if (!cronRunner) {
@@ -544,7 +557,8 @@ enabled jobs: ${enabledJobs.length}
     },
     {
       tokens: ["stop"],
-      help: "/cron stop - Stop cron scheduler.",
+      usage: "/cron stop",
+      description: "Stop cron scheduler.",
       run: async ({ reply }) => {
         const cronRunner = getCronRunner();
         if (!cronRunner) {
@@ -557,7 +571,8 @@ enabled jobs: ${enabledJobs.length}
     },
     {
       tokens: ["add"],
-      help: `${CRON_ADD_USAGE} - Add a cron job.`,
+      usage: CRON_ADD_USAGE,
+      description: "Add a cron job.",
       withArgs: true,
       run: async ({ args, reply, sessionName, metadata }) => {
         const cron = parseCronArgs(args, config.timezone);
@@ -604,7 +619,8 @@ enabled jobs: ${enabledJobs.length}
     },
     {
       tokens: ["update"],
-      help: `${CRON_UPDATE_USAGE} - Update a cron job.`,
+      usage: CRON_UPDATE_USAGE,
+      description: "Update a cron job.",
       withArgs: true,
       run: async ({ args, reply }) => {
         const cron = parseCronArgs(args, config.timezone);
@@ -647,14 +663,16 @@ enabled jobs: ${enabledJobs.length}
     },
     {
       tokens: ["list"],
-      help: "/cron list - List cron jobs.",
+      usage: "/cron list",
+      description: "List cron jobs.",
       run: async ({ reply }) => {
         await reply.system(renderCronList(cronStore));
       },
     },
     {
       tokens: ["show"],
-      help: "/cron show <id> - Show a cron job.",
+      usage: "/cron show <id>",
+      description: "Show a cron job.",
       withArgs: true,
       run: async ({ args, reply }) => {
         const parsed = parseCronIdArg(args, "Usage: /cron show <id>");
@@ -673,7 +691,8 @@ enabled jobs: ${enabledJobs.length}
     },
     {
       tokens: ["enable"],
-      help: "/cron enable <id> - Enable a cron job.",
+      usage: "/cron enable <id>",
+      description: "Enable a cron job.",
       withArgs: true,
       run: async ({ args, reply }) => {
         const parsed = parseCronIdArg(args, "Usage: /cron enable <id>");
@@ -697,7 +716,8 @@ enabled jobs: ${enabledJobs.length}
     },
     {
       tokens: ["disable"],
-      help: "/cron disable <id> - Disable a cron job.",
+      usage: "/cron disable <id>",
+      description: "Disable a cron job.",
       withArgs: true,
       run: async ({ args, reply }) => {
         const parsed = parseCronIdArg(args, "Usage: /cron disable <id>");
@@ -721,7 +741,8 @@ enabled jobs: ${enabledJobs.length}
     },
     {
       tokens: ["delete"],
-      help: "/cron delete <id> - Delete a cron job.",
+      usage: "/cron delete <id>",
+      description: "Delete a cron job.",
       withArgs: true,
       run: async ({ args, reply }) => {
         const parsed = parseCronIdArg(args, "Usage: /cron delete <id>");
@@ -749,7 +770,8 @@ enabled jobs: ${enabledJobs.length}
     status: [
       {
         tokens: [],
-        help: "/status - Show service status.",
+        usage: "/status",
+        description: "Show service status.",
         run: async ({ reply, sessionName }) => {
           const inFlightSessions = [...activeSessions.entries()]
             .map(([sessionName, session]) => {
@@ -775,7 +797,8 @@ ${inFlightSessions ? `in-flight sessions:\n${inFlightSessions}` : ""}
     service: [
       {
         tokens: ["systemd", "install"],
-        help: "/service systemd install - Install systemd service.",
+        usage: "/service systemd install",
+        description: "Install systemd service.",
         run: async ({ reply }) => {
           const message = handleSystemdInstall();
           await reply.system(message);
@@ -783,7 +806,8 @@ ${inFlightSessions ? `in-flight sessions:\n${inFlightSessions}` : ""}
       },
       {
         tokens: ["exit"],
-        help: "/service exit - Exit acpella.",
+        usage: "/service exit",
+        description: "Exit acpella.",
         run: async ({ reply }) => {
           await reply.system("Exiting acpella.");
           handler.stop();
@@ -794,7 +818,8 @@ ${inFlightSessions ? `in-flight sessions:\n${inFlightSessions}` : ""}
     cancel: [
       {
         tokens: [],
-        help: "/cancel - Cancel the active agent turn.",
+        usage: "/cancel",
+        description: "Cancel the active agent turn.",
         run: async ({ reply, sessionName }) => {
           const session = activeSessions.get(sessionName);
           if (!session) {

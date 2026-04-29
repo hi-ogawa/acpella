@@ -2,13 +2,15 @@ export type CommandTree<T> = Record<string, CommandSpec<T>[]>;
 
 type CommandSpec<T> = {
   tokens: string[];
-  help: string;
+  usage: string;
+  description: string;
   withArgs?: boolean;
   run: (context: CommandRunContext<T>) => Promise<void>;
 };
 
 type CommandRunContext<T> = T & {
   args: string[];
+  usage: string;
 };
 
 interface CommandHandlerOptions<T> {
@@ -50,6 +52,7 @@ export class CommandHandler<T> {
     await matched.command.run({
       ...context,
       args: matched.args,
+      usage: `Usage: ${matched.command.usage}`,
     });
     return true;
   }
@@ -98,7 +101,7 @@ function buildHelp(tree: CommandTree<any>) {
   for (const [command, subCommands] of Object.entries(tree)) {
     byCommand[command] = `\
 /${command}
-${subCommands.map((c) => `  ${c.help}`).join("\n")}
+${subCommands.map((c) => `  ${c.usage} - ${c.description}`).join("\n")}
 `;
   }
   const full = `\
