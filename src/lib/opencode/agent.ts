@@ -317,7 +317,6 @@ function toolUpdate(
   part: ToolPart,
   sessionUpdate: "tool_call" | "tool_call_update",
 ): SessionUpdate {
-  const title = "title" in part.state && part.state.title ? part.state.title : part.tool;
   let kind: ToolKind;
   switch (part.tool.toLowerCase()) {
     case "bash": {
@@ -354,7 +353,7 @@ function toolUpdate(
       return {
         sessionUpdate,
         toolCallId: part.callID,
-        title,
+        title: part.tool,
         kind,
         status: "pending",
         rawInput: part.state.input,
@@ -364,7 +363,7 @@ function toolUpdate(
       return {
         sessionUpdate,
         toolCallId: part.callID,
-        title,
+        title: part.state.title || part.tool,
         kind,
         status: "in_progress",
         rawInput: part.state.input,
@@ -374,7 +373,7 @@ function toolUpdate(
       return {
         sessionUpdate,
         toolCallId: part.callID,
-        title,
+        title: part.state.title,
         kind,
         status: "completed",
         rawInput: part.state.input,
@@ -395,7 +394,7 @@ function toolUpdate(
       return {
         sessionUpdate,
         toolCallId: part.callID,
-        title,
+        title: part.tool,
         kind,
         status: "failed",
         rawInput: part.state.input,
