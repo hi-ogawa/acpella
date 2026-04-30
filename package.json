@@ -11,8 +11,8 @@
   },
   "scripts": {
     "prepare": "vp config",
-    "cli": "node ./src/bin/cli.ts",
-    "dev": "node ./src/bin/cli.ts --env-file .env.dev",
+    "cli": "node ./src/bin/cli.js",
+    "dev": "node ./src/bin/cli.js --env-file .env.dev",
     "test": "vitest --project=unit",
     "test-ci": "CI=true vitest --project=unit --coverage",
     "test-codex": "vitest --project=codex",

@@ -128,7 +128,7 @@ test("basic", async () => {
       "defaultAgent": "test",
       "agents": {
         "test": {
-          "command": "node <cwd>/src/lib/test-agent.ts"
+          "command": "node <cwd>/src/bin/test-agent.js"
         }
       },
       "sessions": {
@@ -457,7 +457,7 @@ test("session context usage", async () => {
       "defaultAgent": "test",
       "agents": {
         "test": {
-          "command": "node <cwd>/src/lib/test-agent.ts"
+          "command": "node <cwd>/src/bin/test-agent.js"
         }
       },
       "sessions": {
@@ -551,7 +551,7 @@ test("agent command", async () => {
   `);
   expect(await session.request("/agent list")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    - test -> node <cwd>/src/lib/test-agent.ts (default)"
+    - test -> node <cwd>/src/bin/test-agent.js (default)"
   `);
   expect(await session.request("/agent new test-error no-such-command")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -590,7 +590,7 @@ test("agent command", async () => {
   `);
   expect(await session.request("/agent list")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    - test -> node <cwd>/src/lib/test-agent.ts (default)
+    - test -> node <cwd>/src/bin/test-agent.js (default)
     - test-error -> no-such-command"
   `);
   expect(await session.request(`/agent new test2 ${TEST_AGENT_COMMAND}`)).toMatchInlineSnapshot(`
@@ -649,10 +649,10 @@ test("agent command", async () => {
       "defaultAgent": "test2",
       "agents": {
         "test": {
-          "command": "node <cwd>/src/lib/test-agent.ts"
+          "command": "node <cwd>/src/bin/test-agent.js"
         },
         "test2": {
-          "command": "node <cwd>/src/lib/test-agent.ts"
+          "command": "node <cwd>/src/bin/test-agent.js"
         }
       },
       "sessions": {
@@ -688,10 +688,10 @@ test("agent command", async () => {
       "defaultAgent": "test2",
       "agents": {
         "test": {
-          "command": "node <cwd>/src/lib/test-agent.ts"
+          "command": "node <cwd>/src/bin/test-agent.js"
         },
         "test2": {
-          "command": "node <cwd>/src/lib/test-agent.ts"
+          "command": "node <cwd>/src/bin/test-agent.js"
         }
       },
       "sessions": {
@@ -745,7 +745,7 @@ test("state auto reloads external state file changes", async ({ onTestFinished }
   const session = tester.createSession("test");
   expect(await session.request("/agent list")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    - test -> node <cwd>/src/lib/test-agent.ts (default)"
+    - test -> node <cwd>/src/bin/test-agent.js (default)"
   `);
 
   writeJsonFile(tester.config.stateFile, {
@@ -762,7 +762,7 @@ test("state auto reloads external state file changes", async ({ onTestFinished }
   vi.advanceTimersByTime(1250);
   expect(await session.request("/agent list")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    - test -> node <cwd>/src/lib/test-agent.ts (default)
+    - test -> node <cwd>/src/bin/test-agent.js (default)
     - file-agent -> file-agent-command"
   `);
 
@@ -798,7 +798,7 @@ test("state auto reloads external state file changes", async ({ onTestFinished }
 
   expect(await session.request("/agent list")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    - test -> node <cwd>/src/lib/test-agent.ts (default)
+    - test -> node <cwd>/src/bin/test-agent.js (default)
     - file-agent -> file-agent-command"
   `);
 });
