@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 // Minimal ACP-compatible echo agent for testing.
 // Echoes back the prompt text as an agent_message_chunk.
 
