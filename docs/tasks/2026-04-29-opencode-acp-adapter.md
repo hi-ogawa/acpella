@@ -56,9 +56,30 @@ OpenCode's public SDK boundary is usable for third-party integration:
 - Published `@opencode-ai/sdk@1.14.29` exports `./v2`, `./v2/client`, `./v2/server`, and generated client/types.
 - `@opencode-ai/sdk/v2` exposes the APIs needed for the adapter experiment: `global.event`, `global.health`, `session.create`, `session.list`, `session.get`, `session.messages`, `session.prompt`, `session.promptAsync`, and `session.status`.
 - `createOpencodeServer({ port: 0 })` can spawn `opencode serve`, parse the server URL, and expose `{ url, close() }`.
-- The helper shells out to `opencode` on `PATH`, so this local experiment prepends `/home/hiroshi/.opencode/bin`.
+- The helper shells out to `opencode` on `PATH`, so the acpella service environment must include `/home/hiroshi/.opencode/bin`.
 - `global.event()` works from the SDK and carries session identity on normal session events.
 - `sync` events have a different shape (`payload.syncEvent`) and should not be treated as normal `payload.properties` events.
+
+Important server/process model correction:
+
+- Upstream `opencode acp` is already the OpenCode CLI process. It calls OpenCode source `Server.listen(...)` from inside that process and reuses one in-process HTTP server plus one SDK client until stdio/process exit.
+- This experimental adapter is a separate Node ACP process. Calling SDK `createOpencodeServer(...)` from this process spawns a child `opencode serve` process via `cross-spawn`.
+- Therefore the PATH issue came from `createOpencodeServer(...)` needing to locate the `opencode` executable, not from OpenCode's internal `Server.listen(...)`.
+- SDK `createOpencodeServer(...)` returns `close()`, which kills the spawned `opencode serve` process. If the adapter keeps a server across methods, it should explicitly close it on adapter/process shutdown.
+- Current implementation still starts and closes an SDK-created server per adapter method. That is correct enough for isolation but adds duplicated startup cost.
+
+Timing instrumentation is currently gated behind `OPENCODE_ACP_TIMING=1`. Latest representative test run showed:
+
+- `newSession`: server startup `2030ms` on a cold-ish run, `1123ms` on the next run; total `2217ms` / `1307ms`.
+- `listSessions`: server startup `1161ms`; total `1346ms`.
+- `loadSession`: server startup `1103ms`; total `1286ms`.
+- `prompt`: server startup `1144ms` / `1160ms`; first delta `2691ms` / `2699ms`; total `2925ms` / `2833ms` for `Say exactly: ok`.
+
+Compared with existing acpella ACP JSONL logs:
+
+- Existing `opencode-gpt` dogfood logs had first visible text median around `2901ms` over 66 turns, with wide variation depending on tool use and model work.
+- The prompt delta timing in this prototype is not obviously abnormal.
+- The suspicious overhead is duplicated SDK server startup across `loadSession` and `prompt`; a normal loaded acpella turn likely pays about `1.1s` in `loadSession` and another `1.1s` in `prompt` before model timing is considered.
 
 OpenCode's own ACP adapter uses OpenCode session IDs directly as ACP session IDs:
 
@@ -75,18 +96,20 @@ This is the direction this experiment should follow unless a concrete blocker ap
 
 - ACP initialization via `AgentSideConnection` and `ndJsonStream`.
 - `newSession` backed by real OpenCode `session.create`.
+- `loadSession` backed by real OpenCode `session.get`.
 - `listSessions` backed by real OpenCode `session.list`.
 - `prompt` backed by real OpenCode `session.prompt`.
-- Naive event-stream forwarding from OpenCode `message.part.delta` events to ACP `agent_message_chunk` updates.
-- Final response fallback using `session.prompt` returned parts.
+- Event-stream forwarding from OpenCode `message.part.delta` events to ACP `agent_message_chunk` and `agent_thought_chunk` updates.
+- Basic `tool_call`, `tool_call_update`, and `usage_update` mapping.
+- ACP `cancel` mapped to OpenCode `session.abort`.
+- A session-status lifecycle barrier that waits for busy-to-idle before returning `end_turn`.
+- Optional timing logs with `OPENCODE_ACP_TIMING=1` for method/server/prompt/event/delta phases.
 
 Still intentionally incomplete:
 
-- `loadSession` is still a no-op.
-- `cancel` is not wired to OpenCode abort semantics yet.
 - `closeSession` is still a no-op and is not a priority because acpella does not rely on it for the current dogfood path.
-- Prompt streaming is naive and not yet a correct completion-barrier implementation.
 - Permission flow, file edits, tool call fidelity, model picker/config, modes, MCP mapping, history replay, and resource/image/file blocks are out of scope for this early prototype.
+- SDK server/client lifetime is still per method; it should be moved to per adapter process before serious dogfooding.
 
 ## Important Harness Insight
 
@@ -113,33 +136,19 @@ The next iteration should focus on observing and tightening this path, not addin
 
 ## Remaining Tasks
 
-Recommended order:
+Recommended next order:
 
-1. Implement `loadSession`.
-   - Use `client.session.get({ sessionID: params.sessionId, directory: params.cwd })`.
-   - Store `{ cwd: params.cwd }` in the in-memory session map so subsequent `prompt` works after load.
-   - Add an ACP harness test that creates a real OpenCode session, loads it through a fresh `AgentManager`, and prompts through the loaded session.
+1. Change SDK server/client lifetime from per method to per adapter process.
+   - Start `createOpencodeServer(...)` lazily once on the `OpencodeAgent` instance.
+   - Reuse the returned client for `newSession`, `loadSession`, `listSessions`, `prompt`, and `cancel`.
+   - Keep passing `directory` per SDK call; cwd remains per session in the existing in-memory map.
+   - Add explicit cleanup for the SDK-created `opencode serve` child process when the ACP adapter process/transport exits.
 
-2. Implement `cancel`.
-   - Inspect the OpenCode SDK abort API first, likely `client.session.abort(...)`.
-   - Track active prompts by ACP/OpenCode session id.
-   - Wire ACP `cancel(params)` to abort the active OpenCode prompt and event stream.
+2. Rerun timing with `OPENCODE_ACP_TIMING=1`.
+   - Confirm loaded-session turn no longer pays separate server startup in both `loadSession` and `prompt`.
+   - Keep the instrumentation gated for now; remove or refine it before merging if it becomes noise.
 
-3. Map the acpella-visible session update types.
-   - `agent_message_chunk`: already started through `message.part.delta` text events.
-   - `agent_thought_chunk`: map OpenCode reasoning deltas/parts once the event shape is confirmed.
-   - `tool_call` / `tool_call_update`: map OpenCode tool part updates enough for acpella progress/logging visibility.
-   - `usage_update`: send usage after prompt completion, probably from the assistant message returned by `session.prompt` or a follow-up message fetch.
-
-4. Fix early `end_turn` / stream completion.
-   - Subscribe before `session.prompt`.
-   - Track emitted text per part id.
-   - Await `session.prompt`.
-   - Wait for either a real completion signal or a short event-idle window.
-   - Emit any missing final suffix from response parts without duplicating already streamed text.
-   - Only then return `end_turn`.
-
-5. Compare against upstream `opencode acp`.
+3. Compare against upstream `opencode acp`.
    - Once the barrier is credible, run prompts that previously showed truncation through both adapters.
    - Use acpella ACP trace logs to compare final text and update ordering.
 
