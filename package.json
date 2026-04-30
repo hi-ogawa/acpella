@@ -2,12 +2,12 @@
   "name": "acpella",
   "private": true,
   "bin": {
-    "acpella": "./src/bin/cli.ts"
+    "acpella": "./src/bin/cli.js"
   },
   "type": "module",
   "imports": {
-    "#cli": "./src/bin/cli.ts",
-    "#test-agent": "./src/lib/test-agent.ts"
+    "#cli": "./src/bin/cli.js",
+    "#test-agent": "./src/bin/test-agent.js"
   },
   "scripts": {
     "prepare": "vp config",
@@ -28,6 +28,7 @@
     "mdast-util-gfm": "^3.1.0",
     "micromark-extension-gfm": "^3.0.0",
     "temporal-polyfill": "^0.3.2",
+    "tsx": "^4.21.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
