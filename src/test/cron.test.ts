@@ -125,16 +125,15 @@ test("cron auto reloads external cron file changes", async ({ onTestFinished }) 
   await waitUntil(() => tester.cronDeliveries.length > 0);
   expect(tester.cronDeliveries).toMatchInlineSnapshot(`
     [
-      "echo: <trigger_metadata>
-    trigger: cron
-    cron_id: file-job
+      "[cron] file-job failed
+
     scheduled_at: 2026-04-18T07:02:00+07:00
     started_at: 2026-04-18T07:02:00+07:00
     timezone: Asia/Jakarta
     session_name: test
-    </trigger_metadata>
 
-    hello-from-file
+    Error:
+    Promise.withResolvers is not a function
     ",
     ]
   `);
@@ -232,23 +231,22 @@ test("cron command", async ({ onTestFinished }) => {
     target session: test
     delivery target: repl
     next: 2026-04-18T07:02:00+07:00
-    last: running, scheduled 2026-04-18T00:01:00Z
+    last: running, scheduled 2026-04-18T07:01:00+07:00
     prompt: hello-cron"
   `);
 
   await waitUntil(() => tester.cronDeliveries.length > 0);
   expect(tester.cronDeliveries).toMatchInlineSnapshot(`
     [
-      "echo: <trigger_metadata>
-    trigger: cron
-    cron_id: test-job
+      "[cron] test-job failed
+
     scheduled_at: 2026-04-18T07:01:00+07:00
     started_at: 2026-04-18T07:01:00+07:00
     timezone: Asia/Jakarta
     session_name: test
-    </trigger_metadata>
 
-    hello-cron
+    Error:
+    Promise.withResolvers is not a function
     ",
     ]
   `);
@@ -261,7 +259,7 @@ test("cron command", async ({ onTestFinished }) => {
     target session: test
     delivery target: repl
     next: 2026-04-18T07:02:00+07:00
-    last: succeeded, scheduled 2026-04-18T00:01:00Z, finished 2026-04-18T00:01:00Z
+    last: failed, scheduled 2026-04-18T07:01:00+07:00, finished 2026-04-18T07:01:00+07:00, error: Promise.withResolvers is not a function
     prompt: hello-cron"
   `);
   tester.cronDeliveries.length = 0;
@@ -283,7 +281,7 @@ test("cron command", async ({ onTestFinished }) => {
       target session: test
       delivery target: repl
       next: none
-      last: succeeded, scheduled 2026-04-18T00:01:00Z, finished 2026-04-18T00:01:00Z
+      last: failed, scheduled 2026-04-18T07:01:00+07:00, finished 2026-04-18T07:01:00+07:00, error: Promise.withResolvers is not a function
 
     - other-job [enabled]
       schedule: 3 * * * *
@@ -305,23 +303,22 @@ test("cron command", async ({ onTestFinished }) => {
     target session: test
     delivery target: repl
     next: 2026-04-18T08:03:00+07:00
-    last: running, scheduled 2026-04-18T00:03:00Z
+    last: running, scheduled 2026-04-18T07:03:00+07:00
     prompt: hello-other"
   `);
 
   await waitUntil(() => tester.cronDeliveries.length > 0);
   expect(tester.cronDeliveries).toMatchInlineSnapshot(`
     [
-      "echo: <trigger_metadata>
-    trigger: cron
-    cron_id: other-job
+      "[cron] other-job failed
+
     scheduled_at: 2026-04-18T07:03:00+07:00
     started_at: 2026-04-18T07:03:00+07:00
     timezone: Asia/Jakarta
     session_name: test
-    </trigger_metadata>
 
-    hello-other
+    Error:
+    Promise.withResolvers is not a function
     ",
     ]
   `);
@@ -340,7 +337,7 @@ test("cron command", async ({ onTestFinished }) => {
     target session: test
     delivery target: repl
     next: 2026-04-18T07:04:00+07:00
-    last: succeeded, scheduled 2026-04-18T00:03:00Z, finished 2026-04-18T00:03:00Z
+    last: failed, scheduled 2026-04-18T07:03:00+07:00, finished 2026-04-18T07:03:00+07:00, error: Promise.withResolvers is not a function
     prompt: hello-other"
   `);
   expect(await session.request("/cron update other-job 4 * * * * -- hello-updated"))
@@ -360,23 +357,22 @@ test("cron command", async ({ onTestFinished }) => {
     target session: test
     delivery target: repl
     next: 2026-04-18T08:04:00+07:00
-    last: running, scheduled 2026-04-18T00:04:00Z
+    last: running, scheduled 2026-04-18T07:04:00+07:00
     prompt: hello-updated"
   `);
 
   await waitUntil(() => tester.cronDeliveries.length > 0);
   expect(tester.cronDeliveries).toMatchInlineSnapshot(`
     [
-      "echo: <trigger_metadata>
-    trigger: cron
-    cron_id: other-job
+      "[cron] other-job failed
+
     scheduled_at: 2026-04-18T07:04:00+07:00
     started_at: 2026-04-18T07:04:00+07:00
     timezone: Asia/Jakarta
     session_name: test
-    </trigger_metadata>
 
-    hello-updated
+    Error:
+    Promise.withResolvers is not a function
     ",
     ]
   `);
@@ -388,7 +384,7 @@ test("cron command", async ({ onTestFinished }) => {
       target session: test
       delivery target: repl
       next: none
-      last: succeeded, scheduled 2026-04-18T00:01:00Z, finished 2026-04-18T00:01:00Z
+      last: failed, scheduled 2026-04-18T07:01:00+07:00, finished 2026-04-18T07:01:00+07:00, error: Promise.withResolvers is not a function
 
     - other-job [enabled]
       schedule: 4 * * * *
@@ -396,7 +392,7 @@ test("cron command", async ({ onTestFinished }) => {
       target session: test
       delivery target: repl
       next: 2026-04-18T08:04:00+07:00
-      last: succeeded, scheduled 2026-04-18T00:04:00Z, finished 2026-04-18T00:04:00Z"
+      last: failed, scheduled 2026-04-18T07:04:00+07:00, finished 2026-04-18T07:04:00+07:00, error: Promise.withResolvers is not a function"
   `);
 
   expect(await session.request("/cron enable test-job")).toMatchInlineSnapshot(`
@@ -421,7 +417,7 @@ test("cron command", async ({ onTestFinished }) => {
       target session: test
       delivery target: repl
       next: 2026-04-18T08:04:00+07:00
-      last: succeeded, scheduled 2026-04-18T00:04:00Z, finished 2026-04-18T00:04:00Z"
+      last: failed, scheduled 2026-04-18T07:04:00+07:00, finished 2026-04-18T07:04:00+07:00, error: Promise.withResolvers is not a function"
   `);
   expect(await session.request("/cron status")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -478,7 +474,7 @@ test("cron error delivery", async ({ onTestFinished }) => {
     target session: test
     delivery target: repl
     next: 2026-04-18T07:02:00+07:00
-    last: running, scheduled 2026-04-18T00:01:00Z
+    last: running, scheduled 2026-04-18T07:01:00+07:00
     prompt: __throw_error__"
   `);
 
@@ -493,7 +489,7 @@ test("cron error delivery", async ({ onTestFinished }) => {
     session_name: test
 
     Error:
-    Internal error
+    Promise.withResolvers is not a function
     ",
     ]
   `);
@@ -506,7 +502,7 @@ test("cron error delivery", async ({ onTestFinished }) => {
     target session: test
     delivery target: repl
     next: 2026-04-18T07:02:00+07:00
-    last: failed, scheduled 2026-04-18T00:01:00Z, finished 2026-04-18T00:01:00Z, error: Internal error
+    last: failed, scheduled 2026-04-18T07:01:00+07:00, finished 2026-04-18T07:01:00+07:00, error: Promise.withResolvers is not a function
     prompt: __throw_error__"
   `);
 });

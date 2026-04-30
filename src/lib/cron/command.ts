@@ -68,7 +68,7 @@ timezone: ${job.timezone}
 target session: ${job.target.sessionName}
 delivery target: ${formatDeliveryTarget(job.target.delivery)}
 next: ${formatCronNext(job)}
-last: ${formatCronLastRun(latestRun)}
+last: ${formatCronLastRun(latestRun, job.timezone)}
 prompt: ${job.prompt}
 `;
 }
@@ -81,7 +81,7 @@ function renderCronListItem(job: CronJob, latestRun: CronRun | undefined): strin
   target session: ${job.target.sessionName}
   delivery target: ${formatDeliveryTarget(job.target.delivery)}
   next: ${formatCronNext(job)}
-  last: ${formatCronLastRun(latestRun)}
+  last: ${formatCronLastRun(latestRun, job.timezone)}
 `;
 }
 
@@ -119,13 +119,14 @@ function formatCronNext(job: CronJob): string {
   }
 }
 
-function formatCronLastRun(run: CronRun | undefined): string {
+function formatCronLastRun(run: CronRun | undefined, timezone: string): string {
   if (!run) {
     return "none";
   }
-  let output = `${run.status}, scheduled ${run.scheduledAt}`;
+  const scheduledAt = formatTime(Temporal.Instant.from(run.scheduledAt), timezone);
+  let output = `${run.status}, scheduled ${scheduledAt}`;
   if (run.finishedAt) {
-    output += `, finished ${run.finishedAt}`;
+    output += `, finished ${formatTime(Temporal.Instant.from(run.finishedAt), timezone)}`;
   }
   if (run.error) {
     output += `, error: ${run.error}`;
