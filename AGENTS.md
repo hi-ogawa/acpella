@@ -39,7 +39,6 @@ Task docs should enable **handoff to a fresh agent** - include enough context to
 - Prefer optional properties (`{ x?: T }`) over explicit undefined (`{ x: T | undefined }`)
 - Make props/params required when all call sites always pass them
 - Prefer a single options object over multiple primitive arguments (e.g. `fn({ a, b })` not `fn(a, b)`)
-- Import with `.ts` extensions (NodeNext resolution)
 - Use braces for every `switch` case body (`case "x": { ... }`, `default: { ... }`)
 - When changing setup, CLI commands, service management, session routing, agent registration, customization, cron, or troubleshooting behavior, check whether `README.md` and `skills/acpella` need matching updates.
 - Do not update existing `docs/tasks/*` notes just to reflect code refactors unless explicitly asked.
