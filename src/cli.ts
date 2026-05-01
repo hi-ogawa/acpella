@@ -103,28 +103,20 @@ ${CLI_HELP}`);
     // docs/tasks/2026-04-19-agent-session-service-architecture.md
     getCronRunner: () => cronRunner,
   });
-  handler.start();
 
-  function cleanup() {
-    handler.stop();
-    cronRunner.stop();
-  }
+  await using cleanup = new AsyncDisposableStack();
+  cleanup.defer(() => cronRunner.stop());
+
+  handler.start();
+  cleanup.defer(() => handler.stop());
 
   if (cli.command === "repl") {
-    try {
-      await startRepl({ config, handler, version });
-    } finally {
-      cleanup();
-    }
+    await startRepl({ config, handler, version });
     return;
   }
 
   if (cli.command === "exec") {
-    try {
-      await runExec({ handler, text: cli.args.join(" ") });
-    } finally {
-      cleanup();
-    }
+    await runExec({ handler, text: cli.args.join(" ") });
     return;
   }
 
@@ -281,11 +273,8 @@ ${CLI_HELP}`);
       concurrency: 5,
     },
   });
-  try {
-    await runner.task();
-  } finally {
-    cleanup();
-  }
+  cleanup.defer(() => runner.stop());
+  await runner.task();
 }
 
 async function startRepl({
