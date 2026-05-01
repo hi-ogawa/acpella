@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 // Minimal ACP-compatible echo agent for testing.
 // Echoes back the prompt text as an agent_message_chunk.
 
@@ -30,7 +28,7 @@ import {
   type CancelNotification,
 } from "@agentclientprotocol/sdk";
 import { z } from "zod";
-import { readJsonFile } from "../utils/fs.ts";
+import { readJsonFile } from "../../utils/fs.ts";
 
 const testAgentStateSchema = z.object({
   nextSessionNumber: z.number().int().min(1),
