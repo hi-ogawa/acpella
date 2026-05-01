@@ -3,12 +3,12 @@
   "private": true,
   "bin": {
     "acpella": "./src/bin/cli.js",
-    "acpella-opencode-acp": "./src/bin/opencode-acp.ts"
+    "acpella-opencode-acp": "./src/bin/opencode-acp.js"
   },
   "type": "module",
   "imports": {
     "#cli": "./src/bin/cli.js",
-    "#opencode-acp": "./src/bin/opencode-acp.ts",
+    "#opencode-acp": "./src/bin/opencode-acp.js",
     "#test-agent": "./src/bin/test-agent.js"
   },
   "scripts": {
