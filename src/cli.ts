@@ -105,26 +105,17 @@ ${CLI_HELP}`);
   });
   handler.start();
 
-  function cleanup() {
-    handler.stop();
-    cronRunner.stop();
-  }
+  await using cleanup = new AsyncDisposableStack();
+  cleanup.defer(() => handler.stop());
+  cleanup.defer(() => cronRunner.stop());
 
   if (cli.command === "repl") {
-    try {
-      await startRepl({ config, handler, version });
-    } finally {
-      cleanup();
-    }
+    await startRepl({ config, handler, version });
     return;
   }
 
   if (cli.command === "exec") {
-    try {
-      await runExec({ handler, text: cli.args.join(" ") });
-    } finally {
-      cleanup();
-    }
+    await runExec({ handler, text: cli.args.join(" ") });
     return;
   }
 
@@ -275,17 +266,13 @@ ${CLI_HELP}`);
   console.log(`Starting service (version: ${version}, home: ${config.home})`);
 
   cronRunner.start();
-  const runner = run(bot, {
+  const botRunner = run(bot, {
     sink: {
       // @grammyjs/runner defaults to 500; keep acpella conservative because prompts spawn child agents.
       concurrency: 5,
     },
   });
-  try {
-    await runner.task();
-  } finally {
-    cleanup();
-  }
+  await botRunner.task();
 }
 
 async function startRepl({
