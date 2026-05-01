@@ -35,7 +35,7 @@ test("cli error", async () => {
   `);
 });
 
-test("serve fails without telegram env", async () => {
+test("serve fails without telegram env", async ({ onTestFinished }) => {
   const cli = useCli();
   expect(process.env.ACPELLA_TELEGRAM_BOT_TOKEN).toBe(undefined);
   await expect(cli.cli("serve").catch(sanitizeCliError)).resolves
@@ -44,6 +44,10 @@ test("serve fails without telegram env", async () => {
     Error: ACPELLA_TELEGRAM_BOT_TOKEN is required"
   `);
   process.env.ACPELLA_TELEGRAM_BOT_TOKEN = "ok";
+  onTestFinished(() => {
+    delete process.env.ACPELLA_TELEGRAM_BOT_TOKEN;
+  });
+  expect(process.env.ACPELLA_TELEGRAM_ALLOWED_USER_IDS).toBe(undefined);
   await expect(cli.cli("serve").catch(sanitizeCliError)).resolves
     .toThrowErrorMatchingInlineSnapshot(`
       "Command failed: pnpm -s dev serve
