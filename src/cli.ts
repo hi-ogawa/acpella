@@ -103,12 +103,11 @@ ${CLI_HELP}`);
     // docs/tasks/2026-04-19-agent-session-service-architecture.md
     getCronRunner: () => cronRunner,
   });
+  handler.start();
 
   await using cleanup = new AsyncDisposableStack();
-  cleanup.defer(() => cronRunner.stop());
-
-  handler.start();
   cleanup.defer(() => handler.stop());
+  cleanup.defer(() => cronRunner.stop());
 
   if (cli.command === "repl") {
     await startRepl({ config, handler, version });
