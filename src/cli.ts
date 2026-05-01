@@ -266,14 +266,13 @@ ${CLI_HELP}`);
   console.log(`Starting service (version: ${version}, home: ${config.home})`);
 
   cronRunner.start();
-  const runner = run(bot, {
+  const botRunner = run(bot, {
     sink: {
       // @grammyjs/runner defaults to 500; keep acpella conservative because prompts spawn child agents.
       concurrency: 5,
     },
   });
-  cleanup.defer(() => runner.stop());
-  await runner.task();
+  await botRunner.task();
 }
 
 async function startRepl({
