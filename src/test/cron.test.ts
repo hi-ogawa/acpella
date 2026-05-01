@@ -232,7 +232,7 @@ test("cron command", async ({ onTestFinished }) => {
     target session: test
     delivery target: repl
     next: 2026-04-18T07:02:00+07:00
-    last: running, scheduled 2026-04-18T00:01:00Z
+    last: running, scheduled 2026-04-18T07:01:00+07:00
     prompt: hello-cron"
   `);
 
@@ -261,7 +261,7 @@ test("cron command", async ({ onTestFinished }) => {
     target session: test
     delivery target: repl
     next: 2026-04-18T07:02:00+07:00
-    last: succeeded, scheduled 2026-04-18T00:01:00Z, finished 2026-04-18T00:01:00Z
+    last: succeeded, scheduled 2026-04-18T07:01:00+07:00, finished 2026-04-18T07:01:00+07:00
     prompt: hello-cron"
   `);
   tester.cronDeliveries.length = 0;
@@ -283,7 +283,7 @@ test("cron command", async ({ onTestFinished }) => {
       target session: test
       delivery target: repl
       next: none
-      last: succeeded, scheduled 2026-04-18T00:01:00Z, finished 2026-04-18T00:01:00Z
+      last: succeeded, scheduled 2026-04-18T07:01:00+07:00, finished 2026-04-18T07:01:00+07:00
 
     - other-job [enabled]
       schedule: 3 * * * *
@@ -305,7 +305,7 @@ test("cron command", async ({ onTestFinished }) => {
     target session: test
     delivery target: repl
     next: 2026-04-18T08:03:00+07:00
-    last: running, scheduled 2026-04-18T00:03:00Z
+    last: running, scheduled 2026-04-18T07:03:00+07:00
     prompt: hello-other"
   `);
 
@@ -340,7 +340,7 @@ test("cron command", async ({ onTestFinished }) => {
     target session: test
     delivery target: repl
     next: 2026-04-18T07:04:00+07:00
-    last: succeeded, scheduled 2026-04-18T00:03:00Z, finished 2026-04-18T00:03:00Z
+    last: succeeded, scheduled 2026-04-18T07:03:00+07:00, finished 2026-04-18T07:03:00+07:00
     prompt: hello-other"
   `);
   expect(await session.request("/cron update other-job 4 * * * * -- hello-updated"))
@@ -360,7 +360,7 @@ test("cron command", async ({ onTestFinished }) => {
     target session: test
     delivery target: repl
     next: 2026-04-18T08:04:00+07:00
-    last: running, scheduled 2026-04-18T00:04:00Z
+    last: running, scheduled 2026-04-18T07:04:00+07:00
     prompt: hello-updated"
   `);
 
@@ -388,7 +388,7 @@ test("cron command", async ({ onTestFinished }) => {
       target session: test
       delivery target: repl
       next: none
-      last: succeeded, scheduled 2026-04-18T00:01:00Z, finished 2026-04-18T00:01:00Z
+      last: succeeded, scheduled 2026-04-18T07:01:00+07:00, finished 2026-04-18T07:01:00+07:00
 
     - other-job [enabled]
       schedule: 4 * * * *
@@ -396,7 +396,7 @@ test("cron command", async ({ onTestFinished }) => {
       target session: test
       delivery target: repl
       next: 2026-04-18T08:04:00+07:00
-      last: succeeded, scheduled 2026-04-18T00:04:00Z, finished 2026-04-18T00:04:00Z"
+      last: succeeded, scheduled 2026-04-18T07:04:00+07:00, finished 2026-04-18T07:04:00+07:00"
   `);
 
   expect(await session.request("/cron enable test-job")).toMatchInlineSnapshot(`
@@ -421,7 +421,7 @@ test("cron command", async ({ onTestFinished }) => {
       target session: test
       delivery target: repl
       next: 2026-04-18T08:04:00+07:00
-      last: succeeded, scheduled 2026-04-18T00:04:00Z, finished 2026-04-18T00:04:00Z"
+      last: succeeded, scheduled 2026-04-18T07:04:00+07:00, finished 2026-04-18T07:04:00+07:00"
   `);
   expect(await session.request("/cron status")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -478,7 +478,7 @@ test("cron error delivery", async ({ onTestFinished }) => {
     target session: test
     delivery target: repl
     next: 2026-04-18T07:02:00+07:00
-    last: running, scheduled 2026-04-18T00:01:00Z
+    last: running, scheduled 2026-04-18T07:01:00+07:00
     prompt: __throw_error__"
   `);
 
@@ -506,7 +506,7 @@ test("cron error delivery", async ({ onTestFinished }) => {
     target session: test
     delivery target: repl
     next: 2026-04-18T07:02:00+07:00
-    last: failed, scheduled 2026-04-18T00:01:00Z, finished 2026-04-18T00:01:00Z, error: Internal error
+    last: failed, scheduled 2026-04-18T07:01:00+07:00, finished 2026-04-18T07:01:00+07:00, error: Internal error
     prompt: __throw_error__"
   `);
 });
@@ -547,7 +547,7 @@ test("cron suppresses NO_REPLY delivery", async ({ onTestFinished }) => {
     target session: test
     delivery target: repl
     next: 2026-04-18T07:02:00+07:00
-    last: succeeded, scheduled 2026-04-18T00:01:00Z, finished 2026-04-18T00:01:00Z
+    last: succeeded, scheduled 2026-04-18T07:01:00+07:00, finished 2026-04-18T07:01:00+07:00
     prompt: __raw:NO_REPLY"
   `);
   expect(tester.cronDeliveries).toMatchInlineSnapshot(`[]`);
