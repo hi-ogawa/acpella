@@ -123,10 +123,10 @@ function formatCronLastRun(run: CronRun | undefined, timezone: string): string {
   if (!run) {
     return "none";
   }
-  const scheduledAt = formatTime(Temporal.Instant.from(run.scheduledAt), timezone);
+  const scheduledAt = formatTime(Date.parse(run.scheduledAt), timezone);
   let output = `${run.status}, scheduled ${scheduledAt}`;
   if (run.finishedAt) {
-    output += `, finished ${formatTime(Temporal.Instant.from(run.finishedAt), timezone)}`;
+    output += `, finished ${formatTime(Date.parse(run.finishedAt), timezone)}`;
   }
   if (run.error) {
     output += `, error: ${run.error}`;
