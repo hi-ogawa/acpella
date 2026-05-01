@@ -2,19 +2,19 @@
   "name": "acpella",
   "private": true,
   "bin": {
-    "acpella": "./src/bin/cli.ts",
+    "acpella": "./src/bin/cli.js",
     "acpella-opencode-acp": "./src/bin/opencode-acp.ts"
   },
   "type": "module",
   "imports": {
-    "#cli": "./src/bin/cli.ts",
+    "#cli": "./src/bin/cli.js",
     "#opencode-acp": "./src/bin/opencode-acp.ts",
-    "#test-agent": "./src/lib/test-agent.ts"
+    "#test-agent": "./src/bin/test-agent.js"
   },
   "scripts": {
     "prepare": "vp config",
-    "cli": "node ./src/bin/cli.ts",
-    "dev": "node ./src/bin/cli.ts --env-file .env.dev",
+    "cli": "node ./src/bin/cli.js",
+    "dev": "node ./src/bin/cli.js --env-file .env.dev",
     "test": "vitest --project=unit",
     "test-ci": "CI=true vitest --project=unit --coverage",
     "test-codex": "vitest --project=codex",
@@ -32,6 +32,7 @@
     "mdast-util-gfm": "^3.1.0",
     "micromark-extension-gfm": "^3.0.0",
     "temporal-polyfill": "^0.3.2",
+    "tsx": "^4.21.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
