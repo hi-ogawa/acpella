@@ -35,6 +35,22 @@ test("cli error", async () => {
   `);
 });
 
+test("serve fails without telegram env", async () => {
+  const cli = useCli();
+  expect(process.env.ACPELLA_TELEGRAM_BOT_TOKEN).toBe(undefined);
+  await expect(cli.cli("serve").catch(sanitizeCliError)).resolves
+    .toThrowErrorMatchingInlineSnapshot(`
+    "Command failed: pnpm -s dev serve
+    Error: ACPELLA_TELEGRAM_BOT_TOKEN is required"
+  `);
+  process.env.ACPELLA_TELEGRAM_BOT_TOKEN = "ok";
+  await expect(cli.cli("serve").catch(sanitizeCliError)).resolves
+    .toThrowErrorMatchingInlineSnapshot(`
+      "Command failed: pnpm -s dev serve
+      Error: ACPELLA_TELEGRAM_ALLOWED_USER_IDS must be non-empty"
+    `);
+});
+
 describe("repl", () => {
   test("basic", async () => {
     const service = startService();
