@@ -63,10 +63,10 @@ it("loadSession", async () => {
 function textFromUpdates(updates: SessionUpdate[]) {
   return updates
     .map((update) => {
-      if (update.sessionUpdate !== "agent_message_chunk" || update.content.type !== "text") {
-        return "";
+      if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
+        return update.content.text;
       }
-      return update.content.text;
+      return "";
     })
     .join("");
 }
