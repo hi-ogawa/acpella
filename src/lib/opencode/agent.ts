@@ -154,15 +154,13 @@ class OpencodeAgent implements Agent {
         if (payload.type === "session.compacted") {
           const props = payload.properties;
           if (props.sessionID === params.sessionId) {
-            // TODO: surface compaction
-            // await this.connection.sessionUpdate({
-            //   sessionId: params.sessionId,
-            //   update: {
-            //     sessionUpdate: "usage_update",
-            //     used: 0,
-            //     size: 0,
-            //   },
-            // });
+            await this.connection.sessionUpdate({
+              sessionId: params.sessionId,
+              update: {
+                sessionUpdate: "agent_message_chunk",
+                content: { type: "text", text: "\n\n== session.compacted ==\n\n" },
+              },
+            });
           }
           continue;
         }
@@ -176,8 +174,6 @@ class OpencodeAgent implements Agent {
               messagePartTypes.set(`${props.part.messageID}:${props.part.id}`, props.part.type);
             } else if (props.part.type === "reasoning") {
               messagePartTypes.set(`${props.part.messageID}:${props.part.id}`, props.part.type);
-            } else if (props.part.type === "compaction") {
-              // TODO
             }
           }
           continue;
