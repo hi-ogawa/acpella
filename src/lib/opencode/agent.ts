@@ -93,7 +93,6 @@ class OpencodeAgent implements Agent {
       throw new Error(`unknown session: ${params.sessionId}`);
     }
 
-    // setup SSE client to listen to session updates
     await using opencode = await createOpencodeClientContext({ cwd: session.cwd });
 
     let lifecycleStarted = false;
@@ -102,6 +101,7 @@ class OpencodeAgent implements Agent {
     const messagePartTypes = new Map<string, Part["type"]>();
     const toolCallIds = new Set<string>();
 
+    // define prompt loop event handler
     const handleEvent = async (event: GlobalEvent) => {
       const payload = event.payload;
       if (payload.type === "session.status" && payload.properties.sessionID === params.sessionId) {
@@ -181,9 +181,9 @@ class OpencodeAgent implements Agent {
       }
     };
 
+    // start event subscription
     const abort = new AbortController();
     const subscription = await opencode.client.global.event({ signal: abort.signal });
-
     const reader = (async () => {
       for await (const event of subscription.stream) {
         await handleEvent(event);
