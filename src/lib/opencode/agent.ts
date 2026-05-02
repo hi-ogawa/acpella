@@ -121,66 +121,69 @@ class OpencodeAgent implements Agent {
     const reader = (async () => {
       for await (const event of subscription.stream) {
         const payload = event.payload;
-        if (payload.type === "session.status") {
+        if (
+          payload.type === "session.status" &&
+          payload.properties.sessionID === params.sessionId
+        ) {
           const props = payload.properties;
-          if (props.sessionID === params.sessionId) {
-            if (props.status.type === "busy") {
-              sawBusy = true;
-            }
-            if (props.status.type === "idle" && sawBusy) {
-              lifecycle.resolve();
-            }
+          if (props.status.type === "busy") {
+            sawBusy = true;
+          }
+          if (props.status.type === "idle" && sawBusy) {
+            lifecycle.resolve();
           }
           continue;
         }
 
-        if (payload.type === "session.compacted") {
+        if (
+          payload.type === "session.compacted" &&
+          payload.properties.sessionID === params.sessionId
+        ) {
+          await this.connection.sessionUpdate({
+            sessionId: params.sessionId,
+            update: {
+              sessionUpdate: "agent_message_chunk",
+              content: { type: "text", text: "" },
+              _meta: {
+                "acpella.opencode": {
+                  "session.compacted": true,
+                },
+              },
+            },
+          });
+          continue;
+        }
+
+        if (
+          payload.type === "message.part.updated" &&
+          payload.properties.sessionID === params.sessionId
+        ) {
           const props = payload.properties;
-          if (props.sessionID === params.sessionId) {
+          const part = props.part;
+          if (part.type === "tool") {
+            await sendToolUpdate(part);
+          } else if (part.type === "text" || part.type === "reasoning") {
+            messagePartTypes.set(`${part.messageID}:${part.id}`, part.type);
+          }
+          continue;
+        }
+
+        if (
+          payload.type === "message.part.delta" &&
+          payload.properties.sessionID === params.sessionId
+        ) {
+          const props = payload.properties;
+          const partType = messagePartTypes.get(`${props.messageID}:${props.partID}`);
+          if (partType) {
             await this.connection.sessionUpdate({
               sessionId: params.sessionId,
               update: {
-                sessionUpdate: "agent_message_chunk",
-                content: { type: "text", text: "" },
-                _meta: {
-                  "acpella.opencode": {
-                    "session.compacted": true,
-                  },
-                },
+                sessionUpdate:
+                  partType === "reasoning" ? "agent_thought_chunk" : "agent_message_chunk",
+                messageId: props.messageID,
+                content: { type: "text", text: props.delta },
               },
             });
-          }
-          continue;
-        }
-
-        if (payload.type === "message.part.updated") {
-          const props = payload.properties;
-          if (props.sessionID === params.sessionId) {
-            const part = props.part;
-            if (part.type === "tool") {
-              await sendToolUpdate(part);
-            } else if (part.type === "text" || part.type === "reasoning") {
-              messagePartTypes.set(`${part.messageID}:${part.id}`, part.type);
-            }
-          }
-          continue;
-        }
-
-        if (payload.type === "message.part.delta") {
-          const props = payload.properties;
-          if (props.sessionID === params.sessionId) {
-            const partType = messagePartTypes.get(`${props.messageID}:${props.partID}`);
-            if (partType) {
-              await this.connection.sessionUpdate({
-                sessionId: params.sessionId,
-                update: {
-                  sessionUpdate:
-                    partType === "reasoning" ? "agent_thought_chunk" : "agent_message_chunk",
-                  messageId: props.messageID,
-                  content: { type: "text", text: props.delta },
-                },
-              });
-            }
           }
         }
       }
