@@ -95,11 +95,12 @@ class OpencodeAgent implements Agent {
     // setup SSE client to listen to session updates
     await using opencode = await createOpencodeClientContext({ cwd: session.cwd });
 
-    const abort = new AbortController();
-    const startedTools = new Set<string>();
-    const messagePartTypes = new Map<string, Part["type"]>();
-    let sawBusy = false;
+    let lifecycleStarted = false;
     const lifecycle = Promise.withResolvers<void>();
+
+    const messagePartTypes = new Map<string, Part["type"]>();
+
+    const startedTools = new Set<string>();
     const sendToolUpdate = async (part: ToolPart) => {
       const sessionUpdate = (() => {
         if (!startedTools.has(part.callID)) {
@@ -117,7 +118,9 @@ class OpencodeAgent implements Agent {
       });
     };
 
+    const abort = new AbortController();
     const subscription = await opencode.client.global.event({ signal: abort.signal });
+
     const reader = (async () => {
       for await (const event of subscription.stream) {
         const payload = event.payload;
@@ -127,9 +130,9 @@ class OpencodeAgent implements Agent {
         ) {
           const props = payload.properties;
           if (props.status.type === "busy") {
-            sawBusy = true;
+            lifecycleStarted = true;
           }
-          if (props.status.type === "idle" && sawBusy) {
+          if (props.status.type === "idle" && lifecycleStarted) {
             lifecycle.resolve();
           }
           continue;
@@ -158,8 +161,7 @@ class OpencodeAgent implements Agent {
           payload.type === "message.part.updated" &&
           payload.properties.sessionID === params.sessionId
         ) {
-          const props = payload.properties;
-          const part = props.part;
+          const part = payload.properties.part;
           if (part.type === "tool") {
             await sendToolUpdate(part);
           } else if (part.type === "text" || part.type === "reasoning") {
