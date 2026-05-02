@@ -209,7 +209,7 @@ class OpencodeAgent implements Agent {
     });
 
     try {
-      const response = await opencode.client.session.prompt(
+      await opencode.client.session.prompt(
         {
           sessionID: params.sessionId,
           directory: session.cwd,
@@ -217,18 +217,14 @@ class OpencodeAgent implements Agent {
         },
         { throwOnError: true },
       );
-
       await lifecycle.promise;
-      const info = response.data.info;
-      const used = info.tokens.input + info.tokens.cache.read;
-      const total = used + info.tokens.output + info.tokens.reasoning;
       await this.connection.sessionUpdate({
         sessionId: params.sessionId,
         update: {
           sessionUpdate: "usage_update",
           // TODO
-          used,
-          size: Math.max(used, total),
+          used: 0,
+          size: 0,
         },
       });
     } finally {
