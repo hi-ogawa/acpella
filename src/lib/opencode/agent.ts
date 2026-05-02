@@ -215,19 +215,20 @@ class OpencodeAgent implements Agent {
         { throwOnError: true },
       );
       await lifecycle.promise;
-      await this.connection.sessionUpdate({
-        sessionId: params.sessionId,
-        update: {
-          sessionUpdate: "usage_update",
-          // TODO
-          used: 0,
-          size: 0,
-        },
-      });
     } finally {
       abort.abort();
       await reader;
     }
+
+    await this.connection.sessionUpdate({
+      sessionId: params.sessionId,
+      update: {
+        sessionUpdate: "usage_update",
+        // TODO
+        used: 0,
+        size: 0,
+      },
+    });
 
     return { stopReason: "end_turn" };
   }
