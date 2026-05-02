@@ -306,7 +306,6 @@ class OpencodeAgent implements Agent {
               // TODO
               used,
               size: Math.max(used, total),
-              cost: { amount: info.cost, currency: "USD" },
             },
           });
           timing.mark("usage_update_sent", { used, total, cost: info.cost });
