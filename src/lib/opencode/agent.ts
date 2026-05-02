@@ -1,4 +1,5 @@
 import { Readable, Writable } from "node:stream";
+import { parseArgs } from "node:util";
 import {
   AgentSideConnection,
   ndJsonStream,
@@ -30,22 +31,25 @@ import {
 
 type OpencodeServer = Awaited<ReturnType<typeof createOpencodeServer>>;
 
-class OpencodeAgent implements Agent {
-  private connection: AgentSideConnection;
+type OpencodeAcpAgentOptions = {
+  model?: string;
+};
+
+class OpencodeAcpAgent implements Agent {
   private server?: OpencodeServer;
   private sessions = new Map<string, Session>();
 
-  constructor(connection: AgentSideConnection) {
-    this.connection = connection;
-  }
+  constructor(
+    private connection: AgentSideConnection,
+    private options: OpencodeAcpAgentOptions,
+  ) {}
 
   private async getServer(): Promise<OpencodeServer> {
     this.server ??= await createOpencodeServer({
       port: 0,
       timeout: 10000,
-      // TODO: support model via cli args
       config: {
-        model: undefined,
+        model: this.options.model,
       },
     });
     return this.server;
@@ -344,10 +348,30 @@ function formatToolCall(part: ToolPart): ToolCall {
 }
 
 function main() {
+  const parsed = parseArgs({
+    args: process.argv.slice(2),
+    options: {
+      help: { type: "boolean" },
+      model: { type: "string" },
+    },
+    strict: true,
+    allowPositionals: false,
+  });
+  if (parsed.values.help) {
+    console.log(`\
+Usage: acpella-opencode-acp [--model <provider/model>]
+
+Options:
+  --model <provider/model>  Model to use. Example: "openai/gpt-5.5". You can list by running "opencode models".
+  --help                    Show this help
+`);
+    return;
+  }
+
   const input = Writable.toWeb(process.stdout);
   const output = Readable.toWeb(process.stdin) as ReadableStream<Uint8Array>;
   const stream = ndJsonStream(input, output);
-  new AgentSideConnection((conn) => new OpencodeAgent(conn), stream);
+  new AgentSideConnection((conn) => new OpencodeAcpAgent(conn, parsed.values), stream);
 }
 
 main();
