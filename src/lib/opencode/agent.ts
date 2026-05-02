@@ -24,6 +24,7 @@ import {
   type GlobalEvent,
   type OpencodeClient,
   type Part,
+  type Session,
   type ToolPart,
 } from "@opencode-ai/sdk/v2";
 
@@ -32,7 +33,7 @@ type OpencodeServer = Awaited<ReturnType<typeof createOpencodeServer>>;
 class OpencodeAgent implements Agent {
   private connection: AgentSideConnection;
   private server?: OpencodeServer;
-  private sessions = new Map<string, { cwd: string }>();
+  private sessions = new Map<string, Session>();
 
   constructor(connection: AgentSideConnection) {
     this.connection = connection;
@@ -50,9 +51,9 @@ class OpencodeAgent implements Agent {
     return this.server;
   }
 
-  private async createClient({ cwd }: { cwd: string }): Promise<OpencodeClient> {
+  private async createClient({ directory }: { directory: string }): Promise<OpencodeClient> {
     const server = await this.getServer();
-    return createOpencodeClient({ baseUrl: server.url, directory: cwd });
+    return createOpencodeClient({ baseUrl: server.url, directory });
   }
 
   async initialize(_params: InitializeRequest): Promise<InitializeResponse> {
@@ -63,32 +64,35 @@ class OpencodeAgent implements Agent {
   }
 
   async newSession(params: NewSessionRequest): Promise<NewSessionResponse> {
-    const client = await this.createClient({ cwd: params.cwd });
-    const session = await client.session
-      .create({ directory: params.cwd, title: "Acpella OpenCode ACP" }, { throwOnError: true })
-      .then((response) => response.data!);
-    this.sessions.set(session.id, { cwd: params.cwd });
-    return { sessionId: session.id };
+    const client = await this.createClient({ directory: params.cwd });
+    const session = await client.session.create(
+      { directory: params.cwd, title: "Acpella OpenCode ACP" },
+      { throwOnError: true },
+    );
+    const sessionId = session.data.id;
+    this.sessions.set(sessionId, session.data);
+    return { sessionId };
   }
 
   async loadSession(params: LoadSessionRequest): Promise<LoadSessionResponse> {
-    const client = await this.createClient({ cwd: params.cwd });
-    await client.session.get(
+    const client = await this.createClient({ directory: params.cwd });
+    const session = await client.session.get(
       { sessionID: params.sessionId, directory: params.cwd },
       { throwOnError: true },
     );
-    this.sessions.set(params.sessionId, { cwd: params.cwd });
+    this.sessions.set(params.sessionId, session.data);
     return {};
   }
 
   async listSessions(params: ListSessionsRequest): Promise<ListSessionsResponse> {
     const cwd = params.cwd ?? process.cwd();
-    const client = await this.createClient({ cwd });
-    const sessions = await client.session
-      .list({ directory: cwd, roots: true }, { throwOnError: true })
-      .then((response) => response.data ?? []);
+    const client = await this.createClient({ directory: cwd });
+    const sessions = await client.session.list(
+      { directory: cwd, roots: true },
+      { throwOnError: true },
+    );
     return {
-      sessions: sessions.map((session) => ({
+      sessions: sessions.data.map((session) => ({
         sessionId: session.id,
         cwd: session.directory,
         title: session.title,
@@ -103,7 +107,7 @@ class OpencodeAgent implements Agent {
       throw new Error(`unknown session: ${params.sessionId}`);
     }
 
-    const client = await this.createClient({ cwd: session.cwd });
+    const client = await this.createClient({ directory: session.directory });
 
     let lifecycleStarted = false;
     const lifecycle = Promise.withResolvers<void>();
@@ -216,7 +220,7 @@ class OpencodeAgent implements Agent {
     const promptResponsePromise = client.session.prompt(
       {
         sessionID: params.sessionId,
-        directory: session.cwd,
+        directory: session.directory,
         parts: promptParts.map((text) => ({ type: "text", text })),
       },
       { throwOnError: true },
@@ -234,7 +238,7 @@ class OpencodeAgent implements Agent {
     // send usage update
     try {
       const messages = await client.session.messages(
-        { sessionID: params.sessionId, directory: session.cwd },
+        { sessionID: params.sessionId, directory: session.directory },
         { throwOnError: true },
       );
       const message = messages.data
@@ -245,7 +249,7 @@ class OpencodeAgent implements Agent {
         const tokens = message.tokens;
         const used = tokens.input + (tokens.cache?.read ?? 0);
         const providers = await client.config.providers(
-          { directory: session.cwd },
+          { directory: session.directory },
           { throwOnError: true },
         );
         const provider = providers.data.providers.find(
@@ -276,9 +280,9 @@ class OpencodeAgent implements Agent {
       return;
     }
 
-    const client = await this.createClient({ cwd: session.cwd });
+    const client = await this.createClient({ directory: session.directory });
     await client.session.abort(
-      { sessionID: params.sessionId, directory: session.cwd },
+      { sessionID: params.sessionId, directory: session.directory },
       { throwOnError: true },
     );
   }
