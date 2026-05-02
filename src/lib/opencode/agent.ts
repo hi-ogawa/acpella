@@ -4,11 +4,7 @@ import {
   ndJsonStream,
   PROTOCOL_VERSION,
   type Agent,
-  type AuthenticateRequest,
-  type AuthenticateResponse,
   type CancelNotification,
-  type CloseSessionRequest,
-  type CloseSessionResponse,
   type InitializeRequest,
   type InitializeResponse,
   type ListSessionsRequest,
@@ -19,8 +15,6 @@ import {
   type NewSessionResponse,
   type PromptRequest,
   type PromptResponse,
-  type SetSessionModeRequest,
-  type SetSessionModeResponse,
   type ToolKind,
   type ToolCall,
 } from "@agentclientprotocol/sdk";
@@ -85,18 +79,6 @@ class OpencodeAgent implements Agent {
         updatedAt: new Date(session.time.updated).toISOString(),
       })),
     };
-  }
-
-  async unstable_closeSession(_params: CloseSessionRequest): Promise<CloseSessionResponse> {
-    return {};
-  }
-
-  async authenticate(_params: AuthenticateRequest): Promise<AuthenticateResponse> {
-    return {};
-  }
-
-  async setSessionMode(_params: SetSessionModeRequest): Promise<SetSessionModeResponse> {
-    return {};
   }
 
   async prompt(params: PromptRequest): Promise<PromptResponse> {
@@ -252,6 +234,8 @@ class OpencodeAgent implements Agent {
       { throwOnError: true },
     );
   }
+
+  authenticate = async () => ({});
 }
 
 const TOOL_KIND_BY_NAME: Record<string, ToolKind> = {
