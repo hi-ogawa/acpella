@@ -182,18 +182,17 @@ class OpencodeAgent implements Agent {
     };
 
     // start event subscription
-    const abort = new AbortController();
-    const subscription = await opencode.client.global.event({ signal: abort.signal });
-    const reader = (async () => {
-      for await (const event of subscription.stream) {
-        await handleEvent(event);
-      }
-    })().catch((error) => {
-      if (!abort.signal.aborted) {
+    const abortController = new AbortController();
+    const eventResponse = await opencode.client.global.event({ signal: abortController.signal });
+    const eventHandlerPromise = (async () => {
+      try {
+        for await (const event of eventResponse.stream) {
+          await handleEvent(event);
+        }
+      } catch (error) {
         lifecycle.reject(error);
-        throw error;
       }
-    });
+    })();
 
     // start session prompt
     const promptParts: string[] = [];
@@ -204,20 +203,22 @@ class OpencodeAgent implements Agent {
         console.error(`unsupported prompt part type: ${p.type}`);
       }
     });
+    const promptResponsePromise = opencode.client.session.prompt(
+      {
+        sessionID: params.sessionId,
+        directory: session.cwd,
+        parts: promptParts.map((text) => ({ type: "text", text })),
+      },
+      { throwOnError: true },
+    );
 
     try {
-      await opencode.client.session.prompt(
-        {
-          sessionID: params.sessionId,
-          directory: session.cwd,
-          parts: promptParts.map((text) => ({ type: "text", text })),
-        },
-        { throwOnError: true },
-      );
-      await lifecycle.promise;
+      await Promise.all([promptResponsePromise, lifecycle.promise]);
+    } catch (error) {
+      console.error("prompt error:", error);
     } finally {
-      abort.abort();
-      await reader;
+      abortController.abort();
+      await eventHandlerPromise;
     }
 
     await this.connection.sessionUpdate({
