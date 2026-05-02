@@ -32,7 +32,9 @@ async function getClient({ cwd }: { cwd: string }) {
     port: 0,
     timeout: 10000,
     // TODO: support model via cli args
-    config: undefined,
+    config: {
+      model: undefined,
+    },
   });
 
   return {
