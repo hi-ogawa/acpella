@@ -158,7 +158,12 @@ class OpencodeAgent implements Agent {
               sessionId: params.sessionId,
               update: {
                 sessionUpdate: "agent_message_chunk",
-                content: { type: "text", text: "\n\n== session.compacted ==\n\n" },
+                content: { type: "text", text: "" },
+                _meta: {
+                  "acpella.opencode": {
+                    "session.compacted": true,
+                  },
+                },
               },
             });
           }
