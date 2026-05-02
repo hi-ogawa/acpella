@@ -21,6 +21,7 @@ import {
 import {
   createOpencodeClient,
   createOpencodeServer,
+  type GlobalEvent,
   type Part,
   type ToolPart,
 } from "@opencode-ai/sdk/v2";
@@ -101,89 +102,91 @@ class OpencodeAgent implements Agent {
     const messagePartTypes = new Map<string, Part["type"]>();
     const toolCallIds = new Set<string>();
 
+    const handleEvent = async (event: GlobalEvent) => {
+      const payload = event.payload;
+      if (payload.type === "session.status" && payload.properties.sessionID === params.sessionId) {
+        const props = payload.properties;
+        if (props.status.type === "busy") {
+          lifecycleStarted = true;
+        }
+        if (props.status.type === "idle" && lifecycleStarted) {
+          lifecycle.resolve();
+        }
+        return;
+      }
+
+      if (
+        payload.type === "session.compacted" &&
+        payload.properties.sessionID === params.sessionId
+      ) {
+        await this.connection.sessionUpdate({
+          sessionId: params.sessionId,
+          update: {
+            sessionUpdate: "agent_message_chunk",
+            content: { type: "text", text: "" },
+            _meta: {
+              "acpella.opencode": {
+                "session.compacted": true,
+              },
+            },
+          },
+        });
+        return;
+      }
+
+      if (
+        payload.type === "message.part.updated" &&
+        payload.properties.sessionID === params.sessionId
+      ) {
+        const part = payload.properties.part;
+        if (part.type === "tool") {
+          const sessionUpdate = (() => {
+            if (!toolCallIds.has(part.callID)) {
+              toolCallIds.add(part.callID);
+              return "tool_call";
+            }
+            return "tool_call_update";
+          })();
+          await this.connection.sessionUpdate({
+            sessionId: params.sessionId,
+            update: {
+              sessionUpdate: sessionUpdate as "tool_call",
+              ...formatToolCall(part),
+            },
+          });
+        }
+        if (part.type === "text" || part.type === "reasoning") {
+          messagePartTypes.set(`${part.messageID}:${part.id}`, part.type);
+        }
+        return;
+      }
+
+      if (
+        payload.type === "message.part.delta" &&
+        payload.properties.sessionID === params.sessionId
+      ) {
+        const props = payload.properties;
+        const partType = messagePartTypes.get(`${props.messageID}:${props.partID}`);
+        if (partType) {
+          await this.connection.sessionUpdate({
+            sessionId: params.sessionId,
+            update: {
+              sessionUpdate:
+                partType === "reasoning" ? "agent_thought_chunk" : "agent_message_chunk",
+              messageId: props.messageID,
+              content: { type: "text", text: props.delta },
+            },
+          });
+        }
+      }
+    };
+
     const abort = new AbortController();
     const subscription = await opencode.client.global.event({ signal: abort.signal });
 
     const reader = (async () => {
       for await (const event of subscription.stream) {
-        const payload = event.payload;
-        if (
-          payload.type === "session.status" &&
-          payload.properties.sessionID === params.sessionId
-        ) {
-          const props = payload.properties;
-          if (props.status.type === "busy") {
-            lifecycleStarted = true;
-          }
-          if (props.status.type === "idle" && lifecycleStarted) {
-            lifecycle.resolve();
-          }
-          continue;
-        }
-
-        if (
-          payload.type === "session.compacted" &&
-          payload.properties.sessionID === params.sessionId
-        ) {
-          await this.connection.sessionUpdate({
-            sessionId: params.sessionId,
-            update: {
-              sessionUpdate: "agent_message_chunk",
-              content: { type: "text", text: "" },
-              _meta: {
-                "acpella.opencode": {
-                  "session.compacted": true,
-                },
-              },
-            },
-          });
-          continue;
-        }
-
-        if (
-          payload.type === "message.part.updated" &&
-          payload.properties.sessionID === params.sessionId
-        ) {
-          const part = payload.properties.part;
-          if (part.type === "tool") {
-            const sessionUpdate = (() => {
-              if (!toolCallIds.has(part.callID)) {
-                toolCallIds.add(part.callID);
-                return "tool_call";
-              }
-              return "tool_call_update";
-            })();
-            await this.connection.sessionUpdate({
-              sessionId: params.sessionId,
-              update: {
-                sessionUpdate: sessionUpdate as "tool_call",
-                ...formatToolCall(part),
-              },
-            });
-          } else if (part.type === "text" || part.type === "reasoning") {
-            messagePartTypes.set(`${part.messageID}:${part.id}`, part.type);
-          }
-          continue;
-        }
-
-        if (
-          payload.type === "message.part.delta" &&
-          payload.properties.sessionID === params.sessionId
-        ) {
-          const props = payload.properties;
-          const partType = messagePartTypes.get(`${props.messageID}:${props.partID}`);
-          if (partType) {
-            await this.connection.sessionUpdate({
-              sessionId: params.sessionId,
-              update: {
-                sessionUpdate:
-                  partType === "reasoning" ? "agent_thought_chunk" : "agent_message_chunk",
-                messageId: props.messageID,
-                content: { type: "text", text: props.delta },
-              },
-            });
-          }
-        }
+        await handleEvent(event);
       }
     })().catch((error) => {
       if (!abort.signal.aborted) {
