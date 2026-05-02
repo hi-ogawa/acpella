@@ -62,7 +62,7 @@ Do not use `exec` to send normal agent prompts. Do not use `exec` for session li
 - **Bootstrap, install, `.env`, or first run**: read [references/bootstrap.md](references/bootstrap.md).
 - **Systemd setup, restart flow, or service logs**: read [references/systemd.md](references/systemd.md).
 - **Customizing behavior with `.acpella/AGENTS.md`, includes, directives, or skills**: read [references/customization.md](references/customization.md).
-- **Managing sessions or ACP agents**: read [references/sessions-and-agents.md](references/sessions-and-agents.md).
+- **Managing sessions or ACP agents**: read [references/sessions-and-agents.md](references/sessions-and-agents.md). For backend-specific registration flags, follow its links under `references/agents/`.
 - **Scheduled prompts and cron jobs**: read [references/cron.md](references/cron.md).
 - **Things are not working as expected**: read [references/troubleshooting.md](references/troubleshooting.md).
 
