@@ -214,13 +214,13 @@ class OpencodeAcpAgent implements Agent {
 
     // start session prompt
     const promptParts: string[] = [];
-    params.prompt.map((p) => {
-      if (p.type === "text") {
-        promptParts.push(p.text);
+    for (const prompt of params.prompt) {
+      if (prompt.type === "text") {
+        promptParts.push(prompt.text);
       } else {
-        console.error(`unsupported prompt part type: ${p.type}`);
+        console.error(`unsupported prompt part type: ${prompt.type}`);
       }
-    });
+    }
     const promptResponsePromise = client.session.prompt(
       {
         sessionID: params.sessionId,
