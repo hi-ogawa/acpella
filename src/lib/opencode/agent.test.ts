@@ -1,61 +1,59 @@
 import { fileURLToPath } from "node:url";
 import type { SessionUpdate } from "@agentclientprotocol/sdk";
-import { describe, expect, it, onTestFinished } from "vitest";
+import { expect, it, onTestFinished } from "vitest";
 import { arrayFromAsyncIterator, useFs } from "../../test/helper.ts";
 import { AgentManager } from "../acp/index.ts";
 
 const OPENCODE_ACP_COMMAND = `node ${fileURLToPath(import.meta.resolve("#opencode-acp"))}`;
 
-describe("OpenCode ACP agent", () => {
-  it("supports the basic ACP session and prompt shape", async () => {
-    const { root } = useFs({ prefix: "opencode-acp" });
-    const manager = new AgentManager({
-      command: OPENCODE_ACP_COMMAND,
-      cwd: root,
-    });
-
-    const session = await manager.newSession({ sessionCwd: root });
-    onTestFinished(() => session.stop());
-    expect(session.sessionId).toMatch(/^ses_/);
-
-    await expect(manager.listSessions()).resolves.toMatchObject({
-      sessions: [
-        {
-          sessionId: session.sessionId,
-          cwd: root,
-        },
-      ],
-    });
-
-    const result = session.prompt("Say exactly: ok");
-    const updates = await arrayFromAsyncIterator(result.consume());
-    await expect(result.promise).resolves.toEqual({ stopReason: "end_turn" });
-    expect(textFromUpdates(updates).toLowerCase()).toContain("ok");
-    if (updates.length < 1) {
-      throw new Error("expected at least one text agent_message_chunk");
-    }
-
-    await manager.closeSession({ sessionId: session.sessionId });
+it("newSession and prompt", async () => {
+  const { root } = useFs({ prefix: "opencode-acp" });
+  const manager = new AgentManager({
+    command: OPENCODE_ACP_COMMAND,
+    cwd: root,
   });
 
-  it("loads an existing OpenCode session", async () => {
-    const { root } = useFs({ prefix: "opencode-acp-load" });
-    const manager = new AgentManager({
-      command: OPENCODE_ACP_COMMAND,
-      cwd: root,
-    });
+  const session = await manager.newSession({ sessionCwd: root });
+  onTestFinished(() => session.stop());
+  expect(session.sessionId).toMatch(/^ses_/);
 
-    const created = await manager.newSession({ sessionCwd: root });
-    onTestFinished(() => created.stop());
-
-    const loaded = await manager.loadSession({ sessionId: created.sessionId, sessionCwd: root });
-    onTestFinished(() => loaded.stop());
-
-    const result = loaded.prompt("Say exactly: ok");
-    const updates = await arrayFromAsyncIterator(result.consume());
-    await expect(result.promise).resolves.toEqual({ stopReason: "end_turn" });
-    expect(textFromUpdates(updates).toLowerCase()).toContain("ok");
+  await expect(manager.listSessions()).resolves.toMatchObject({
+    sessions: [
+      {
+        sessionId: session.sessionId,
+        cwd: root,
+      },
+    ],
   });
+
+  const result = session.prompt("Say exactly: ok");
+  const updates = await arrayFromAsyncIterator(result.consume());
+  await expect(result.promise).resolves.toEqual({ stopReason: "end_turn" });
+  expect(textFromUpdates(updates).toLowerCase()).toContain("ok");
+  if (updates.length < 1) {
+    throw new Error("expected at least one text agent_message_chunk");
+  }
+
+  await manager.closeSession({ sessionId: session.sessionId });
+});
+
+it("loadSession", async () => {
+  const { root } = useFs({ prefix: "opencode-acp-load" });
+  const manager = new AgentManager({
+    command: OPENCODE_ACP_COMMAND,
+    cwd: root,
+  });
+
+  const created = await manager.newSession({ sessionCwd: root });
+  onTestFinished(() => created.stop());
+
+  const loaded = await manager.loadSession({ sessionId: created.sessionId, sessionCwd: root });
+  onTestFinished(() => loaded.stop());
+
+  const result = loaded.prompt("Say exactly: ok");
+  const updates = await arrayFromAsyncIterator(result.consume());
+  await expect(result.promise).resolves.toEqual({ stopReason: "end_turn" });
+  expect(textFromUpdates(updates).toLowerCase()).toContain("ok");
 });
 
 function textFromUpdates(updates: SessionUpdate[]) {
