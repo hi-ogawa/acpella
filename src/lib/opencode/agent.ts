@@ -99,24 +99,7 @@ class OpencodeAgent implements Agent {
     const lifecycle = Promise.withResolvers<void>();
 
     const messagePartTypes = new Map<string, Part["type"]>();
-
-    const startedTools = new Set<string>();
-    const sendToolUpdate = async (part: ToolPart) => {
-      const sessionUpdate = (() => {
-        if (!startedTools.has(part.callID)) {
-          startedTools.add(part.callID);
-          return "tool_call";
-        }
-        return "tool_call_update";
-      })();
-      await this.connection.sessionUpdate({
-        sessionId: params.sessionId,
-        update: {
-          sessionUpdate: sessionUpdate as "tool_call",
-          ...formatToolCall(part),
-        },
-      });
-    };
+    const toolCallIds = new Set<string>();
 
     const abort = new AbortController();
     const subscription = await opencode.client.global.event({ signal: abort.signal });
@@ -163,7 +146,20 @@ class OpencodeAgent implements Agent {
         ) {
           const part = payload.properties.part;
           if (part.type === "tool") {
-            await sendToolUpdate(part);
+            const sessionUpdate = (() => {
+              if (!toolCallIds.has(part.callID)) {
+                toolCallIds.add(part.callID);
+                return "tool_call";
+              }
+              return "tool_call_update";
+            })();
+            await this.connection.sessionUpdate({
+              sessionId: params.sessionId,
+              update: {
+                sessionUpdate: sessionUpdate as "tool_call",
+                ...formatToolCall(part),
+              },
+            });
           } else if (part.type === "text" || part.type === "reasoning") {
             messagePartTypes.set(`${part.messageID}:${part.id}`, part.type);
           }
