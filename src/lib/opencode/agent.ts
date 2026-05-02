@@ -18,7 +18,12 @@ import {
   type ToolKind,
   type ToolCall,
 } from "@agentclientprotocol/sdk";
-import { createOpencodeClient, createOpencodeServer, type ToolPart } from "@opencode-ai/sdk/v2";
+import {
+  createOpencodeClient,
+  createOpencodeServer,
+  type Part,
+  type ToolPart,
+} from "@opencode-ai/sdk/v2";
 
 async function createOpencodeClientContext({ cwd }: { cwd: string }) {
   const server = await createOpencodeServer({ port: 0, timeout: 10000 });
@@ -89,9 +94,10 @@ class OpencodeAgent implements Agent {
 
     // setup SSE client to listen to session updates
     await using opencode = await createOpencodeClientContext({ cwd: session.cwd });
+
     const abort = new AbortController();
     const startedTools = new Set<string>();
-    const messagePartTypes = new Map<string, "text" | "reasoning">();
+    const messagePartTypes = new Map<string, Part["type"]>();
     let sawBusy = false;
     const lifecycle = Promise.withResolvers<void>();
     const sendToolUpdate = async (part: ToolPart) => {
@@ -110,6 +116,7 @@ class OpencodeAgent implements Agent {
         },
       });
     };
+
     const subscription = await opencode.client.global.event({ signal: abort.signal });
     const reader = (async () => {
       for await (const event of subscription.stream) {
@@ -149,12 +156,11 @@ class OpencodeAgent implements Agent {
         if (payload.type === "message.part.updated") {
           const props = payload.properties;
           if (props.sessionID === params.sessionId) {
-            if (props.part.type === "tool") {
-              await sendToolUpdate(props.part);
-            } else if (props.part.type === "text") {
-              messagePartTypes.set(`${props.part.messageID}:${props.part.id}`, props.part.type);
-            } else if (props.part.type === "reasoning") {
-              messagePartTypes.set(`${props.part.messageID}:${props.part.id}`, props.part.type);
+            const part = props.part;
+            if (part.type === "tool") {
+              await sendToolUpdate(part);
+            } else if (part.type === "text" || part.type === "reasoning") {
+              messagePartTypes.set(`${part.messageID}:${part.id}`, part.type);
             }
           }
           continue;
