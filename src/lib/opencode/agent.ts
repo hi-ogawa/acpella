@@ -22,35 +22,37 @@ import {
   createOpencodeClient,
   createOpencodeServer,
   type GlobalEvent,
+  type OpencodeClient,
   type Part,
   type ToolPart,
 } from "@opencode-ai/sdk/v2";
 
-// TODO: keep server process alive between agent methods
-async function getClient({ cwd }: { cwd: string }) {
-  const server = await createOpencodeServer({
-    port: 0,
-    timeout: 10000,
-    // TODO: support model via cli args
-    config: {
-      model: undefined,
-    },
-  });
-
-  return {
-    client: createOpencodeClient({ baseUrl: server.url, directory: cwd }),
-    async [Symbol.asyncDispose]() {
-      server.close();
-    },
-  };
-}
+type OpencodeServer = Awaited<ReturnType<typeof createOpencodeServer>>;
 
 class OpencodeAgent implements Agent {
   private connection: AgentSideConnection;
+  private server?: OpencodeServer;
   private sessions = new Map<string, { cwd: string }>();
 
   constructor(connection: AgentSideConnection) {
     this.connection = connection;
+  }
+
+  private async getServer(): Promise<OpencodeServer> {
+    this.server ??= await createOpencodeServer({
+      port: 0,
+      timeout: 10000,
+      // TODO: support model via cli args
+      config: {
+        model: undefined,
+      },
+    });
+    return this.server;
+  }
+
+  private async createClient({ cwd }: { cwd: string }): Promise<OpencodeClient> {
+    const server = await this.getServer();
+    return createOpencodeClient({ baseUrl: server.url, directory: cwd });
   }
 
   async initialize(_params: InitializeRequest): Promise<InitializeResponse> {
@@ -61,8 +63,8 @@ class OpencodeAgent implements Agent {
   }
 
   async newSession(params: NewSessionRequest): Promise<NewSessionResponse> {
-    await using opencode = await getClient({ cwd: params.cwd });
-    const session = await opencode.client.session
+    const client = await this.createClient({ cwd: params.cwd });
+    const session = await client.session
       .create({ directory: params.cwd, title: "Acpella OpenCode ACP" }, { throwOnError: true })
       .then((response) => response.data!);
     this.sessions.set(session.id, { cwd: params.cwd });
@@ -70,8 +72,8 @@ class OpencodeAgent implements Agent {
   }
 
   async loadSession(params: LoadSessionRequest): Promise<LoadSessionResponse> {
-    await using opencode = await getClient({ cwd: params.cwd });
-    await opencode.client.session.get(
+    const client = await this.createClient({ cwd: params.cwd });
+    await client.session.get(
       { sessionID: params.sessionId, directory: params.cwd },
       { throwOnError: true },
     );
@@ -81,8 +83,8 @@ class OpencodeAgent implements Agent {
 
   async listSessions(params: ListSessionsRequest): Promise<ListSessionsResponse> {
     const cwd = params.cwd ?? process.cwd();
-    await using opencode = await getClient({ cwd });
-    const sessions = await opencode.client.session
+    const client = await this.createClient({ cwd });
+    const sessions = await client.session
       .list({ directory: cwd, roots: true }, { throwOnError: true })
       .then((response) => response.data ?? []);
     return {
@@ -101,7 +103,7 @@ class OpencodeAgent implements Agent {
       throw new Error(`unknown session: ${params.sessionId}`);
     }
 
-    await using opencode = await getClient({ cwd: session.cwd });
+    const client = await this.createClient({ cwd: session.cwd });
 
     let lifecycleStarted = false;
     const lifecycle = Promise.withResolvers<void>();
@@ -191,7 +193,7 @@ class OpencodeAgent implements Agent {
 
     // start event subscription
     const abortController = new AbortController();
-    const eventResponse = await opencode.client.global.event({ signal: abortController.signal });
+    const eventResponse = await client.global.event({ signal: abortController.signal });
     const eventHandlerPromise = (async () => {
       try {
         for await (const event of eventResponse.stream) {
@@ -211,7 +213,7 @@ class OpencodeAgent implements Agent {
         console.error(`unsupported prompt part type: ${p.type}`);
       }
     });
-    const promptResponsePromise = opencode.client.session.prompt(
+    const promptResponsePromise = client.session.prompt(
       {
         sessionID: params.sessionId,
         directory: session.cwd,
@@ -231,7 +233,7 @@ class OpencodeAgent implements Agent {
 
     // send usage update
     try {
-      const messages = await opencode.client.session.messages(
+      const messages = await client.session.messages(
         { sessionID: params.sessionId, directory: session.cwd },
         { throwOnError: true },
       );
@@ -242,7 +244,7 @@ class OpencodeAgent implements Agent {
       if (message) {
         const tokens = message.tokens;
         const used = tokens.input + (tokens.cache?.read ?? 0);
-        const providers = await opencode.client.config.providers(
+        const providers = await client.config.providers(
           { directory: session.cwd },
           { throwOnError: true },
         );
@@ -274,8 +276,8 @@ class OpencodeAgent implements Agent {
       return;
     }
 
-    await using opencode = await getClient({ cwd: session.cwd });
-    await opencode.client.session.abort(
+    const client = await this.createClient({ cwd: session.cwd });
+    await client.session.abort(
       { sessionID: params.sessionId, directory: session.cwd },
       { throwOnError: true },
     );
