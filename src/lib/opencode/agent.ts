@@ -27,7 +27,7 @@ import {
 } from "@opencode-ai/sdk/v2";
 
 // TODO: keep server process alive between agent methods
-async function createOpencodeClientContext({ cwd }: { cwd: string }) {
+async function getClient({ cwd }: { cwd: string }) {
   const server = await createOpencodeServer({
     port: 0,
     timeout: 10000,
@@ -59,7 +59,7 @@ class OpencodeAgent implements Agent {
   }
 
   async newSession(params: NewSessionRequest): Promise<NewSessionResponse> {
-    await using opencode = await createOpencodeClientContext({ cwd: params.cwd });
+    await using opencode = await getClient({ cwd: params.cwd });
     const session = await opencode.client.session
       .create({ directory: params.cwd, title: "Acpella OpenCode ACP" }, { throwOnError: true })
       .then((response) => response.data!);
@@ -68,7 +68,7 @@ class OpencodeAgent implements Agent {
   }
 
   async loadSession(params: LoadSessionRequest): Promise<LoadSessionResponse> {
-    await using opencode = await createOpencodeClientContext({ cwd: params.cwd });
+    await using opencode = await getClient({ cwd: params.cwd });
     await opencode.client.session.get(
       { sessionID: params.sessionId, directory: params.cwd },
       { throwOnError: true },
@@ -79,7 +79,7 @@ class OpencodeAgent implements Agent {
 
   async listSessions(params: ListSessionsRequest): Promise<ListSessionsResponse> {
     const cwd = params.cwd ?? process.cwd();
-    await using opencode = await createOpencodeClientContext({ cwd });
+    await using opencode = await getClient({ cwd });
     const sessions = await opencode.client.session
       .list({ directory: cwd, roots: true }, { throwOnError: true })
       .then((response) => response.data ?? []);
@@ -99,7 +99,7 @@ class OpencodeAgent implements Agent {
       throw new Error(`unknown session: ${params.sessionId}`);
     }
 
-    await using opencode = await createOpencodeClientContext({ cwd: session.cwd });
+    await using opencode = await getClient({ cwd: session.cwd });
 
     let lifecycleStarted = false;
     const lifecycle = Promise.withResolvers<void>();
@@ -246,7 +246,7 @@ class OpencodeAgent implements Agent {
       return;
     }
 
-    await using opencode = await createOpencodeClientContext({ cwd: session.cwd });
+    await using opencode = await getClient({ cwd: session.cwd });
     await opencode.client.session.abort(
       { sessionID: params.sessionId, directory: session.cwd },
       { throwOnError: true },
