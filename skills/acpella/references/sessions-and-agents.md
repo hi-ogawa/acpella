@@ -70,19 +70,14 @@ acpella exec /agent default codex
 
 That registers a real ACP agent and makes it the default for future sessions.
 
-For Codex ACP, `npx -y @zed-industries/codex-acp` is the portable registration path. If `@zed-industries/codex-acp` is installed globally and `codex-acp` is available on the same `PATH` used by acpella, registering `codex-acp` directly is also fine:
+## Agent-specific setup
 
-```bash
-acpella exec /agent new codex codex-acp
-```
+Load only the backend reference needed for the agent being configured:
 
-Codex ACP reads Codex CLI configuration through its own `-c key=value` override flag. For example, to run Codex without sandboxing:
+- **Codex ACP**: read [agents/codex.md](agents/codex.md).
+- **OpenCode ACP**: read [agents/opencode.md](agents/opencode.md).
 
-```bash
-acpella exec /agent new codex npx -y @zed-industries/codex-acp -c sandbox_mode=danger-full-access
-```
-
-Check `codex-acp --help` for the current configuration override syntax before changing flags.
+Use these references for backend-specific command paths, model flags, and configuration overrides. Keep the generic `/agent` and `/session` mental model in this file.
 
 ## Session vs agent choice
 

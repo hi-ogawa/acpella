@@ -2,11 +2,13 @@
   "name": "acpella",
   "private": true,
   "bin": {
-    "acpella": "./src/bin/cli.js"
+    "acpella": "./src/bin/cli.js",
+    "acpella-opencode-acp": "./src/bin/opencode-acp.js"
   },
   "type": "module",
   "imports": {
     "#cli": "./src/bin/cli.js",
+    "#opencode-acp": "./src/bin/opencode-acp.js",
     "#test-agent": "./src/bin/test-agent.js"
   },
   "scripts": {
@@ -16,12 +18,14 @@
     "test": "vitest --project=unit",
     "test-ci": "CI=true vitest --project=unit --coverage",
     "test-codex": "vitest --project=codex",
+    "test-opencode": "vitest --project=opencode",
     "lint": "vp check --fix && pnpm lint-dead-code",
     "lint-check": "vp check && pnpm lint-dead-code",
     "lint-dead-code": "fallow dead-code --unused-exports --unused-types"
   },
   "dependencies": {
     "@grammyjs/runner": "^2.0.3",
+    "@opencode-ai/sdk": "^1.14.29",
     "croner": "^10.0.1",
     "grammy": "^1.42.0",
     "mdast-util-from-markdown": "^2.0.3",
