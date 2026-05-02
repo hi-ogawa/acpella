@@ -235,6 +235,8 @@ class OpencodeAgent implements Agent {
     );
   }
 
+  // TODO
+  unstable_closeSession = async () => ({});
   authenticate = async () => ({});
 }
 
