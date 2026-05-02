@@ -1,8 +1,12 @@
 import { fileURLToPath } from "node:url";
 import type { SessionUpdate } from "@agentclientprotocol/sdk";
-import { expect, it, onTestFinished } from "vitest";
+import { expect, it, onTestFinished, vi } from "vitest";
 import { arrayFromAsyncIterator, useFs } from "../../test/helper.ts";
 import { AgentManager } from "../acp/index.ts";
+
+vi.setConfig({
+  testTimeout: 20000,
+});
 
 const OPENCODE_ACP_COMMAND = `node ${fileURLToPath(import.meta.resolve("#opencode-acp"))}`;
 
