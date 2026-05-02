@@ -24,20 +24,17 @@ import {
   type ToolKind,
   type ToolCall,
 } from "@agentclientprotocol/sdk";
-import {
-  createOpencodeClient,
-  createOpencodeServer,
-  type OpencodeClient,
-  type ToolPart,
-} from "@opencode-ai/sdk/v2";
+import { createOpencodeClient, createOpencodeServer, type ToolPart } from "@opencode-ai/sdk/v2";
 
-async function getClient<T>(cwd: string, callback: (client: OpencodeClient) => Promise<T>) {
+async function createOpencodeClientContext({ cwd }: { cwd: string }) {
   const server = await createOpencodeServer({ port: 0, timeout: 10000 });
-  try {
-    return await callback(createOpencodeClient({ baseUrl: server.url, directory: cwd }));
-  } finally {
-    server.close();
-  }
+
+  return {
+    client: createOpencodeClient({ baseUrl: server.url, directory: cwd }),
+    async [Symbol.asyncDispose]() {
+      server.close();
+    },
+  };
 }
 
 class OpencodeAgent implements Agent {
@@ -56,41 +53,38 @@ class OpencodeAgent implements Agent {
   }
 
   async newSession(params: NewSessionRequest): Promise<NewSessionResponse> {
-    return await getClient(params.cwd, async (client) => {
-      const session = await client.session
-        .create({ directory: params.cwd, title: "Acpella OpenCode ACP" }, { throwOnError: true })
-        .then((response) => response.data!);
-      this.sessions.set(session.id, { cwd: params.cwd });
-      return { sessionId: session.id };
-    });
+    await using opencode = await createOpencodeClientContext({ cwd: params.cwd });
+    const session = await opencode.client.session
+      .create({ directory: params.cwd, title: "Acpella OpenCode ACP" }, { throwOnError: true })
+      .then((response) => response.data!);
+    this.sessions.set(session.id, { cwd: params.cwd });
+    return { sessionId: session.id };
   }
 
   async loadSession(params: LoadSessionRequest): Promise<LoadSessionResponse> {
-    await getClient(params.cwd, async (client) => {
-      await client.session.get(
-        { sessionID: params.sessionId, directory: params.cwd },
-        { throwOnError: true },
-      );
-    });
+    await using opencode = await createOpencodeClientContext({ cwd: params.cwd });
+    await opencode.client.session.get(
+      { sessionID: params.sessionId, directory: params.cwd },
+      { throwOnError: true },
+    );
     this.sessions.set(params.sessionId, { cwd: params.cwd });
     return {};
   }
 
   async listSessions(params: ListSessionsRequest): Promise<ListSessionsResponse> {
     const cwd = params.cwd ?? process.cwd();
-    return await getClient(cwd, async (client) => {
-      const sessions = await client.session
-        .list({ directory: cwd, roots: true }, { throwOnError: true })
-        .then((response) => response.data ?? []);
-      return {
-        sessions: sessions.map((session) => ({
-          sessionId: session.id,
-          cwd: session.directory,
-          title: session.title,
-          updatedAt: new Date(session.time.updated).toISOString(),
-        })),
-      };
-    });
+    await using opencode = await createOpencodeClientContext({ cwd });
+    const sessions = await opencode.client.session
+      .list({ directory: cwd, roots: true }, { throwOnError: true })
+      .then((response) => response.data ?? []);
+    return {
+      sessions: sessions.map((session) => ({
+        sessionId: session.id,
+        cwd: session.directory,
+        title: session.title,
+        updatedAt: new Date(session.time.updated).toISOString(),
+      })),
+    };
   }
 
   async unstable_closeSession(_params: CloseSessionRequest): Promise<CloseSessionResponse> {
@@ -118,130 +112,129 @@ class OpencodeAgent implements Agent {
         .map((part) => part.text)
         .join("") || "(empty)";
 
-    await getClient(session.cwd, async (client) => {
-      const abort = new AbortController();
-      const startedTools = new Set<string>();
-      const messagePartTypes = new Map<string, "text" | "reasoning">();
-      let sawBusy = false;
-      const lifecycle = Promise.withResolvers<void>();
-      const sendToolUpdate = async (part: ToolPart) => {
-        const sessionUpdate = (() => {
-          if (!startedTools.has(part.callID)) {
-            startedTools.add(part.callID);
-            return "tool_call";
-          }
-          return "tool_call_update";
-        })();
-        await this.connection.sessionUpdate({
-          sessionId: params.sessionId,
-          update: {
-            sessionUpdate: sessionUpdate as "tool_call",
-            ...formatToolCall(part),
-          },
-        });
-      };
-      const subscription = await client.global.event({ signal: abort.signal });
-      const reader = (async () => {
-        for await (const event of subscription.stream) {
-          const payload = event.payload;
-          if (payload.type === "session.status") {
-            const props = payload.properties;
-            if (props.sessionID === params.sessionId) {
-              if (props.status.type === "busy") {
-                sawBusy = true;
-              }
-              if (props.status.type === "idle" && sawBusy) {
-                lifecycle.resolve();
-              }
-            }
-            continue;
-          }
-
-          if (payload.type === "session.compacted") {
-            const props = payload.properties;
-            if (props.sessionID === params.sessionId) {
-              // TODO: surface compaction
-              // await this.connection.sessionUpdate({
-              //   sessionId: params.sessionId,
-              //   update: {
-              //     sessionUpdate: "usage_update",
-              //     used: 0,
-              //     size: 0,
-              //   },
-              // });
-            }
-            continue;
-          }
-
-          if (payload.type === "message.part.updated") {
-            const props = payload.properties;
-            if (props.sessionID === params.sessionId) {
-              if (props.part.type === "tool") {
-                await sendToolUpdate(props.part);
-              } else if (props.part.type === "text") {
-                messagePartTypes.set(`${props.part.messageID}:${props.part.id}`, props.part.type);
-              } else if (props.part.type === "reasoning") {
-                messagePartTypes.set(`${props.part.messageID}:${props.part.id}`, props.part.type);
-              } else if (props.part.type === "compaction") {
-                // TODO
-              }
-            }
-            continue;
-          }
-
-          if (payload.type === "message.part.delta") {
-            const props = payload.properties;
-            if (props.sessionID === params.sessionId) {
-              const partType = messagePartTypes.get(`${props.messageID}:${props.partID}`);
-              if (partType) {
-                await this.connection.sessionUpdate({
-                  sessionId: params.sessionId,
-                  update: {
-                    sessionUpdate:
-                      partType === "reasoning" ? "agent_thought_chunk" : "agent_message_chunk",
-                    messageId: props.messageID,
-                    content: { type: "text", text: props.delta },
-                  },
-                });
-              }
-            }
-          }
+    await using opencode = await createOpencodeClientContext({ cwd: session.cwd });
+    const abort = new AbortController();
+    const startedTools = new Set<string>();
+    const messagePartTypes = new Map<string, "text" | "reasoning">();
+    let sawBusy = false;
+    const lifecycle = Promise.withResolvers<void>();
+    const sendToolUpdate = async (part: ToolPart) => {
+      const sessionUpdate = (() => {
+        if (!startedTools.has(part.callID)) {
+          startedTools.add(part.callID);
+          return "tool_call";
         }
-      })().catch((error) => {
-        if (!abort.signal.aborted) {
-          lifecycle.reject(error);
-          throw error;
-        }
+        return "tool_call_update";
+      })();
+      await this.connection.sessionUpdate({
+        sessionId: params.sessionId,
+        update: {
+          sessionUpdate: sessionUpdate as "tool_call",
+          ...formatToolCall(part),
+        },
       });
+    };
+    const subscription = await opencode.client.global.event({ signal: abort.signal });
+    const reader = (async () => {
+      for await (const event of subscription.stream) {
+        const payload = event.payload;
+        if (payload.type === "session.status") {
+          const props = payload.properties;
+          if (props.sessionID === params.sessionId) {
+            if (props.status.type === "busy") {
+              sawBusy = true;
+            }
+            if (props.status.type === "idle" && sawBusy) {
+              lifecycle.resolve();
+            }
+          }
+          continue;
+        }
 
-      try {
-        const response = await client.session.prompt(
-          {
-            sessionID: params.sessionId,
-            directory: session.cwd,
-            parts: [{ type: "text", text }],
-          },
-          { throwOnError: true },
-        );
+        if (payload.type === "session.compacted") {
+          const props = payload.properties;
+          if (props.sessionID === params.sessionId) {
+            // TODO: surface compaction
+            // await this.connection.sessionUpdate({
+            //   sessionId: params.sessionId,
+            //   update: {
+            //     sessionUpdate: "usage_update",
+            //     used: 0,
+            //     size: 0,
+            //   },
+            // });
+          }
+          continue;
+        }
 
-        await lifecycle.promise;
-        const info = response.data.info;
-        const used = info.tokens.input + info.tokens.cache.read;
-        const total = used + info.tokens.output + info.tokens.reasoning;
-        await this.connection.sessionUpdate({
-          sessionId: params.sessionId,
-          update: {
-            sessionUpdate: "usage_update",
-            // TODO
-            used,
-            size: Math.max(used, total),
-          },
-        });
-      } finally {
-        abort.abort();
-        await reader;
+        if (payload.type === "message.part.updated") {
+          const props = payload.properties;
+          if (props.sessionID === params.sessionId) {
+            if (props.part.type === "tool") {
+              await sendToolUpdate(props.part);
+            } else if (props.part.type === "text") {
+              messagePartTypes.set(`${props.part.messageID}:${props.part.id}`, props.part.type);
+            } else if (props.part.type === "reasoning") {
+              messagePartTypes.set(`${props.part.messageID}:${props.part.id}`, props.part.type);
+            } else if (props.part.type === "compaction") {
+              // TODO
+            }
+          }
+          continue;
+        }
+
+        if (payload.type === "message.part.delta") {
+          const props = payload.properties;
+          if (props.sessionID === params.sessionId) {
+            const partType = messagePartTypes.get(`${props.messageID}:${props.partID}`);
+            if (partType) {
+              await this.connection.sessionUpdate({
+                sessionId: params.sessionId,
+                update: {
+                  sessionUpdate:
+                    partType === "reasoning" ? "agent_thought_chunk" : "agent_message_chunk",
+                  messageId: props.messageID,
+                  content: { type: "text", text: props.delta },
+                },
+              });
+            }
+          }
+        }
+      }
+    })().catch((error) => {
+      if (!abort.signal.aborted) {
+        lifecycle.reject(error);
+        throw error;
       }
     });
+
+    try {
+      const response = await opencode.client.session.prompt(
+        {
+          sessionID: params.sessionId,
+          directory: session.cwd,
+          parts: [{ type: "text", text }],
+        },
+        { throwOnError: true },
+      );
+
+      await lifecycle.promise;
+      const info = response.data.info;
+      const used = info.tokens.input + info.tokens.cache.read;
+      const total = used + info.tokens.output + info.tokens.reasoning;
+      await this.connection.sessionUpdate({
+        sessionId: params.sessionId,
+        update: {
+          sessionUpdate: "usage_update",
+          // TODO
+          used,
+          size: Math.max(used, total),
+        },
+      });
+    } finally {
+      abort.abort();
+      await reader;
+    }
 
     return { stopReason: "end_turn" };
   }
@@ -252,12 +245,11 @@ class OpencodeAgent implements Agent {
       return;
     }
 
-    await getClient(session.cwd, async (client) => {
-      await client.session.abort(
-        { sessionID: params.sessionId, directory: session.cwd },
-        { throwOnError: true },
-      );
-    });
+    await using opencode = await createOpencodeClientContext({ cwd: session.cwd });
+    await opencode.client.session.abort(
+      { sessionID: params.sessionId, directory: session.cwd },
+      { throwOnError: true },
+    );
   }
 }
 
