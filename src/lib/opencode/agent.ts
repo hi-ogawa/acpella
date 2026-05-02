@@ -227,15 +227,41 @@ class OpencodeAgent implements Agent {
       await eventHandlerPromise;
     }
 
-    await this.connection.sessionUpdate({
-      sessionId: params.sessionId,
-      update: {
-        sessionUpdate: "usage_update",
-        // TODO
-        used: 0,
-        size: 0,
-      },
-    });
+    // send usage update
+    try {
+      const messages = await opencode.client.session.messages(
+        { sessionID: params.sessionId, directory: session.cwd },
+        { throwOnError: true },
+      );
+      const message = messages.data
+        .map((message) => message.info)
+        .filter((info) => info.role === "assistant")
+        .at(-1);
+      if (message) {
+        const tokens = message.tokens;
+        const used = tokens.input + (tokens.cache?.read ?? 0);
+        const providers = await opencode.client.config.providers(
+          { directory: session.cwd },
+          { throwOnError: true },
+        );
+        const provider = providers.data.providers.find(
+          (provider) => provider.id === message.providerID,
+        );
+        const size = provider?.models[message.modelID]?.limit.context;
+        if (size !== undefined) {
+          await this.connection.sessionUpdate({
+            sessionId: params.sessionId,
+            update: {
+              sessionUpdate: "usage_update",
+              used,
+              size,
+            },
+          });
+        }
+      }
+    } catch (error) {
+      console.error("failed to send usage update:", error);
+    }
 
     return { stopReason: "end_turn" };
   }
