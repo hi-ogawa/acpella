@@ -247,10 +247,19 @@ class EchoAgent implements Agent {
         sessionId: params.sessionId,
         update: {
           sessionUpdate: "agent_message_chunk",
+          messageId: "__testMessage",
           content: { type: "text", text: `echo-1: ${title}` },
         },
       });
-      reportText = `echo-2: ${title}`;
+      await this.connection.sessionUpdate({
+        sessionId: params.sessionId,
+        update: {
+          sessionUpdate: "agent_message_chunk",
+          messageId: "__testMessage",
+          content: { type: "text", text: `echo-2: ${title}` },
+        },
+      });
+      return { stopReason: "end_turn" };
     } else {
       reportText = `echo: ${text}`;
     }

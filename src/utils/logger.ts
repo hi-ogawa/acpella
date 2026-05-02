@@ -68,10 +68,26 @@ function processQueuedLogs(logs: TimedLogEntry[]): object {
   if (logs.length === 1) {
     return { ...output, ...first };
   }
+  if (isTextChunkType(first.type) && hasSharedMessageId(logs)) {
+    return {
+      ...output,
+      messageId: first.messageId,
+      batch: logs.map(({ type, messageId, ...log }) => ({ ...log, t: log.t - t })),
+    };
+  }
   return {
     ...output,
     batch: logs.map(({ type, ...log }) => ({ ...log, t: log.t - t })),
   };
+}
+
+function isTextChunkType(type: string) {
+  return type === "update:agent_message_chunk:text" || type === "update:agent_thought_chunk:text";
+}
+
+function hasSharedMessageId(logs: TimedLogEntry[]) {
+  const messageId = logs[0].messageId;
+  return typeof messageId === "string" && logs.every((log) => log.messageId === messageId);
 }
 
 export function formatSessionUpdateLogEntry(data: SessionUpdate): LogEntry {
