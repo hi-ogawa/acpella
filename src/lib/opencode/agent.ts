@@ -105,13 +105,7 @@ class OpencodeAgent implements Agent {
       throw new Error(`unknown session: ${params.sessionId}`);
     }
 
-    // TODO: log unsupported part types
-    const text =
-      params.prompt
-        .filter((part) => part.type === "text")
-        .map((part) => part.text)
-        .join("") || "(empty)";
-
+    // setup SSE client to listen to session updates
     await using opencode = await createOpencodeClientContext({ cwd: session.cwd });
     const abort = new AbortController();
     const startedTools = new Set<string>();
@@ -209,12 +203,22 @@ class OpencodeAgent implements Agent {
       }
     });
 
+    // start session prompt
+    const promptParts: string[] = [];
+    params.prompt.map((p) => {
+      if (p.type === "text") {
+        promptParts.push(p.text);
+      } else {
+        console.error(`unsupported prompt part type: ${p.type}`);
+      }
+    });
+
     try {
       await opencode.client.session.prompt(
         {
           sessionID: params.sessionId,
           directory: session.cwd,
-          parts: [{ type: "text", text }],
+          parts: promptParts.map((text) => ({ type: "text", text })),
         },
         { throwOnError: true },
       );
