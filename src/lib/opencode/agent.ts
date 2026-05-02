@@ -26,8 +26,14 @@ import {
   type ToolPart,
 } from "@opencode-ai/sdk/v2";
 
+// TODO: keep server process alive between agent methods
 async function createOpencodeClientContext({ cwd }: { cwd: string }) {
-  const server = await createOpencodeServer({ port: 0, timeout: 10000 });
+  const server = await createOpencodeServer({
+    port: 0,
+    timeout: 10000,
+    // TODO: support model via cli args
+    config: undefined,
+  });
 
   return {
     client: createOpencodeClient({ baseUrl: server.url, directory: cwd }),
