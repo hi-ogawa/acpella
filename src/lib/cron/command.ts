@@ -15,12 +15,21 @@ export function parseCronArgs(args: string[], timezone: string) {
   validateCronSchedule({ schedule, timezone });
 
   let sessionName: string | undefined;
-  if (restArgs[0] === "--session") {
-    if (!restArgs[1]) {
-      throw new Error("Missing value for --session");
+  let once = false;
+
+  while (restArgs.length > 0 && restArgs[0] !== "--") {
+    if (restArgs[0] === "--session") {
+      if (!restArgs[1]) {
+        throw new Error("Missing value for --session");
+      }
+      sessionName = restArgs[1];
+      restArgs.splice(0, 2);
+    } else if (restArgs[0] === "--once") {
+      once = true;
+      restArgs.splice(0, 1);
+    } else {
+      throw new Error(`Unknown option: ${restArgs[0]}`);
     }
-    sessionName = restArgs[1];
-    restArgs.splice(0, 2);
   }
 
   let prompt: string | undefined;
@@ -34,7 +43,7 @@ export function parseCronArgs(args: string[], timezone: string) {
     }
   }
 
-  return { id, schedule, sessionName, prompt };
+  return { id, schedule, sessionName, once, prompt };
 }
 
 export function parseCronIdArg(args: string[], usage: string): Result<{ id: string }, string> {
@@ -62,7 +71,7 @@ export function renderCronList(cronStore: CronStore): string {
 export function renderCronShow(job: CronJob, latestRun: CronRun | undefined): string {
   return `\
 id: ${job.id}
-enabled: ${job.enabled ? "yes" : "no"}
+enabled: ${job.enabled ? "yes" : "no"}${job.once ? "\nonce: yes" : ""}
 schedule: ${job.schedule}
 timezone: ${job.timezone}
 target session: ${job.target.sessionName}
@@ -74,8 +83,10 @@ prompt: ${job.prompt}
 }
 
 function renderCronListItem(job: CronJob, latestRun: CronRun | undefined): string {
+  const tags = [job.enabled ? "enabled" : "disabled"];
+  if (job.once) tags.push("once");
   return `\
-- ${job.id} [${job.enabled ? "enabled" : "disabled"}]
+- ${job.id} [${tags.join(", ")}]
   schedule: ${job.schedule}
   timezone: ${job.timezone}
   target session: ${job.target.sessionName}

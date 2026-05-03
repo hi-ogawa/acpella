@@ -111,6 +111,9 @@ export class CronRunner {
         finishedAt: formatTime(Date.now()),
         status: "succeeded",
       });
+      if (job.once) {
+        store.updateJob(job.id, { enabled: false });
+      }
     } catch (error) {
       console.error(`[cron] Failed to run cron '${job.id}':`, error);
       const errorMessage = formatError(error);
@@ -119,6 +122,9 @@ export class CronRunner {
         status: "failed",
         error: errorMessage,
       });
+      if (job.once) {
+        store.updateJob(job.id, { enabled: false });
+      }
       try {
         await this.options.delivery.send({
           target: job.target.delivery,

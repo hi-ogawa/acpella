@@ -40,6 +40,7 @@ const cronJobSchema = z
   .object({
     id: cronIdSchema,
     enabled: z.boolean(),
+    once: z.boolean().optional(),
     schedule: z.string().min(1),
     timezone: z.string().min(1),
     prompt: z.string().min(1),

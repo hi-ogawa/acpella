@@ -15,7 +15,7 @@ Use:
 - `/cron status`
 - `/cron start`
 - `/cron stop`
-- `/cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--session <sessionName>] -- <prompt...>`
+- `/cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--once] [--session <sessionName>] -- <prompt...>`
 - `/cron update <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--session <sessionName>] [-- <prompt...>]`
 - `/cron list`
 - `/cron show <id>`
@@ -46,6 +46,16 @@ acpella exec '/cron add topic-check 30 8 * * * --session tg-123456789-42 -- Send
 The session must already exist in acpella state. Use `acpella exec /session list` to find known session names. If the list does not clearly identify a single intended destination, ask the user to confirm the session before adding, deleting, or recreating the cron job.
 
 If `/cron add` is issued inside the Telegram conversation where the job should deliver, `--session` can be omitted because acpella can capture the current Telegram delivery target. Agents operating through local `exec` should not rely on that implicit capture.
+
+## One-shot jobs
+
+Add `--once` to run the job exactly once. After the run completes (success or failure), acpella disables the job so it does not fire again:
+
+```bash
+acpella exec '/cron add one-time-check 0 10 * * * --once --session tg-123456789 -- Run the one-off project audit and send the results.'
+```
+
+The job stays visible in `/cron list` and `/cron show` after it fires, marked as `[disabled, once]`, so run history and any error details remain accessible. Use `/cron delete <id>` to remove it when no longer needed.
 
 ## Common workflow
 
