@@ -1,12 +1,10 @@
-import { execFile, spawn } from "node:child_process";
+import { spawn } from "node:child_process";
 import path from "node:path";
-import { promisify } from "node:util";
 import { onTestFinished, TestRunner, vi, type TestContext } from "vitest";
+import { execFileAsync } from "../../utils/process.ts";
 import { useFs } from "../helper.ts";
 
 export type TestService = ReturnType<typeof startService>;
-
-const execFileAsync = promisify(execFile);
 
 export function startService(options?: { env?: Record<string, string>; sourceDir?: string }) {
   const { root } = useFs({
