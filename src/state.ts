@@ -133,7 +133,7 @@ export class SessionStateStore {
     return {
       ...session,
       agentKey: session?.agentKey ?? state.defaultAgent,
-      verbose: session?.verbose ?? "off",
+      verbose: session?.verbose ?? "thinking",
     };
   }
 

@@ -60,6 +60,11 @@ class OpencodeAcpAgent implements Agent {
     return createOpencodeClient({ baseUrl: server.url, directory });
   }
 
+  closeServer() {
+    this.server?.close();
+    this.server = undefined;
+  }
+
   async initialize(_params: InitializeRequest): Promise<InitializeResponse> {
     return {
       protocolVersion: PROTOCOL_VERSION,
@@ -371,7 +376,24 @@ Options:
   const input = Writable.toWeb(process.stdout);
   const output = Readable.toWeb(process.stdin) as ReadableStream<Uint8Array>;
   const stream = ndJsonStream(input, output);
-  new AgentSideConnection((conn) => new OpencodeAcpAgent(conn, parsed.values), stream);
+
+  let agent: OpencodeAcpAgent;
+  const connection = new AgentSideConnection((connection) => {
+    agent = new OpencodeAcpAgent(connection, parsed.values);
+    return agent;
+  }, stream);
+
+  // ensure child opencode server process is killed
+  // when acp agent process is killed
+  connection.signal.addEventListener("abort", () => {
+    agent.closeServer();
+  });
+  for (const signal of ["SIGTERM", "SIGINT", "SIGHUP"]) {
+    process.once(signal, () => {
+      agent.closeServer();
+      process.exit(0);
+    });
+  }
 }
 
 main();
