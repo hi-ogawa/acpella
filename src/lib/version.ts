@@ -1,7 +1,4 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-
-const execFileAsync = promisify(execFile);
+import { execFileAsync } from "../utils/process.ts";
 
 export async function getVersion(options: { cwd: string }): Promise<string> {
   async function git(args: string[]): Promise<string> {
