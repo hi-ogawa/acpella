@@ -133,6 +133,7 @@ async function spawnAgent({ command, cwd }: { command: string; cwd: string }) {
   }
 
   return {
+    child,
     connection,
     subscribe,
     stop() {
