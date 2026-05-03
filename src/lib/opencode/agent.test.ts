@@ -1,16 +1,14 @@
-import { execFile } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
 import type { SessionUpdate } from "@agentclientprotocol/sdk";
 import { expect, it, onTestFinished, vi } from "vitest";
 import { arrayFromAsyncIterator, useFs } from "../../test/helper.ts";
+import { execFileAsync } from "../../utils/process.ts";
 import { AgentManager } from "../acp/index.ts";
 
 vi.setConfig({
   testTimeout: 20000,
 });
 
-const execFileAsync = promisify(execFile);
 const OPENCODE_ACP_COMMAND = `node ${fileURLToPath(import.meta.resolve("#opencode-acp"))}`;
 
 it("newSession and prompt", async () => {

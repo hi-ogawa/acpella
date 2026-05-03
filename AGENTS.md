@@ -30,6 +30,23 @@ Task docs should enable **handoff to a fresh agent** - include enough context to
 - Reference files/patterns to follow
 - Implementation plan
 
+## Source Layout
+
+```text
+src/
+  *.ts             entrypoint/wiring or legacy app-shell modules; keep these thin
+  lib/
+    <feature>.ts   cohesive acpella production logic, not generic helpers
+    <feature>/*    features with clear internal parts or stable sub-boundaries
+    *.test.ts      focused module tests
+  utils/
+    index.ts       small generic runtime-agnostic helpers
+    <name>.ts      standalone generic utility modules
+  test/
+    *.test.ts      service behavior tests through the app request surface
+    cli/*          external CLI/process tests
+```
+
 ## Rules
 
 - Commit messages: use Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:`, `chore:`); add `!` for breaking changes

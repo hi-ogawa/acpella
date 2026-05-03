@@ -1,10 +1,10 @@
 ---
 name: acpella
 description: >-
-  Use when helping someone use or customize acpella itself: first-time setup,
-  CLI usage for slash-command administration, systemd service setup, prompt and
-  skill customization, session and agent management, cron jobs, or
-  troubleshooting.
+  Use when helping someone use or customize acpella itself: slash commands
+  including /agent, /session, /cron, /status, /service, and /help; first-time
+  setup; CLI usage; systemd service setup; prompt and skill customization;
+  session and agent management; cron jobs; or troubleshooting.
 ---
 
 # acpella
