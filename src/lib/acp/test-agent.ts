@@ -252,7 +252,7 @@ class EchoAgent implements Agent {
       });
       reportText = `echo-2: ${title}`;
     } else if (text.startsWith("__multiple_chunks_with_messageId:")) {
-      const title = text.slice(29);
+      const title = text.slice(33);
       await this.connection.sessionUpdate({
         sessionId: params.sessionId,
         update: {
