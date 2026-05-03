@@ -167,7 +167,18 @@ test("logs", async () => {
   expect(readLogs()).toMatchInlineSnapshot(`
     "
     {"t":"<time>","type":"prompt","text":"__multiple_chunks:hello"}
-    {"t":"<time>","type":"update:agent_message_chunk:text:__testMessage","batch":[{"t":"<time>","text":"echo-1: hello"},{"t":"<time>","text":"echo-2: hello"}]}
+    {"t":"<time>","type":"update:agent_message_chunk:text","batch":[{"t":"<time>","text":"echo-1: hello"},{"t":"<time>","text":"echo-2: hello"}]}
+    {"t":"<time>","type":"done","cancelled":false}
+    "
+  `);
+  await session.request("__multiple_chunks_with_messageId:world");
+  expect(readLogs()).toMatchInlineSnapshot(`
+    "
+    {"t":"<time>","type":"prompt","text":"__multiple_chunks:hello"}
+    {"t":"<time>","type":"update:agent_message_chunk:text","batch":[{"t":"<time>","text":"echo-1: hello"},{"t":"<time>","text":"echo-2: hello"}]}
+    {"t":"<time>","type":"done","cancelled":false}
+    {"t":"<time>","type":"prompt","text":"__multiple_chunks_with_messageId:world"}
+    {"t":"<time>","type":"update:agent_message_chunk:text:__testMessage","batch":[{"t":"<time>","text":"echo-1: eId:world"},{"t":"<time>","text":"echo-2: eId:world"}]}
     {"t":"<time>","type":"done","cancelled":false}
     "
   `);
@@ -175,7 +186,10 @@ test("logs", async () => {
   expect(readLogs()).toMatchInlineSnapshot(`
     "
     {"t":"<time>","type":"prompt","text":"__multiple_chunks:hello"}
-    {"t":"<time>","type":"update:agent_message_chunk:text:__testMessage","batch":[{"t":"<time>","text":"echo-1: hello"},{"t":"<time>","text":"echo-2: hello"}]}
+    {"t":"<time>","type":"update:agent_message_chunk:text","batch":[{"t":"<time>","text":"echo-1: hello"},{"t":"<time>","text":"echo-2: hello"}]}
+    {"t":"<time>","type":"done","cancelled":false}
+    {"t":"<time>","type":"prompt","text":"__multiple_chunks_with_messageId:world"}
+    {"t":"<time>","type":"update:agent_message_chunk:text:__testMessage","batch":[{"t":"<time>","text":"echo-1: eId:world"},{"t":"<time>","text":"echo-2: eId:world"}]}
     {"t":"<time>","type":"done","cancelled":false}
     {"t":"<time>","type":"prompt","text":"__chunk_tool:Search docs"}
     {"t":"<time>","type":"update:agent_message_chunk:text","text":"before"}
