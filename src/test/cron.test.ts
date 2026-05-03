@@ -12,6 +12,7 @@ Coverage checklist:
   - [ ] add rejects invalid id
   - [ ] add rejects invalid schedule
   - [ ] add refreshes runner
+  - [x] add --once creates one-shot job
   - [x] update
   - [x] list
   - [x] show
@@ -25,6 +26,8 @@ Coverage checklist:
   - [x] runner executes repl cron job through handler prompt
   - [x] runner renews stale session when cron prompt crosses daily boundary
   - [ ] runner records failed delivery
+  - [x] runner disables one-shot job after success
+  - [x] runner disables one-shot job after failure
 */
 
 import { expect, test, vi } from "vitest";
@@ -707,5 +710,131 @@ test("cron runner renews stale session after daily boundary", async ({ onTestFin
 
      cron-after-boundary",
     ]
+  `);
+});
+
+test("cron one-shot job disables after success", async ({ onTestFinished }) => {
+  // Timeline:
+  // - 07:00: add once-job with --once for every minute.
+  // - 07:01: once-job fires and succeeds; job is disabled immediately.
+  // - 07:02: runner does not fire again because job is disabled.
+  vi.useFakeTimers({
+    now: Date.parse("2026-04-18T07:00:00+07:00"),
+  });
+  onTestFinished(() => {
+    vi.useRealTimers();
+  });
+
+  const tester = await createHandlerTester();
+
+  const session = tester.createSession("test", {
+    metadata: { cronDeliveryTarget: { repl: true } },
+  });
+  expect(await session.request("/cron add once-job * * * * * --once -- hello-once"))
+    .toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Added cron job: once-job"
+  `);
+  expect(await session.request("/cron show once-job")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    id: once-job
+    enabled: yes
+    once: yes
+    schedule: * * * * *
+    timezone: Asia/Jakarta
+    target session: test
+    delivery target: repl
+    next: 2026-04-18T07:01:00+07:00
+    last: none
+    prompt: hello-once"
+  `);
+  expect(await session.request("/cron list")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    - once-job [enabled, once]
+      schedule: * * * * *
+      timezone: Asia/Jakarta
+      target session: test
+      delivery target: repl
+      next: 2026-04-18T07:01:00+07:00
+      last: none"
+  `);
+
+  advanceTimersTo("2026-04-18T07:01:00+07:00");
+  await waitUntil(async () => {
+    const output = await session.request("/cron show once-job");
+    return output.includes("last: succeeded");
+  });
+
+  expect(await session.request("/cron show once-job")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    id: once-job
+    enabled: no
+    once: yes
+    schedule: * * * * *
+    timezone: Asia/Jakarta
+    target session: test
+    delivery target: repl
+    next: none
+    last: succeeded, scheduled 2026-04-18T07:01:00+07:00, finished 2026-04-18T07:01:00+07:00
+    prompt: hello-once"
+  `);
+  expect(await session.request("/cron list")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    - once-job [disabled, once]
+      schedule: * * * * *
+      timezone: Asia/Jakarta
+      target session: test
+      delivery target: repl
+      next: none
+      last: succeeded, scheduled 2026-04-18T07:01:00+07:00, finished 2026-04-18T07:01:00+07:00"
+  `);
+
+  // Job should not fire at 07:02 because it was disabled.
+  tester.cronDeliveries.length = 0;
+  advanceTimersTo("2026-04-18T07:02:00+07:00");
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  expect(tester.cronDeliveries).toMatchInlineSnapshot(`[]`);
+});
+
+test("cron one-shot job disables after failure", async ({ onTestFinished }) => {
+  // Timeline:
+  // - 07:00: add once-fail-job with --once and a failing prompt.
+  // - 07:01: once-fail-job fires, fails, and is disabled immediately.
+  vi.useFakeTimers({
+    now: Date.parse("2026-04-18T07:00:00+07:00"),
+  });
+  onTestFinished(() => {
+    vi.useRealTimers();
+  });
+
+  const tester = await createHandlerTester();
+
+  const session = tester.createSession("test", {
+    metadata: { cronDeliveryTarget: { repl: true } },
+  });
+  expect(await session.request("/cron add once-fail-job * * * * * --once -- __throw_error__"))
+    .toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Added cron job: once-fail-job"
+  `);
+
+  advanceTimersTo("2026-04-18T07:01:00+07:00");
+  await waitUntil(async () => {
+    const output = await session.request("/cron show once-fail-job");
+    return output.includes("last: failed");
+  });
+
+  expect(await session.request("/cron show once-fail-job")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    id: once-fail-job
+    enabled: no
+    once: yes
+    schedule: * * * * *
+    timezone: Asia/Jakarta
+    target session: test
+    delivery target: repl
+    next: none
+    last: failed, scheduled 2026-04-18T07:01:00+07:00, finished 2026-04-18T07:01:00+07:00, error: Internal error
+    prompt: __throw_error__"
   `);
 });
