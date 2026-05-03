@@ -135,7 +135,7 @@ test("basic", async () => {
         "test": {
           "agentKey": "test",
           "agentSessionId": "__testSession1",
-          "verbose": "off",
+          "verbose": "thinking",
           "updatedAt": <time>
         }
       },
@@ -337,7 +337,7 @@ test("session commands", async () => {
     session: test
     agent: test
     agent session id: none
-    verbose: off
+    verbose: thinking
     renew: off"
   `);
   expect(await session.request("/session list")).toMatchInlineSnapshot(`
@@ -358,7 +358,7 @@ test("session commands", async () => {
     session: test
     agent: test
     agent session id: __testSession1
-    verbose: off
+    verbose: thinking
     renew: off"
   `);
   expect(await session.request("/session list")).toMatchInlineSnapshot(`
@@ -379,7 +379,7 @@ test("session commands", async () => {
     session: test
     agent: test
     agent session id: __testSession2
-    verbose: off
+    verbose: thinking
     renew: off"
   `);
   expect(await session.request("__session")).toMatchInlineSnapshot(`"session: __testSession2"`);
@@ -409,7 +409,7 @@ test("session commands", async () => {
     session: other
     agent: test
     agent session id: __testSession3
-    verbose: off
+    verbose: thinking
     renew: off"
   `);
   // /session info with explicit sessionName: does not exist
@@ -432,7 +432,7 @@ test("session context usage", async () => {
     session: test
     agent: test
     agent session id: __testSession1
-    verbose: off
+    verbose: thinking
     renew: off"
   `);
 
@@ -447,7 +447,7 @@ test("session context usage", async () => {
     session: test
     agent: test
     agent session id: __testSession1
-    verbose: off
+    verbose: thinking
     renew: off
     context: 54321 / 200000 tokens (27%)"
   `);
@@ -464,7 +464,7 @@ test("session context usage", async () => {
         "test": {
           "agentKey": "test",
           "agentSessionId": "__testSession1",
-          "verbose": "off",
+          "verbose": "thinking",
           "updatedAt": <time>
         }
       },
@@ -614,7 +614,7 @@ test("agent command", async () => {
     session: test
     agent: test-error
     agent session id: none
-    verbose: off
+    verbose: thinking
     renew: off"
   `);
   expect(await session.request("/agent remove test-error")).toMatchInlineSnapshot(`
@@ -632,7 +632,7 @@ test("agent command", async () => {
     session: test
     agent: test2
     agent session id: __testSession1
-    verbose: off
+    verbose: thinking
     renew: off"
   `);
   expect(await session.request("/session list")).toMatchInlineSnapshot(`
@@ -659,7 +659,7 @@ test("agent command", async () => {
         "test": {
           "agentKey": "test2",
           "agentSessionId": "__testSession1",
-          "verbose": "off",
+          "verbose": "thinking",
           "updatedAt": <time>
         }
       },
@@ -675,7 +675,7 @@ test("agent command", async () => {
     session: test
     agent: test
     agent session id: __testSession1
-    verbose: off
+    verbose: thinking
     renew: off"
   `);
   expect(await session.request("/session close test2:__testSession1")).toMatchInlineSnapshot(`
@@ -698,7 +698,7 @@ test("agent command", async () => {
         "test": {
           "agentKey": "test",
           "agentSessionId": "__testSession1",
-          "verbose": "off",
+          "verbose": "thinking",
           "updatedAt": <time>
         }
       },
