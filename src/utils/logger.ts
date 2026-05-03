@@ -101,6 +101,10 @@ export function formatSessionUpdateLogEntry(data: SessionUpdate): LogEntry {
     data.sessionUpdate === "agent_thought_chunk"
   ) {
     output.type += `:${data.content.type}`;
+    if (data.messageId) {
+      output.type += `:${data.messageId}`;
+      delete output.messageId;
+    }
     if (data.content.type === "text") {
       output.text = data.content.text;
       output = { ...data.content, ...output };
