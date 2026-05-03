@@ -377,19 +377,23 @@ Options:
   const output = Readable.toWeb(process.stdin) as ReadableStream<Uint8Array>;
   const stream = ndJsonStream(input, output);
 
-  new AgentSideConnection((connection) => {
-    const agent = new OpencodeAcpAgent(connection, parsed.values);
-    connection.signal.addEventListener("abort", () => {
-      agent.closeServer();
-    });
-    for (const signal of ["SIGTERM", "SIGINT", "SIGHUP"]) {
-      process.once(signal, () => {
-        agent.closeServer();
-        process.exit(0);
-      });
-    }
+  let agent: OpencodeAcpAgent;
+  const connection = new AgentSideConnection((connection) => {
+    agent = new OpencodeAcpAgent(connection, parsed.values);
     return agent;
   }, stream);
+
+  // ensure child opencode server process is killed
+  // when acp agent process is killed
+  connection.signal.addEventListener("abort", () => {
+    agent.closeServer();
+  });
+  for (const signal of ["SIGTERM", "SIGINT", "SIGHUP"]) {
+    process.once(signal, () => {
+      agent.closeServer();
+      process.exit(0);
+    });
+  }
 }
 
 main();
