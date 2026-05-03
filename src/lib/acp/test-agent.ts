@@ -250,14 +250,7 @@ class EchoAgent implements Agent {
           content: { type: "text", text: `echo-1: ${title}` },
         },
       });
-      await this.connection.sessionUpdate({
-        sessionId: params.sessionId,
-        update: {
-          sessionUpdate: "agent_message_chunk",
-          content: { type: "text", text: `echo-2: ${title}` },
-        },
-      });
-      return { stopReason: "end_turn" };
+      reportText = `echo-2: ${title}`;
     } else if (text.startsWith("__multiple_chunks_with_messageId:")) {
       const title = text.slice(29);
       await this.connection.sessionUpdate({
