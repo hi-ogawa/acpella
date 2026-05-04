@@ -25,7 +25,7 @@ Use:
 - `/session new [agent]`
 - `/session load <sessionId|agent:sessionId>`
 - `/session close [sessionId|agent:sessionId]`
-- `/session config [sessionName] [key=value...]`
+- `/session config [--target sessionName] [key=value...]`
 - `/session verbose [all|tool|thinking|off] [sessionName]`
 - `/session renew off [sessionName]`
 - `/session renew daily [sessionName]`
@@ -47,12 +47,12 @@ Common cases:
 ```text
 /session config
 /session config verbose=thinking renew=daily
-/session config tg--1003825149970-3433 verbose=tool
+/session config --target tg--1003825149970-3433 verbose=tool
 /session config renew=daily:6
 /session config renew=
 ```
 
-No arguments shows the current session's config. One or more `key=value` pairs update the specified fields atomically. An optional session name before the first `key=value` pair targets a different session. An empty value (e.g. `renew=`) clears that optional field.
+No arguments shows the current session's config. One or more `key=value` pairs update the specified fields atomically. Use `--target <sessionName>` to target a different session. An empty value (e.g. `renew=`) clears that optional field.
 
 Supported keys: `renew` (`off|daily|daily:N`) and `verbose` (`off|tool|thinking|all`).
 

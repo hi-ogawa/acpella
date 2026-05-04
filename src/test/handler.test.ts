@@ -91,7 +91,7 @@ test("basic", async () => {
       /session new [agent] - Start a new agent session.
       /session load <sessionId|agent:sessionId> - Load an existing agent session.
       /session close [sessionId|agent:sessionId] - Close an agent session.
-      /session config [sessionName] [key=value...] - Show or update session config.
+      /session config [--target sessionName] [key=value...] - Show or update session config.
       /session verbose <off|tool|thinking|all> [sessionName] - Set internal progress output.
       /session renew <off|daily|daily:N> [sessionName] - Set session renewal policy.
 
@@ -323,7 +323,7 @@ test("session commands", async () => {
       /session new [agent] - Start a new agent session.
       /session load <sessionId|agent:sessionId> - Load an existing agent session.
       /session close [sessionId|agent:sessionId] - Close an agent session.
-      /session config [sessionName] [key=value...] - Show or update session config.
+      /session config [--target sessionName] [key=value...] - Show or update session config.
       /session verbose <off|tool|thinking|all> [sessionName] - Set internal progress output.
       /session renew <off|daily|daily:N> [sessionName] - Set session renewal policy."
   `);
@@ -335,7 +335,7 @@ test("session commands", async () => {
       /session new [agent] - Start a new agent session.
       /session load <sessionId|agent:sessionId> - Load an existing agent session.
       /session close [sessionId|agent:sessionId] - Close an agent session.
-      /session config [sessionName] [key=value...] - Show or update session config.
+      /session config [--target sessionName] [key=value...] - Show or update session config.
       /session verbose <off|tool|thinking|all> [sessionName] - Set internal progress output.
       /session renew <off|daily|daily:N> [sessionName] - Set session renewal policy."
   `);
@@ -601,8 +601,8 @@ test("session config command", async () => {
     verbose: thinking
     renew: off"
   `);
-  // Now configure from session1 targeting session2 by name
-  expect(await session.request("/session config other verbose=tool")).toMatchInlineSnapshot(`
+  // Now configure from session1 targeting session2 via --target
+  expect(await session.request("/session config --target other verbose=tool")).toMatchInlineSnapshot(`
     "[⚙️ System]
     verbose: tool
     renew: off"
@@ -613,11 +613,15 @@ test("session config command", async () => {
     verbose: tool
     renew: off"
   `);
-
-  // Unknown explicit sessionName
-  expect(await session.request("/session config no-such verbose=tool")).toMatchInlineSnapshot(`
+  // --target with unknown session name
+  expect(await session.request("/session config --target no-such verbose=tool")).toMatchInlineSnapshot(`
     "[⚙️ System]
     Unknown session: no-such"
+  `);
+  // --target with missing value
+  expect(await session.request("/session config --target")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Missing value for --target"
   `);
 });
 

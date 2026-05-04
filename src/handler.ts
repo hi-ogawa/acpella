@@ -392,22 +392,26 @@ Unmapped acp sessions:
     },
     {
       tokens: ["config"],
-      usage: "/session config [sessionName] [key=value...]",
+      usage: "/session config [--target sessionName] [key=value...]",
       description: "Show or update session config.",
       withArgs: true,
       run: async ({ args, reply, sessionName }) => {
         let targetSessionName = sessionName;
         let kvArgs = args;
 
-        // Check if the first arg is an explicit sessionName (no `=` present)
-        if (args.length > 0 && !args[0].includes("=")) {
-          const candidate = args[0];
+        // Check for --target <sessionName> flag
+        if (args[0] === "--target") {
+          const candidate = args[1];
+          if (!candidate) {
+            await reply.system("Missing value for --target");
+            return;
+          }
           if (!stateStore.get().sessions[candidate]) {
             await reply.system(`Unknown session: ${candidate}`);
             return;
           }
           targetSessionName = candidate;
-          kvArgs = args.slice(1);
+          kvArgs = args.slice(2);
         }
 
         if (kvArgs.length === 0) {
