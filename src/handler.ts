@@ -410,8 +410,6 @@ Unmapped acp sessions:
           kvArgs = args.slice(1);
         }
 
-        const supportedKeys = ["renew", "verbose"];
-
         if (kvArgs.length === 0) {
           // Show current config
           const stateSession = stateStore.getSession(targetSessionName);
@@ -421,11 +419,11 @@ Unmapped acp sessions:
           return;
         }
 
-        // Parse all key=value pairs, then apply atomically
-        let verboseValue: ReturnType<typeof parseVerboseMode> | undefined;
-        let renewValue: ReturnType<typeof parseSessionRenewPolicy> | undefined;
-        let hasVerbose = false;
-        let hasRenew = false;
+        // Parse all key=value pairs into a patch, then apply atomically
+        const patch: {
+          verbose?: ReturnType<typeof parseVerboseMode>;
+          renew?: ReturnType<typeof parseSessionRenewPolicy>;
+        } = {};
 
         for (const arg of kvArgs) {
           const eqIdx = arg.indexOf("=");
@@ -437,21 +435,15 @@ Unmapped acp sessions:
           const value = arg.slice(eqIdx + 1);
 
           if (key === "verbose") {
-            verboseValue = parseVerboseMode(value);
-            hasVerbose = true;
+            patch.verbose = parseVerboseMode(value);
           } else if (key === "renew") {
-            renewValue = value === "" ? undefined : parseSessionRenewPolicy(value);
-            hasRenew = true;
+            patch.renew = value === "" ? undefined : parseSessionRenewPolicy(value);
           } else {
-            await reply.system(`Unknown key: ${key}\nSupported keys: ${supportedKeys.join(", ")}`);
+            await reply.system(`Unknown key: ${key}\nSupported keys: renew, verbose`);
             return;
           }
         }
 
-        const patch = {
-          ...(hasVerbose ? { verbose: verboseValue } : {}),
-          ...(hasRenew ? { renew: renewValue } : {}),
-        };
         stateStore.setSession(targetSessionName, patch);
 
         const stateSession = stateStore.getSession(targetSessionName);
