@@ -391,6 +391,76 @@ Unmapped acp sessions:
       },
     },
     {
+      tokens: ["config"],
+      usage: "/session config [sessionName] [key=value...]",
+      description: "Show or update session config.",
+      withArgs: true,
+      run: async ({ args, reply, sessionName }) => {
+        let targetSessionName = sessionName;
+        let kvArgs = args;
+
+        // Check if the first arg is an explicit sessionName (no `=` present)
+        if (args.length > 0 && !args[0].includes("=")) {
+          const candidate = args[0];
+          if (!stateStore.get().sessions[candidate]) {
+            await reply.system(`Unknown session: ${candidate}`);
+            return;
+          }
+          targetSessionName = candidate;
+          kvArgs = args.slice(1);
+        }
+
+        const supportedKeys = ["renew", "verbose"];
+
+        if (kvArgs.length === 0) {
+          // Show current config
+          const stateSession = stateStore.getSession(targetSessionName);
+          await reply.system(
+            `verbose: ${stateSession.verbose}\nrenew: ${renderSessionRenewPolicy({ policy: stateSession.renew, timezone: config.timezone })}`,
+          );
+          return;
+        }
+
+        // Parse all key=value pairs, then apply atomically
+        let verboseValue: ReturnType<typeof parseVerboseMode> | undefined;
+        let renewValue: ReturnType<typeof parseSessionRenewPolicy> | undefined;
+        let hasVerbose = false;
+        let hasRenew = false;
+
+        for (const arg of kvArgs) {
+          const eqIdx = arg.indexOf("=");
+          if (eqIdx === -1) {
+            await reply.system(`Invalid argument: ${arg}\nExpected key=value pairs.`);
+            return;
+          }
+          const key = arg.slice(0, eqIdx);
+          const value = arg.slice(eqIdx + 1);
+
+          if (key === "verbose") {
+            verboseValue = parseVerboseMode(value);
+            hasVerbose = true;
+          } else if (key === "renew") {
+            renewValue = value === "" ? undefined : parseSessionRenewPolicy(value);
+            hasRenew = true;
+          } else {
+            await reply.system(`Unknown key: ${key}\nSupported keys: ${supportedKeys.join(", ")}`);
+            return;
+          }
+        }
+
+        const patch = {
+          ...(hasVerbose ? { verbose: verboseValue } : {}),
+          ...(hasRenew ? { renew: renewValue } : {}),
+        };
+        stateStore.setSession(targetSessionName, patch);
+
+        const stateSession = stateStore.getSession(targetSessionName);
+        await reply.system(
+          `verbose: ${stateSession.verbose}\nrenew: ${renderSessionRenewPolicy({ policy: stateSession.renew, timezone: config.timezone })}`,
+        );
+      },
+    },
+    {
       tokens: ["verbose"],
       usage: "/session verbose <off|tool|thinking|all> [sessionName]",
       description: "Set internal progress output.",
