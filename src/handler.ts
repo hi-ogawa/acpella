@@ -230,17 +230,16 @@ export async function createHandler(
         }
         const sessionName = arg ?? context.sessionName;
         const stateSession = stateStore.getSession(sessionName);
-        const usage = stateSession.agentSessionId
-          ? stateStore.getAgentSessionUsage({
-              agentKey: stateSession.agentKey,
-              agentSessionId: stateSession.agentSessionId,
-            })
-          : undefined;
         await reply.system(
           renderSessionInfo({
             name: sessionName,
             session: stateSession,
-            usage,
+            usage: stateSession.agentSessionId
+              ? stateStore.getAgentSessionUsage({
+                  agentKey: stateSession.agentKey,
+                  agentSessionId: stateSession.agentSessionId,
+                })
+              : undefined,
             timezone: config.timezone,
           }),
         );
@@ -254,18 +253,17 @@ export async function createHandler(
         const state = stateStore.get();
         const entries: string[] = [];
         for (const [sessionName, stateSession] of Object.entries(state.sessions)) {
-          const usage = stateSession.agentSessionId
-            ? stateStore.getAgentSessionUsage({
-                agentKey: stateSession.agentKey,
-                agentSessionId: stateSession.agentSessionId,
-              })
-            : undefined;
           const output = renderSessionInfo({
             name: sessionName,
             session: stateSession,
-            usage,
-            indent: "  ",
+            usage: stateSession.agentSessionId
+              ? stateStore.getAgentSessionUsage({
+                  agentKey: stateSession.agentKey,
+                  agentSessionId: stateSession.agentSessionId,
+                })
+              : undefined,
             timezone: config.timezone,
+            indent: "  ",
           });
           entries.push(output.replace(/^  /, "- "));
         }
