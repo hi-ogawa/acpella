@@ -4,6 +4,7 @@ import { validateCronSchedule } from "./timer.ts";
 
 const CRON_FILE_VERSION = 1;
 const CRON_STATE_FILE_VERSION = 1;
+const CRON_RUN_HISTORY_LIMIT = 5;
 
 export const cronIdSchema = z
   .string()
@@ -213,6 +214,13 @@ export class CronStore {
         status: "running",
       };
       file.runs[options.cronId][options.scheduledAt] = run;
+      // Prune to keep only the latest CRON_RUN_HISTORY_LIMIT runs
+      const keys = Object.keys(file.runs[options.cronId]).sort((a, b) =>
+        b.localeCompare(a),
+      );
+      for (const key of keys.slice(CRON_RUN_HISTORY_LIMIT)) {
+        delete file.runs[options.cronId][key];
+      }
     });
     return run!;
   }

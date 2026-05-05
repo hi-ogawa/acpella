@@ -657,6 +657,44 @@ test("cron with session name", async ({ onTestFinished }) => {
   `);
 });
 
+test("cron run history is bounded to 5 per job", async () => {
+  const tester = await createHandlerTester();
+  const { cronStore } = tester;
+
+  const session = tester.createSession("test", {
+    metadata: { cronDeliveryTarget: { repl: true } },
+  });
+  expect(await session.request("/cron add test-job * * * * * -- hello-cron"))
+    .toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Added cron job: test-job"
+  `);
+
+  // Insert 7 runs; only the latest 5 should be retained.
+  for (let i = 1; i <= 7; i++) {
+    const scheduledAt = `2026-04-18T07:0${i}:00Z`;
+    const run = cronStore.startRun({
+      cronId: "test-job",
+      scheduledAt,
+      startedAt: scheduledAt,
+    });
+    cronStore.updateRun(run.id, {
+      finishedAt: scheduledAt,
+      status: "succeeded",
+    });
+  }
+
+  const runs = Object.keys(cronStore.stateFile.state.runs["test-job"]);
+  expect(runs).toHaveLength(5);
+  expect(runs.sort()).toEqual([
+    "2026-04-18T07:03:00Z",
+    "2026-04-18T07:04:00Z",
+    "2026-04-18T07:05:00Z",
+    "2026-04-18T07:06:00Z",
+    "2026-04-18T07:07:00Z",
+  ]);
+});
+
 test("cron runner renews stale session after daily boundary", async ({ onTestFinished }) => {
   // Timeline:
   // - 03:30: enable daily renewal at 04:00 and create __testSession1.
