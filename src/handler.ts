@@ -249,64 +249,31 @@ renew: ${renderSessionRenewPolicy({ policy: stateSession.renew, timezone: config
     },
     {
       tokens: ["list"],
-      usage: "/session list [--all]",
-      description: "List known agent sessions.",
-      withArgs: true,
-      run: async ({ reply, args }) => {
+      usage: "/session list",
+      description: "List known acpella sessions.",
+      run: async ({ reply }) => {
         const state = stateStore.get();
-        const activeAgentSessions = new Set<string>();
-        for (const [agentKey] of Object.entries(state.agents)) {
-          try {
-            const manager = await getAgentManager(agentKey);
-            const agentSessions = await manager.listSessions();
-            for (const session of agentSessions.sessions) {
-              activeAgentSessions.add(
-                toAgentSessionKey({ agentKey, agentSessionId: session.sessionId }),
-              );
-            }
-          } catch (e) {
-            // TODO: include errored agent in message response
-            console.error(`[acp] listSessions failed for agent ${agentKey}:`, e);
-          }
-        }
-        const stateAgentSessions = new Map<string, string>();
+        const output: string[] = [];
         for (const [sessionName, stateSession] of Object.entries(state.sessions)) {
-          if (stateSession.agentKey && stateSession.agentSessionId) {
-            stateAgentSessions.set(
-              toAgentSessionKey({
-                agentKey: stateSession.agentKey,
-                agentSessionId: stateSession.agentSessionId,
-              }),
-              sessionName,
-            );
-          }
-        }
-        let mappedOutput = "";
-        for (const [agentSessionKey, sessionName] of stateAgentSessions) {
-          mappedOutput += `- ${sessionName} -> ${agentSessionKey}`;
-          if (!activeAgentSessions.has(agentSessionKey)) {
-            mappedOutput += " (not found)";
-          }
-          mappedOutput += "\n";
-        }
-        if (args.includes("--all")) {
-          let output = `\
-Mapped sessions:
-${mappedOutput || "none\n"}
-Unmapped acp sessions:
+          let entry = `\
+- ${sessionName}
+  agent: ${stateSession.agentKey}
+  agent session: ${stateSession.agentSessionId ?? "none"}
+  renew: ${renderSessionRenewPolicy({ policy: stateSession.renew, timezone: config.timezone })}
 `;
-          const unmapped = [...activeAgentSessions].filter((k) => !stateAgentSessions.has(k));
-          if (unmapped.length === 0) {
-            output += "none\n";
-          } else {
-            for (const agentSessionKey of unmapped) {
-              output += `- ${agentSessionKey}\n`;
+          if (stateSession.agentSessionId) {
+            const usage = stateStore.getAgentSessionUsage({
+              agentKey: stateSession.agentKey,
+              agentSessionId: stateSession.agentSessionId,
+            });
+            if (usage) {
+              const pct = Math.round((usage.used / usage.size) * 100);
+              entry += `  context: ${usage.used} / ${usage.size} tokens (${pct}%)`;
             }
           }
-          await reply.system(output);
-        } else {
-          await reply.system(mappedOutput || "No sessions.");
+          output.push(entry);
         }
+        await reply.system(output.join("\n\n") || "No sessions.");
       },
     },
     {
@@ -431,6 +398,45 @@ Unmapped acp sessions:
           response += `- ${agentKey} -> ${agent.command}${marker}\n`;
         }
         await reply.system(response || "No agents.");
+      },
+    },
+    {
+      tokens: ["sessions"],
+      usage: "/agent sessions [agent]",
+      description: "List backend ACP sessions.",
+      withArgs: true,
+      run: async ({ args, reply }) => {
+        const state = stateStore.get();
+        const requestedAgent = args[0];
+        const agentKeys = requestedAgent ? [requestedAgent] : Object.keys(state.agents);
+        if (requestedAgent && !state.agents[requestedAgent]) {
+          await reply.system(`Unknown agent: ${requestedAgent}`);
+          return;
+        }
+
+        const output: string[] = [];
+        for (const agentKey of agentKeys) {
+          try {
+            const manager = await getAgentManager(agentKey);
+            const agentSessions = await manager.listSessions();
+            const sessions = agentSessions.sessions;
+            let entry = `${agentKey}:`;
+            if (sessions.length === 0) {
+              entry += "\nnone";
+            } else {
+              for (const session of sessions) {
+                entry += `\n- ${session.sessionId}`;
+              }
+            }
+            output.push(entry);
+          } catch (error) {
+            output.push(`\
+${agentKey}:
+error: ${formatError(error)}`);
+          }
+        }
+
+        await reply.system(output.join("\n\n") || "No agents.");
       },
     },
     {

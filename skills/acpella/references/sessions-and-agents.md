@@ -15,13 +15,14 @@ In practice, session commands are for:
 
 Run session lifecycle commands from Telegram or the REPL conversation whose context you mean to control. Do not use `acpella exec` for `/session new`, `/session load`, or `/session close`. Use `acpella exec /session list` and `acpella exec '/session info <sessionName>'` only to discover existing session names and inspect known sessions for administrative commands such as cron creation.
 
+`/session list` is a local acpella state view. It reads `.acpella/state.json` only; it does not connect to ACP backends, verify mapped backend sessions, or discover unmapped backend sessions.
+
 ## Session commands
 
 Use:
 
 - `/session info [sessionName]`
 - `/session list`
-- `/session list --all`
 - `/session new [agent]`
 - `/session load <sessionId|agent:sessionId>`
 - `/session close [sessionId|agent:sessionId]`
@@ -33,10 +34,12 @@ Common cases:
 - if you want a clean start, run `/session new`
 - if you know an older ACP session id, use `/session load ...`
 - use `/session info [sessionName]` to inspect the selected agent, agent session id, verbose setting, renewal policy, and context usage
-- use `/session list` to see all mapped acpella sessions; add `--all` to also show unmapped backend sessions
+- use `/session list` to see all mapped acpella sessions without probing backend agents
 - use `/session config` to show or update per-session settings (`verbose`, `renew`) in one place
 - use `/session config verbose=off|tool|thinking|all` to control internal progress output for a session
 - use `/session config renew=off|daily|daily:<hour>` to change whether a session renews automatically
+
+`/session list` should show acpella session names, their selected agent, mapped agent session id when present, renewal policy, and cached context usage when available.
 
 ### `/session config` examples
 
@@ -69,9 +72,12 @@ Examples:
 Use:
 
 - `/agent list`
+- `/agent sessions [agent]`
 - `/agent new <name> <command...>`
 - `/agent remove <name>`
 - `/agent default [name]`
+
+Use `/agent sessions [agent]` only when a human operator explicitly wants backend ACP session discovery. It may start or connect to configured agent processes and should report backend failures as diagnostics. Agents should not use it for routine administration or session selection; prefer `/session list` and `/session info <sessionName>` unless the user specifically asks to inspect backend agent sessions.
 
 Typical flow:
 
