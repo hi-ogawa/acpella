@@ -407,13 +407,13 @@ renew: ${renderSessionRenewPolicy({ policy: stateSession.renew, timezone: config
       withArgs: true,
       run: async ({ args, reply }) => {
         const state = stateStore.get();
-        const requestedAgent = args[0];
-        const agentKeys = requestedAgent ? [requestedAgent] : Object.keys(state.agents);
-        if (requestedAgent && !state.agents[requestedAgent]) {
-          await reply.system(`Unknown agent: ${requestedAgent}`);
+        const agentArg = args[0];
+        if (agentArg && !state.agents[agentArg]) {
+          await reply.system(`Unknown agent: ${agentArg}`);
           return;
         }
 
+        const agentKeys = agentArg ? [agentArg] : Object.keys(state.agents);
         if (agentKeys.length === 0) {
           await reply.system("No agents.");
           return;
