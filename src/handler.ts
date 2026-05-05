@@ -420,23 +420,24 @@ renew: ${renderSessionRenewPolicy({ policy: stateSession.renew, timezone: config
             const manager = await getAgentManager(agentKey);
             const agentSessions = await manager.listSessions();
             const sessions = agentSessions.sessions;
-            let entry = `${agentKey}:`;
+            let entry = `${agentKey}:\n`;
             if (sessions.length === 0) {
-              entry += "\nnone";
+              entry += "  none";
             } else {
               for (const session of sessions) {
-                entry += `\n- ${session.sessionId}`;
+                entry += `- ${session.sessionId}\n`;
               }
             }
             output.push(entry);
           } catch (error) {
             output.push(`\
 ${agentKey}:
-error: ${formatError(error)}`);
+  error: ${formatError(error)}
+`);
           }
         }
 
-        await reply.system(output.join("\n\n") || "No agents.");
+        await reply.system(output.join("\n") || "No agents.");
       },
     },
     {

@@ -643,7 +643,7 @@ test("agent command", async () => {
   expect(await session.request("/agent sessions")).toMatchInlineSnapshot(`
     "[⚙️ System]
     test:
-    none"
+      none"
   `);
   expect(await session.request("/agent new test-error no-such-command")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -652,7 +652,7 @@ test("agent command", async () => {
   expect(await session.request("/agent sessions test-error")).toMatchInlineSnapshot(`
     "[⚙️ System]
     test-error:
-    error: ACP agent failed to start: spawn no-such-command ENOENT"
+      error: ACP agent failed to start: spawn no-such-command ENOENT"
   `);
   expect(await session.request("/session new test-error")).toMatchInlineSnapshot(`
     "[⚙️ System]
