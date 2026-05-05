@@ -39,7 +39,7 @@ When unsure which slash command or arguments to use, start with `/help` from Tel
 
 Commands that only read or mutate shared `.acpella` state, such as `/agent list`, `/session list`, `/cron add`, or `/cron update`, are usually fine through `exec`.
 
-Commands that control process-local runtime state, such as `/cron start`, `/cron stop`, `/session new`, `/session load`, or `/session close`, must be sent to the process whose runtime state should change. Do not use `exec` to control another running acpella service.
+Commands that control process-local runtime state, such as `/cron start`, `/cron stop`, `/session new` without `--target`, `/session load`, or `/session close`, must be sent to the process whose runtime state should change. Do not use `exec` to control another running acpella service.
 
 Use `acpella exec <slash-command...>` only for local shell administration of acpella itself: inspecting or changing installation-wide state, listing configured objects, or running setup commands.
 
@@ -55,7 +55,7 @@ acpella exec /cron list
 acpella exec /service systemd install
 ```
 
-Do not use `exec` to send normal agent prompts. Do not use `exec` for session lifecycle actions that depend on the current Telegram or REPL conversation context, such as `/session new`, `/session load`, or `/session close`. Use `/session list` and `/session info --target <sessionName>` through `exec` only to discover or inspect existing sessions for administrative commands such as cron creation.
+Do not use `exec` to send normal agent prompts. Do not use `exec` for session lifecycle actions that depend on the current Telegram or REPL conversation context, such as `/session new` without `--target`, `/session load`, or `/session close`. Use `/session list` and `/session info --target <sessionName>` through `exec` to discover or inspect existing sessions. Use `/session new --target <sessionName>` through `exec` only when intentionally resetting a known existing acpella session for administrative workflows such as cron topics.
 
 ## Route by user question
 
