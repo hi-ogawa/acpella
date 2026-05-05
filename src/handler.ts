@@ -20,6 +20,11 @@ import {
   renderSessionRenewPolicy,
   shouldRenewSession,
 } from "./lib/session-renew.ts";
+import {
+  parseSessionConfigArgs,
+  parseSessionConfigPatch,
+  renderSessionConfig,
+} from "./lib/session/command.ts";
 import { handleSystemdInstall } from "./lib/systemd.ts";
 import { parseTelegramSessionName } from "./lib/telegram/utils.ts";
 import { getVerboseSessionUpdateTypes, parseVerboseMode } from "./lib/verbose.ts";
@@ -396,63 +401,36 @@ Unmapped acp sessions:
       description: "Show or update session config.",
       withArgs: true,
       run: async ({ args, reply, sessionName }) => {
-        let targetSessionName = sessionName;
-        let kvArgs = args;
-
-        // Check for --target <sessionName> flag
-        if (args[0] === "--target") {
-          const candidate = args[1];
-          if (!candidate) {
-            await reply.system("Missing value for --target");
-            return;
-          }
-          if (!stateStore.get().sessions[candidate]) {
-            await reply.system(`Unknown session: ${candidate}`);
-            return;
-          }
-          targetSessionName = candidate;
-          kvArgs = args.slice(2);
-        }
-
-        if (kvArgs.length === 0) {
-          // Show current config
-          const stateSession = stateStore.getSession(targetSessionName);
-          await reply.system(
-            `verbose: ${stateSession.verbose}\nrenew: ${renderSessionRenewPolicy({ policy: stateSession.renew, timezone: config.timezone })}`,
-          );
+        const parsedArgs = parseSessionConfigArgs(args);
+        if (!parsedArgs.ok) {
+          await reply.system(parsedArgs.error);
           return;
         }
 
-        // Parse all key=value pairs into a patch, then apply atomically
-        const patch: {
-          verbose?: ReturnType<typeof parseVerboseMode>;
-          renew?: ReturnType<typeof parseSessionRenewPolicy>;
-        } = {};
+        const targetSessionName = parsedArgs.targetSessionName ?? sessionName;
+        if (parsedArgs.targetSessionName && !stateStore.get().sessions[targetSessionName]) {
+          await reply.system(`Unknown session: ${targetSessionName}`);
+          return;
+        }
 
-        for (const arg of kvArgs) {
-          const eqIdx = arg.indexOf("=");
-          if (eqIdx === -1) {
-            await reply.system(`Invalid argument: ${arg}\nExpected key=value pairs.`);
-            return;
-          }
-          const key = arg.slice(0, eqIdx);
-          const value = arg.slice(eqIdx + 1);
-
-          if (key === "verbose") {
-            patch.verbose = parseVerboseMode(value);
-          } else if (key === "renew") {
-            patch.renew = value === "" ? undefined : parseSessionRenewPolicy(value);
-          } else {
-            await reply.system(`Unknown key: ${key}\nSupported keys: renew, verbose`);
+        if (parsedArgs.configArgs.length > 0) {
+          try {
+            stateStore.setSession(
+              targetSessionName,
+              parseSessionConfigPatch(parsedArgs.configArgs),
+            );
+          } catch (e) {
+            await reply.system(formatError(e));
             return;
           }
         }
 
-        stateStore.setSession(targetSessionName, patch);
-
         const stateSession = stateStore.getSession(targetSessionName);
         await reply.system(
-          `verbose: ${stateSession.verbose}\nrenew: ${renderSessionRenewPolicy({ policy: stateSession.renew, timezone: config.timezone })}`,
+          renderSessionConfig({
+            session: stateSession,
+            timezone: config.timezone,
+          }),
         );
       },
     },
