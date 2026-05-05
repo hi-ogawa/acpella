@@ -599,7 +599,7 @@ enabled jobs: ${enabledJobs.length}
           cronStore.addJob({
             id: cron.id,
             enabled: true,
-            ...(cron.once ? { once: true } : {}),
+            once: cron.once || undefined,
             schedule: cron.schedule,
             timezone: config.timezone,
             prompt: cron.prompt,
