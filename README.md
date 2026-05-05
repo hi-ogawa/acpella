@@ -1,6 +1,6 @@
 # acpella
 
-Thin service that connects a messaging channel (Telegram) to AI agent via [ACP](https://github.com/agentclientprotocol/agent-client-protocol). Agent-agnostic — works with Codex, Claude Code, or any ACP-compatible agent.
+Thin service that connects a messaging channel (Telegram) to AI agent via [ACP](https://github.com/agentclientprotocol/agent-client-protocol). Agent-agnostic — works with [OpenCode](https://github.com/anomalyco/opencode), [Codex](https://github.com/zed-industries/codex-acp/), or any [ACP-compatible agent](https://agentclientprotocol.com/get-started/agents).
 
 ## Setup
 
@@ -51,4 +51,3 @@ pnpm cli exec /status
 ## Docs
 
 - [`skills/acpella`](skills/acpella/SKILL.md) — maintained usage and administration guide for agents
-- [`docs/architecture.md`](docs/architecture.md) — design decisions, data flow
