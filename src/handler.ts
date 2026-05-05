@@ -15,11 +15,11 @@ import type { CronDeliveryTarget, CronJob, CronStore } from "./lib/cron/store.ts
 import type { MessageMetadata } from "./lib/prompt.ts";
 import { buildFirstPrompt, buildMessageMetadataPrompt } from "./lib/prompt.ts";
 import { MESSAGE_SPLIT_BUDGET, ReplyManager } from "./lib/reply.ts";
-import { renderSessionRenewPolicy, shouldRenewSession } from "./lib/session-renew.ts";
 import { parseSessionConfig, renderSessionConfig } from "./lib/session/command.ts";
+import { renderSessionRenewPolicy, shouldRenewSession } from "./lib/session/renew.ts";
+import { getVerboseSessionUpdateTypes } from "./lib/session/verbose.ts";
 import { handleSystemdInstall } from "./lib/systemd.ts";
 import { parseTelegramSessionName } from "./lib/telegram/utils.ts";
-import { getVerboseSessionUpdateTypes } from "./lib/verbose.ts";
 import { parseAgentSessionKey, SessionStateStore, toAgentSessionKey } from "./state.ts";
 import type { StateAgentSession } from "./state.ts";
 import { AsyncLane, DefaultMap, formatError } from "./utils/index.ts";

@@ -1,6 +1,6 @@
 import type { StateSession } from "../../state.ts";
-import { parseSessionRenewPolicy, renderSessionRenewPolicy } from "../session-renew.ts";
-import { parseVerboseMode } from "../verbose.ts";
+import { parseSessionRenewPolicy, renderSessionRenewPolicy } from "./renew.ts";
+import { parseVerboseMode } from "./verbose.ts";
 
 type SessionConfigPatch = Pick<Partial<StateSession>, "verbose" | "renew">;
 
