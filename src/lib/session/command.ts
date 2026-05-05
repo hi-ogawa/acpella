@@ -77,10 +77,10 @@ export function renderSessionInfo(options: {
   name: string;
   session: StateSession;
   usage?: AgentSessionUsage;
-  indent?: string;
   timezone: string;
+  indent?: string;
 }): string {
-  const lines = [
+  let lines = [
     `session: ${options.name}`,
     `agent: ${options.session.agentKey}`,
     `agent session id: ${options.session.agentSessionId ?? "none"}`,
@@ -94,7 +94,7 @@ export function renderSessionInfo(options: {
     lines.push(renderSessionContextUsage(options.usage));
   }
   if (options.indent) {
-    return lines.map((line) => `${options.indent}${line}`).join("\n");
+    lines = lines.map((line) => `${options.indent}${line}`);
   }
   return lines.join("\n");
 }

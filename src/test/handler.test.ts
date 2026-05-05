@@ -357,9 +357,10 @@ test("session commands", async () => {
   `);
   expect(await session.request("/session list")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    - test
+    - session: test
       agent: test
       agent session id: __testSession1
+      verbose: thinking
       renew: off"
   `);
   expect(await session.request("/session load")).toMatchInlineSnapshot(`
@@ -382,9 +383,10 @@ test("session commands", async () => {
   expect(await session.request("__session")).toMatchInlineSnapshot(`"session: __testSession2"`);
   expect(await session.request("/session list")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    - test
+    - session: test
       agent: test
       agent session id: __testSession2
+      verbose: thinking
       renew: off"
   `);
   expect(await session.request("/agent sessions")).toMatchInlineSnapshot(`
@@ -734,9 +736,10 @@ test("agent command", async () => {
   `);
   expect(await session.request("/session list")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    - test
+    - session: test
       agent: test2
       agent session id: __testSession1
+      verbose: thinking
       renew: off"
   `);
   expect(await session.request("/agent remove test-error")).toMatchInlineSnapshot(`
