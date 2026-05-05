@@ -68,11 +68,6 @@ renew: ${renderSessionRenewPolicy({
 `;
 }
 
-function renderSessionContextUsage(usage: AgentSessionUsage): string {
-  const pct = Math.round((usage.used / usage.size) * 100);
-  return `context: ${usage.used} / ${usage.size} tokens (${pct}%)`;
-}
-
 export function renderSessionInfo(options: {
   name: string;
   session: StateSession;
@@ -97,4 +92,9 @@ export function renderSessionInfo(options: {
     lines = lines.map((line) => `${options.indent}${line}`);
   }
   return lines.join("\n");
+}
+
+function renderSessionContextUsage(usage: AgentSessionUsage): string {
+  const pct = Math.round((usage.used / usage.size) * 100);
+  return `context: ${usage.used} / ${usage.size} tokens (${pct}%)`;
 }
