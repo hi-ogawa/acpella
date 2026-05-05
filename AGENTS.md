@@ -59,3 +59,4 @@ src/
 - Use braces for every `switch` case body (`case "x": { ... }`, `default: { ... }`)
 - When changing setup, CLI commands, service management, session routing, agent registration, customization, cron, or troubleshooting behavior, check whether `README.md` and `skills/acpella` need matching updates.
 - Do not update existing `docs/tasks/*` notes just to reflect code refactors unless explicitly asked.
+- Use pnpm only; never create/commit package-lock.json or yarn.lock
