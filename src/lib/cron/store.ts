@@ -202,7 +202,8 @@ export class CronStore {
     let run: CronRun;
     this.stateFile.set((file) => {
       file.runs[options.cronId] ??= {};
-      if (file.runs[options.cronId][options.scheduledAt]) {
+      const runs = file.runs[options.cronId];
+      if (runs[options.scheduledAt]) {
         throw new Error("Cron run already exists for this schedule", {
           cause: options,
         });
@@ -213,11 +214,14 @@ export class CronStore {
         startedAt: options.startedAt,
         status: "running",
       };
-      file.runs[options.cronId][options.scheduledAt] = run;
-      // Prune to keep only the latest CRON_RUN_HISTORY_LIMIT runs
-      const keys = Object.keys(file.runs[options.cronId]).sort().reverse();
-      for (const key of keys.slice(CRON_RUN_HISTORY_LIMIT)) {
-        delete file.runs[options.cronId][key];
+      runs[options.scheduledAt] = run;
+      const oldKeys = Object.keys(runs).sort().slice(0, -CRON_RUN_HISTORY_LIMIT);
+      for (const key of oldKeys) {
+        const oldRun = runs[key];
+        if (oldRun.status === "running") {
+          continue;
+        }
+        delete runs[key];
       }
     });
     return run!;
