@@ -6,29 +6,22 @@ export type SessionConfigPatch = {
   renew?: ReturnType<typeof parseSessionRenewPolicy>;
 };
 
-export type ParsedSessionConfigArgs =
-  | {
-      ok: true;
-      targetSessionName?: string;
-      configArgs: string[];
-    }
-  | {
-      ok: false;
-      error: string;
-    };
+export type ParsedSessionConfigArgs = {
+  targetSessionName?: string;
+  configArgs: string[];
+};
 
 export function parseSessionConfigArgs(args: string[]): ParsedSessionConfigArgs {
   if (args[0] !== "--target") {
-    return { ok: true, configArgs: args };
+    return { configArgs: args };
   }
 
   const targetSessionName = args[1];
   if (!targetSessionName) {
-    return { ok: false, error: "Missing value for --target" };
+    throw new Error("Missing value for --target");
   }
 
   return {
-    ok: true,
     targetSessionName,
     configArgs: args.slice(2),
   };
