@@ -215,9 +215,7 @@ export class CronStore {
       };
       file.runs[options.cronId][options.scheduledAt] = run;
       // Prune to keep only the latest CRON_RUN_HISTORY_LIMIT runs
-      const keys = Object.keys(file.runs[options.cronId]).sort((a, b) =>
-        b.localeCompare(a),
-      );
+      const keys = Object.keys(file.runs[options.cronId]).sort().reverse();
       for (const key of keys.slice(CRON_RUN_HISTORY_LIMIT)) {
         delete file.runs[options.cronId][key];
       }
