@@ -578,12 +578,17 @@ test("session config command", async () => {
     renew: daily at 06:00 Asia/Jakarta"
   `);
 
-  // Clear renew with empty value
-  expect(await session.request("/session config renew=")).toMatchInlineSnapshot(`
+  // Clear renew explicitly
+  expect(await session.request("/session config renew=off")).toMatchInlineSnapshot(`
     "[⚙️ System]
     verbose: thinking
     renew: off"
   `);
+
+  // Empty renew is invalid
+  await expect(session.request("/session config renew=")).rejects.toMatchInlineSnapshot(
+    `[Error: Invalid session renewal policy: ]`,
+  );
 
   // Unknown key errors with list of supported keys
   await expect(session.request("/session config label=heartbeat")).rejects.toMatchInlineSnapshot(`

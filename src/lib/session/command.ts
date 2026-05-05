@@ -38,7 +38,7 @@ export function parseSessionConfig(args: string[]): ParsedSessionConfig {
       }
       case "renew": {
         patch ??= {};
-        patch.renew = value === "" ? undefined : parseSessionRenewPolicy(value);
+        patch.renew = parseSessionRenewPolicy(value);
         break;
       }
       default: {
