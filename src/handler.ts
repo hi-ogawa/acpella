@@ -238,11 +238,9 @@ export async function createHandler(
           : undefined;
         await reply.system(
           renderSessionInfo({
-            session: {
-              name: sessionName,
-              session: stateSession,
-              usage,
-            },
+            name: sessionName,
+            session: stateSession,
+            usage,
             timezone: config.timezone,
           }),
         );
@@ -263,11 +261,9 @@ export async function createHandler(
               })
             : undefined;
           const output = renderSessionInfo({
-            session: {
-              name: sessionName,
-              session: stateSession,
-              usage,
-            },
+            name: sessionName,
+            session: stateSession,
+            usage,
             timezone: config.timezone,
           });
           entries.push(

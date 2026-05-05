@@ -91,7 +91,7 @@ export interface StateAgentSession {
   agentSessionId: string;
 }
 type AgentSessionData = z.infer<typeof agentSessionDataSchema>;
-type AgentSessionUsage = NonNullable<AgentSessionData["usage"]>;
+export type AgentSessionUsage = NonNullable<AgentSessionData["usage"]>;
 
 export class SessionStateStore {
   file: FileStateManager<State>;

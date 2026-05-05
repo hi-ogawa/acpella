@@ -1,4 +1,4 @@
-import type { StateSession } from "../../state.ts";
+import type { AgentSessionUsage, StateSession } from "../../state.ts";
 import { parseSessionRenewPolicy, renderSessionRenewPolicy } from "./renew.ts";
 import { parseVerboseMode } from "./verbose.ts";
 
@@ -68,38 +68,29 @@ renew: ${renderSessionRenewPolicy({
 `;
 }
 
-function renderSessionContextUsage(usage?: { used: number; size: number }): string | undefined {
-  if (!usage) {
-    return undefined;
-  }
+function renderSessionContextUsage(usage: AgentSessionUsage): string {
   const pct = Math.round((usage.used / usage.size) * 100);
   return `context: ${usage.used} / ${usage.size} tokens (${pct}%)`;
 }
 
 export function renderSessionInfo(options: {
-  session: {
-    name: string;
-    session: StateSession;
-    usage?: {
-      used: number;
-      size: number;
-    };
-  };
+  name: string;
+  session: StateSession;
+  usage?: AgentSessionUsage;
   timezone: string;
 }): string {
   const lines = [
-    `session: ${options.session.name}`,
-    `agent: ${options.session.session.agentKey}`,
-    `agent session id: ${options.session.session.agentSessionId ?? "none"}`,
-    `verbose: ${options.session.session.verbose}`,
+    `session: ${options.name}`,
+    `agent: ${options.session.agentKey}`,
+    `agent session id: ${options.session.agentSessionId ?? "none"}`,
+    `verbose: ${options.session.verbose}`,
     `renew: ${renderSessionRenewPolicy({
-      policy: options.session.session.renew,
+      policy: options.session.renew,
       timezone: options.timezone,
     })}`,
   ];
-  const usage = renderSessionContextUsage(options.session.usage);
-  if (usage) {
-    lines.push(usage);
+  if (options.usage) {
+    lines.push(renderSessionContextUsage(options.usage));
   }
   return lines.join("\n");
 }
