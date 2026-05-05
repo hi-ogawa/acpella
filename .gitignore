@@ -8,3 +8,4 @@ acpella.config.json
 !fixtures/*/.acpella
 .tmp
 .fallow/
+package-lock.json
