@@ -15,8 +15,14 @@ import type { CronDeliveryTarget, CronJob, CronStore } from "./lib/cron/store.ts
 import type { MessageMetadata } from "./lib/prompt.ts";
 import { buildFirstPrompt, buildMessageMetadataPrompt } from "./lib/prompt.ts";
 import { MESSAGE_SPLIT_BUDGET, ReplyManager } from "./lib/reply.ts";
-import { parseSessionConfig, renderSessionConfig } from "./lib/session/command.ts";
-import { renderSessionRenewPolicy, shouldRenewSession } from "./lib/session/renew.ts";
+import {
+  parseSessionConfig,
+  renderSessionConfig,
+  renderSessionInfo,
+  renderSessionList,
+  type SessionCommandView,
+} from "./lib/session/command.ts";
+import { shouldRenewSession } from "./lib/session/renew.ts";
 import { getVerboseSessionUpdateTypes } from "./lib/session/verbose.ts";
 import { handleSystemdInstall } from "./lib/systemd.ts";
 import { parseTelegramSessionName } from "./lib/telegram/utils.ts";
@@ -212,6 +218,21 @@ export async function createHandler(
     }
   }
 
+  function getSessionView(sessionName: string): SessionCommandView {
+    const stateSession = stateStore.getSession(sessionName);
+    const usage = stateSession.agentSessionId
+      ? stateStore.getAgentSessionUsage({
+          agentKey: stateSession.agentKey,
+          agentSessionId: stateSession.agentSessionId,
+        })
+      : undefined;
+    return {
+      name: sessionName,
+      session: stateSession,
+      usage,
+    };
+  }
+
   const systemSessionCommands: SystemCommandTree[string] = [
     {
       tokens: ["info"],
@@ -225,26 +246,9 @@ export async function createHandler(
           return;
         }
         const sessionName = arg ?? context.sessionName;
-        const stateSession = stateStore.getSession(sessionName);
-        const { verbose } = stateSession;
-        let output = `\
-session: ${sessionName}
-agent: ${stateSession.agentKey}
-agent session id: ${stateSession.agentSessionId ?? "none"}
-verbose: ${verbose}
-renew: ${renderSessionRenewPolicy({ policy: stateSession.renew, timezone: config.timezone })}
-`;
-        const usage = stateSession.agentSessionId
-          ? stateStore.getAgentSessionUsage({
-              agentKey: stateSession.agentKey,
-              agentSessionId: stateSession.agentSessionId,
-            })
-          : undefined;
-        if (usage) {
-          const pct = Math.round((usage.used / usage.size) * 100);
-          output += `context: ${usage.used} / ${usage.size} tokens (${pct}%)`;
-        }
-        await reply.system(output);
+        await reply.system(
+          renderSessionInfo({ session: getSessionView(sessionName), timezone: config.timezone }),
+        );
       },
     },
     {
@@ -253,27 +257,10 @@ renew: ${renderSessionRenewPolicy({ policy: stateSession.renew, timezone: config
       description: "List acpella sessions.",
       run: async ({ reply }) => {
         const state = stateStore.get();
-        const output: string[] = [];
-        for (const [sessionName, stateSession] of Object.entries(state.sessions)) {
-          let entry = `\
-- ${sessionName}
-  agent: ${stateSession.agentKey}
-  agent session: ${stateSession.agentSessionId ?? "none"}
-  renew: ${renderSessionRenewPolicy({ policy: stateSession.renew, timezone: config.timezone })}
-`;
-          if (stateSession.agentSessionId) {
-            const usage = stateStore.getAgentSessionUsage({
-              agentKey: stateSession.agentKey,
-              agentSessionId: stateSession.agentSessionId,
-            });
-            if (usage) {
-              const pct = Math.round((usage.used / usage.size) * 100);
-              entry += `  context: ${usage.used} / ${usage.size} tokens (${pct}%)`;
-            }
-          }
-          output.push(entry);
-        }
-        await reply.system(output.join("\n\n") || "No sessions.");
+        const sessions = Object.keys(state.sessions).map((sessionName) =>
+          getSessionView(sessionName),
+        );
+        await reply.system(renderSessionList({ sessions, timezone: config.timezone }));
       },
     },
     {

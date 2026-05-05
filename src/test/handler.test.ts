@@ -359,7 +359,7 @@ test("session commands", async () => {
     "[⚙️ System]
     - test
       agent: test
-      agent session: __testSession1
+      agent session id: __testSession1
       renew: off"
   `);
   expect(await session.request("/session load")).toMatchInlineSnapshot(`
@@ -384,7 +384,7 @@ test("session commands", async () => {
     "[⚙️ System]
     - test
       agent: test
-      agent session: __testSession2
+      agent session id: __testSession2
       renew: off"
   `);
   expect(await session.request("/agent sessions")).toMatchInlineSnapshot(`
@@ -736,7 +736,7 @@ test("agent command", async () => {
     "[⚙️ System]
     - test
       agent: test2
-      agent session: __testSession1
+      agent session id: __testSession1
       renew: off"
   `);
   expect(await session.request("/agent remove test-error")).toMatchInlineSnapshot(`

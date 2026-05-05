@@ -3,6 +3,14 @@ import { parseSessionRenewPolicy, renderSessionRenewPolicy } from "./renew.ts";
 import { parseVerboseMode } from "./verbose.ts";
 
 type SessionConfigPatch = Pick<Partial<StateSession>, "verbose" | "renew">;
+export type SessionCommandView = {
+  name: string;
+  session: StateSession;
+  usage?: {
+    used: number;
+    size: number;
+  };
+};
 
 type ParsedSessionConfig = {
   target?: string;
@@ -66,4 +74,56 @@ renew: ${renderSessionRenewPolicy({
     timezone: options.timezone,
   })}
 `;
+}
+
+function renderSessionContextUsage(usage: SessionCommandView["usage"]): string | undefined {
+  if (!usage) {
+    return undefined;
+  }
+  const pct = Math.round((usage.used / usage.size) * 100);
+  return `context: ${usage.used} / ${usage.size} tokens (${pct}%)`;
+}
+
+export function renderSessionInfo(options: {
+  session: SessionCommandView;
+  timezone: string;
+}): string {
+  const lines = [
+    `session: ${options.session.name}`,
+    `agent: ${options.session.session.agentKey}`,
+    `agent session id: ${options.session.session.agentSessionId ?? "none"}`,
+    `verbose: ${options.session.session.verbose}`,
+    `renew: ${renderSessionRenewPolicy({
+      policy: options.session.session.renew,
+      timezone: options.timezone,
+    })}`,
+  ];
+  const usage = renderSessionContextUsage(options.session.usage);
+  if (usage) {
+    lines.push(usage);
+  }
+  return lines.join("\n");
+}
+
+export function renderSessionList(options: {
+  sessions: SessionCommandView[];
+  timezone: string;
+}): string {
+  const entries = options.sessions.map((session) => {
+    const lines = [
+      `- ${session.name}`,
+      `  agent: ${session.session.agentKey}`,
+      `  agent session id: ${session.session.agentSessionId ?? "none"}`,
+      `  renew: ${renderSessionRenewPolicy({
+        policy: session.session.renew,
+        timezone: options.timezone,
+      })}`,
+    ];
+    const usage = renderSessionContextUsage(session.usage);
+    if (usage) {
+      lines.push(`  ${usage}`);
+    }
+    return lines.join("\n");
+  });
+  return entries.join("\n\n") || "No sessions.";
 }
