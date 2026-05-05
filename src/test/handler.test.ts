@@ -30,10 +30,8 @@ Coverage checklist:
   - [ ] close current session
   - [ ] close deletes matching state session
   - [ ] close reports closeSession failure
-  - [x] list
+  - [x] list local state only
   - [ ] list with multiple agents
-  - [ ] list marks stored inactive sessions as not active
-  - [ ] list tolerates listSessions failure for one agent
   - [x] verbose tool
   - [x] verbose off
   - [x] verbose suppresses tool call output
@@ -42,6 +40,8 @@ Coverage checklist:
   - [x] renew stale session when chat prompt crosses daily boundary
 - /agent
   - [x] list
+  - [x] sessions
+  - [x] sessions reports backend failures
   - [x] bare usage output
   - [x] new
   - [x] auto reloads external state file changes
@@ -87,7 +87,7 @@ test("basic", async () => {
 
     /session
       /session info [sessionName] - Show info about a session.
-      /session list [--all] - List known agent sessions.
+      /session list - List acpella sessions.
       /session new [agent] - Start a new agent session.
       /session load <sessionId|agent:sessionId> - Load an existing agent session.
       /session close [sessionId|agent:sessionId] - Close an agent session.
@@ -95,6 +95,7 @@ test("basic", async () => {
 
     /agent
       /agent list - List configured agents.
+      /agent sessions [agent] - List backend ACP sessions.
       /agent new <name> <command...> - Save a new agent.
       /agent remove <name> - Remove an agent.
       /agent default [name] - Show or set the default agent.
@@ -317,7 +318,7 @@ test("session commands", async () => {
     "[⚙️ System]
     /session
       /session info [sessionName] - Show info about a session.
-      /session list [--all] - List known agent sessions.
+      /session list - List acpella sessions.
       /session new [agent] - Start a new agent session.
       /session load <sessionId|agent:sessionId> - Load an existing agent session.
       /session close [sessionId|agent:sessionId] - Close an agent session.
@@ -327,7 +328,7 @@ test("session commands", async () => {
     "[⚙️ System]
     /session
       /session info [sessionName] - Show info about a session.
-      /session list [--all] - List known agent sessions.
+      /session list - List acpella sessions.
       /session new [agent] - Start a new agent session.
       /session load <sessionId|agent:sessionId> - Load an existing agent session.
       /session close [sessionId|agent:sessionId] - Close an agent session.
@@ -345,14 +346,6 @@ test("session commands", async () => {
     "[⚙️ System]
     No sessions."
   `);
-  expect(await session.request("/session list --all")).toMatchInlineSnapshot(`
-    "[⚙️ System]
-    Mapped sessions:
-    none
-
-    Unmapped acp sessions:
-    none"
-  `);
   expect(await session.request("hello")).toMatchInlineSnapshot(`"echo: hello"`);
   expect(await session.request("/session info")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -364,7 +357,10 @@ test("session commands", async () => {
   `);
   expect(await session.request("/session list")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    - test -> test:__testSession1"
+    - test
+      agent: test
+      agent session: __testSession1
+      renew: off"
   `);
   expect(await session.request("/session load")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -386,15 +382,16 @@ test("session commands", async () => {
   expect(await session.request("__session")).toMatchInlineSnapshot(`"session: __testSession2"`);
   expect(await session.request("/session list")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    - test -> test:__testSession2"
+    - test
+      agent: test
+      agent session: __testSession2
+      renew: off"
   `);
-  expect(await session.request("/session list --all")).toMatchInlineSnapshot(`
+  expect(await session.request("/agent sessions")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    Mapped sessions:
-    - test -> test:__testSession2
-
-    Unmapped acp sessions:
-    - test:__testSession1"
+    test:
+    - __testSession1
+    - __testSession2"
   `);
   expect(await session.request("/session new no-such-agent")).toMatchInlineSnapshot(
     `
@@ -634,6 +631,7 @@ test("agent command", async () => {
     "[⚙️ System]
     /agent
       /agent list - List configured agents.
+      /agent sessions [agent] - List backend ACP sessions.
       /agent new <name> <command...> - Save a new agent.
       /agent remove <name> - Remove an agent.
       /agent default [name] - Show or set the default agent."
@@ -642,9 +640,19 @@ test("agent command", async () => {
     "[⚙️ System]
     - test -> node <cwd>/src/bin/test-agent.js (default)"
   `);
+  expect(await session.request("/agent sessions")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    test:
+      none"
+  `);
   expect(await session.request("/agent new test-error no-such-command")).toMatchInlineSnapshot(`
     "[⚙️ System]
     Saved new agent: test-error"
+  `);
+  expect(await session.request("/agent sessions test-error")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    test-error:
+      error: ACP agent failed to start: spawn no-such-command ENOENT"
   `);
   expect(await session.request("/session new test-error")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -726,7 +734,10 @@ test("agent command", async () => {
   `);
   expect(await session.request("/session list")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    - test -> test2:__testSession1"
+    - test
+      agent: test2
+      agent session: __testSession1
+      renew: off"
   `);
   expect(await session.request("/agent remove test-error")).toMatchInlineSnapshot(`
     "[⚙️ System]
