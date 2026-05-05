@@ -15,7 +15,7 @@ Use:
 - `/cron status`
 - `/cron start`
 - `/cron stop`
-- `/cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--target <sessionName>] -- <prompt...>`
+- `/cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--once] [--target <sessionName>] -- <prompt...>`
 - `/cron update <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--target <sessionName>] [-- <prompt...>]`
 - `/cron list`
 - `/cron show <id>`
@@ -46,6 +46,18 @@ acpella exec '/cron add topic-check 30 8 * * * --target tg-123456789-42 -- Send 
 The session must already exist in acpella state. Use `acpella exec /session list` to find known session names. If the list does not clearly identify a single intended destination, ask the user to confirm the session before adding, deleting, or recreating the cron job.
 
 If `/cron add` is issued inside the Telegram conversation where the job should deliver, `--target` can be omitted because acpella can capture the current Telegram delivery target. Agents operating through local `exec` should not rely on that implicit capture.
+
+## One-shot jobs
+
+Add `--once` to make a job self-disable after its first execution, whether the run succeeds or fails. The job remains in state for history and debugging but will not fire again until manually re-enabled.
+
+`--once` and `--target` can appear in either order before the `--` separator.
+
+```bash
+acpella exec '/cron add remind-deploy 0 14 5 * * --once --target tg-123456789 -- Remind the team to deploy the release.'
+```
+
+After the job fires, `/cron show remind-deploy` will show `once: yes` and `/cron list` will show `[disabled, once]`. Use `/cron enable remind-deploy` to arm it again for another single run.
 
 ## Common workflow
 
