@@ -15,15 +15,11 @@ import type { CronDeliveryTarget, CronJob, CronStore } from "./lib/cron/store.ts
 import type { MessageMetadata } from "./lib/prompt.ts";
 import { buildFirstPrompt, buildMessageMetadataPrompt } from "./lib/prompt.ts";
 import { MESSAGE_SPLIT_BUDGET, ReplyManager } from "./lib/reply.ts";
-import {
-  parseSessionRenewPolicy,
-  renderSessionRenewPolicy,
-  shouldRenewSession,
-} from "./lib/session-renew.ts";
 import { parseSessionConfig, renderSessionConfig } from "./lib/session/command.ts";
+import { renderSessionRenewPolicy, shouldRenewSession } from "./lib/session/renew.ts";
+import { getVerboseSessionUpdateTypes } from "./lib/session/verbose.ts";
 import { handleSystemdInstall } from "./lib/systemd.ts";
 import { parseTelegramSessionName } from "./lib/telegram/utils.ts";
-import { getVerboseSessionUpdateTypes, parseVerboseMode } from "./lib/verbose.ts";
 import { parseAgentSessionKey, SessionStateStore, toAgentSessionKey } from "./state.ts";
 import type { StateAgentSession } from "./state.ts";
 import { AsyncLane, DefaultMap, formatError } from "./utils/index.ts";
@@ -418,42 +414,6 @@ Unmapped acp sessions:
             timezone: config.timezone,
           }),
         );
-      },
-    },
-    {
-      tokens: ["verbose"],
-      usage: "/session verbose <off|tool|thinking|all> [sessionName]",
-      description: "Set internal progress output.",
-      withArgs: true,
-      run: async ({ args, reply, sessionName }) => {
-        const [value, targetSession = sessionName] = args;
-        const verbose = parseVerboseMode(value);
-        stateStore.setSession(targetSession, { verbose });
-        await reply.system(`Verbose output: ${verbose}`);
-      },
-    },
-    {
-      tokens: ["renew"],
-      usage: "/session renew <off|daily|daily:N> [sessionName]",
-      description: "Set session renewal policy.",
-      withArgs: true,
-      run: async ({ args, reply, sessionName, usage }) => {
-        const [value, targetSession] = args;
-        if (!value) {
-          await reply.system(usage);
-          return;
-        }
-        if (targetSession) {
-          if (!stateStore.get().sessions[targetSession]) {
-            await reply.system(`Unknown session: ${targetSession}`);
-            return;
-          }
-          sessionName = targetSession;
-        }
-        const policy = parseSessionRenewPolicy(value);
-        stateStore.setSession(sessionName, { renew: policy });
-        const output = renderSessionRenewPolicy({ policy, timezone: config.timezone });
-        await reply.system(`Session renewal: ${output}`);
       },
     },
   ];

@@ -92,8 +92,6 @@ test("basic", async () => {
       /session load <sessionId|agent:sessionId> - Load an existing agent session.
       /session close [sessionId|agent:sessionId] - Close an agent session.
       /session config [--target sessionName] [verbose=off|tool|thinking|all] [renew=off|daily|daily:N] - Show or update session config.
-      /session verbose <off|tool|thinking|all> [sessionName] - Set internal progress output.
-      /session renew <off|daily|daily:N> [sessionName] - Set session renewal policy.
 
     /agent
       /agent list - List configured agents.
@@ -323,9 +321,7 @@ test("session commands", async () => {
       /session new [agent] - Start a new agent session.
       /session load <sessionId|agent:sessionId> - Load an existing agent session.
       /session close [sessionId|agent:sessionId] - Close an agent session.
-      /session config [--target sessionName] [verbose=off|tool|thinking|all] [renew=off|daily|daily:N] - Show or update session config.
-      /session verbose <off|tool|thinking|all> [sessionName] - Set internal progress output.
-      /session renew <off|daily|daily:N> [sessionName] - Set session renewal policy."
+      /session config [--target sessionName] [verbose=off|tool|thinking|all] [renew=off|daily|daily:N] - Show or update session config."
   `);
   expect(await session.request("/session help")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -335,9 +331,7 @@ test("session commands", async () => {
       /session new [agent] - Start a new agent session.
       /session load <sessionId|agent:sessionId> - Load an existing agent session.
       /session close [sessionId|agent:sessionId] - Close an agent session.
-      /session config [--target sessionName] [verbose=off|tool|thinking|all] [renew=off|daily|daily:N] - Show or update session config.
-      /session verbose <off|tool|thinking|all> [sessionName] - Set internal progress output.
-      /session renew <off|daily|daily:N> [sessionName] - Set session renewal policy."
+      /session config [--target sessionName] [verbose=off|tool|thinking|all] [renew=off|daily|daily:N] - Show or update session config."
   `);
   expect(await session.request("/session info")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -490,21 +484,23 @@ test("session context usage", async () => {
   `);
 });
 
-test("verbose command toggles tool call output", async () => {
+test("session config toggles verbose output", async () => {
   const tester = await createHandlerTester();
   const session = tester.createSession("test");
 
-  expect(await session.request("/session verbose tool")).toMatchInlineSnapshot(`
+  expect(await session.request("/session config verbose=tool")).toMatchInlineSnapshot(`
       "[⚙️ System]
-      Verbose output: tool"
+      verbose: tool
+      renew: off"
     `);
   expect(await session.request("__tool:Read files")).toMatchInlineSnapshot(`
       "Tool: Read files
       echo: __tool:Read files"
     `);
-  expect(await session.request("/session verbose off")).toMatchInlineSnapshot(`
+  expect(await session.request("/session config verbose=off")).toMatchInlineSnapshot(`
       "[⚙️ System]
-      Verbose output: off"
+      verbose: off
+      renew: off"
     `);
   expect(await session.request("__tool:Search docs")).toMatchInlineSnapshot(
     `"echo: __tool:Search docs"`,
@@ -516,9 +512,10 @@ test("verbose command toggles tool call output", async () => {
   expect(await session.request("__thinking:Hidden thought")).toMatchInlineSnapshot(
     `"echo: __thinking:Hidden thought"`,
   );
-  expect(await session.request("/session verbose thinking")).toMatchInlineSnapshot(`
+  expect(await session.request("/session config verbose=thinking")).toMatchInlineSnapshot(`
       "[⚙️ System]
-      Verbose output: thinking"
+      verbose: thinking
+      renew: off"
     `);
   expect(await session.request("__thinking:Review plan")).toMatchInlineSnapshot(`
       "[thinking] Review plan
@@ -535,9 +532,10 @@ test("verbose command toggles tool call output", async () => {
     verbose: thinking
     renew: off"
   `);
-  expect(await session.request("/session verbose tool")).toMatchInlineSnapshot(`
+  expect(await session.request("/session config verbose=tool")).toMatchInlineSnapshot(`
       "[⚙️ System]
-      Verbose output: tool"
+      verbose: tool
+      renew: off"
     `);
   expect(await session.request("__tool:Edit file")).toMatchInlineSnapshot(`
       "Tool: Edit file
@@ -909,9 +907,10 @@ test("session renews stale chat prompt after daily boundary", async ({ onTestFin
   const tester = await createHandlerTester();
   const session = tester.createSession("test");
 
-  expect(await session.request("/session renew daily:4")).toMatchInlineSnapshot(`
+  expect(await session.request("/session config renew=daily:4")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    Session renewal: daily at 04:00 Asia/Jakarta"
+    verbose: thinking
+    renew: daily at 04:00 Asia/Jakarta"
   `);
 
   expect(await session.request("__session")).toMatchInlineSnapshot(`"session: __testSession1"`);
