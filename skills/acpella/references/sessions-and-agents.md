@@ -49,10 +49,10 @@ Common cases:
 /session config verbose=thinking renew=daily
 /session config --target tg--1003825149970-3433 verbose=tool
 /session config renew=daily:6
-/session config renew=
+/session config renew=off
 ```
 
-No arguments shows the current session's config. One or more `key=value` pairs update the specified fields atomically. Use `--target <sessionName>` to target a different session. An empty value (e.g. `renew=`) clears that optional field.
+No arguments shows the current session's config. One or more `key=value` pairs update the specified fields atomically. Use `--target <sessionName>` to target a different session. Use `renew=off` to disable automatic renewal.
 
 Supported keys: `renew` (`off|daily|daily:N`) and `verbose` (`off|tool|thinking|all`).
 
