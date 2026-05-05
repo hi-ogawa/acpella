@@ -586,10 +586,9 @@ test("session config command", async () => {
   `);
 
   // Unknown key errors with list of supported keys
-  expect(await session.request("/session config label=heartbeat")).toMatchInlineSnapshot(`
-    "[⚙️ System]
-    Unknown key: label
-    Supported keys: renew, verbose"
+  await expect(session.request("/session config label=heartbeat")).rejects.toMatchInlineSnapshot(`
+    [Error: Unknown key: label
+    Supported keys: renew, verbose]
   `);
 
   // Explicit sessionName before key=value pairs
@@ -620,10 +619,9 @@ test("session config command", async () => {
     Unknown session: no-such"
   `);
   // --target with missing value
-  expect(await session.request("/session config --target")).toMatchInlineSnapshot(`
-    "[⚙️ System]
-    Missing value for --target"
-  `);
+  await expect(session.request("/session config --target")).rejects.toMatchInlineSnapshot(
+    `[Error: Missing value for --target]`,
+  );
 });
 
 test("agent command", async () => {
