@@ -2,6 +2,11 @@ import type { AgentSessionUsage, StateSession } from "../../state.ts";
 import { parseSessionRenewPolicy, renderSessionRenewPolicy } from "./renew.ts";
 import { parseVerboseMode } from "./verbose.ts";
 
+type ParsedTargetOption = {
+  target?: string;
+  args: string[];
+};
+
 type SessionConfigPatch = Pick<Partial<StateSession>, "verbose" | "renew">;
 
 type ParsedSessionConfig = {
@@ -9,19 +14,26 @@ type ParsedSessionConfig = {
   patch?: SessionConfigPatch;
 };
 
-export function parseSessionConfig(args: string[]): ParsedSessionConfig {
-  let target: string | undefined;
-
-  if (args[0] === "--target") {
-    target = args[1];
-    if (!target) {
-      throw new Error("Missing value for --target");
-    }
-    args = args.slice(2);
+export function parseTargetOption(args: string[]): ParsedTargetOption {
+  if (args[0] !== "--target") {
+    return { args };
   }
+  const target = args[1];
+  if (!target) {
+    throw new Error("Missing value for --target");
+  }
+  return {
+    target,
+    args: args.slice(2),
+  };
+}
+
+export function parseSessionConfig(args: string[]): ParsedSessionConfig {
+  const parsedTarget = parseTargetOption(args);
+  args = parsedTarget.args;
 
   if (args.length === 0) {
-    return { target };
+    return { target: parsedTarget.target };
   }
 
   const patch: SessionConfigPatch = {};
@@ -50,9 +62,17 @@ export function parseSessionConfig(args: string[]): ParsedSessionConfig {
   }
 
   return {
-    target,
+    target: parsedTarget.target,
     patch,
   };
+}
+
+export function parseSessionTarget(args: string[]) {
+  const parsedTarget = parseTargetOption(args);
+  if (parsedTarget.args.length > 0) {
+    throw new Error(`Invalid argument: ${parsedTarget.args[0]}`);
+  }
+  return parsedTarget;
 }
 
 export function renderSessionConfig(options: {

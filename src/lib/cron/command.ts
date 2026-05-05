@@ -1,9 +1,10 @@
 import { formatTime, Result } from "../../utils/index.ts";
+import { parseTargetOption } from "../session/command.ts";
 import { type CronJob, type CronRun, type CronStore, cronIdSchema } from "./store.ts";
 import { getNextCronSchedule, validateCronSchedule } from "./timer.ts";
 
 export function parseCronArgs(args: string[], timezone: string) {
-  const [id, minute, hour, dayOfMonth, month, dayOfWeek, ...restArgs] = args;
+  const [id, minute, hour, dayOfMonth, month, dayOfWeek, ...remainingArgs] = args;
   if (!id || !minute || !hour || !dayOfMonth || !month || !dayOfWeek) {
     throw new Error("Invalid input");
   }
@@ -14,14 +15,8 @@ export function parseCronArgs(args: string[], timezone: string) {
   const schedule = [minute, hour, dayOfMonth, month, dayOfWeek].join(" ");
   validateCronSchedule({ schedule, timezone });
 
-  let sessionName: string | undefined;
-  if (restArgs[0] === "--session") {
-    if (!restArgs[1]) {
-      throw new Error("Missing value for --session");
-    }
-    sessionName = restArgs[1];
-    restArgs.splice(0, 2);
-  }
+  const parsedTarget = parseTargetOption(remainingArgs);
+  const restArgs = parsedTarget.args;
 
   let prompt: string | undefined;
   if (restArgs.length > 0) {
@@ -34,7 +29,7 @@ export function parseCronArgs(args: string[], timezone: string) {
     }
   }
 
-  return { id, schedule, sessionName, prompt };
+  return { id, schedule, target: parsedTarget.target, prompt };
 }
 
 export function parseCronIdArg(args: string[], usage: string): Result<{ id: string }, string> {
