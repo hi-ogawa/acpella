@@ -393,7 +393,8 @@ Unmapped acp sessions:
     },
     {
       tokens: ["config"],
-      usage: "/session config [--target sessionName] [key=value...]",
+      usage:
+        "/session config [--target sessionName] [verbose=off|tool|thinking|all] [renew=off|daily|daily:N]",
       description: "Show or update session config.",
       withArgs: true,
       run: async ({ args, reply, sessionName }) => {

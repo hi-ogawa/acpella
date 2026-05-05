@@ -91,7 +91,7 @@ test("basic", async () => {
       /session new [agent] - Start a new agent session.
       /session load <sessionId|agent:sessionId> - Load an existing agent session.
       /session close [sessionId|agent:sessionId] - Close an agent session.
-      /session config [--target sessionName] [key=value...] - Show or update session config.
+      /session config [--target sessionName] [verbose=off|tool|thinking|all] [renew=off|daily|daily:N] - Show or update session config.
       /session verbose <off|tool|thinking|all> [sessionName] - Set internal progress output.
       /session renew <off|daily|daily:N> [sessionName] - Set session renewal policy.
 
@@ -323,7 +323,7 @@ test("session commands", async () => {
       /session new [agent] - Start a new agent session.
       /session load <sessionId|agent:sessionId> - Load an existing agent session.
       /session close [sessionId|agent:sessionId] - Close an agent session.
-      /session config [--target sessionName] [key=value...] - Show or update session config.
+      /session config [--target sessionName] [verbose=off|tool|thinking|all] [renew=off|daily|daily:N] - Show or update session config.
       /session verbose <off|tool|thinking|all> [sessionName] - Set internal progress output.
       /session renew <off|daily|daily:N> [sessionName] - Set session renewal policy."
   `);
@@ -335,7 +335,7 @@ test("session commands", async () => {
       /session new [agent] - Start a new agent session.
       /session load <sessionId|agent:sessionId> - Load an existing agent session.
       /session close [sessionId|agent:sessionId] - Close an agent session.
-      /session config [--target sessionName] [key=value...] - Show or update session config.
+      /session config [--target sessionName] [verbose=off|tool|thinking|all] [renew=off|daily|daily:N] - Show or update session config.
       /session verbose <off|tool|thinking|all> [sessionName] - Set internal progress output.
       /session renew <off|daily|daily:N> [sessionName] - Set session renewal policy."
   `);

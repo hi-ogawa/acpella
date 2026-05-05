@@ -25,7 +25,7 @@ Use:
 - `/session new [agent]`
 - `/session load <sessionId|agent:sessionId>`
 - `/session close [sessionId|agent:sessionId]`
-- `/session config [--target sessionName] [key=value...]`
+- `/session config [--target sessionName] [verbose=off|tool|thinking|all] [renew=off|daily|daily:N]`
 - `/session verbose [all|tool|thinking|off] [sessionName]`
 - `/session renew off [sessionName]`
 - `/session renew daily [sessionName]`
