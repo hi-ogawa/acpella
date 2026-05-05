@@ -397,18 +397,20 @@ Unmapped acp sessions:
       description: "Show or update session config.",
       withArgs: true,
       run: async ({ args, reply, sessionName }) => {
-        const parsedConfig = parseSessionConfig(args);
-        const targetSessionName = parsedConfig.targetSessionName ?? sessionName;
-        if (parsedConfig.targetSessionName && !stateStore.get().sessions[targetSessionName]) {
-          await reply.system(`Unknown session: ${targetSessionName}`);
-          return;
+        const parsed = parseSessionConfig(args);
+        if (parsed.targetSessionName) {
+          if (!stateStore.get().sessions[parsed.targetSessionName]) {
+            await reply.system(`Unknown session: ${parsed.targetSessionName}`);
+            return;
+          }
+          sessionName = parsed.targetSessionName;
         }
 
-        if (parsedConfig.patch) {
-          stateStore.setSession(targetSessionName, parsedConfig.patch);
+        if (parsed.patch) {
+          stateStore.setSession(sessionName, parsed.patch);
         }
 
-        const stateSession = stateStore.getSession(targetSessionName);
+        const stateSession = stateStore.getSession(sessionName);
         await reply.system(
           renderSessionConfig({
             session: stateSession,
