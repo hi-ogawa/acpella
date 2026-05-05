@@ -414,7 +414,11 @@ renew: ${renderSessionRenewPolicy({ policy: stateSession.renew, timezone: config
           return;
         }
 
-        const output: string[] = [];
+        if (agentKeys.length === 0) {
+          await reply.system("No agents.");
+          return;
+        }
+
         for (const agentKey of agentKeys) {
           try {
             const manager = await getAgentManager(agentKey);
@@ -428,16 +432,14 @@ renew: ${renderSessionRenewPolicy({ policy: stateSession.renew, timezone: config
                 entry += `- ${session.sessionId}\n`;
               }
             }
-            output.push(entry);
+            await reply.system(entry);
           } catch (error) {
-            output.push(`\
+            await reply.system(`\
 ${agentKey}:
   error: ${formatError(error)}
 `);
           }
         }
-
-        await reply.system(output.join("\n") || "No agents.");
       },
     },
     {
