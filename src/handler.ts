@@ -225,6 +225,10 @@ export async function createHandler(
       withArgs: true,
       run: async ({ args, reply, sessionName }) => {
         const parsed = parseSessionTarget(args);
+        if (parsed.args.length > 0) {
+          await reply.system(`Invalid argument: ${parsed.args[0]}`);
+          return;
+        }
         if (parsed.target) {
           if (!stateStore.get().sessions[parsed.target]) {
             await reply.system(`Unknown session: ${parsed.target}`);

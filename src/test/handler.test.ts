@@ -417,6 +417,10 @@ test("session commands", async () => {
     "[⚙️ System]
     Unknown session: no-such-session"
   `);
+  expect(await session.request("/session info no-such-session")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Invalid argument: no-such-session"
+  `);
 });
 
 test("session context usage", async () => {
