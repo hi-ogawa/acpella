@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
-import { sessionRenewPolicySchema } from "./lib/session-renew.ts";
-import { verboseModeSchema } from "./lib/verbose.ts";
+import { sessionRenewPolicySchema } from "./lib/session/renew.ts";
+import { verboseModeSchema } from "./lib/session/verbose.ts";
 import { FileStateManager, FileWatcher } from "./utils/fs.ts";
 import { formatError } from "./utils/index.ts";
 
