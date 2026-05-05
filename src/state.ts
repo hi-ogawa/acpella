@@ -91,7 +91,7 @@ export interface StateAgentSession {
   agentSessionId: string;
 }
 type AgentSessionData = z.infer<typeof agentSessionDataSchema>;
-type AgentSessionUsage = NonNullable<AgentSessionData["usage"]>;
+export type AgentSessionUsage = NonNullable<AgentSessionData["usage"]>;
 
 export class SessionStateStore {
   file: FileStateManager<State>;
@@ -161,6 +161,16 @@ export class SessionStateStore {
 
   getAgentSessionUsage(target: StateAgentSession): AgentSessionUsage | undefined {
     return this.file.state.agentSessions[target.agentKey]?.[target.agentSessionId]?.usage;
+  }
+
+  getAgentSessionUsageByName(sessionName: string): AgentSessionUsage | undefined {
+    const session = this.getSession(sessionName);
+    if (session.agentSessionId) {
+      return this.getAgentSessionUsage({
+        agentKey: session.agentKey,
+        agentSessionId: session.agentSessionId,
+      });
+    }
   }
 
   setAgentSessionUsage(
