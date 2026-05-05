@@ -25,6 +25,7 @@ Use:
 - `/session new [agent]`
 - `/session load <sessionId|agent:sessionId>`
 - `/session close [sessionId|agent:sessionId]`
+- `/session config [--target sessionName] [verbose=off|tool|thinking|all] [renew=off|daily|daily:N]`
 - `/session verbose [all|tool|thinking|off] [sessionName]`
 - `/session renew off [sessionName]`
 - `/session renew daily [sessionName]`
@@ -37,8 +38,23 @@ Common cases:
 - if you know an older ACP session id, use `/session load ...`
 - use `/session info [sessionName]` to inspect the selected agent, agent session id, verbose setting, renewal policy, and context usage
 - use `/session list` to see all mapped acpella sessions; add `--all` to also show unmapped backend sessions
-- use `/session verbose off|tool|thinking|all [sessionName]` to control internal progress output for a session
-- use `/session renew off|daily|daily:<hour> [sessionName]` to change whether a session renews automatically
+- use `/session config` to show or update per-session settings (`verbose`, `renew`) in one place
+- use `/session verbose off|tool|thinking|all [sessionName]` to control internal progress output for a session (alias for `/session config verbose=...`)
+- use `/session renew off|daily|daily:<hour> [sessionName]` to change whether a session renews automatically (alias for `/session config renew=...`)
+
+### `/session config` examples
+
+```text
+/session config
+/session config verbose=thinking renew=daily
+/session config --target tg--1003825149970-3433 verbose=tool
+/session config renew=daily:6
+/session config renew=off
+```
+
+No arguments shows the current session's config. One or more `key=value` pairs update the specified fields atomically. Use `--target <sessionName>` to target a different session. Use `renew=off` to disable automatic renewal.
+
+Supported keys: `renew` (`off|daily|daily:N`) and `verbose` (`off|tool|thinking|all`).
 
 By default, sessions do not auto-renew. When daily renewal is enabled, acpella checks the boundary immediately before the next live or cron prompt for that acpella session name. acpella does not create fresh ACP sessions on a background timer, and inactive conversations are not touched.
 

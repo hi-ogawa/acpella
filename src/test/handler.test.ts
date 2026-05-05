@@ -91,6 +91,7 @@ test("basic", async () => {
       /session new [agent] - Start a new agent session.
       /session load <sessionId|agent:sessionId> - Load an existing agent session.
       /session close [sessionId|agent:sessionId] - Close an agent session.
+      /session config [--target sessionName] [verbose=off|tool|thinking|all] [renew=off|daily|daily:N] - Show or update session config.
       /session verbose <off|tool|thinking|all> [sessionName] - Set internal progress output.
       /session renew <off|daily|daily:N> [sessionName] - Set session renewal policy.
 
@@ -322,6 +323,7 @@ test("session commands", async () => {
       /session new [agent] - Start a new agent session.
       /session load <sessionId|agent:sessionId> - Load an existing agent session.
       /session close [sessionId|agent:sessionId] - Close an agent session.
+      /session config [--target sessionName] [verbose=off|tool|thinking|all] [renew=off|daily|daily:N] - Show or update session config.
       /session verbose <off|tool|thinking|all> [sessionName] - Set internal progress output.
       /session renew <off|daily|daily:N> [sessionName] - Set session renewal policy."
   `);
@@ -333,6 +335,7 @@ test("session commands", async () => {
       /session new [agent] - Start a new agent session.
       /session load <sessionId|agent:sessionId> - Load an existing agent session.
       /session close [sessionId|agent:sessionId] - Close an agent session.
+      /session config [--target sessionName] [verbose=off|tool|thinking|all] [renew=off|daily|daily:N] - Show or update session config.
       /session verbose <off|tool|thinking|all> [sessionName] - Set internal progress output.
       /session renew <off|daily|daily:N> [sessionName] - Set session renewal policy."
   `);
@@ -540,6 +543,90 @@ test("verbose command toggles tool call output", async () => {
       "Tool: Edit file
       echo: __tool:Edit file"
     `);
+});
+
+test("session config command", async () => {
+  const tester = await createHandlerTester();
+  const session = tester.createSession("test");
+
+  // Show current config with no args
+  expect(await session.request("/session config")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    verbose: thinking
+    renew: off"
+  `);
+
+  // Update verbose only
+  expect(await session.request("/session config verbose=tool")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    verbose: tool
+    renew: off"
+  `);
+
+  // Update renew only
+  expect(await session.request("/session config renew=daily")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    verbose: tool
+    renew: daily at 04:00 Asia/Jakarta"
+  `);
+
+  // Update both atomically
+  expect(await session.request("/session config verbose=thinking renew=daily:6"))
+    .toMatchInlineSnapshot(`
+    "[⚙️ System]
+    verbose: thinking
+    renew: daily at 06:00 Asia/Jakarta"
+  `);
+
+  // Clear renew explicitly
+  expect(await session.request("/session config renew=off")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    verbose: thinking
+    renew: off"
+  `);
+
+  // Empty renew is invalid
+  await expect(session.request("/session config renew=")).rejects.toMatchInlineSnapshot(
+    `[Error: Invalid session renewal policy: ]`,
+  );
+
+  // Unknown key errors with list of supported keys
+  await expect(session.request("/session config label=heartbeat")).rejects.toMatchInlineSnapshot(`
+    [Error: Unknown key: label
+    Supported keys: renew, verbose]
+  `);
+
+  // Explicit sessionName before key=value pairs
+  const session2 = tester.createSession("other");
+  // Create session2 in state first so it can be targeted by name
+  expect(await session2.request("/session config verbose=thinking")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    verbose: thinking
+    renew: off"
+  `);
+  // Now configure from session1 targeting session2 via --target
+  expect(await session.request("/session config --target other verbose=tool"))
+    .toMatchInlineSnapshot(`
+    "[⚙️ System]
+    verbose: tool
+    renew: off"
+  `);
+  // Verify session2 config changed
+  expect(await session2.request("/session config")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    verbose: tool
+    renew: off"
+  `);
+  // --target with unknown session name
+  expect(await session.request("/session config --target no-such verbose=tool"))
+    .toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Unknown session: no-such"
+  `);
+  // --target with missing value
+  await expect(session.request("/session config --target")).rejects.toMatchInlineSnapshot(
+    `[Error: Missing value for --target]`,
+  );
 });
 
 test("agent command", async () => {

@@ -20,6 +20,7 @@ import {
   renderSessionRenewPolicy,
   shouldRenewSession,
 } from "./lib/session-renew.ts";
+import { parseSessionConfig, renderSessionConfig } from "./lib/session/command.ts";
 import { handleSystemdInstall } from "./lib/systemd.ts";
 import { parseTelegramSessionName } from "./lib/telegram/utils.ts";
 import { getVerboseSessionUpdateTypes, parseVerboseMode } from "./lib/verbose.ts";
@@ -388,6 +389,35 @@ Unmapped acp sessions:
           console.error("[acp] closeSession failed:", e);
         }
         await reply.system(output);
+      },
+    },
+    {
+      tokens: ["config"],
+      usage:
+        "/session config [--target sessionName] [verbose=off|tool|thinking|all] [renew=off|daily|daily:N]",
+      description: "Show or update session config.",
+      withArgs: true,
+      run: async ({ args, reply, sessionName }) => {
+        const parsed = parseSessionConfig(args);
+        if (parsed.target) {
+          if (!stateStore.get().sessions[parsed.target]) {
+            await reply.system(`Unknown session: ${parsed.target}`);
+            return;
+          }
+          sessionName = parsed.target;
+        }
+
+        if (parsed.patch) {
+          stateStore.setSession(sessionName, parsed.patch);
+        }
+
+        const stateSession = stateStore.getSession(sessionName);
+        await reply.system(
+          renderSessionConfig({
+            session: stateSession,
+            timezone: config.timezone,
+          }),
+        );
       },
     },
     {
