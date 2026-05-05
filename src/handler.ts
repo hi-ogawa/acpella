@@ -20,11 +20,7 @@ import {
   renderSessionRenewPolicy,
   shouldRenewSession,
 } from "./lib/session-renew.ts";
-import {
-  parseSessionConfigArgs,
-  parseSessionConfigPatch,
-  renderSessionConfig,
-} from "./lib/session/command.ts";
+import { parseSessionConfig, renderSessionConfig } from "./lib/session/command.ts";
 import { handleSystemdInstall } from "./lib/systemd.ts";
 import { parseTelegramSessionName } from "./lib/telegram/utils.ts";
 import { getVerboseSessionUpdateTypes, parseVerboseMode } from "./lib/verbose.ts";
@@ -401,15 +397,15 @@ Unmapped acp sessions:
       description: "Show or update session config.",
       withArgs: true,
       run: async ({ args, reply, sessionName }) => {
-        const parsedArgs = parseSessionConfigArgs(args);
-        const targetSessionName = parsedArgs.targetSessionName ?? sessionName;
-        if (parsedArgs.targetSessionName && !stateStore.get().sessions[targetSessionName]) {
+        const parsedConfig = parseSessionConfig(args);
+        const targetSessionName = parsedConfig.targetSessionName ?? sessionName;
+        if (parsedConfig.targetSessionName && !stateStore.get().sessions[targetSessionName]) {
           await reply.system(`Unknown session: ${targetSessionName}`);
           return;
         }
 
-        if (parsedArgs.configArgs.length > 0) {
-          stateStore.setSession(targetSessionName, parseSessionConfigPatch(parsedArgs.configArgs));
+        if (parsedConfig.patch) {
+          stateStore.setSession(targetSessionName, parsedConfig.patch);
         }
 
         const stateSession = stateStore.getSession(targetSessionName);

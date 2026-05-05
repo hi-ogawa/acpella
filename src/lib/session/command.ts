@@ -6,31 +6,25 @@ export type SessionConfigPatch = {
   renew?: ReturnType<typeof parseSessionRenewPolicy>;
 };
 
-export type ParsedSessionConfigArgs = {
+export type ParsedSessionConfig = {
   targetSessionName?: string;
-  configArgs: string[];
+  patch?: SessionConfigPatch;
 };
 
-export function parseSessionConfigArgs(args: string[]): ParsedSessionConfigArgs {
-  if (args[0] !== "--target") {
-    return { configArgs: args };
+export function parseSessionConfig(args: string[]): ParsedSessionConfig {
+  let configArgs = args;
+  let targetSessionName: string | undefined;
+
+  if (args[0] === "--target") {
+    targetSessionName = args[1];
+    if (!targetSessionName) {
+      throw new Error("Missing value for --target");
+    }
+    configArgs = args.slice(2);
   }
 
-  const targetSessionName = args[1];
-  if (!targetSessionName) {
-    throw new Error("Missing value for --target");
-  }
-
-  return {
-    targetSessionName,
-    configArgs: args.slice(2),
-  };
-}
-
-export function parseSessionConfigPatch(args: string[]): SessionConfigPatch {
-  const patch: SessionConfigPatch = {};
-
-  for (const arg of args) {
+  let patch: SessionConfigPatch | undefined;
+  for (const arg of configArgs) {
     const eqIdx = arg.indexOf("=");
     if (eqIdx === -1) {
       throw new Error(`Invalid argument: ${arg}\nExpected key=value pairs.`);
@@ -41,10 +35,12 @@ export function parseSessionConfigPatch(args: string[]): SessionConfigPatch {
 
     switch (key) {
       case "verbose": {
+        patch ??= {};
         patch.verbose = parseVerboseMode(value);
         break;
       }
       case "renew": {
+        patch ??= {};
         patch.renew = value === "" ? undefined : parseSessionRenewPolicy(value);
         break;
       }
@@ -54,7 +50,10 @@ export function parseSessionConfigPatch(args: string[]): SessionConfigPatch {
     }
   }
 
-  return patch;
+  return {
+    targetSessionName,
+    patch,
+  };
 }
 
 export function renderSessionConfig(options: {
