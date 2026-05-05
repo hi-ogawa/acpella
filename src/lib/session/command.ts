@@ -20,7 +20,11 @@ export function parseSessionConfig(args: string[]): ParsedSessionConfig {
     args = args.slice(2);
   }
 
-  let patch: SessionConfigPatch | undefined;
+  if (args.length === 0) {
+    return { target };
+  }
+
+  const patch: SessionConfigPatch = {};
   for (const arg of args) {
     const eqIdx = arg.indexOf("=");
     if (eqIdx === -1) {
@@ -32,12 +36,10 @@ export function parseSessionConfig(args: string[]): ParsedSessionConfig {
 
     switch (key) {
       case "verbose": {
-        patch ??= {};
         patch.verbose = parseVerboseMode(value);
         break;
       }
       case "renew": {
-        patch ??= {};
         patch.renew = parseSessionRenewPolicy(value);
         break;
       }
