@@ -55,7 +55,7 @@ acpella exec /cron list
 acpella exec /service systemd install
 ```
 
-Do not use `exec` to send normal agent prompts. Do not use `exec` for session lifecycle actions that depend on the current Telegram or REPL conversation context, such as `/session new`, `/session load`, or `/session close`. Use `/session list` and `/session info <sessionName>` through `exec` only to discover or inspect existing sessions for administrative commands such as cron creation.
+Do not use `exec` to send normal agent prompts. Do not use `exec` for session lifecycle actions that depend on the current Telegram or REPL conversation context, such as `/session new`, `/session load`, or `/session close`. Use `/session list` and `/session info --target <sessionName>` through `exec` only to discover or inspect existing sessions for administrative commands such as cron creation.
 
 ## Route by user question
 

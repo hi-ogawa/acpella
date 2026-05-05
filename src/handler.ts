@@ -17,6 +17,7 @@ import { buildFirstPrompt, buildMessageMetadataPrompt } from "./lib/prompt.ts";
 import { MESSAGE_SPLIT_BUDGET, ReplyManager } from "./lib/reply.ts";
 import {
   parseSessionConfig,
+  parseSessionTarget,
   renderSessionConfig,
   renderSessionInfo,
 } from "./lib/session/command.ts";
@@ -219,16 +220,22 @@ export async function createHandler(
   const systemSessionCommands: SystemCommandTree[string] = [
     {
       tokens: ["info"],
-      usage: "/session info [sessionName]",
+      usage: "/session info [--target <sessionName>]",
       description: "Show info about a session.",
       withArgs: true,
-      run: async ({ args, reply, ...context }) => {
-        let arg = args[0];
-        if (arg && !stateStore.get().sessions[arg]) {
-          await reply.system(`Unknown session: ${arg}`);
+      run: async ({ args, reply, sessionName }) => {
+        const parsed = parseSessionTarget(args);
+        if (parsed.args.length > 0) {
+          await reply.system(`Invalid argument: ${parsed.args[0]}`);
           return;
         }
-        const sessionName = arg ?? context.sessionName;
+        if (parsed.target) {
+          if (!stateStore.get().sessions[parsed.target]) {
+            await reply.system(`Unknown session: ${parsed.target}`);
+            return;
+          }
+          sessionName = parsed.target;
+        }
         const stateSession = stateStore.getSession(sessionName);
         const output = renderSessionInfo({
           name: sessionName,
@@ -551,7 +558,7 @@ enabled jobs: ${enabledJobs.length}
     {
       tokens: ["add"],
       usage:
-        "/cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--session <sessionName>] -- <prompt...>",
+        "/cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--target <sessionName>] -- <prompt...>",
       description: "Add a cron job.",
       withArgs: true,
       run: async ({ args, reply, sessionName, metadata }) => {
@@ -561,18 +568,18 @@ enabled jobs: ${enabledJobs.length}
           return;
         }
         let delivery = metadata?.cronDeliveryTarget;
-        if (cron.sessionName) {
-          if (!stateStore.get().sessions[cron.sessionName]) {
-            await reply.system(`Unknown session: ${cron.sessionName}`);
+        if (cron.target) {
+          if (!stateStore.get().sessions[cron.target]) {
+            await reply.system(`Unknown session: ${cron.target}`);
             return;
           }
-          const parsedSesssion = parseTelegramSessionName(cron.sessionName);
+          const parsedSesssion = parseTelegramSessionName(cron.target);
           if (!parsedSesssion) {
-            await reply.system(`Invalid session as delivery target: ${cron.sessionName}`);
+            await reply.system(`Invalid session as delivery target: ${cron.target}`);
             return;
           }
           delivery = { telegram: parsedSesssion };
-          sessionName = cron.sessionName;
+          sessionName = cron.target;
         }
         if (!delivery) {
           await reply.system("Cannot add cron job: delivery target is unavailable.");
@@ -600,7 +607,7 @@ enabled jobs: ${enabledJobs.length}
     {
       tokens: ["update"],
       usage:
-        "/cron update <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--session <sessionName>] [-- <prompt...>]",
+        "/cron update <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--target <sessionName>] [-- <prompt...>]",
       description: "Update a cron job.",
       withArgs: true,
       run: async ({ args, reply }) => {
@@ -617,19 +624,19 @@ enabled jobs: ${enabledJobs.length}
         if (cron.prompt) {
           patch.prompt = cron.prompt;
         }
-        if (cron.sessionName) {
-          if (!stateStore.get().sessions[cron.sessionName]) {
-            await reply.system(`Unknown session: ${cron.sessionName}`);
+        if (cron.target) {
+          if (!stateStore.get().sessions[cron.target]) {
+            await reply.system(`Unknown session: ${cron.target}`);
             return;
           }
-          const parsedSesssion = parseTelegramSessionName(cron.sessionName);
+          const parsedSesssion = parseTelegramSessionName(cron.target);
           if (!parsedSesssion) {
-            await reply.system(`Invalid session as delivery target: ${cron.sessionName}`);
+            await reply.system(`Invalid session as delivery target: ${cron.target}`);
             return;
           }
           const delivery = { telegram: parsedSesssion };
           patch.target = {
-            sessionName: cron.sessionName,
+            sessionName: cron.target,
             delivery,
           };
         }

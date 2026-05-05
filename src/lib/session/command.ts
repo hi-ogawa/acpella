@@ -2,6 +2,11 @@ import type { AgentSessionUsage, StateSession } from "../../state.ts";
 import { parseSessionRenewPolicy, renderSessionRenewPolicy } from "./renew.ts";
 import { parseVerboseMode } from "./verbose.ts";
 
+type ParsedTargetOption = {
+  target?: string;
+  args: string[];
+};
+
 type SessionConfigPatch = Pick<Partial<StateSession>, "verbose" | "renew">;
 
 type ParsedSessionConfig = {
@@ -9,16 +14,20 @@ type ParsedSessionConfig = {
   patch?: SessionConfigPatch;
 };
 
-export function parseSessionConfig(args: string[]): ParsedSessionConfig {
-  let target: string | undefined;
-
+export function parseSessionTarget(args: string[]): ParsedTargetOption {
   if (args[0] === "--target") {
-    target = args[1];
+    const target = args[1];
     if (!target) {
       throw new Error("Missing value for --target");
     }
     args = args.slice(2);
+    return { target, args };
   }
+  return { args };
+}
+
+export function parseSessionConfig(rawArgs: string[]): ParsedSessionConfig {
+  const { target, args } = parseSessionTarget(rawArgs);
 
   if (args.length === 0) {
     return { target };
