@@ -3,14 +3,6 @@ import { parseSessionRenewPolicy, renderSessionRenewPolicy } from "./renew.ts";
 import { parseVerboseMode } from "./verbose.ts";
 
 type SessionConfigPatch = Pick<Partial<StateSession>, "verbose" | "renew">;
-export type SessionCommandView = {
-  name: string;
-  session: StateSession;
-  usage?: {
-    used: number;
-    size: number;
-  };
-};
 
 type ParsedSessionConfig = {
   target?: string;
@@ -76,7 +68,7 @@ renew: ${renderSessionRenewPolicy({
 `;
 }
 
-function renderSessionContextUsage(usage: SessionCommandView["usage"]): string | undefined {
+function renderSessionContextUsage(usage?: { used: number; size: number }): string | undefined {
   if (!usage) {
     return undefined;
   }
@@ -85,7 +77,14 @@ function renderSessionContextUsage(usage: SessionCommandView["usage"]): string |
 }
 
 export function renderSessionInfo(options: {
-  session: SessionCommandView;
+  session: {
+    name: string;
+    session: StateSession;
+    usage?: {
+      used: number;
+      size: number;
+    };
+  };
   timezone: string;
 }): string {
   const lines = [
@@ -103,27 +102,4 @@ export function renderSessionInfo(options: {
     lines.push(usage);
   }
   return lines.join("\n");
-}
-
-export function renderSessionList(options: {
-  sessions: SessionCommandView[];
-  timezone: string;
-}): string {
-  const entries = options.sessions.map((session) => {
-    const lines = [
-      `- ${session.name}`,
-      `  agent: ${session.session.agentKey}`,
-      `  agent session id: ${session.session.agentSessionId ?? "none"}`,
-      `  renew: ${renderSessionRenewPolicy({
-        policy: session.session.renew,
-        timezone: options.timezone,
-      })}`,
-    ];
-    const usage = renderSessionContextUsage(session.usage);
-    if (usage) {
-      lines.push(`  ${usage}`);
-    }
-    return lines.join("\n");
-  });
-  return entries.join("\n\n") || "No sessions.";
 }

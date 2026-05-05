@@ -19,8 +19,6 @@ import {
   parseSessionConfig,
   renderSessionConfig,
   renderSessionInfo,
-  renderSessionList,
-  type SessionCommandView,
 } from "./lib/session/command.ts";
 import { shouldRenewSession } from "./lib/session/renew.ts";
 import { getVerboseSessionUpdateTypes } from "./lib/session/verbose.ts";
@@ -218,21 +216,6 @@ export async function createHandler(
     }
   }
 
-  function getSessionView(sessionName: string): SessionCommandView {
-    const stateSession = stateStore.getSession(sessionName);
-    const usage = stateSession.agentSessionId
-      ? stateStore.getAgentSessionUsage({
-          agentKey: stateSession.agentKey,
-          agentSessionId: stateSession.agentSessionId,
-        })
-      : undefined;
-    return {
-      name: sessionName,
-      session: stateSession,
-      usage,
-    };
-  }
-
   const systemSessionCommands: SystemCommandTree[string] = [
     {
       tokens: ["info"],
@@ -246,8 +229,22 @@ export async function createHandler(
           return;
         }
         const sessionName = arg ?? context.sessionName;
+        const stateSession = stateStore.getSession(sessionName);
+        const usage = stateSession.agentSessionId
+          ? stateStore.getAgentSessionUsage({
+              agentKey: stateSession.agentKey,
+              agentSessionId: stateSession.agentSessionId,
+            })
+          : undefined;
         await reply.system(
-          renderSessionInfo({ session: getSessionView(sessionName), timezone: config.timezone }),
+          renderSessionInfo({
+            session: {
+              name: sessionName,
+              session: stateSession,
+              usage,
+            },
+            timezone: config.timezone,
+          }),
         );
       },
     },
@@ -257,10 +254,31 @@ export async function createHandler(
       description: "List acpella sessions.",
       run: async ({ reply }) => {
         const state = stateStore.get();
-        const sessions = Object.keys(state.sessions).map((sessionName) =>
-          getSessionView(sessionName),
-        );
-        await reply.system(renderSessionList({ sessions, timezone: config.timezone }));
+        const entries: string[] = [];
+        for (const [sessionName, stateSession] of Object.entries(state.sessions)) {
+          const usage = stateSession.agentSessionId
+            ? stateStore.getAgentSessionUsage({
+                agentKey: stateSession.agentKey,
+                agentSessionId: stateSession.agentSessionId,
+              })
+            : undefined;
+          const output = renderSessionInfo({
+            session: {
+              name: sessionName,
+              session: stateSession,
+              usage,
+            },
+            timezone: config.timezone,
+          });
+          entries.push(
+            output
+              .replace(/^session: /, "- ")
+              .split("\n")
+              .map((line, index) => (index === 0 ? line : `  ${line}`))
+              .join("\n"),
+          );
+        }
+        await reply.system(entries.join("\n\n") || "No sessions.");
       },
     },
     {
