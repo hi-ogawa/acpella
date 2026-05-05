@@ -85,8 +85,7 @@ function getStateSchemaDefault(): State {
 }
 
 type State = z.infer<typeof stateSchema>;
-type StateSession = State["sessions"][string];
-export type StateSessionPatch = Partial<StateSession>;
+export type StateSession = State["sessions"][string];
 export interface StateAgentSession {
   agentKey: string;
   agentSessionId: string;
@@ -138,7 +137,7 @@ export class SessionStateStore {
     };
   }
 
-  setSession(sessionName: string, patch: StateSessionPatch): void {
+  setSession(sessionName: string, patch: Partial<StateSession>): void {
     this.set((state) => {
       state.sessions[sessionName] = {
         ...this.getSession(sessionName),
