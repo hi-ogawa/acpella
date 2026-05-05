@@ -571,9 +571,8 @@ test("session config command", async () => {
   `);
 
   // Update both atomically
-  expect(
-    await session.request("/session config verbose=thinking renew=daily:6"),
-  ).toMatchInlineSnapshot(`
+  expect(await session.request("/session config verbose=thinking renew=daily:6"))
+    .toMatchInlineSnapshot(`
     "[⚙️ System]
     verbose: thinking
     renew: daily at 06:00 Asia/Jakarta"
@@ -602,7 +601,8 @@ test("session config command", async () => {
     renew: off"
   `);
   // Now configure from session1 targeting session2 via --target
-  expect(await session.request("/session config --target other verbose=tool")).toMatchInlineSnapshot(`
+  expect(await session.request("/session config --target other verbose=tool"))
+    .toMatchInlineSnapshot(`
     "[⚙️ System]
     verbose: tool
     renew: off"
@@ -614,7 +614,8 @@ test("session config command", async () => {
     renew: off"
   `);
   // --target with unknown session name
-  expect(await session.request("/session config --target no-such verbose=tool")).toMatchInlineSnapshot(`
+  expect(await session.request("/session config --target no-such verbose=tool"))
+    .toMatchInlineSnapshot(`
     "[⚙️ System]
     Unknown session: no-such"
   `);

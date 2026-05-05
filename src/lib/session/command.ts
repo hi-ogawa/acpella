@@ -58,8 +58,11 @@ export function renderSessionConfig(options: {
   session: SessionConfigPatch;
   timezone: string;
 }): string {
-  return `verbose: ${options.session.verbose}\nrenew: ${renderSessionRenewPolicy({
+  return `\
+verbose: ${options.session.verbose}
+renew: ${renderSessionRenewPolicy({
     policy: options.session.renew,
     timezone: options.timezone,
-  })}`;
+  })}
+`;
 }
