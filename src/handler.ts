@@ -398,12 +398,12 @@ Unmapped acp sessions:
       withArgs: true,
       run: async ({ args, reply, sessionName }) => {
         const parsed = parseSessionConfig(args);
-        if (parsed.targetSessionName) {
-          if (!stateStore.get().sessions[parsed.targetSessionName]) {
-            await reply.system(`Unknown session: ${parsed.targetSessionName}`);
+        if (parsed.target) {
+          if (!stateStore.get().sessions[parsed.target]) {
+            await reply.system(`Unknown session: ${parsed.target}`);
             return;
           }
-          sessionName = parsed.targetSessionName;
+          sessionName = parsed.target;
         }
 
         if (parsed.patch) {

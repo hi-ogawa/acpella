@@ -5,24 +5,23 @@ import { parseVerboseMode } from "../verbose.ts";
 type SessionConfigPatch = Pick<Partial<StateSession>, "verbose" | "renew">;
 
 type ParsedSessionConfig = {
-  targetSessionName?: string;
+  target?: string;
   patch?: SessionConfigPatch;
 };
 
 export function parseSessionConfig(args: string[]): ParsedSessionConfig {
-  let configArgs = args;
-  let targetSessionName: string | undefined;
+  let target: string | undefined;
 
   if (args[0] === "--target") {
-    targetSessionName = args[1];
-    if (!targetSessionName) {
+    target = args[1];
+    if (!target) {
       throw new Error("Missing value for --target");
     }
-    configArgs = args.slice(2);
+    args = args.slice(2);
   }
 
   let patch: SessionConfigPatch | undefined;
-  for (const arg of configArgs) {
+  for (const arg of args) {
     const eqIdx = arg.indexOf("=");
     if (eqIdx === -1) {
       throw new Error(`Invalid argument: ${arg}\nExpected key=value pairs.`);
@@ -49,7 +48,7 @@ export function parseSessionConfig(args: string[]): ParsedSessionConfig {
   }
 
   return {
-    targetSessionName,
+    target,
     patch,
   };
 }
