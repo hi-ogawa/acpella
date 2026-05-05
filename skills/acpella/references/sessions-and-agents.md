@@ -26,10 +26,6 @@ Use:
 - `/session load <sessionId|agent:sessionId>`
 - `/session close [sessionId|agent:sessionId]`
 - `/session config [--target sessionName] [verbose=off|tool|thinking|all] [renew=off|daily|daily:N]`
-- `/session verbose [all|tool|thinking|off] [sessionName]`
-- `/session renew off [sessionName]`
-- `/session renew daily [sessionName]`
-- `/session renew daily:<hour> [sessionName]`
 
 Common cases:
 
@@ -39,8 +35,8 @@ Common cases:
 - use `/session info [sessionName]` to inspect the selected agent, agent session id, verbose setting, renewal policy, and context usage
 - use `/session list` to see all mapped acpella sessions; add `--all` to also show unmapped backend sessions
 - use `/session config` to show or update per-session settings (`verbose`, `renew`) in one place
-- use `/session verbose off|tool|thinking|all [sessionName]` to control internal progress output for a session (alias for `/session config verbose=...`)
-- use `/session renew off|daily|daily:<hour> [sessionName]` to change whether a session renews automatically (alias for `/session config renew=...`)
+- use `/session config verbose=off|tool|thinking|all` to control internal progress output for a session
+- use `/session config renew=off|daily|daily:<hour>` to change whether a session renews automatically
 
 ### `/session config` examples
 
@@ -61,9 +57,9 @@ By default, sessions do not auto-renew. When daily renewal is enabled, acpella c
 Examples:
 
 ```text
-/session renew off
-/session renew daily
-/session renew daily:6
+/session config renew=off
+/session config renew=daily
+/session config renew=daily:6
 ```
 
 `daily` means daily at 04:00 in the acpella service timezone. `daily:6` means daily at 06:00. `off` disables automatic renewal. Use `/session info` to confirm the effective policy.
