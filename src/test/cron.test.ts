@@ -675,9 +675,10 @@ test("cron runner renews stale session after daily boundary", async ({ onTestFin
     metadata: { cronDeliveryTarget: { repl: true } },
   });
 
-  expect(await session.request("/session renew daily:4")).toMatchInlineSnapshot(`
+  expect(await session.request("/session config renew=daily:4")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    Session renewal: daily at 04:00 Asia/Jakarta"
+    verbose: thinking
+    renew: daily at 04:00 Asia/Jakarta"
   `);
   expect(await session.request("__session")).toMatchInlineSnapshot(`"session: __testSession1"`);
 
