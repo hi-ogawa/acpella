@@ -4,6 +4,7 @@ import { validateCronSchedule } from "./timer.ts";
 
 const CRON_FILE_VERSION = 1;
 const CRON_STATE_FILE_VERSION = 1;
+const CRON_RUN_HISTORY_LIMIT = 5;
 
 export const cronIdSchema = z
   .string()
@@ -201,7 +202,8 @@ export class CronStore {
     let run: CronRun;
     this.stateFile.set((file) => {
       file.runs[options.cronId] ??= {};
-      if (file.runs[options.cronId][options.scheduledAt]) {
+      const runs = file.runs[options.cronId];
+      if (runs[options.scheduledAt]) {
         throw new Error("Cron run already exists for this schedule", {
           cause: options,
         });
@@ -212,7 +214,15 @@ export class CronStore {
         startedAt: options.startedAt,
         status: "running",
       };
-      file.runs[options.cronId][options.scheduledAt] = run;
+      runs[options.scheduledAt] = run;
+      const oldKeys = Object.keys(runs).sort().slice(0, -CRON_RUN_HISTORY_LIMIT);
+      for (const key of oldKeys) {
+        const oldRun = runs[key];
+        if (oldRun.status === "running") {
+          continue;
+        }
+        delete runs[key];
+      }
     });
     return run!;
   }
