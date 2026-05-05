@@ -264,15 +264,10 @@ export async function createHandler(
             name: sessionName,
             session: stateSession,
             usage,
+            indent: "  ",
             timezone: config.timezone,
           });
-          entries.push(
-            output
-              .replace(/^session: /, "- ")
-              .split("\n")
-              .map((line, index) => (index === 0 ? line : `  ${line}`))
-              .join("\n"),
-          );
+          entries.push(output.replace(/^  /, "- "));
         }
         await reply.system(entries.join("\n\n") || "No sessions.");
       },

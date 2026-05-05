@@ -77,6 +77,7 @@ export function renderSessionInfo(options: {
   name: string;
   session: StateSession;
   usage?: AgentSessionUsage;
+  indent?: string;
   timezone: string;
 }): string {
   const lines = [
@@ -91,6 +92,9 @@ export function renderSessionInfo(options: {
   ];
   if (options.usage) {
     lines.push(renderSessionContextUsage(options.usage));
+  }
+  if (options.indent) {
+    return lines.map((line) => `${options.indent}${line}`).join("\n");
   }
   return lines.join("\n");
 }
