@@ -555,10 +555,10 @@ test("cron suppresses NO_REPLY delivery", async ({ onTestFinished }) => {
 
 test("cron with session name", async ({ onTestFinished }) => {
   // Sequence:
-  // - Create tg-12345 and tg-12345-678 sessions so --session can target known sessions.
-  // - Add tg-job with --session tg-12345 and verify chat-only Telegram delivery.
-  // - Update tg-job with --session tg-12345-678 and verify thread Telegram delivery.
-  // - Add tg-job2 with --session tg-12345-678 and verify thread Telegram delivery.
+  // - Create tg-12345 and tg-12345-678 sessions so --target can target known sessions.
+  // - Add tg-job with --target tg-12345 and verify chat-only Telegram delivery.
+  // - Update tg-job with --target tg-12345-678 and verify thread Telegram delivery.
+  // - Add tg-job2 with --target tg-12345-678 and verify thread Telegram delivery.
   // - Add tg-job3 with a multi-word prompt and verify prompt parsing is preserved.
   vi.useFakeTimers({
     now: Date.parse("2026-04-18T07:00:00+07:00"),
@@ -581,7 +581,7 @@ test("cron with session name", async ({ onTestFinished }) => {
   });
 
   // With only chatId
-  expect(await session.request("/cron add tg-job * * * * * --session tg-12345 -- hello-cron"))
+  expect(await session.request("/cron add tg-job * * * * * --target tg-12345 -- hello-cron"))
     .toMatchInlineSnapshot(`
     "[⚙️ System]
     Added cron job: tg-job"
@@ -599,7 +599,7 @@ test("cron with session name", async ({ onTestFinished }) => {
     prompt: hello-cron"
   `);
   expect(
-    await session.request("/cron update tg-job 2 * * * * --session tg-12345-678 -- hello-updated"),
+    await session.request("/cron update tg-job 2 * * * * --target tg-12345-678 -- hello-updated"),
   ).toMatchInlineSnapshot(`
     "[⚙️ System]
     Updated cron job: tg-job"
@@ -618,9 +618,8 @@ test("cron with session name", async ({ onTestFinished }) => {
   `);
 
   // With chatId and messageThreadId
-  expect(
-    await session.request("/cron add tg-job2 * * * * * --session tg-12345-678 -- hello-thread"),
-  ).toMatchInlineSnapshot(`
+  expect(await session.request("/cron add tg-job2 * * * * * --target tg-12345-678 -- hello-thread"))
+    .toMatchInlineSnapshot(`
     "[⚙️ System]
     Added cron job: tg-job2"
   `);
@@ -638,7 +637,7 @@ test("cron with session name", async ({ onTestFinished }) => {
   `);
 
   // Multi-word prompt with sessionName
-  expect(await session.request("/cron add tg-job3 * * * * * --session tg-12345 -- hello world"))
+  expect(await session.request("/cron add tg-job3 * * * * * --target tg-12345 -- hello world"))
     .toMatchInlineSnapshot(`
     "[⚙️ System]
     Added cron job: tg-job3"

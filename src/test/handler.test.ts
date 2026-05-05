@@ -86,7 +86,7 @@ test("basic", async () => {
       /cancel - Cancel the active agent turn.
 
     /session
-      /session info [sessionName] - Show info about a session.
+      /session info [--target <sessionName>] - Show info about a session.
       /session list - List acpella sessions.
       /session new [agent] - Start a new agent session.
       /session load <sessionId|agent:sessionId> - Load an existing agent session.
@@ -104,8 +104,8 @@ test("basic", async () => {
       /cron status - Show cron scheduler status.
       /cron start - Start cron scheduler.
       /cron stop - Stop cron scheduler.
-      /cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--session <sessionName>] -- <prompt...> - Add a cron job.
-      /cron update <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--session <sessionName>] [-- <prompt...>] - Update a cron job.
+      /cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--target <sessionName>] -- <prompt...> - Add a cron job.
+      /cron update <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--target <sessionName>] [-- <prompt...>] - Update a cron job.
       /cron list - List cron jobs.
       /cron show <id> - Show a cron job.
       /cron enable <id> - Enable a cron job.
@@ -317,7 +317,7 @@ test("session commands", async () => {
   expect(await session.request("/session")).toMatchInlineSnapshot(`
     "[⚙️ System]
     /session
-      /session info [sessionName] - Show info about a session.
+      /session info [--target <sessionName>] - Show info about a session.
       /session list - List acpella sessions.
       /session new [agent] - Start a new agent session.
       /session load <sessionId|agent:sessionId> - Load an existing agent session.
@@ -327,7 +327,7 @@ test("session commands", async () => {
   expect(await session.request("/session help")).toMatchInlineSnapshot(`
     "[⚙️ System]
     /session
-      /session info [sessionName] - Show info about a session.
+      /session info [--target <sessionName>] - Show info about a session.
       /session list - List acpella sessions.
       /session new [agent] - Start a new agent session.
       /session load <sessionId|agent:sessionId> - Load an existing agent session.
@@ -401,10 +401,10 @@ test("session commands", async () => {
     Unknown agent: no-such-agent"
   `,
   );
-  // /session info with explicit sessionName: exists
+  // /session info with explicit target sessionName: exists
   const session2 = tester.createSession("other");
   expect(await session2.request("hello")).toMatchInlineSnapshot(`"echo: hello"`);
-  expect(await session.request("/session info other")).toMatchInlineSnapshot(`
+  expect(await session.request("/session info --target other")).toMatchInlineSnapshot(`
     "[⚙️ System]
     session: other
     agent: test
@@ -412,8 +412,8 @@ test("session commands", async () => {
     verbose: thinking
     renew: off"
   `);
-  // /session info with explicit sessionName: does not exist
-  expect(await session.request("/session info no-such-session")).toMatchInlineSnapshot(`
+  // /session info with explicit target sessionName: does not exist
+  expect(await session.request("/session info --target no-such-session")).toMatchInlineSnapshot(`
     "[⚙️ System]
     Unknown session: no-such-session"
   `);
