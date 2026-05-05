@@ -250,7 +250,7 @@ renew: ${renderSessionRenewPolicy({ policy: stateSession.renew, timezone: config
     {
       tokens: ["list"],
       usage: "/session list",
-      description: "List known acpella sessions.",
+      description: "List acpella sessions.",
       run: async ({ reply }) => {
         const state = stateStore.get();
         const output: string[] = [];
