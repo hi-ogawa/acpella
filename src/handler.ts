@@ -268,12 +268,22 @@ export async function createHandler(
     },
     {
       tokens: ["new"],
-      usage: "/session new [agent]",
+      usage: "/session new [--target <sessionName>] [agent]",
       description: "Start a new agent session.",
       withArgs: true,
-      run: async (context) => {
-        const { args, reply, sessionName } = context;
-        const agentKey = args[0];
+      run: async ({ args, reply, sessionName }) => {
+        const parsedTarget = parseSessionTarget(args);
+        if (parsedTarget.args.length > 1) {
+          throw new Error(`Invalid argument: ${parsedTarget.args[1]}`);
+        }
+        if (parsedTarget.target) {
+          if (!stateStore.get().sessions[parsedTarget.target]) {
+            await reply.system(`Unknown session: ${parsedTarget.target}`);
+            return;
+          }
+          sessionName = parsedTarget.target;
+        }
+        const agentKey = parsedTarget.args[0];
         if (agentKey) {
           if (!stateStore.get().agents[agentKey]) {
             await reply.system(`Unknown agent: ${agentKey}`);
@@ -282,7 +292,7 @@ export async function createHandler(
           stateStore.setSession(sessionName, { agentKey });
         }
         stateStore.setSession(sessionName, { agentSessionId: undefined });
-        await context.reply.system("New session ready.");
+        await reply.system("New session ready.");
       },
     },
     {
