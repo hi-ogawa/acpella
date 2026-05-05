@@ -657,41 +657,47 @@ test("cron with session name", async ({ onTestFinished }) => {
   `);
 });
 
-test("cron run history is bounded to 5 per job", async () => {
+test("cron run history is bounded to 5 per job", async ({ onTestFinished }) => {
+  // Timeline:
+  // - 07:00: add test-job for every minute with a NO_REPLY prompt.
+  // - 07:01 – 07:07: test-job fires 7 times.
+  // - After all 7 runs, only the latest 5 should be retained in cron-state.json.
+  vi.useFakeTimers({
+    now: Date.parse("2026-04-18T07:00:00+07:00"),
+  });
+  onTestFinished(() => {
+    vi.useRealTimers();
+  });
+
   const tester = await createHandlerTester();
   const { cronStore } = tester;
 
   const session = tester.createSession("test", {
     metadata: { cronDeliveryTarget: { repl: true } },
   });
-  expect(await session.request("/cron add test-job * * * * * -- hello-cron"))
+  expect(await session.request("/cron add test-job * * * * * -- __raw:NO_REPLY"))
     .toMatchInlineSnapshot(`
     "[⚙️ System]
     Added cron job: test-job"
   `);
 
-  // Insert 7 runs; only the latest 5 should be retained.
+  // Fire test-job 7 times, one minute at a time.
   for (let i = 1; i <= 7; i++) {
-    const scheduledAt = `2026-04-18T07:0${i}:00Z`;
-    const run = cronStore.startRun({
-      cronId: "test-job",
-      scheduledAt,
-      startedAt: scheduledAt,
-    });
-    cronStore.updateRun(run.id, {
-      finishedAt: scheduledAt,
-      status: "succeeded",
+    advanceTimersTo(`2026-04-18T07:0${i}:00+07:00`);
+    await waitUntil(async () => {
+      const output = await session.request("/cron show test-job");
+      return output.includes(`scheduled 2026-04-18T07:0${i}:00+07:00, finished`);
     });
   }
 
   const runs = Object.keys(cronStore.stateFile.state.runs["test-job"]);
   expect(runs).toHaveLength(5);
   expect(runs.sort()).toEqual([
-    "2026-04-18T07:03:00Z",
-    "2026-04-18T07:04:00Z",
-    "2026-04-18T07:05:00Z",
-    "2026-04-18T07:06:00Z",
-    "2026-04-18T07:07:00Z",
+    "2026-04-18T00:03:00Z",
+    "2026-04-18T00:04:00Z",
+    "2026-04-18T00:05:00Z",
+    "2026-04-18T00:06:00Z",
+    "2026-04-18T00:07:00Z",
   ]);
 });
 
