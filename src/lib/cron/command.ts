@@ -4,7 +4,7 @@ import { type CronJob, type CronRun, type CronStore, cronIdSchema } from "./stor
 import { getNextCronSchedule, validateCronSchedule } from "./timer.ts";
 
 export function parseCronArgs(args: string[], timezone: string) {
-  const [id, minute, hour, dayOfMonth, month, dayOfWeek, ...remainingArgs] = args;
+  let [id, minute, hour, dayOfMonth, month, dayOfWeek, ...restArgs] = args;
   if (!id || !minute || !hour || !dayOfMonth || !month || !dayOfWeek) {
     throw new Error("Invalid input");
   }
@@ -15,8 +15,8 @@ export function parseCronArgs(args: string[], timezone: string) {
   const schedule = [minute, hour, dayOfMonth, month, dayOfWeek].join(" ");
   validateCronSchedule({ schedule, timezone });
 
-  const parsedTarget = parseSessionTarget(remainingArgs);
-  const restArgs = parsedTarget.args;
+  const parsedTarget = parseSessionTarget(restArgs);
+  restArgs = parsedTarget.args;
 
   let prompt: string | undefined;
   if (restArgs.length > 0) {
