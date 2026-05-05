@@ -1,5 +1,5 @@
 import { formatTime, Result } from "../../utils/index.ts";
-import { parseTargetOption } from "../session/command.ts";
+import { parseSessionTarget } from "../session/command.ts";
 import { type CronJob, type CronRun, type CronStore, cronIdSchema } from "./store.ts";
 import { getNextCronSchedule, validateCronSchedule } from "./timer.ts";
 
@@ -15,7 +15,7 @@ export function parseCronArgs(args: string[], timezone: string) {
   const schedule = [minute, hour, dayOfMonth, month, dayOfWeek].join(" ");
   validateCronSchedule({ schedule, timezone });
 
-  const parsedTarget = parseTargetOption(remainingArgs);
+  const parsedTarget = parseSessionTarget(remainingArgs);
   const restArgs = parsedTarget.args;
 
   let prompt: string | undefined;

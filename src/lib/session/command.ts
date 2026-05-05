@@ -14,26 +14,23 @@ type ParsedSessionConfig = {
   patch?: SessionConfigPatch;
 };
 
-export function parseTargetOption(args: string[]): ParsedTargetOption {
-  if (args[0] !== "--target") {
-    return { args };
+export function parseSessionTarget(args: string[]): ParsedTargetOption {
+  if (args[0] === "--target") {
+    const target = args[1];
+    if (!target) {
+      throw new Error("Missing value for --target");
+    }
+    args = args.slice(2);
+    return { target, args };
   }
-  const target = args[1];
-  if (!target) {
-    throw new Error("Missing value for --target");
-  }
-  return {
-    target,
-    args: args.slice(2),
-  };
+  return { args };
 }
 
-export function parseSessionConfig(args: string[]): ParsedSessionConfig {
-  const parsedTarget = parseTargetOption(args);
-  args = parsedTarget.args;
+export function parseSessionConfig(rawArgs: string[]): ParsedSessionConfig {
+  const { target, args } = parseSessionTarget(rawArgs);
 
   if (args.length === 0) {
-    return { target: parsedTarget.target };
+    return { target };
   }
 
   const patch: SessionConfigPatch = {};
@@ -62,17 +59,9 @@ export function parseSessionConfig(args: string[]): ParsedSessionConfig {
   }
 
   return {
-    target: parsedTarget.target,
+    target,
     patch,
   };
-}
-
-export function parseSessionTarget(args: string[]) {
-  const parsedTarget = parseTargetOption(args);
-  if (parsedTarget.args.length > 0) {
-    throw new Error(`Invalid argument: ${parsedTarget.args[0]}`);
-  }
-  return parsedTarget;
 }
 
 export function renderSessionConfig(options: {
