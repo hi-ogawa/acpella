@@ -724,32 +724,6 @@ test("agent command", async () => {
     "[⚙️ System]
     Saved new agent: test2"
   `);
-  const session2 = tester.createSession("other");
-  expect(await session2.request("hello")).toMatchInlineSnapshot(`"echo: hello"`);
-  expect(await session.request("/session new --target other test2")).toMatchInlineSnapshot(`
-    "[⚙️ System]
-    New session ready."
-  `);
-  expect(await session.request("/session info --target other")).toMatchInlineSnapshot(`
-    "[⚙️ System]
-    session: other
-    agent: test2
-    agent session id: none
-    verbose: thinking
-    renew: off"
-  `);
-  expect(await session.request("/session new --target other no-such-agent")).toMatchInlineSnapshot(`
-    "[⚙️ System]
-    Unknown agent: no-such-agent"
-  `);
-  expect(await session.request("/session info --target other")).toMatchInlineSnapshot(`
-    "[⚙️ System]
-    session: other
-    agent: test2
-    agent session id: none
-    verbose: thinking
-    renew: off"
-  `);
   expect(await session.request("/agent default")).toMatchInlineSnapshot(`
     "[⚙️ System]
     Default agent: test"
@@ -861,6 +835,49 @@ test("agent command", async () => {
       },
       "agentSessions": {}
     }"
+  `);
+  const session2 = tester.createSession("other");
+  expect(await session2.request("hello")).toMatchInlineSnapshot(`"echo: hello"`);
+  expect(await session.request("/session info --target other")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    session: other
+    agent: test2
+    agent session id: __testSession2
+    verbose: thinking
+    renew: off"
+  `);
+  expect(await session.request("/session new --target other test")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    New session ready."
+  `);
+  expect(await session.request("/session info --target other")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    session: other
+    agent: test
+    agent session id: none
+    verbose: thinking
+    renew: off"
+  `);
+  expect(await session2.request("hello2")).toMatchInlineSnapshot(`"echo: hello2"`);
+  expect(await session.request("/session info --target other")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    session: other
+    agent: test
+    agent session id: __testSession3
+    verbose: thinking
+    renew: off"
+  `);
+  expect(await session.request("/session new --target other no-such-agent")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Unknown agent: no-such-agent"
+  `);
+  expect(await session.request("/session info --target other")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    session: other
+    agent: test
+    agent session id: __testSession3
+    verbose: thinking
+    renew: off"
   `);
 });
 
