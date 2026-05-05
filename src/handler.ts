@@ -230,19 +230,13 @@ export async function createHandler(
         }
         const sessionName = arg ?? context.sessionName;
         const stateSession = stateStore.getSession(sessionName);
-        await reply.system(
-          renderSessionInfo({
-            name: sessionName,
-            session: stateSession,
-            usage: stateSession.agentSessionId
-              ? stateStore.getAgentSessionUsage({
-                  agentKey: stateSession.agentKey,
-                  agentSessionId: stateSession.agentSessionId,
-                })
-              : undefined,
-            timezone: config.timezone,
-          }),
-        );
+        const output = renderSessionInfo({
+          name: sessionName,
+          session: stateSession,
+          usage: stateStore.getAgentSessionUsageByName(sessionName),
+          timezone: config.timezone,
+        });
+        await reply.system(output);
       },
     },
     {
@@ -256,12 +250,7 @@ export async function createHandler(
           const output = renderSessionInfo({
             name: sessionName,
             session: stateSession,
-            usage: stateSession.agentSessionId
-              ? stateStore.getAgentSessionUsage({
-                  agentKey: stateSession.agentKey,
-                  agentSessionId: stateSession.agentSessionId,
-                })
-              : undefined,
+            usage: stateStore.getAgentSessionUsageByName(sessionName),
             timezone: config.timezone,
             indent: "  ",
           });

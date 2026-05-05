@@ -163,6 +163,16 @@ export class SessionStateStore {
     return this.file.state.agentSessions[target.agentKey]?.[target.agentSessionId]?.usage;
   }
 
+  getAgentSessionUsageByName(sessionName: string): AgentSessionUsage | undefined {
+    const session = this.getSession(sessionName);
+    if (session.agentSessionId) {
+      return this.getAgentSessionUsage({
+        agentKey: session.agentKey,
+        agentSessionId: session.agentSessionId,
+      });
+    }
+  }
+
   setAgentSessionUsage(
     target: StateAgentSession,
     usage: Omit<AgentSessionUsage, "updatedAt">,
