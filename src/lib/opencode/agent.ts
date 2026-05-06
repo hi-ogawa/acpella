@@ -139,7 +139,7 @@ class OpencodeAcpAgent implements Agent {
         return;
       }
 
-      // TODO: https://github.com/hi-ogawa/acpella/issues/208
+      // surface session errors. the actual prompt error is returned at the end.
       if (payload.type === "session.error" && payload.properties.sessionID === params.sessionId) {
         console.error("[session.error]", payload.properties);
         return;
