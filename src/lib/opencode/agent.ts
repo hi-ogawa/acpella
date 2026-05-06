@@ -263,47 +263,43 @@ class OpencodeAcpAgent implements Agent {
     let stopReason: StopReason = "end_turn";
 
     // check last message status and send usage update
-    try {
-      const messages = await client.session.messages(
-        { sessionID: params.sessionId, directory: session.directory },
-        { throwOnError: true },
-      );
-      const message = messages.data
-        .map((message) => message.info)
-        .filter((info) => info.role === "assistant")
-        .at(-1);
-      if (message) {
-        if (message.error) {
-          if (message.error.name === "MessageAbortedError") {
-            stopReason = "cancelled";
-          } else {
-            const error = new Error(String(message.error.data.message));
-            error.name = message.error.name;
-            throw error;
-          }
+    const messages = await client.session.messages(
+      { sessionID: params.sessionId, directory: session.directory },
+      { throwOnError: true },
+    );
+    const message = messages.data
+      .map((message) => message.info)
+      .filter((info) => info.role === "assistant")
+      .at(-1);
+    if (message) {
+      if (message.error) {
+        if (message.error.name === "MessageAbortedError") {
+          stopReason = "cancelled";
         } else {
-          const tokens = message.tokens;
-          const used = tokens.input + (tokens.cache?.read ?? 0);
-          const model = await getModel(client, {
-            directory: session.directory,
-            providerID: message.providerID,
-            modelID: message.modelID,
+          const error = new Error(String(message.error.data.message));
+          error.name = message.error.name;
+          throw error;
+        }
+      } else {
+        const tokens = message.tokens;
+        const used = tokens.input + (tokens.cache?.read ?? 0);
+        const model = await getModel(client, {
+          directory: session.directory,
+          providerID: message.providerID,
+          modelID: message.modelID,
+        });
+        const size = model?.limit.context;
+        if (size !== undefined) {
+          await this.connection.sessionUpdate({
+            sessionId: params.sessionId,
+            update: {
+              sessionUpdate: "usage_update",
+              used,
+              size,
+            },
           });
-          const size = model?.limit.context;
-          if (size !== undefined) {
-            await this.connection.sessionUpdate({
-              sessionId: params.sessionId,
-              update: {
-                sessionUpdate: "usage_update",
-                used,
-                size,
-              },
-            });
-          }
         }
       }
-    } catch (error) {
-      console.error("failed to send usage update:", error);
     }
 
     return { stopReason };
