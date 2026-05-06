@@ -138,10 +138,20 @@ class OpencodeAcpAgent implements Agent {
         return;
       }
 
-      // TODO
+      // TODO: https://github.com/hi-ogawa/acpella/issues/208
       if (payload.type === "session.error" && payload.properties.sessionID === params.sessionId) {
         const props = payload.properties;
         props.error?.name;
+        return;
+      }
+
+      // TODO: https://github.com/hi-ogawa/acpella/issues/210
+      if (
+        payload.type === "permission.asked" &&
+        payload.properties.sessionID === params.sessionId
+      ) {
+        const props = payload.properties;
+        props.permission;
         return;
       }
 
