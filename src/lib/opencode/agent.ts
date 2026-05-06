@@ -26,6 +26,7 @@ import {
   type OpencodeClient,
   type Part,
   type Session,
+  type SessionPromptResponse,
   type ToolPart,
 } from "@opencode-ai/sdk/v2";
 
@@ -119,6 +120,7 @@ class OpencodeAcpAgent implements Agent {
     const client = await this.createClient({ directory: session.directory });
 
     let lifecycleStarted = false;
+    let lifecycleCancelled = false;
     const lifecycle = Promise.withResolvers<void>();
 
     const messagePartTypes = new Map<string, Part["type"]>();
@@ -134,6 +136,28 @@ class OpencodeAcpAgent implements Agent {
         }
         if (props.status.type === "idle" && lifecycleStarted) {
           lifecycle.resolve();
+        }
+        return;
+      }
+
+      if (payload.type === "session.error" && payload.properties.sessionID === params.sessionId) {
+        console.error("[session.error]", payload.properties);
+        const rawError = payload.properties.error;
+        if (rawError) {
+          // gracefully handle cancellation
+          if (rawError.name === "MessageAbortedError") {
+            lifecycleCancelled = true;
+            lifecycle.resolve();
+            return;
+          }
+          // surface model API availability error etc.
+          const error = new Error(
+            typeof rawError.data.message === "string"
+              ? rawError.data.message
+              : "unknown session error",
+          );
+          error.name = rawError.name;
+          throw error;
         }
         return;
       }
@@ -250,52 +274,38 @@ class OpencodeAcpAgent implements Agent {
       { throwOnError: true },
     );
 
+    let response: SessionPromptResponse | undefined;
     try {
-      await Promise.all([promptResponsePromise, lifecycle.promise]);
-    } catch (error) {
-      console.error("prompt error:", error);
+      [{ data: response }] = await Promise.all([promptResponsePromise, lifecycle.promise]);
     } finally {
       abortController.abort();
       await eventHandlerPromise;
     }
 
     // send usage update
-    try {
-      const messages = await client.session.messages(
-        { sessionID: params.sessionId, directory: session.directory },
-        { throwOnError: true },
-      );
-      const message = messages.data
-        .map((message) => message.info)
-        .filter((info) => info.role === "assistant")
-        .at(-1);
-      if (message) {
-        const tokens = message.tokens;
-        const used = tokens.input + (tokens.cache?.read ?? 0);
-        const providers = await client.config.providers(
-          { directory: session.directory },
-          { throwOnError: true },
-        );
-        const provider = providers.data.providers.find(
-          (provider) => provider.id === message.providerID,
-        );
-        const size = provider?.models[message.modelID]?.limit.context;
-        if (size !== undefined) {
-          await this.connection.sessionUpdate({
-            sessionId: params.sessionId,
-            update: {
-              sessionUpdate: "usage_update",
-              used,
-              size,
-            },
-          });
-        }
+    if (!lifecycleCancelled && response && !response.info.error) {
+      const info = response.info;
+      const tokens = info.tokens;
+      const used = tokens.input + (tokens.cache?.read ?? 0);
+      const model = await getModel(client, {
+        directory: session.directory,
+        providerID: info.providerID,
+        modelID: info.modelID,
+      });
+      const context = model?.limit.context;
+      if (context !== undefined) {
+        await this.connection.sessionUpdate({
+          sessionId: params.sessionId,
+          update: {
+            sessionUpdate: "usage_update",
+            used,
+            size: context,
+          },
+        });
       }
-    } catch (error) {
-      console.error("failed to send usage update:", error);
     }
 
-    return { stopReason: "end_turn" };
+    return { stopReason: lifecycleCancelled ? "cancelled" : "end_turn" };
   }
 
   async cancel(params: CancelNotification): Promise<void> {
@@ -314,6 +324,22 @@ class OpencodeAcpAgent implements Agent {
   // TODO
   unstable_closeSession = async () => ({});
   authenticate = async () => ({});
+}
+
+async function getModel(
+  client: OpencodeClient,
+  options: {
+    directory: string;
+    providerID: string;
+    modelID: string;
+  },
+) {
+  const providers = await client.config.providers(
+    { directory: options.directory },
+    { throwOnError: true },
+  );
+  const provider = providers.data.providers.find((provider) => provider.id === options.providerID);
+  return provider?.models[options.modelID];
 }
 
 const TOOL_KIND_BY_NAME: Record<string, ToolKind> = {

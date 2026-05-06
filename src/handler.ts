@@ -203,7 +203,8 @@ export async function createHandler(
         }
       }
       const cancelled = cancelledSessions.has(session);
-      logger.log({ type: "done", cancelled });
+      const response = await result.promise;
+      logger.log({ type: "done", cancelled, response });
       return { cancelled };
     } catch (e) {
       logger.log({ type: "error", error: formatError(e) });
