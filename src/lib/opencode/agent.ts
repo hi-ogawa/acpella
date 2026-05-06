@@ -151,7 +151,11 @@ class OpencodeAcpAgent implements Agent {
             return;
           }
           // surface model API availability error etc.
-          const error = new Error(String(rawError.data.message));
+          const error = new Error(
+            typeof rawError.data.message === "string"
+              ? rawError.data.message
+              : "unknown session error",
+          );
           error.name = rawError.name;
           throw error;
         }
