@@ -104,7 +104,7 @@ test("basic", async () => {
       /cron status - Show cron scheduler status.
       /cron start - Start cron scheduler.
       /cron stop - Stop cron scheduler.
-      /cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--target <sessionName>] -- <prompt...> - Add a cron job.
+      /cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--once] [--target <sessionName>] -- <prompt...> - Add a cron job.
       /cron update <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--target <sessionName>] [-- <prompt...>] - Update a cron job.
       /cron list - List cron jobs.
       /cron show <id> - Show a cron job.
