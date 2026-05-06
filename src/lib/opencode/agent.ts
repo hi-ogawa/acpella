@@ -138,6 +138,13 @@ class OpencodeAcpAgent implements Agent {
         return;
       }
 
+      // TODO
+      if (payload.type === "session.error" && payload.properties.sessionID === params.sessionId) {
+        const props = payload.properties;
+        props.error?.name;
+        return;
+      }
+
       if (
         payload.type === "session.compacted" &&
         payload.properties.sessionID === params.sessionId
@@ -255,6 +262,8 @@ class OpencodeAcpAgent implements Agent {
         .filter((info) => info.role === "assistant")
         .at(-1);
       if (message) {
+        // TODO
+        message.error;
         const tokens = message.tokens;
         const used = tokens.input + (tokens.cache?.read ?? 0);
         const providers = await client.config.providers(
