@@ -141,11 +141,7 @@ class OpencodeAcpAgent implements Agent {
 
       // TODO: https://github.com/hi-ogawa/acpella/issues/208
       if (payload.type === "session.error" && payload.properties.sessionID === params.sessionId) {
-        console.error("session error:", payload.properties.error);
-        const props = payload.properties;
-        if (props.error) {
-          props.error.name === "MessageAbortedError";
-        }
+        console.error("[session.error]", payload.properties);
         return;
       }
 
@@ -154,8 +150,7 @@ class OpencodeAcpAgent implements Agent {
         payload.type === "permission.asked" &&
         payload.properties.sessionID === params.sessionId
       ) {
-        const props = payload.properties;
-        props.permission;
+        console.error("[permission.asked]", payload.properties);
         return;
       }
 
@@ -266,7 +261,8 @@ class OpencodeAcpAgent implements Agent {
     }
 
     let stopReason: StopReason = "end_turn";
-    // send usage update
+
+    // check last message status and send usage update
     try {
       const messages = await client.session.messages(
         { sessionID: params.sessionId, directory: session.directory },
@@ -277,28 +273,33 @@ class OpencodeAcpAgent implements Agent {
         .filter((info) => info.role === "assistant")
         .at(-1);
       if (message) {
-        if (message.error?.name === "MessageAbortedError") {
-          stopReason = "cancelled";
-        }
-        const tokens = message.tokens;
-        const used = tokens.input + (tokens.cache?.read ?? 0);
-        const providers = await client.config.providers(
-          { directory: session.directory },
-          { throwOnError: true },
-        );
-        const provider = providers.data.providers.find(
-          (provider) => provider.id === message.providerID,
-        );
-        const size = provider?.models[message.modelID]?.limit.context;
-        if (size !== undefined) {
-          await this.connection.sessionUpdate({
-            sessionId: params.sessionId,
-            update: {
-              sessionUpdate: "usage_update",
-              used,
-              size,
-            },
+        if (message.error) {
+          if (message.error.name === "MessageAbortedError") {
+            stopReason = "cancelled";
+          } else {
+            const error = new Error(String(message.error.data.message));
+            error.name = message.error.name;
+            throw error;
+          }
+        } else {
+          const tokens = message.tokens;
+          const used = tokens.input + (tokens.cache?.read ?? 0);
+          const model = await getModel(client, {
+            directory: session.directory,
+            providerID: message.providerID,
+            modelID: message.modelID,
           });
+          const size = model?.limit.context;
+          if (size !== undefined) {
+            await this.connection.sessionUpdate({
+              sessionId: params.sessionId,
+              update: {
+                sessionUpdate: "usage_update",
+                used,
+                size,
+              },
+            });
+          }
         }
       }
     } catch (error) {
@@ -324,6 +325,22 @@ class OpencodeAcpAgent implements Agent {
   // TODO
   unstable_closeSession = async () => ({});
   authenticate = async () => ({});
+}
+
+async function getModel(
+  client: OpencodeClient,
+  options: {
+    directory: string;
+    providerID: string;
+    modelID: string;
+  },
+) {
+  const providers = await client.config.providers(
+    { directory: options.directory },
+    { throwOnError: true },
+  );
+  const provider = providers.data.providers.find((provider) => provider.id === options.providerID);
+  return provider?.models[options.modelID];
 }
 
 const TOOL_KIND_BY_NAME: Record<string, ToolKind> = {
