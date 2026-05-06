@@ -12,6 +12,7 @@ Coverage checklist:
   - [ ] add rejects invalid id
   - [ ] add rejects invalid schedule
   - [ ] add refreshes runner
+  - [x] add --once flag
   - [x] update
   - [x] list
   - [x] show
@@ -25,6 +26,8 @@ Coverage checklist:
   - [x] runner executes repl cron job through handler prompt
   - [x] runner renews stale session when cron prompt crosses daily boundary
   - [ ] runner records failed delivery
+  - [x] runner disables once job after successful run
+  - [x] runner disables once job after failed run
 */
 
 import { expect, test, vi } from "vitest";
@@ -205,6 +208,7 @@ test("cron command", async ({ onTestFinished }) => {
     "[⚙️ System]
     id: test-job
     enabled: yes
+    once: no
     schedule: * * * * *
     timezone: Asia/Jakarta
     target session: test
@@ -227,6 +231,7 @@ test("cron command", async ({ onTestFinished }) => {
     "[⚙️ System]
     id: test-job
     enabled: yes
+    once: no
     schedule: * * * * *
     timezone: Asia/Jakarta
     target session: test
@@ -256,6 +261,7 @@ test("cron command", async ({ onTestFinished }) => {
     "[⚙️ System]
     id: test-job
     enabled: yes
+    once: no
     schedule: * * * * *
     timezone: Asia/Jakarta
     target session: test
@@ -300,6 +306,7 @@ test("cron command", async ({ onTestFinished }) => {
     "[⚙️ System]
     id: other-job
     enabled: yes
+    once: no
     schedule: 3 * * * *
     timezone: Asia/Jakarta
     target session: test
@@ -335,6 +342,7 @@ test("cron command", async ({ onTestFinished }) => {
     "[⚙️ System]
     id: other-job
     enabled: yes
+    once: no
     schedule: 4 * * * *
     timezone: Asia/Jakarta
     target session: test
@@ -355,6 +363,7 @@ test("cron command", async ({ onTestFinished }) => {
     "[⚙️ System]
     id: other-job
     enabled: yes
+    once: no
     schedule: 4 * * * *
     timezone: Asia/Jakarta
     target session: test
@@ -457,6 +466,7 @@ test("cron error delivery", async ({ onTestFinished }) => {
     "[⚙️ System]
     id: test-job
     enabled: yes
+    once: no
     schedule: * * * * *
     timezone: Asia/Jakarta
     target session: test
@@ -473,6 +483,7 @@ test("cron error delivery", async ({ onTestFinished }) => {
     "[⚙️ System]
     id: test-job
     enabled: yes
+    once: no
     schedule: * * * * *
     timezone: Asia/Jakarta
     target session: test
@@ -501,6 +512,7 @@ test("cron error delivery", async ({ onTestFinished }) => {
     "[⚙️ System]
     id: test-job
     enabled: yes
+    once: no
     schedule: * * * * *
     timezone: Asia/Jakarta
     target session: test
@@ -542,6 +554,7 @@ test("cron suppresses NO_REPLY delivery", async ({ onTestFinished }) => {
     "[⚙️ System]
     id: test-job
     enabled: yes
+    once: no
     schedule: * * * * *
     timezone: Asia/Jakarta
     target session: test
@@ -590,6 +603,7 @@ test("cron with session name", async ({ onTestFinished }) => {
     "[⚙️ System]
     id: tg-job
     enabled: yes
+    once: no
     schedule: * * * * *
     timezone: Asia/Jakarta
     target session: tg-12345
@@ -608,6 +622,7 @@ test("cron with session name", async ({ onTestFinished }) => {
     "[⚙️ System]
     id: tg-job
     enabled: yes
+    once: no
     schedule: 2 * * * *
     timezone: Asia/Jakarta
     target session: tg-12345-678
@@ -627,6 +642,7 @@ test("cron with session name", async ({ onTestFinished }) => {
     "[⚙️ System]
     id: tg-job2
     enabled: yes
+    once: no
     schedule: * * * * *
     timezone: Asia/Jakarta
     target session: tg-12345-678
@@ -646,6 +662,7 @@ test("cron with session name", async ({ onTestFinished }) => {
     "[⚙️ System]
     id: tg-job3
     enabled: yes
+    once: no
     schedule: * * * * *
     timezone: Asia/Jakarta
     target session: tg-12345
@@ -751,5 +768,131 @@ test("cron runner renews stale session after daily boundary", async ({ onTestFin
 
      cron-after-boundary",
     ]
+  `);
+});
+
+test("cron one-shot: disabled after successful run", async ({ onTestFinished }) => {
+  // Timeline:
+  // - 07:00: add once-job for every minute with NO_REPLY prompt.
+  // - 07:01: once-job fires; run succeeds; job is disabled automatically.
+  // - 07:02: scheduler no longer fires once-job (it is disabled).
+  vi.useFakeTimers({
+    now: Date.parse("2026-04-18T07:00:00+07:00"),
+  });
+  onTestFinished(() => {
+    vi.useRealTimers();
+  });
+
+  const tester = await createHandlerTester();
+
+  const session = tester.createSession("test", {
+    metadata: { cronDeliveryTarget: { repl: true } },
+  });
+  expect(await session.request("/cron add once-job * * * * * --once -- __raw:NO_REPLY"))
+    .toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Added cron job: once-job"
+  `);
+  expect(await session.request("/cron show once-job")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    id: once-job
+    enabled: yes
+    once: yes
+    schedule: * * * * *
+    timezone: Asia/Jakarta
+    target session: test
+    delivery target: repl
+    next: 2026-04-18T07:01:00+07:00
+    last: none
+    prompt: __raw:NO_REPLY"
+  `);
+  expect(await session.request("/cron list")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    - once-job [enabled, once]
+      schedule: * * * * *
+      timezone: Asia/Jakarta
+      target session: test
+      delivery target: repl
+      next: 2026-04-18T07:01:00+07:00
+      last: none"
+  `);
+
+  advanceTimersTo("2026-04-18T07:01:00+07:00");
+  await waitUntil(async () => {
+    const output = await session.request("/cron show once-job");
+    return output.includes("last: succeeded");
+  });
+
+  expect(await session.request("/cron show once-job")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    id: once-job
+    enabled: no
+    once: yes
+    schedule: * * * * *
+    timezone: Asia/Jakarta
+    target session: test
+    delivery target: repl
+    next: none
+    last: succeeded, scheduled 2026-04-18T07:01:00+07:00, finished 2026-04-18T07:01:00+07:00
+    prompt: __raw:NO_REPLY"
+  `);
+  expect(await session.request("/cron list")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    - once-job [disabled, once]
+      schedule: * * * * *
+      timezone: Asia/Jakarta
+      target session: test
+      delivery target: repl
+      next: none
+      last: succeeded, scheduled 2026-04-18T07:01:00+07:00, finished 2026-04-18T07:01:00+07:00"
+  `);
+
+  // Confirm no second delivery after 07:02.
+  advanceTimersTo("2026-04-18T07:02:00+07:00");
+  await waitUntil(async () => {
+    const output = await session.request("/cron show once-job");
+    return output.includes("enabled: no");
+  });
+  expect(tester.cronDeliveries).toMatchInlineSnapshot(`[]`);
+});
+
+test("cron one-shot: disabled after failed run", async ({ onTestFinished }) => {
+  // Timeline:
+  // - 07:00: add once-job for every minute with a failing prompt.
+  // - 07:01: once-job fires; run fails; job is still disabled.
+  vi.useFakeTimers({
+    now: Date.parse("2026-04-18T07:00:00+07:00"),
+  });
+  onTestFinished(() => {
+    vi.useRealTimers();
+  });
+
+  const tester = await createHandlerTester();
+
+  const session = tester.createSession("test", {
+    metadata: { cronDeliveryTarget: { repl: true } },
+  });
+  expect(await session.request("/cron add once-job * * * * * --once -- __throw_error__"))
+    .toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Added cron job: once-job"
+  `);
+
+  advanceTimersTo("2026-04-18T07:01:00+07:00");
+  await waitUntil(() => tester.cronDeliveries.length > 0);
+
+  // Job is disabled even after a failed run.
+  expect(await session.request("/cron show once-job")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    id: once-job
+    enabled: no
+    once: yes
+    schedule: * * * * *
+    timezone: Asia/Jakarta
+    target session: test
+    delivery target: repl
+    next: none
+    last: failed, scheduled 2026-04-18T07:01:00+07:00, finished 2026-04-18T07:01:00+07:00, error: Internal error
+    prompt: __throw_error__"
   `);
 });
