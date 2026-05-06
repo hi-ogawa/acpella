@@ -138,6 +138,21 @@ class OpencodeAcpAgent implements Agent {
         return;
       }
 
+      // auto approve permission requests
+      if (
+        payload.type === "permission.asked" &&
+        payload.properties.sessionID === params.sessionId
+      ) {
+        console.error("[permission.asked]", payload.properties);
+        const permission = payload.properties;
+        await client.permission.reply({
+          requestID: permission.id,
+          reply: "once",
+          directory: session.directory,
+        });
+        return;
+      }
+
       if (
         payload.type === "session.compacted" &&
         payload.properties.sessionID === params.sessionId
