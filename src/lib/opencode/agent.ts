@@ -18,7 +18,6 @@ import {
   type PromptResponse,
   type ToolKind,
   type ToolCall,
-  type StopReason,
 } from "@agentclientprotocol/sdk";
 import {
   createOpencodeClient,
@@ -27,6 +26,7 @@ import {
   type OpencodeClient,
   type Part,
   type Session,
+  type SessionPromptResponse,
   type ToolPart,
 } from "@opencode-ai/sdk/v2";
 
@@ -120,6 +120,7 @@ class OpencodeAcpAgent implements Agent {
     const client = await this.createClient({ directory: session.directory });
 
     let lifecycleStarted = false;
+    let lifecycleCancelled = false;
     const lifecycle = Promise.withResolvers<void>();
 
     const messagePartTypes = new Map<string, Part["type"]>();
@@ -139,9 +140,21 @@ class OpencodeAcpAgent implements Agent {
         return;
       }
 
-      // TODO: https://github.com/hi-ogawa/acpella/issues/208
       if (payload.type === "session.error" && payload.properties.sessionID === params.sessionId) {
         console.error("[session.error]", payload.properties);
+        const rawError = payload.properties.error;
+        if (rawError) {
+          // gracefully handle cancellation
+          if (rawError.name === "MessageAbortedError") {
+            lifecycleCancelled = true;
+            lifecycle.resolve();
+            return;
+          }
+          // surface model API availability error etc.
+          const error = new Error(String(rawError.data.message));
+          error.name = rawError.name;
+          throw error;
+        }
         return;
       }
 
@@ -257,58 +270,38 @@ class OpencodeAcpAgent implements Agent {
       { throwOnError: true },
     );
 
+    let response: SessionPromptResponse | undefined;
     try {
-      await Promise.all([promptResponsePromise, lifecycle.promise]);
-    } catch (error) {
-      console.error("prompt error:", error);
+      [{ data: response }] = await Promise.all([promptResponsePromise, lifecycle.promise]);
     } finally {
       abortController.abort();
       await eventHandlerPromise;
     }
 
-    let stopReason: StopReason = "end_turn";
-
-    // check last message status and send usage update
-    const messages = await client.session.messages(
-      { sessionID: params.sessionId, directory: session.directory },
-      { throwOnError: true },
-    );
-    const message = messages.data
-      .map((message) => message.info)
-      .filter((info) => info.role === "assistant")
-      .at(-1);
-    if (message) {
-      if (message.error) {
-        if (message.error.name === "MessageAbortedError") {
-          stopReason = "cancelled";
-        } else {
-          const error = new Error(String(message.error.data.message));
-          error.name = message.error.name;
-          throw error;
-        }
-      } else {
-        const tokens = message.tokens;
-        const used = tokens.input + (tokens.cache?.read ?? 0);
-        const model = await getModel(client, {
-          directory: session.directory,
-          providerID: message.providerID,
-          modelID: message.modelID,
+    // send usage update
+    if (!lifecycleCancelled && response && !response.info.error) {
+      const info = response.info;
+      const tokens = info.tokens;
+      const used = tokens.input + (tokens.cache?.read ?? 0);
+      const model = await getModel(client, {
+        directory: session.directory,
+        providerID: info.providerID,
+        modelID: info.modelID,
+      });
+      const context = model?.limit.context;
+      if (context !== undefined) {
+        await this.connection.sessionUpdate({
+          sessionId: params.sessionId,
+          update: {
+            sessionUpdate: "usage_update",
+            used,
+            size: context,
+          },
         });
-        const size = model?.limit.context;
-        if (size !== undefined) {
-          await this.connection.sessionUpdate({
-            sessionId: params.sessionId,
-            update: {
-              sessionUpdate: "usage_update",
-              used,
-              size,
-            },
-          });
-        }
       }
     }
 
-    return { stopReason };
+    return { stopReason: lifecycleCancelled ? "cancelled" : "end_turn" };
   }
 
   async cancel(params: CancelNotification): Promise<void> {
