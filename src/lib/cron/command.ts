@@ -1,5 +1,4 @@
 import { formatTime, Result } from "../../utils/index.ts";
-import { parseSessionTarget } from "../session/command.ts";
 import { type CronJob, type CronRun, type CronStore, cronIdSchema } from "./store.ts";
 import { getNextCronSchedule, validateCronSchedule } from "./timer.ts";
 
@@ -15,8 +14,23 @@ export function parseCronArgs(args: string[], timezone: string) {
   const schedule = [minute, hour, dayOfMonth, month, dayOfWeek].join(" ");
   validateCronSchedule({ schedule, timezone });
 
-  const parsedTarget = parseSessionTarget(restArgs);
-  restArgs = parsedTarget.args;
+  let target: string | undefined;
+  let once = false;
+
+  while (restArgs.length > 0 && restArgs[0] !== "--") {
+    if (restArgs[0] === "--target") {
+      if (!restArgs[1]) {
+        throw new Error("Missing value for --target");
+      }
+      target = restArgs[1];
+      restArgs = restArgs.slice(2);
+    } else if (restArgs[0] === "--once") {
+      once = true;
+      restArgs = restArgs.slice(1);
+    } else {
+      throw new Error(`Unknown option: ${restArgs[0]}`);
+    }
+  }
 
   let prompt: string | undefined;
   if (restArgs.length > 0) {
@@ -29,7 +43,7 @@ export function parseCronArgs(args: string[], timezone: string) {
     }
   }
 
-  return { id, schedule, target: parsedTarget.target, prompt };
+  return { id, schedule, target, once, prompt };
 }
 
 export function parseCronIdArg(args: string[], usage: string): Result<{ id: string }, string> {
@@ -58,6 +72,7 @@ export function renderCronShow(job: CronJob, latestRun: CronRun | undefined): st
   return `\
 id: ${job.id}
 enabled: ${job.enabled ? "yes" : "no"}
+once: ${job.once ? "yes" : "no"}
 schedule: ${job.schedule}
 timezone: ${job.timezone}
 target session: ${job.target.sessionName}
@@ -69,8 +84,9 @@ prompt: ${job.prompt}
 }
 
 function renderCronListItem(job: CronJob, latestRun: CronRun | undefined): string {
+  const status = [job.enabled ? "enabled" : "disabled", ...(job.once ? ["once"] : [])].join(", ");
   return `\
-- ${job.id} [${job.enabled ? "enabled" : "disabled"}]
+- ${job.id} [${status}]
   schedule: ${job.schedule}
   timezone: ${job.timezone}
   target session: ${job.target.sessionName}

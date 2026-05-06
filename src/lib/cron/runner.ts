@@ -135,6 +135,14 @@ export class CronRunner {
         console.error("[cron] Failed to deliver cron failure notification:", deliveryError);
       }
     }
+    if (job.once) {
+      try {
+        store.updateJob(job.id, { enabled: false });
+        this.refresh();
+      } catch (error) {
+        console.error(`[cron] Failed to disable once job '${job.id}':`, error);
+      }
+    }
   }
 }
 
