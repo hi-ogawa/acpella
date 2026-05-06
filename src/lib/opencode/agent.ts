@@ -18,6 +18,7 @@ import {
   type PromptResponse,
   type ToolKind,
   type ToolCall,
+  type StopReason,
 } from "@agentclientprotocol/sdk";
 import {
   createOpencodeClient,
@@ -140,8 +141,11 @@ class OpencodeAcpAgent implements Agent {
 
       // TODO: https://github.com/hi-ogawa/acpella/issues/208
       if (payload.type === "session.error" && payload.properties.sessionID === params.sessionId) {
+        console.error("session error:", payload.properties.error);
         const props = payload.properties;
-        props.error?.name;
+        if (props.error) {
+          props.error.name === "MessageAbortedError";
+        }
         return;
       }
 
@@ -261,6 +265,7 @@ class OpencodeAcpAgent implements Agent {
       await eventHandlerPromise;
     }
 
+    let stopReason: StopReason = "end_turn";
     // send usage update
     try {
       const messages = await client.session.messages(
@@ -272,8 +277,9 @@ class OpencodeAcpAgent implements Agent {
         .filter((info) => info.role === "assistant")
         .at(-1);
       if (message) {
-        // TODO
-        message.error;
+        if (message.error?.name === "MessageAbortedError") {
+          stopReason = "cancelled";
+        }
         const tokens = message.tokens;
         const used = tokens.input + (tokens.cache?.read ?? 0);
         const providers = await client.config.providers(
@@ -299,7 +305,7 @@ class OpencodeAcpAgent implements Agent {
       console.error("failed to send usage update:", error);
     }
 
-    return { stopReason: "end_turn" };
+    return { stopReason };
   }
 
   async cancel(params: CancelNotification): Promise<void> {
