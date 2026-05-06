@@ -569,7 +569,7 @@ enabled jobs: ${enabledJobs.length}
     {
       tokens: ["add"],
       usage:
-        "/cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--target <sessionName>] -- <prompt...>",
+        "/cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--once] [--target <sessionName>] -- <prompt...>",
       description: "Add a cron job.",
       withArgs: true,
       run: async ({ args, reply, sessionName, metadata }) => {
@@ -600,6 +600,7 @@ enabled jobs: ${enabledJobs.length}
           cronStore.addJob({
             id: cron.id,
             enabled: true,
+            once: cron.once,
             schedule: cron.schedule,
             timezone: config.timezone,
             prompt: cron.prompt,
