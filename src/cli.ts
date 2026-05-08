@@ -1,7 +1,7 @@
 import "temporal-polyfill/global";
 import path from "node:path";
 import { createInterface } from "node:readline/promises";
-import { run, sequentialize } from "@grammyjs/runner";
+import { run } from "@grammyjs/runner";
 import { Bot } from "grammy";
 import { loadConfig, type AppConfig } from "./config.ts";
 import { createHandler, type Handler } from "./handler.ts";
@@ -149,21 +149,6 @@ ${CLI_HELP}`);
     const label = `[${sessionName}:${ctx.message?.message_id ?? "unknown"}]`;
     console.error(`${label} (bot error)`, error.error);
   });
-
-  // handle messages from each session and system commands concurrently
-  bot.use(
-    sequentialize((ctx) => {
-      let key = formatTelegramSessionName(ctx);
-      const text = normalizeUserMention({
-        text: ctx.message?.text?.trim() ?? "",
-        username: botUsername,
-      });
-      if (text === "/status" || text === "/cancel") {
-        key += text;
-      }
-      return key;
-    }),
-  );
 
   bot.on("message:text", async (ctx) => {
     const chatId = ctx.chat.id;
