@@ -468,6 +468,11 @@ test("cron list agenda view", async ({ onTestFinished }) => {
     "[⚙️ System]
     Added cron job: tomorrow-calendar"
   `);
+  expect(await session.request("/cron add halfday-check 0 */12 * * * -- halfday"))
+    .toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Added cron job: halfday-check"
+  `);
   expect(await session.request("/cron add one-shot-reminder 30 9 * * * --once -- reminder"))
     .toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -487,8 +492,10 @@ test("cron list agenda view", async ({ onTestFinished }) => {
     "[⚙️ System]
     Cron agenda for 2026-04-18 (Asia/Jakarta)
 
+    00:00  halfday-check  test
     09:00  company-email-morning  test
     09:30  one-shot-reminder  test
+    12:00  halfday-check  test
     22:00  usdjpy-evening  test
     23:00  tomorrow-calendar  test"
   `);
@@ -496,8 +503,10 @@ test("cron list agenda view", async ({ onTestFinished }) => {
     "[⚙️ System]
     Cron agenda for 2026-04-18 (Asia/Jakarta)
 
+    00:00  halfday-check  test
     09:00  company-email-morning  test
     09:30  one-shot-reminder  test
+    12:00  halfday-check  test
     22:00  usdjpy-evening  test
     23:00  tomorrow-calendar  test"
   `);
