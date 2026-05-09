@@ -458,7 +458,8 @@ test("cron list agenda view", async ({ onTestFinished }) => {
     "[⚙️ System]
     Added cron job: company-email-morning"
   `);
-  expect(await session.request("/cron add usdjpy-evening 0 22 * * * -- evening")).toMatchInlineSnapshot(`
+  expect(await session.request("/cron add usdjpy-evening 0 22 * * * -- evening"))
+    .toMatchInlineSnapshot(`
     "[⚙️ System]
     Added cron job: usdjpy-evening"
   `);
@@ -472,7 +473,8 @@ test("cron list agenda view", async ({ onTestFinished }) => {
     "[⚙️ System]
     Added cron job: one-shot-reminder"
   `);
-  expect(await session.request("/cron add disabled-job 0 8 * * * -- disabled")).toMatchInlineSnapshot(`
+  expect(await session.request("/cron add disabled-job 0 8 * * * -- disabled"))
+    .toMatchInlineSnapshot(`
     "[⚙️ System]
     Added cron job: disabled-job"
   `);
