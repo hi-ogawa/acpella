@@ -510,9 +510,9 @@ test("cron list agenda view", async ({ onTestFinished }) => {
     22:00  usdjpy-evening  test
     23:00  tomorrow-calendar  test"
   `);
-  expect(await session.request("/cron list --agenda=20260418")).toMatchInlineSnapshot(`
-    "[⚙️ System]
-    Invalid date format. Use YYYY-MM-DD."
+  await expect(session.request("/cron list --agenda=20260418")).rejects
+    .toThrowErrorMatchingInlineSnapshot(`
+    [Error: Invalid date format. Use YYYY-MM-DD.]
   `);
 });
 

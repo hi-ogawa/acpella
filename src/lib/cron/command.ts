@@ -61,32 +61,31 @@ export function parseCronIdArg(args: string[]): string {
 export function parseCronListArgs(
   args: string[],
   timezone: string,
-  usage: string,
-): Result<{ agenda?: Temporal.PlainDate }, string> {
+): { agenda?: Temporal.PlainDate } {
   if (args.length === 0) {
-    return Result.ok({});
+    return {};
   }
   if (args.length !== 1) {
-    return Result.err(usage);
+    throw new Error("Invalid input");
   }
   const arg = args[0];
   if (arg === "--agenda") {
-    return Result.ok({
+    return {
       agenda: Temporal.Now.zonedDateTimeISO(timezone).toPlainDate(),
-    });
+    };
   }
   if (arg.startsWith("--agenda=")) {
     const value = arg.slice("--agenda=".length);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-      return Result.err("Invalid date format. Use YYYY-MM-DD.");
+      throw new Error("Invalid date format. Use YYYY-MM-DD.");
     }
     try {
-      return Result.ok({ agenda: Temporal.PlainDate.from(value) });
+      return { agenda: Temporal.PlainDate.from(value) };
     } catch {
-      return Result.err("Invalid date format. Use YYYY-MM-DD.");
+      throw new Error("Invalid date format. Use YYYY-MM-DD.");
     }
   }
-  return Result.err(usage);
+  throw new Error("Invalid input");
 }
 
 export function renderCronList(cronStore: CronStore): string {

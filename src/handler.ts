@@ -668,18 +668,14 @@ enabled jobs: ${enabledJobs.length}
       usage: "/cron list [--agenda[=YYYY-MM-DD]]",
       description: "List cron jobs.",
       withArgs: true,
-      run: async ({ args, reply, usage }) => {
-        const parsed = parseCronListArgs(args, config.timezone, usage);
-        if (!parsed.ok) {
-          await reply.system(parsed.value);
-          return;
-        }
-        if (parsed.value.agenda) {
+      run: async ({ args, reply }) => {
+        const parsed = parseCronListArgs(args, config.timezone);
+        if (parsed.agenda) {
           await reply.system(
             renderCronAgenda({
               cronStore,
               timezone: config.timezone,
-              date: parsed.value.agenda,
+              date: parsed.agenda,
             }),
           );
           return;
