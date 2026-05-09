@@ -1,4 +1,4 @@
-import { formatTime, Result } from "../../utils/index.ts";
+import { formatTime } from "../../utils/index.ts";
 import { type CronJob, type CronRun, type CronStore, cronIdSchema } from "./store.ts";
 import { getNextCronSchedule, validateCronSchedule } from "./timer.ts";
 
@@ -46,16 +46,16 @@ export function parseCronArgs(args: string[], timezone: string) {
   return { id, schedule, target, once, prompt };
 }
 
-export function parseCronIdArg(args: string[], usage: string): Result<{ id: string }, string> {
+export function parseCronIdArg(args: string[]): string {
   const id = args[0];
   if (!id || args.length !== 1) {
-    return Result.err(usage);
+    throw new Error("Invalid input");
   }
   const cronIdResult = cronIdSchema.safeParse(id);
   if (!cronIdResult.success) {
-    return Result.err("Invalid cron id. Use letters, numbers, underscores, or hyphens.");
+    throw new Error("Invalid cron id. Use letters, numbers, underscores, or hyphens.");
   }
-  return Result.ok({ id });
+  return id;
 }
 
 export function renderCronList(cronStore: CronStore): string {

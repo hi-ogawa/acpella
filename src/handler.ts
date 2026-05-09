@@ -674,13 +674,8 @@ enabled jobs: ${enabledJobs.length}
       usage: "/cron show <id>",
       description: "Show a cron job.",
       withArgs: true,
-      run: async ({ args, reply, usage }) => {
-        const parsed = parseCronIdArg(args, usage);
-        if (!parsed.ok) {
-          await reply.system(parsed.value);
-          return;
-        }
-        const { id } = parsed.value;
+      run: async ({ args, reply }) => {
+        const id = parseCronIdArg(args);
         const job = cronStore.getJob(id);
         if (!job) {
           await reply.system(`Unknown cron job: ${id}`);
@@ -694,13 +689,8 @@ enabled jobs: ${enabledJobs.length}
       usage: "/cron enable <id>",
       description: "Enable a cron job.",
       withArgs: true,
-      run: async ({ args, reply, usage }) => {
-        const parsed = parseCronIdArg(args, usage);
-        if (!parsed.ok) {
-          await reply.system(parsed.value);
-          return;
-        }
-        const { id } = parsed.value;
+      run: async ({ args, reply }) => {
+        const id = parseCronIdArg(args);
         if (!cronStore.getJob(id)) {
           await reply.system(`Unknown cron job: ${id}`);
           return;
@@ -719,13 +709,8 @@ enabled jobs: ${enabledJobs.length}
       usage: "/cron disable <id>",
       description: "Disable a cron job.",
       withArgs: true,
-      run: async ({ args, reply, usage }) => {
-        const parsed = parseCronIdArg(args, usage);
-        if (!parsed.ok) {
-          await reply.system(parsed.value);
-          return;
-        }
-        const { id } = parsed.value;
+      run: async ({ args, reply }) => {
+        const id = parseCronIdArg(args);
         if (!cronStore.getJob(id)) {
           await reply.system(`Unknown cron job: ${id}`);
           return;
@@ -744,13 +729,8 @@ enabled jobs: ${enabledJobs.length}
       usage: "/cron delete <id>",
       description: "Delete a cron job.",
       withArgs: true,
-      run: async ({ args, reply, usage }) => {
-        const parsed = parseCronIdArg(args, usage);
-        if (!parsed.ok) {
-          await reply.system(parsed.value);
-          return;
-        }
-        const { id } = parsed.value;
+      run: async ({ args, reply }) => {
+        const id = parseCronIdArg(args);
         if (!cronStore.getJob(id)) {
           await reply.system(`Unknown cron job: ${id}`);
           return;
