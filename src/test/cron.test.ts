@@ -440,6 +440,71 @@ test("cron command", async ({ onTestFinished }) => {
   `);
 });
 
+test("cron list agenda view", async ({ onTestFinished }) => {
+  vi.useFakeTimers({
+    now: Date.parse("2026-04-18T07:00:00+07:00"),
+  });
+  onTestFinished(() => {
+    vi.useRealTimers();
+  });
+
+  const tester = await createHandlerTester();
+  const session = tester.createSession("test", {
+    metadata: { cronDeliveryTarget: { repl: true } },
+  });
+
+  expect(await session.request("/cron add company-email-morning 0 9 * * * -- morning"))
+    .toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Added cron job: company-email-morning"
+  `);
+  expect(await session.request("/cron add usdjpy-evening 0 22 * * * -- evening")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Added cron job: usdjpy-evening"
+  `);
+  expect(await session.request("/cron add tomorrow-calendar 0 23 * * * -- calendar"))
+    .toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Added cron job: tomorrow-calendar"
+  `);
+  expect(await session.request("/cron add one-shot-reminder 30 9 * * * --once -- reminder"))
+    .toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Added cron job: one-shot-reminder"
+  `);
+  expect(await session.request("/cron add disabled-job 0 8 * * * -- disabled")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Added cron job: disabled-job"
+  `);
+  expect(await session.request("/cron disable disabled-job")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Disabled cron job: disabled-job"
+  `);
+
+  expect(await session.request("/cron list --agenda=2026-04-18")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Cron agenda for 2026-04-18 (Asia/Jakarta)
+
+    09:00  company-email-morning  test
+    09:30  one-shot-reminder  test
+    22:00  usdjpy-evening  test
+    23:00  tomorrow-calendar  test"
+  `);
+  expect(await session.request("/cron list --agenda")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Cron agenda for 2026-04-18 (Asia/Jakarta)
+
+    09:00  company-email-morning  test
+    09:30  one-shot-reminder  test
+    22:00  usdjpy-evening  test
+    23:00  tomorrow-calendar  test"
+  `);
+  expect(await session.request("/cron list --agenda=20260418")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Invalid date format. Use YYYY-MM-DD."
+  `);
+});
+
 test("cron error delivery", async ({ onTestFinished }) => {
   // Timeline:
   // - 07:00: add test-job for every minute with a failing prompt.

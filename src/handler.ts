@@ -6,7 +6,9 @@ import type { AgentSessionProcess } from "./lib/acp/index.ts";
 import { CommandHandler, type CommandTree } from "./lib/command.ts";
 import {
   parseCronArgs,
+  parseCronListArgs,
   parseCronIdArg,
+  renderCronAgenda,
   renderCronList,
   renderCronShow,
 } from "./lib/cron/command.ts";
@@ -663,9 +665,25 @@ enabled jobs: ${enabledJobs.length}
     },
     {
       tokens: ["list"],
-      usage: "/cron list",
+      usage: "/cron list [--agenda[=YYYY-MM-DD]]",
       description: "List cron jobs.",
-      run: async ({ reply }) => {
+      withArgs: true,
+      run: async ({ args, reply, usage }) => {
+        const parsed = parseCronListArgs(args, config.timezone, usage);
+        if (!parsed.ok) {
+          await reply.system(parsed.value);
+          return;
+        }
+        if (parsed.value.agenda) {
+          await reply.system(
+            renderCronAgenda({
+              cronStore,
+              timezone: config.timezone,
+              date: parsed.value.agenda,
+            }),
+          );
+          return;
+        }
         await reply.system(renderCronList(cronStore));
       },
     },

@@ -17,7 +17,7 @@ Use:
 - `/cron stop`
 - `/cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--once] [--target <sessionName>] -- <prompt...>`
 - `/cron update <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--target <sessionName>] [-- <prompt...>]`
-- `/cron list`
+- `/cron list [--agenda[=YYYY-MM-DD]]`
 - `/cron show <id>`
 - `/cron enable <id>`
 - `/cron disable <id>`
@@ -63,7 +63,7 @@ After the job fires, `/cron show remind-deploy` will show `once: yes` and `/cron
 
 1. Find the target session with `acpella exec /session list` if creating the job from local shell administration; if more than one candidate could match, confirm with the user before continuing.
 2. Add the job with `acpella exec '/cron add ... --target <sessionName> -- <prompt...>'` for actual Telegram delivery.
-3. Check it with `/cron show <id>` or `/cron list`.
+3. Check it with `/cron show <id>` or `/cron list` (`--agenda` for a day view).
 4. Use `/cron update <id> <minute> <hour> <day-of-month> <month> <day-of-week> ...` to change its schedule, destination, or prompt.
 5. Use `/cron disable <id>` when you want to pause it.
 6. Use `/cron enable <id>` to resume it.

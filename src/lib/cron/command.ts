@@ -58,6 +58,37 @@ export function parseCronIdArg(args: string[], usage: string): Result<{ id: stri
   return Result.ok({ id });
 }
 
+export function parseCronListArgs(
+  args: string[],
+  timezone: string,
+  usage: string,
+): Result<{ agenda?: Temporal.PlainDate }, string> {
+  if (args.length === 0) {
+    return Result.ok({});
+  }
+  if (args.length !== 1) {
+    return Result.err(usage);
+  }
+  const arg = args[0];
+  if (arg === "--agenda") {
+    return Result.ok({
+      agenda: Temporal.Now.zonedDateTimeISO(timezone).toPlainDate(),
+    });
+  }
+  if (arg.startsWith("--agenda=")) {
+    const value = arg.slice("--agenda=".length);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      return Result.err("Invalid date format. Use YYYY-MM-DD.");
+    }
+    try {
+      return Result.ok({ agenda: Temporal.PlainDate.from(value) });
+    } catch {
+      return Result.err("Invalid date format. Use YYYY-MM-DD.");
+    }
+  }
+  return Result.err(usage);
+}
+
 export function renderCronList(cronStore: CronStore): string {
   const jobs = cronStore.listJobs();
   if (jobs.length === 0) {
@@ -66,6 +97,69 @@ export function renderCronList(cronStore: CronStore): string {
   return jobs
     .map((job) => renderCronListItem(job, cronStore.getLatestRun({ cronId: job.id })))
     .join("\n");
+}
+
+export function renderCronAgenda(options: {
+  cronStore: CronStore;
+  timezone: string;
+  date: Temporal.PlainDate;
+}): string {
+  const dayStart = Temporal.ZonedDateTime.from({
+    timeZone: options.timezone,
+    year: options.date.year,
+    month: options.date.month,
+    day: options.date.day,
+    hour: 0,
+    minute: 0,
+    second: 0,
+    millisecond: 0,
+  });
+  const dayStartMs = dayStart.epochMilliseconds;
+  const dayEndMs = dayStart.add({ days: 1 }).epochMilliseconds;
+
+  const entries: Array<{ id: string; sessionName: string; scheduledAt: number }> = [];
+  for (const job of options.cronStore.listJobs()) {
+    if (!job.enabled) {
+      continue;
+    }
+    try {
+      let after = dayStartMs - 1;
+      while (true) {
+        const scheduledAt = getNextCronSchedule({
+          schedule: job.schedule,
+          timezone: job.timezone,
+          after,
+        });
+        if (scheduledAt >= dayEndMs) {
+          break;
+        }
+        entries.push({
+          id: job.id,
+          sessionName: job.target.sessionName,
+          scheduledAt,
+        });
+        after = scheduledAt;
+      }
+    } catch (error) {
+      console.error(`[cron] Failed to calculate agenda for '${job.id}':`, error);
+    }
+  }
+
+  entries.sort((a, b) => a.scheduledAt - b.scheduledAt || a.id.localeCompare(b.id));
+  const header = `Cron agenda for ${options.date.toString()} (${options.timezone})`;
+  if (entries.length === 0) {
+    return `${header}\n(no scheduled jobs)`;
+  }
+  return `${header}\n\n${entries
+    .map((entry) => {
+      const zoned = Temporal.Instant.fromEpochMilliseconds(entry.scheduledAt).toZonedDateTimeISO(
+        options.timezone,
+      );
+      const hh = String(zoned.hour).padStart(2, "0");
+      const mm = String(zoned.minute).padStart(2, "0");
+      return `${hh}:${mm}  ${entry.id}  ${entry.sessionName}`;
+    })
+    .join("\n")}`;
 }
 
 export function renderCronShow(job: CronJob, latestRun: CronRun | undefined): string {
