@@ -123,6 +123,7 @@ export function renderCronAgenda(options: {
       continue;
     }
     try {
+      // Start just before day start so schedules exactly at 00:00 are included.
       let after = dayStartMs - 1;
       while (true) {
         const scheduledAt = getNextCronSchedule({
@@ -145,7 +146,13 @@ export function renderCronAgenda(options: {
     }
   }
 
-  entries.sort((a, b) => a.scheduledAt - b.scheduledAt || a.id.localeCompare(b.id));
+  entries.sort((a, b) => {
+    const timeDiff = a.scheduledAt - b.scheduledAt;
+    if (timeDiff !== 0) {
+      return timeDiff;
+    }
+    return a.id.localeCompare(b.id);
+  });
   const header = `Cron agenda for ${options.date.toString()} (${options.timezone})`;
   if (entries.length === 0) {
     return `${header}\n(no scheduled jobs)`;
