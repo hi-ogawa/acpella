@@ -12,8 +12,6 @@ acpella exec /service systemd install
 
 This writes a user unit for the linked acpella installation. Prefer running this from a local shell through `exec`; it is a host administration side effect.
 
-The generated service `PATH` includes common user tool directories (including `~/.vite-plus/bin`) so host-level `pnpm`/`npm` shims remain available to agents.
-
 ## First install
 
 ```bash
