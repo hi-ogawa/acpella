@@ -80,6 +80,7 @@ function buildServicePath(options: { nodeBin: string; home: string }): string {
     dirname(nodeBin),
     resolve(home, ".local/bin"),
     resolve(home, ".opencode/bin"),
+    resolve(home, ".vite-plus/bin"),
     resolve(home, ".cargo/bin"),
     resolve(home, ".bun/bin"),
     resolve(home, ".volta/bin"),
