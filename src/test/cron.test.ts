@@ -204,6 +204,10 @@ test("cron command", async ({ onTestFinished }) => {
       next: 2026-04-18T07:01:00+07:00
       last: none"
   `);
+  expect(await session.request("/cron list --compact")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Apr 18  07:01  test-job"
+  `);
   expect(await session.request("/cron show test-job")).toMatchInlineSnapshot(`
     "[⚙️ System]
     id: test-job
@@ -298,6 +302,13 @@ test("cron command", async ({ onTestFinished }) => {
       delivery target: repl
       next: 2026-04-18T07:03:00+07:00
       last: none"
+  `);
+  expect(await session.request("/cron list --compact")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Apr 18  07:03  other-job
+
+    Disabled:
+    - test-job"
   `);
 
   advanceTimersTo("2026-04-18T07:03:00+07:00");
@@ -520,6 +531,10 @@ test("cron error delivery", async ({ onTestFinished }) => {
     next: 2026-04-18T07:02:00+07:00
     last: failed, scheduled 2026-04-18T07:01:00+07:00, finished 2026-04-18T07:01:00+07:00, error: Internal error
     prompt: __throw_error__"
+  `);
+  expect(await session.request("/cron list --compact")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Apr 18  07:02  test-job (failed)"
   `);
 });
 
@@ -816,6 +831,10 @@ test("cron one-shot: disabled after successful run", async ({ onTestFinished }) 
       next: 2026-04-18T07:01:00+07:00
       last: none"
   `);
+  expect(await session.request("/cron list --compact")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Apr 18  07:01  once-job (once)"
+  `);
 
   advanceTimersTo("2026-04-18T07:01:00+07:00");
   await waitUntil(async () => {
@@ -845,6 +864,11 @@ test("cron one-shot: disabled after successful run", async ({ onTestFinished }) 
       delivery target: repl
       next: none
       last: succeeded, scheduled 2026-04-18T07:01:00+07:00, finished 2026-04-18T07:01:00+07:00"
+  `);
+  expect(await session.request("/cron list --compact")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Disabled:
+    - once-job (once)"
   `);
 
   // Confirm no second delivery after 07:02.

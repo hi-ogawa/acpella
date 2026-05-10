@@ -7,6 +7,7 @@ import { CommandHandler, type CommandTree } from "./lib/command.ts";
 import {
   parseCronArgs,
   parseCronIdArg,
+  parseCronListArgs,
   renderCronList,
   renderCronShow,
 } from "./lib/cron/command.ts";
@@ -663,10 +664,12 @@ enabled jobs: ${enabledJobs.length}
     },
     {
       tokens: ["list"],
-      usage: "/cron list",
+      usage: "/cron list [--compact]",
       description: "List cron jobs.",
-      run: async ({ reply }) => {
-        await reply.system(renderCronList(cronStore));
+      withArgs: true,
+      run: async ({ args, reply }) => {
+        const { compact } = parseCronListArgs(args);
+        await reply.system(renderCronList(cronStore, { compact }));
       },
     },
     {

@@ -58,10 +58,28 @@ export function parseCronIdArg(args: string[]): string {
   return id;
 }
 
-export function renderCronList(cronStore: CronStore): string {
+export function parseCronListArgs(args: string[]) {
+  if (args.length === 0) {
+    return { compact: false };
+  }
+  if (args.length === 1 && args[0] === "--compact") {
+    return { compact: true };
+  }
+  throw new Error("Invalid input");
+}
+
+export function renderCronList(
+  cronStore: CronStore,
+  options: {
+    compact?: boolean;
+  } = {},
+): string {
   const jobs = cronStore.listJobs();
   if (jobs.length === 0) {
     return "No cron jobs.";
+  }
+  if (options.compact) {
+    return renderCronListCompact(cronStore, jobs);
   }
   return jobs
     .map((job) => renderCronListItem(job, cronStore.getLatestRun({ cronId: job.id })))
@@ -96,6 +114,33 @@ function renderCronListItem(job: CronJob, latestRun: CronRun | undefined): strin
 `;
 }
 
+function renderCronListCompact(cronStore: CronStore, jobs: CronJob[]): string {
+  const entries = jobs.map((job) => ({
+    job,
+    latestRun: cronStore.getLatestRun({ cronId: job.id }),
+    nextAt: getCronNextAt(job),
+  }));
+  const lines = entries
+    .filter(({ job, nextAt }) => job.enabled && nextAt !== undefined)
+    .sort((a, b) => a.nextAt! - b.nextAt! || a.job.id.localeCompare(b.job.id))
+    .map(({ job, latestRun, nextAt }) => {
+      return `${formatCronCompactDateTime(nextAt!, job.timezone)}  ${job.id}${formatCronCompactMarkers(job, latestRun)}`;
+    });
+  const disabledJobs = entries
+    .filter(({ job }) => !job.enabled)
+    .sort((a, b) => a.job.id.localeCompare(b.job.id));
+  if (disabledJobs.length === 0) {
+    return lines.join("\n");
+  }
+  const disabledSection = `Disabled:\n${disabledJobs
+    .map(({ job, latestRun }) => `- ${job.id}${formatCronCompactMarkers(job, latestRun)}`)
+    .join("\n")}`;
+  if (lines.length === 0) {
+    return disabledSection;
+  }
+  return `${lines.join("\n")}\n\n${disabledSection}`;
+}
+
 function formatDeliveryTarget(target: CronJob["target"]["delivery"]): string {
   const surfaces: string[] = [];
   if (target.telegram) {
@@ -112,23 +157,62 @@ function formatDeliveryTarget(target: CronJob["target"]["delivery"]): string {
 }
 
 function formatCronNext(job: CronJob): string {
+  const nextAt = getCronNextAt(job);
+  if (nextAt === undefined) {
+    return job.enabled ? "unknown" : "none";
+  }
+  return formatTime(nextAt, job.timezone);
+}
+
+function getCronNextAt(job: CronJob): number | undefined {
   if (!job.enabled) {
-    return "none";
+    return;
   }
   try {
-    return formatTime(
-      getNextCronSchedule({
-        schedule: job.schedule,
-        timezone: job.timezone,
-        after: Date.now(),
-      }),
-      job.timezone,
-    );
+    return getNextCronSchedule({
+      schedule: job.schedule,
+      timezone: job.timezone,
+      after: Date.now(),
+    });
   } catch (error) {
     console.error("[cron] failed to calculate next run:", error);
-    return "unknown";
   }
 }
+
+function formatCronCompactDateTime(time: number, timezone: string): string {
+  const zoned = Temporal.Instant.fromEpochMilliseconds(time).toZonedDateTimeISO(timezone);
+  const month = MONTH_NAMES[zoned.month - 1]!;
+  const day = String(zoned.day).padStart(2, " ");
+  const hour = String(zoned.hour).padStart(2, "0");
+  const minute = String(zoned.minute).padStart(2, "0");
+  return `${month} ${day}  ${hour}:${minute}`;
+}
+
+function formatCronCompactMarkers(job: CronJob, latestRun: CronRun | undefined): string {
+  const markers: string[] = [];
+  if (latestRun?.status === "failed") {
+    markers.push("failed");
+  }
+  if (job.once) {
+    markers.push("once");
+  }
+  return markers.map((marker) => ` (${marker})`).join("");
+}
+
+const MONTH_NAMES = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
 
 function formatCronLastRun(run: CronRun | undefined, timezone: string): string {
   if (!run) {
