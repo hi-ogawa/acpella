@@ -65,7 +65,7 @@ export function parseCronListArgs(args: string[]) {
   if (args.length === 1 && args[0] === "--compact") {
     return { compact: true };
   }
-  throw new Error("Invalid input");
+  throw new Error("Invalid arguments. Usage: /cron list [--compact]");
 }
 
 export function renderCronList(
@@ -124,7 +124,7 @@ function renderCronListCompact(cronStore: CronStore, jobs: CronJob[]): string {
     .filter(({ job, nextAt }) => job.enabled && nextAt !== undefined)
     .sort((a, b) => a.nextAt! - b.nextAt! || a.job.id.localeCompare(b.job.id))
     .map(({ job, latestRun, nextAt }) => {
-      return `${formatCronCompactDateTime(nextAt!, job.timezone)}  ${job.id}${formatCronCompactMarkers(job, latestRun)}`;
+      return `${formatCronCompactDateTime(nextAt!, job.timezone)}${COMPACT_COLUMN_GAP}${job.id}${formatCronCompactMarkers(job, latestRun)}`;
     });
   const disabledJobs = entries
     .filter(({ job }) => !job.enabled)
@@ -185,7 +185,7 @@ function formatCronCompactDateTime(time: number, timezone: string): string {
   const day = String(zoned.day).padStart(2, " ");
   const hour = String(zoned.hour).padStart(2, "0");
   const minute = String(zoned.minute).padStart(2, "0");
-  return `${month} ${day}  ${hour}:${minute}`;
+  return `${month} ${day}${COMPACT_COLUMN_GAP}${hour}:${minute}`;
 }
 
 function formatCronCompactMarkers(job: CronJob, latestRun: CronRun | undefined): string {
@@ -213,6 +213,8 @@ const MONTH_NAMES = [
   "Nov",
   "Dec",
 ];
+
+const COMPACT_COLUMN_GAP = "  ";
 
 function formatCronLastRun(run: CronRun | undefined, timezone: string): string {
   if (!run) {
