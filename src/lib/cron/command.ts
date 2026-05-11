@@ -124,29 +124,24 @@ function renderCronListCompact(cronStore: CronStore, jobs: CronJob[]): string {
       after: timestamp,
     }),
   }));
-  const lines = sortBy(enabledEntries, (entry) => entry.nextAt).map(
-    ({ job, latestRun, nextAt }) => {
-      const datetime = formatCronCompactDateTime(nextAt, job.timezone);
+  const lines: string[] = [];
+  for (const e of sortBy(enabledEntries, (e) => e.nextAt)) {
+    const datetime = formatCronCompactDateTime(e.nextAt, e.job.timezone);
+    const markers = formatCronCompactMarkers(e.job, e.latestRun);
+    lines.push(`${datetime} | ${e.job.id}${markers}`);
+  }
+  if (disabledJobs.length > 0) {
+    if (lines.length > 0) {
+      lines.push("");
+    }
+    lines.push("disabled:");
+    for (const job of disabledJobs) {
+      const latestRun = cronStore.getLatestRun({ cronId: job.id });
       const markers = formatCronCompactMarkers(job, latestRun);
-      return `${datetime} | ${job.id}${markers}`;
-    },
-  );
-  if (disabledJobs.length === 0) {
-    return lines.join("\n");
+      lines.push(`- ${job.id}${markers}`);
+    }
   }
-  const disabledSection = `\
-disabled:
-${disabledJobs
-  .map((job) => {
-    const latestRun = cronStore.getLatestRun({ cronId: job.id });
-    const markers = formatCronCompactMarkers(job, latestRun);
-    return `- ${job.id}${markers}`;
-  })
-  .join("\n")}`;
-  if (lines.length === 0) {
-    return disabledSection;
-  }
-  return `${lines.join("\n")}\n\n${disabledSection}`;
+  return lines.join("\n");
 }
 
 function formatDeliveryTarget(target: CronJob["target"]["delivery"]): string {
