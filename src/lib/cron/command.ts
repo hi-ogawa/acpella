@@ -68,12 +68,7 @@ export function parseCronListArgs(args: string[]) {
   throw new Error("Invalid arguments");
 }
 
-export function renderCronList(
-  cronStore: CronStore,
-  options: {
-    compact?: boolean;
-  } = {},
-): string {
+export function renderCronList(cronStore: CronStore, options: { compact: boolean }): string {
   const jobs = cronStore.listJobs();
   if (jobs.length === 0) {
     return "No cron jobs.";
