@@ -110,25 +110,28 @@ function renderCronListItem(job: CronJob, latestRun: CronRun | undefined): strin
 }
 
 function renderCronListCompact(cronStore: CronStore, jobs: CronJob[]): string {
-  const entries = jobs.map((job) => ({
-    job,
-    latestRun: cronStore.getLatestRun({ cronId: job.id }),
-    nextAt: getCronNextAt(job),
-  }));
-  const lines = entries
-    .filter(({ job, nextAt }) => job.enabled && nextAt !== undefined)
-    .sort((a, b) => a.nextAt! - b.nextAt! || a.job.id.localeCompare(b.job.id))
+  const sortedJobs = [...jobs].sort((a, b) => a.id.localeCompare(b.id));
+  const enabledJobs = sortedJobs.filter((job) => job.enabled);
+  const disabledJobs = sortedJobs.filter((job) => !job.enabled);
+  const lines = enabledJobs
+    .map((job) => ({
+      job,
+      latestRun: cronStore.getLatestRun({ cronId: job.id }),
+      nextAt: getCronNextAt(job),
+    }))
+    .filter(({ nextAt }) => nextAt !== undefined)
+    .sort((a, b) => a.nextAt! - b.nextAt!)
     .map(({ job, latestRun, nextAt }) => {
       return `${formatCronCompactDateTime(nextAt!, job.timezone)}  ${job.id}${formatCronCompactMarkers(job, latestRun)}`;
     });
-  const disabledJobs = entries
-    .filter(({ job }) => !job.enabled)
-    .sort((a, b) => a.job.id.localeCompare(b.job.id));
   if (disabledJobs.length === 0) {
     return lines.join("\n");
   }
   const disabledSection = `disabled:\n${disabledJobs
-    .map(({ job, latestRun }) => `- ${job.id}${formatCronCompactMarkers(job, latestRun)}`)
+    .map(
+      (job) =>
+        `- ${job.id}${formatCronCompactMarkers(job, cronStore.getLatestRun({ cronId: job.id }))}`,
+    )
     .join("\n")}`;
   if (lines.length === 0) {
     return disabledSection;
