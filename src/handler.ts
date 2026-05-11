@@ -669,7 +669,7 @@ enabled jobs: ${enabledJobs.length}
       withArgs: true,
       run: async ({ args, reply }) => {
         const { compact } = parseCronListArgs(args);
-        await reply.system(renderCronList(cronStore, { compact }));
+        await reply.system(renderCronList(cronStore, { compact, now: Date.now() }));
       },
     },
     {
@@ -684,7 +684,9 @@ enabled jobs: ${enabledJobs.length}
           await reply.system(`Unknown cron job: ${id}`);
           return;
         }
-        await reply.system(renderCronShow(job, cronStore.getLatestRun({ cronId: id })));
+        await reply.system(
+          renderCronShow(job, cronStore.getLatestRun({ cronId: id }), { now: Date.now() }),
+        );
       },
     },
     {

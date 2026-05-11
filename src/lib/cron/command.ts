@@ -68,20 +68,27 @@ export function parseCronListArgs(args: string[]) {
   throw new Error("Invalid arguments");
 }
 
-export function renderCronList(cronStore: CronStore, options: { compact: boolean }): string {
+export function renderCronList(
+  cronStore: CronStore,
+  options: { compact: boolean; now: number },
+): string {
   const jobs = cronStore.listJobs();
   if (jobs.length === 0) {
     return "No cron jobs.";
   }
   if (options.compact) {
-    return renderCronListCompact(cronStore, jobs);
+    return renderCronListCompact(cronStore, jobs, options);
   }
   return jobs
-    .map((job) => renderCronListItem(job, cronStore.getLatestRun({ cronId: job.id })))
+    .map((job) => renderCronListItem(job, cronStore.getLatestRun({ cronId: job.id }), options))
     .join("\n");
 }
 
-export function renderCronShow(job: CronJob, latestRun: CronRun | undefined): string {
+export function renderCronShow(
+  job: CronJob,
+  latestRun: CronRun | undefined,
+  options: { now: number },
+): string {
   return `\
 id: ${job.id}
 enabled: ${job.enabled ? "yes" : "no"}
@@ -90,13 +97,17 @@ schedule: ${job.schedule}
 timezone: ${job.timezone}
 target session: ${job.target.sessionName}
 delivery target: ${formatDeliveryTarget(job.target.delivery)}
-next: ${formatCronNext(job)}
+next: ${formatCronNext(job, options)}
 last: ${formatCronLastRun(latestRun, job.timezone)}
 prompt: ${job.prompt}
 `;
 }
 
-function renderCronListItem(job: CronJob, latestRun: CronRun | undefined): string {
+function renderCronListItem(
+  job: CronJob,
+  latestRun: CronRun | undefined,
+  options: { now: number },
+): string {
   const status = [job.enabled ? "enabled" : "disabled", ...(job.once ? ["once"] : [])].join(", ");
   return `\
 - ${job.id} [${status}]
@@ -104,15 +115,17 @@ function renderCronListItem(job: CronJob, latestRun: CronRun | undefined): strin
   timezone: ${job.timezone}
   target session: ${job.target.sessionName}
   delivery target: ${formatDeliveryTarget(job.target.delivery)}
-  next: ${formatCronNext(job)}
+  next: ${formatCronNext(job, options)}
   last: ${formatCronLastRun(latestRun, job.timezone)}
 `;
 }
 
-function renderCronListCompact(cronStore: CronStore, jobs: CronJob[]): string {
+function renderCronListCompact(
+  cronStore: CronStore,
+  jobs: CronJob[],
+  options: { now: number },
+): string {
   const sortedJobs = sortBy(jobs, (job) => job.id);
-  // TODO: move up to top-level command handler callsite
-  const timestamp = Date.now();
   const enabledEntries = sortedJobs
     .filter((job) => job.enabled)
     .map((job) => ({
@@ -120,7 +133,7 @@ function renderCronListCompact(cronStore: CronStore, jobs: CronJob[]): string {
       nextAt: getNextCronSchedule({
         schedule: job.schedule,
         timezone: job.timezone,
-        after: timestamp,
+        after: options.now,
       }),
     }));
   const lines: string[] = [];
@@ -160,14 +173,14 @@ function formatDeliveryTarget(target: CronJob["target"]["delivery"]): string {
   return surfaces.join(", ");
 }
 
-function formatCronNext(job: CronJob): string {
+function formatCronNext(job: CronJob, options: { now: number }): string {
   if (!job.enabled) {
     return "none";
   }
   const nextAt = getNextCronSchedule({
     schedule: job.schedule,
     timezone: job.timezone,
-    after: Date.now(),
+    after: options.now,
   });
   return formatTime(nextAt, job.timezone);
 }
