@@ -106,7 +106,7 @@ export class CronRunner {
         console.log(`[cron] Suppressed delivery for cron '${job.id}': NO_REPLY`);
       } else {
         const message = `\
-[cron: ${job.id} ${scheduledAtTz} ${job.timezone}]
+[cron: ${job.id} at ${scheduledAtTz.slice(11, 16)}]
 ${response}
 `;
         await this.options.delivery.send({

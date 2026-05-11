@@ -128,7 +128,7 @@ test("cron auto reloads external cron file changes", async ({ onTestFinished }) 
   await waitUntil(() => tester.cronDeliveries.length > 0);
   expect(tester.cronDeliveries).toMatchInlineSnapshot(`
     [
-      "[cron: file-job 2026-04-18T07:02:00+07:00 Asia/Jakarta]
+      "[cron: file-job at 07:02]
     echo: <trigger_metadata>
     trigger: cron
     cron_id: file-job
@@ -139,6 +139,7 @@ test("cron auto reloads external cron file changes", async ({ onTestFinished }) 
     </trigger_metadata>
 
     hello-from-file
+
     ",
     ]
   `);
@@ -245,7 +246,7 @@ test("cron command", async ({ onTestFinished }) => {
   await waitUntil(() => tester.cronDeliveries.length > 0);
   expect(tester.cronDeliveries).toMatchInlineSnapshot(`
     [
-      "[cron: test-job 2026-04-18T07:01:00+07:00 Asia/Jakarta]
+      "[cron: test-job at 07:01]
     echo: <trigger_metadata>
     trigger: cron
     cron_id: test-job
@@ -256,6 +257,7 @@ test("cron command", async ({ onTestFinished }) => {
     </trigger_metadata>
 
     hello-cron
+
     ",
     ]
   `);
@@ -321,7 +323,7 @@ test("cron command", async ({ onTestFinished }) => {
   await waitUntil(() => tester.cronDeliveries.length > 0);
   expect(tester.cronDeliveries).toMatchInlineSnapshot(`
     [
-      "[cron: other-job 2026-04-18T07:03:00+07:00 Asia/Jakarta]
+      "[cron: other-job at 07:03]
     echo: <trigger_metadata>
     trigger: cron
     cron_id: other-job
@@ -332,6 +334,7 @@ test("cron command", async ({ onTestFinished }) => {
     </trigger_metadata>
 
     hello-other
+
     ",
     ]
   `);
@@ -379,7 +382,7 @@ test("cron command", async ({ onTestFinished }) => {
   await waitUntil(() => tester.cronDeliveries.length > 0);
   expect(tester.cronDeliveries).toMatchInlineSnapshot(`
     [
-      "[cron: other-job 2026-04-18T07:04:00+07:00 Asia/Jakarta]
+      "[cron: other-job at 07:04]
     echo: <trigger_metadata>
     trigger: cron
     cron_id: other-job
@@ -390,6 +393,7 @@ test("cron command", async ({ onTestFinished }) => {
     </trigger_metadata>
 
     hello-updated
+
     ",
     ]
   `);
@@ -760,7 +764,7 @@ test("cron runner renews stale session after daily boundary", async ({ onTestFin
   await waitUntil(() => tester.cronDeliveries.length > 0);
   expect(tester.cronDeliveries).toMatchInlineSnapshot(`
     [
-      "[cron: renew-job 2026-04-18T04:30:00+07:00 Asia/Jakarta]
+      "[cron: renew-job at 04:30]
     session: __testSession2
     <trigger_metadata>
     trigger: cron
@@ -771,7 +775,8 @@ test("cron runner renews stale session after daily boundary", async ({ onTestFin
     session_name: test
     </trigger_metadata>
 
-     cron-after-boundary",
+     cron-after-boundary
+    ",
     ]
   `);
 });
