@@ -116,20 +116,17 @@ function renderCronListCompact(cronStore: CronStore, jobs: CronJob[]): string {
   const enabledEntries = enabledJobs.map((job) => ({
     job,
     latestRun: cronStore.getLatestRun({ cronId: job.id }),
-    nextAt: getCronNextAt(job),
+    nextAt: getNextCronSchedule({
+      schedule: job.schedule,
+      timezone: job.timezone,
+      after: Date.now(),
+    }),
   }));
-  const knownNextEntries = enabledEntries.filter((entry) => entry.nextAt !== undefined);
-  const unknownNextEntries = enabledEntries.filter(({ nextAt }) => nextAt === undefined);
-  const lines = [
-    ...knownNextEntries
-      .sort((a, b) => a.nextAt! - b.nextAt!)
-      .map(({ job, latestRun, nextAt }) => {
-        return `${formatCronCompactDateTime(nextAt!, job.timezone)}  ${job.id}${formatCronCompactMarkers(job, latestRun)}`;
-      }),
-    ...unknownNextEntries.map(
-      ({ job, latestRun }) => `unknown  ${job.id}${formatCronCompactMarkers(job, latestRun)}`,
-    ),
-  ];
+  const lines = enabledEntries
+    .sort((a, b) => a.nextAt - b.nextAt)
+    .map(({ job, latestRun, nextAt }) => {
+      return `${formatCronCompactDateTime(nextAt, job.timezone)}  ${job.id}${formatCronCompactMarkers(job, latestRun)}`;
+    });
   if (disabledJobs.length === 0) {
     return lines.join("\n");
   }
@@ -161,26 +158,15 @@ function formatDeliveryTarget(target: CronJob["target"]["delivery"]): string {
 }
 
 function formatCronNext(job: CronJob): string {
-  const nextAt = getCronNextAt(job);
-  if (nextAt === undefined) {
-    return job.enabled ? "unknown" : "none";
-  }
-  return formatTime(nextAt, job.timezone);
-}
-
-function getCronNextAt(job: CronJob): number | undefined {
   if (!job.enabled) {
-    return;
+    return "none";
   }
-  try {
-    return getNextCronSchedule({
-      schedule: job.schedule,
-      timezone: job.timezone,
-      after: Date.now(),
-    });
-  } catch (error) {
-    console.error("[cron] failed to calculate next run:", error);
-  }
+  const nextAt = getNextCronSchedule({
+    schedule: job.schedule,
+    timezone: job.timezone,
+    after: Date.now(),
+  });
+  return formatTime(nextAt, job.timezone);
 }
 
 function formatCronCompactDateTime(time: number, timezone: string): string {
