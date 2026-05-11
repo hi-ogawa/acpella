@@ -105,14 +105,15 @@ export class CronRunner {
       if (response.trim() === "NO_REPLY") {
         console.log(`[cron] Suppressed delivery for cron '${job.id}': NO_REPLY`);
       } else {
+        const message = buildCronDeliveryMessage({
+          cronId: job.id,
+          scheduledAt: scheduledAtTz,
+          timezone: job.timezone,
+          message: response,
+        });
         await this.options.delivery.send({
           target: job.target.delivery,
-          text: buildCronDeliveryMessage({
-            cronId: job.id,
-            scheduledAt: scheduledAtTz,
-            timezone: job.timezone,
-            message: response,
-          }),
+          text: message,
         });
       }
       store.updateRun(run.id, {
