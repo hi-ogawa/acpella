@@ -111,25 +111,26 @@ function renderCronListItem(job: CronJob, latestRun: CronRun | undefined): strin
 
 function renderCronListCompact(cronStore: CronStore, jobs: CronJob[]): string {
   const sortedJobs = sortBy(jobs, (job) => job.id);
-  const enabledJobs = sortedJobs.filter((job) => job.enabled);
-  const disabledJobs = sortedJobs.filter((job) => !job.enabled);
   // TODO: move up to top-level command handler callsite
   const timestamp = Date.now();
-  const enabledEntries = enabledJobs.map((job) => ({
-    job,
-    latestRun: cronStore.getLatestRun({ cronId: job.id }),
-    nextAt: getNextCronSchedule({
-      schedule: job.schedule,
-      timezone: job.timezone,
-      after: timestamp,
-    }),
-  }));
+  const enabledEntries = sortedJobs
+    .filter((job) => job.enabled)
+    .map((job) => ({
+      job,
+      nextAt: getNextCronSchedule({
+        schedule: job.schedule,
+        timezone: job.timezone,
+        after: timestamp,
+      }),
+    }));
   const lines: string[] = [];
   for (const e of sortBy(enabledEntries, (e) => e.nextAt)) {
     const datetime = formatCronCompactDateTime(e.nextAt, e.job.timezone);
-    const markers = formatCronCompactMarkers(e.job, e.latestRun);
+    const latestRun = cronStore.getLatestRun({ cronId: e.job.id });
+    const markers = formatCronCompactMarkers(e.job, latestRun);
     lines.push(`${datetime} | ${e.job.id}${markers}`);
   }
+  const disabledJobs = sortedJobs.filter((job) => !job.enabled);
   if (disabledJobs.length > 0) {
     if (lines.length > 0) {
       lines.push("");
