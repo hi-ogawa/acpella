@@ -1,4 +1,4 @@
-import { formatTime } from "../../utils/index.ts";
+import { formatTime, sortBy } from "../../utils/index.ts";
 import { type CronJob, type CronRun, type CronStore, cronIdSchema } from "./store.ts";
 import { getNextCronSchedule, validateCronSchedule } from "./timer.ts";
 
@@ -110,7 +110,7 @@ function renderCronListItem(job: CronJob, latestRun: CronRun | undefined): strin
 }
 
 function renderCronListCompact(cronStore: CronStore, jobs: CronJob[]): string {
-  const sortedJobs = [...jobs].sort((a, b) => a.id.localeCompare(b.id));
+  const sortedJobs = sortBy(jobs, (job) => job.id);
   const enabledJobs = sortedJobs.filter((job) => job.enabled);
   const disabledJobs = sortedJobs.filter((job) => !job.enabled);
   const enabledEntries = enabledJobs.map((job) => ({
@@ -122,11 +122,11 @@ function renderCronListCompact(cronStore: CronStore, jobs: CronJob[]): string {
       after: Date.now(),
     }),
   }));
-  const lines = enabledEntries
-    .sort((a, b) => a.nextAt - b.nextAt)
-    .map(({ job, latestRun, nextAt }) => {
+  const lines = sortBy(enabledEntries, (entry) => entry.nextAt).map(
+    ({ job, latestRun, nextAt }) => {
       return `${formatCronCompactDateTime(nextAt, job.timezone)}  ${job.id}${formatCronCompactMarkers(job, latestRun)}`;
-    });
+    },
+  );
   if (disabledJobs.length === 0) {
     return lines.join("\n");
   }
