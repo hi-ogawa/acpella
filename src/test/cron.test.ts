@@ -309,7 +309,7 @@ test("cron command", async ({ onTestFinished }) => {
     "[⚙️ System]
     Apr 18  07:03  other-job
 
-    Disabled:
+    disabled:
     - test-job"
   `);
 
@@ -872,7 +872,7 @@ test("cron one-shot: disabled after successful run", async ({ onTestFinished }) 
   `);
   expect(await session.request("/cron list --compact")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    Disabled:
+    disabled:
     - once-job (once)"
   `);
 
