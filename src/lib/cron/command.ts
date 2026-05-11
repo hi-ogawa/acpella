@@ -127,7 +127,7 @@ function renderCronListCompact(cronStore: CronStore, jobs: CronJob[]): string {
     ({ job, latestRun, nextAt }) => {
       const datetime = formatCronCompactDateTime(nextAt, job.timezone);
       const markers = formatCronCompactMarkers(job, latestRun);
-      return `${datetime}  ${job.id}${markers}`;
+      return `${datetime} | ${job.id}${markers}`;
     },
   );
   if (disabledJobs.length === 0) {
@@ -181,7 +181,7 @@ function formatCronCompactDateTime(time: number, timezone: string): string {
   const day = String(zoned.day).padStart(2, " ");
   const hour = String(zoned.hour).padStart(2, "0");
   const minute = String(zoned.minute).padStart(2, "0");
-  return `${month} ${day}  ${hour}:${minute}`;
+  return `${month} ${day} | ${hour}:${minute}`;
 }
 
 function formatCronCompactMarkers(job: CronJob, latestRun: CronRun | undefined): string {
