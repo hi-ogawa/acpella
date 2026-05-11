@@ -107,8 +107,7 @@ export class CronRunner {
       } else {
         const message = `\
 [cron: ${job.id} at ${scheduledAtTz.slice(11, 16)}]
-${response}
-`;
+${response}`;
         await this.options.delivery.send({
           target: job.target.delivery,
           text: message,

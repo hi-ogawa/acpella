@@ -139,7 +139,6 @@ test("cron auto reloads external cron file changes", async ({ onTestFinished }) 
     </trigger_metadata>
 
     hello-from-file
-
     ",
     ]
   `);
@@ -257,7 +256,6 @@ test("cron command", async ({ onTestFinished }) => {
     </trigger_metadata>
 
     hello-cron
-
     ",
     ]
   `);
@@ -334,7 +332,6 @@ test("cron command", async ({ onTestFinished }) => {
     </trigger_metadata>
 
     hello-other
-
     ",
     ]
   `);
@@ -393,7 +390,6 @@ test("cron command", async ({ onTestFinished }) => {
     </trigger_metadata>
 
     hello-updated
-
     ",
     ]
   `);
@@ -775,8 +771,7 @@ test("cron runner renews stale session after daily boundary", async ({ onTestFin
     session_name: test
     </trigger_metadata>
 
-     cron-after-boundary
-    ",
+     cron-after-boundary",
     ]
   `);
 });
