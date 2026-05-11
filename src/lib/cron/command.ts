@@ -180,15 +180,11 @@ function formatCronCompactDateTime(time: number, timezone: string): string {
   return `${month} ${day} | ${hour}:${minute}`;
 }
 
-function formatCronCompactMarkers(job: CronJob, latestRun: CronRun | undefined): string {
-  const markers: string[] = [];
-  if (latestRun?.status === "failed") {
-    markers.push("failed");
-  }
-  if (job.once) {
-    markers.push("once");
-  }
-  return markers.map((marker) => ` (${marker})`).join("");
+function formatCronCompactMarkers(job: CronJob, latestRun?: CronRun): string {
+  const output = [latestRun?.status === "failed" && "failed", job.once && "once"]
+    .filter(Boolean)
+    .join(", ");
+  return output ? ` (${output})` : "";
 }
 
 const MONTH_NAMES = [
