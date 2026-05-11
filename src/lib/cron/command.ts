@@ -119,23 +119,29 @@ function renderCronListCompact(cronStore: CronStore, jobs: CronJob[]): string {
     nextAt: getNextCronSchedule({
       schedule: job.schedule,
       timezone: job.timezone,
+      // TODO: move up to caller
       after: Date.now(),
     }),
   }));
   const lines = sortBy(enabledEntries, (entry) => entry.nextAt).map(
     ({ job, latestRun, nextAt }) => {
-      return `${formatCronCompactDateTime(nextAt, job.timezone)}  ${job.id}${formatCronCompactMarkers(job, latestRun)}`;
+      const datetime = formatCronCompactDateTime(nextAt, job.timezone);
+      const markers = formatCronCompactMarkers(job, latestRun);
+      return `${datetime}  ${job.id}${markers}`;
     },
   );
   if (disabledJobs.length === 0) {
     return lines.join("\n");
   }
-  const disabledSection = `disabled:\n${disabledJobs
-    .map(
-      (job) =>
-        `- ${job.id}${formatCronCompactMarkers(job, cronStore.getLatestRun({ cronId: job.id }))}`,
-    )
-    .join("\n")}`;
+  const disabledSection = `\
+disabled:
+${disabledJobs
+  .map((job) => {
+    const latestRun = cronStore.getLatestRun({ cronId: job.id });
+    const markers = formatCronCompactMarkers(job, latestRun);
+    return `- ${job.id}${markers}`;
+  })
+  .join("\n")}`;
   if (lines.length === 0) {
     return disabledSection;
   }
