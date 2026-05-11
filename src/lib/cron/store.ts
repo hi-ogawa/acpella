@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { FileStateManager } from "../../utils/fs.ts";
+import { sortBy } from "../../utils/index.ts";
 import { validateCronSchedule } from "./timer.ts";
 
 const CRON_FILE_VERSION = 1;
@@ -195,8 +196,7 @@ export class CronStore {
 
   getLatestRun({ cronId }: { cronId: string }): CronRun | undefined {
     const runs = Object.values(this.stateFile.state.runs[cronId] ?? {});
-    runs.sort((a, b) => b.scheduledAt.localeCompare(a.scheduledAt));
-    return runs[0];
+    return sortBy(runs, (run) => run.scheduledAt).at(-1);
   }
 
   startRun(options: { cronId: string; scheduledAt: string; startedAt: string }): CronRun {
