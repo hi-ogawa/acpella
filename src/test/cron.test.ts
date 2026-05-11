@@ -207,7 +207,7 @@ test("cron command", async ({ onTestFinished }) => {
   `);
   expect(await session.request("/cron list --compact")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    Apr 18 | 07:01 | test-job"
+    Apr 18 (Sat) | 07:01 | test-job"
   `);
   expect(await session.request("/cron show test-job")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -307,7 +307,7 @@ test("cron command", async ({ onTestFinished }) => {
   `);
   expect(await session.request("/cron list --compact")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    Apr 18 | 07:03 | other-job
+    Apr 18 (Sat) | 07:03 | other-job
 
     disabled:
     - test-job"
@@ -538,7 +538,7 @@ test("cron error delivery", async ({ onTestFinished }) => {
   `);
   expect(await session.request("/cron list --compact")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    Apr 18 | 07:02 | test-job (failed)"
+    Apr 18 (Sat) | 07:02 | test-job (failed)"
   `);
 });
 
@@ -838,7 +838,7 @@ test("cron one-shot: disabled after successful run", async ({ onTestFinished }) 
   `);
   expect(await session.request("/cron list --compact")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    Apr 18 | 07:01 | once-job (once)"
+    Apr 18 (Sat) | 07:01 | once-job (once)"
   `);
 
   advanceTimersTo("2026-04-18T07:01:00+07:00");

@@ -175,10 +175,11 @@ function formatCronNext(job: CronJob): string {
 function formatCronCompactDateTime(time: number, timezone: string): string {
   const zoned = Temporal.Instant.fromEpochMilliseconds(time).toZonedDateTimeISO(timezone);
   const month = MONTH_NAMES[zoned.month - 1]!;
-  const day = String(zoned.day).padStart(2, " ");
+  const day = String(zoned.day);
+  const weekday = WEEKDAY_NAMES[zoned.dayOfWeek - 1]!;
   const hour = String(zoned.hour).padStart(2, "0");
   const minute = String(zoned.minute).padStart(2, "0");
-  return `${month} ${day} | ${hour}:${minute}`;
+  return `${month} ${day} (${weekday}) | ${hour}:${minute}`;
 }
 
 function formatCronCompactMarkers(job: CronJob, latestRun?: CronRun): string {
@@ -202,6 +203,8 @@ const MONTH_NAMES = [
   "Nov",
   "Dec",
 ];
+
+const WEEKDAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 function formatCronLastRun(run: CronRun | undefined, timezone: string): string {
   if (!run) {
