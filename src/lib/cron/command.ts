@@ -113,17 +113,23 @@ function renderCronListCompact(cronStore: CronStore, jobs: CronJob[]): string {
   const sortedJobs = [...jobs].sort((a, b) => a.id.localeCompare(b.id));
   const enabledJobs = sortedJobs.filter((job) => job.enabled);
   const disabledJobs = sortedJobs.filter((job) => !job.enabled);
-  const lines = enabledJobs
-    .map((job) => ({
-      job,
-      latestRun: cronStore.getLatestRun({ cronId: job.id }),
-      nextAt: getCronNextAt(job),
-    }))
-    .filter(({ nextAt }) => nextAt !== undefined)
-    .sort((a, b) => a.nextAt! - b.nextAt!)
-    .map(({ job, latestRun, nextAt }) => {
-      return `${formatCronCompactDateTime(nextAt!, job.timezone)}  ${job.id}${formatCronCompactMarkers(job, latestRun)}`;
-    });
+  const enabledEntries = enabledJobs.map((job) => ({
+    job,
+    latestRun: cronStore.getLatestRun({ cronId: job.id }),
+    nextAt: getCronNextAt(job),
+  }));
+  const knownNextEntries = enabledEntries.filter((entry) => entry.nextAt !== undefined);
+  const unknownNextEntries = enabledEntries.filter(({ nextAt }) => nextAt === undefined);
+  const lines = [
+    ...knownNextEntries
+      .sort((a, b) => a.nextAt! - b.nextAt!)
+      .map(({ job, latestRun, nextAt }) => {
+        return `${formatCronCompactDateTime(nextAt!, job.timezone)}  ${job.id}${formatCronCompactMarkers(job, latestRun)}`;
+      }),
+    ...unknownNextEntries.map(
+      ({ job, latestRun }) => `unknown  ${job.id}${formatCronCompactMarkers(job, latestRun)}`,
+    ),
+  ];
   if (disabledJobs.length === 0) {
     return lines.join("\n");
   }
