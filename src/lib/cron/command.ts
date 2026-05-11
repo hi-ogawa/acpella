@@ -86,8 +86,7 @@ export function renderCronList(
 
 export function renderCronShow(
   job: CronJob,
-  latestRun: CronRun | undefined,
-  options: { now: number },
+  options: { latestRun?: CronRun; now: number },
 ): string {
   return `\
 id: ${job.id}
@@ -98,7 +97,7 @@ timezone: ${job.timezone}
 target session: ${job.target.sessionName}
 delivery target: ${formatDeliveryTarget(job.target.delivery)}
 next: ${formatCronNext(job, options)}
-last: ${formatCronLastRun(latestRun, job.timezone)}
+last: ${formatCronLastRun(options.latestRun, job.timezone)}
 prompt: ${job.prompt}
 `;
 }
