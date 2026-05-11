@@ -65,7 +65,7 @@ export function parseCronListArgs(args: string[]) {
   if (args.length === 1 && args[0] === "--compact") {
     return { compact: true };
   }
-  throw new Error("Invalid arguments. Usage: /cron list [--compact]");
+  throw new Error("Invalid arguments");
 }
 
 export function renderCronList(
