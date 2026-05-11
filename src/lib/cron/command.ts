@@ -113,14 +113,15 @@ function renderCronListCompact(cronStore: CronStore, jobs: CronJob[]): string {
   const sortedJobs = sortBy(jobs, (job) => job.id);
   const enabledJobs = sortedJobs.filter((job) => job.enabled);
   const disabledJobs = sortedJobs.filter((job) => !job.enabled);
+  // TODO: move up to top-level command handler callsite
+  const timestamp = Date.now();
   const enabledEntries = enabledJobs.map((job) => ({
     job,
     latestRun: cronStore.getLatestRun({ cronId: job.id }),
     nextAt: getNextCronSchedule({
       schedule: job.schedule,
       timezone: job.timezone,
-      // TODO: move up to caller
-      after: Date.now(),
+      after: timestamp,
     }),
   }));
   const lines = sortBy(enabledEntries, (entry) => entry.nextAt).map(
