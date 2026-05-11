@@ -127,7 +127,7 @@ function renderCronListCompact(cronStore: CronStore, jobs: CronJob[]): string {
   if (disabledJobs.length === 0) {
     return lines.join("\n");
   }
-  const disabledSection = `Disabled:\n${disabledJobs
+  const disabledSection = `disabled:\n${disabledJobs
     .map(({ job, latestRun }) => `- ${job.id}${formatCronCompactMarkers(job, latestRun)}`)
     .join("\n")}`;
   if (lines.length === 0) {
