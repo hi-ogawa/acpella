@@ -15,7 +15,6 @@ Acpella is a small bridge from a messaging surface, currently Telegram or the lo
 
 - Acpella source lives at https://github.com/hi-ogawa/acpella.
 - The normal operator CLI is the globally linked `acpella` command, installed from the source checkout with `pnpm link --global`.
-- `pnpm cli` is a development fallback for running directly from the source checkout.
 - `ACPELLA_HOME` is the working directory acpella uses for agent sessions and acpella state.
 - Acpella stores its own state under `ACPELLA_HOME/.acpella/`, including session mappings, configured agents, cron jobs, logs, and optional custom instructions.
 - A Telegram chat/thread or REPL context maps to an acpella session name.
