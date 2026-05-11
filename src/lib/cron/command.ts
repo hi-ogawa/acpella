@@ -1,4 +1,4 @@
-import { formatTime } from "../../utils/index.ts";
+import { formatTime, sortBy } from "../../utils/index.ts";
 import { type CronJob, type CronRun, type CronStore, cronIdSchema } from "./store.ts";
 import { getNextCronSchedule, validateCronSchedule } from "./timer.ts";
 
@@ -58,10 +58,23 @@ export function parseCronIdArg(args: string[]): string {
   return id;
 }
 
-export function renderCronList(cronStore: CronStore): string {
+export function parseCronListArgs(args: string[]) {
+  if (args.length === 0) {
+    return { compact: false };
+  }
+  if (args.length === 1 && args[0] === "--compact") {
+    return { compact: true };
+  }
+  throw new Error("Invalid arguments");
+}
+
+export function renderCronList(cronStore: CronStore, options: { compact: boolean }): string {
   const jobs = cronStore.listJobs();
   if (jobs.length === 0) {
     return "No cron jobs.";
+  }
+  if (options.compact) {
+    return renderCronListCompact(cronStore, jobs);
   }
   return jobs
     .map((job) => renderCronListItem(job, cronStore.getLatestRun({ cronId: job.id })))
@@ -96,6 +109,42 @@ function renderCronListItem(job: CronJob, latestRun: CronRun | undefined): strin
 `;
 }
 
+function renderCronListCompact(cronStore: CronStore, jobs: CronJob[]): string {
+  const sortedJobs = sortBy(jobs, (job) => job.id);
+  // TODO: move up to top-level command handler callsite
+  const timestamp = Date.now();
+  const enabledEntries = sortedJobs
+    .filter((job) => job.enabled)
+    .map((job) => ({
+      job,
+      nextAt: getNextCronSchedule({
+        schedule: job.schedule,
+        timezone: job.timezone,
+        after: timestamp,
+      }),
+    }));
+  const lines: string[] = [];
+  for (const e of sortBy(enabledEntries, (e) => e.nextAt)) {
+    const datetime = formatCronCompactDateTime(e.nextAt, e.job.timezone);
+    const latestRun = cronStore.getLatestRun({ cronId: e.job.id });
+    const markers = formatCronCompactMarkers(e.job, latestRun);
+    lines.push(`${datetime} | ${e.job.id}${markers}`);
+  }
+  const disabledJobs = sortedJobs.filter((job) => !job.enabled);
+  if (disabledJobs.length > 0) {
+    if (lines.length > 0) {
+      lines.push("");
+    }
+    lines.push("disabled:");
+    for (const job of disabledJobs) {
+      const latestRun = cronStore.getLatestRun({ cronId: job.id });
+      const markers = formatCronCompactMarkers(job, latestRun);
+      lines.push(`- ${job.id}${markers}`);
+    }
+  }
+  return lines.join("\n");
+}
+
 function formatDeliveryTarget(target: CronJob["target"]["delivery"]): string {
   const surfaces: string[] = [];
   if (target.telegram) {
@@ -115,20 +164,44 @@ function formatCronNext(job: CronJob): string {
   if (!job.enabled) {
     return "none";
   }
-  try {
-    return formatTime(
-      getNextCronSchedule({
-        schedule: job.schedule,
-        timezone: job.timezone,
-        after: Date.now(),
-      }),
-      job.timezone,
-    );
-  } catch (error) {
-    console.error("[cron] failed to calculate next run:", error);
-    return "unknown";
-  }
+  const nextAt = getNextCronSchedule({
+    schedule: job.schedule,
+    timezone: job.timezone,
+    after: Date.now(),
+  });
+  return formatTime(nextAt, job.timezone);
 }
+
+function formatCronCompactDateTime(time: number, timezone: string): string {
+  const zoned = Temporal.Instant.fromEpochMilliseconds(time).toZonedDateTimeISO(timezone);
+  const month = MONTH_NAMES[zoned.month - 1]!;
+  const day = String(zoned.day).padStart(2, " ");
+  const hour = String(zoned.hour).padStart(2, "0");
+  const minute = String(zoned.minute).padStart(2, "0");
+  return `${month} ${day} | ${hour}:${minute}`;
+}
+
+function formatCronCompactMarkers(job: CronJob, latestRun?: CronRun): string {
+  const output = [latestRun?.status === "failed" && "failed", job.once && "once"]
+    .filter(Boolean)
+    .join(", ");
+  return output ? ` (${output})` : "";
+}
+
+const MONTH_NAMES = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
 
 function formatCronLastRun(run: CronRun | undefined, timezone: string): string {
   if (!run) {

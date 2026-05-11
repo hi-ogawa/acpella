@@ -23,6 +23,18 @@ export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve
 
 export const uniq = <T>(values: T[]): T[] => [...new Set(values)];
 
+export function sortBy<T, K>(values: T[], getKey: (value: T) => K): T[] {
+  const keys = values.map(getKey);
+  return values
+    .map((_, index) => index)
+    .sort((a, b) => compare(keys[a]!, keys[b]!))
+    .map((index) => values[index]!);
+}
+
+function compare(a: any, b: any): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
 export function formatTime(time: number | Temporal.Instant, timezone?: string): string {
   let instant: Temporal.Instant;
   if (typeof time === "number") {
