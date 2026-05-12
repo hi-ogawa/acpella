@@ -1,5 +1,4 @@
 import "temporal-polyfill/global";
-import { mkdir, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { createInterface } from "node:readline/promises";
@@ -12,6 +11,7 @@ import { CronRunner } from "./lib/cron/runner.ts";
 import { CronStore } from "./lib/cron/store.ts";
 import { markdownToTelegramHtml } from "./lib/telegram/format-html.ts";
 import {
+  downloadTelegramFile,
   formatTelegramUploadPrompt,
   formatTelegramConversationMetadata,
   formatTelegramSessionName,
@@ -299,16 +299,14 @@ ${CLI_HELP}`);
       let savedPath: string;
       try {
         savedPath = await downloadTelegramFile({
-          bot,
+          getFile: (id) => bot.api.getFile(id),
           token: telegramToken,
           fileId,
           uploadDir,
         });
       } catch (error) {
         console.error(`${label} failed to download upload`, error);
-        const name = error instanceof Error ? error.name : "Error";
-        const message = error instanceof Error ? error.message : String(error);
-        await replyWithRetry(`${name}: ${truncateString(message, 200)}`);
+        await replyWithRetry("Failed to download uploaded file. Please try again.");
         return;
       }
 
@@ -393,31 +391,6 @@ ${CLI_HELP}`);
     },
   });
   await botRunner.task();
-}
-
-async function downloadTelegramFile({
-  bot,
-  token,
-  fileId,
-  uploadDir,
-}: {
-  bot: Bot;
-  token: string;
-  fileId: string;
-  uploadDir: string;
-}): Promise<string> {
-  const file = await bot.api.getFile(fileId);
-  if (!file.file_path) {
-    throw new Error(`file_path is missing for file_id=${fileId}`);
-  }
-  const response = await fetch(`https://api.telegram.org/file/bot${token}/${file.file_path}`);
-  if (!response.ok) {
-    throw new Error(`download failed: ${response.status} ${response.statusText}`);
-  }
-  const outputPath = path.join(uploadDir, path.basename(file.file_path));
-  await mkdir(uploadDir, { recursive: true });
-  await writeFile(outputPath, Buffer.from(await response.arrayBuffer()));
-  return outputPath;
 }
 
 async function startRepl({

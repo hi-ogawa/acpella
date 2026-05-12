@@ -1,3 +1,6 @@
+import { randomUUID } from "node:crypto";
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
 import { GrammyError, type Context } from "grammy";
 
 export function normalizeUserMention({
@@ -87,6 +90,39 @@ export function formatTelegramUploadPrompt({
     return `[User uploaded file: ${filePath}]`;
   }
   return `${caption}\n\n[User uploaded file: ${filePath}]`;
+}
+
+export async function downloadTelegramFile({
+  getFile,
+  token,
+  fileId,
+  uploadDir,
+  now = Date.now,
+  uuid = randomUUID,
+  fetchImpl = fetch,
+}: {
+  getFile: (fileId: string) => Promise<{ file_path?: string }>;
+  token: string;
+  fileId: string;
+  uploadDir: string;
+  now?: () => number;
+  uuid?: () => string;
+  fetchImpl?: typeof fetch;
+}): Promise<string> {
+  const file = await getFile(fileId);
+  if (!file.file_path) {
+    throw new Error(`file_path is missing for file_id=${fileId}`);
+  }
+  const response = await fetchImpl(`https://api.telegram.org/file/bot${token}/${file.file_path}`);
+  if (!response.ok) {
+    throw new Error(`download failed: ${response.status} ${response.statusText}`);
+  }
+  const extension = path.extname(path.basename(file.file_path)).replaceAll(/[^a-zA-Z0-9.]/g, "");
+  const safeFileId = fileId.replaceAll(/[^a-zA-Z0-9_-]/g, "_");
+  const outputPath = path.join(uploadDir, `${now()}-${safeFileId}-${uuid()}${extension}`);
+  await mkdir(uploadDir, { recursive: true });
+  await writeFile(outputPath, Buffer.from(await response.arrayBuffer()));
+  return outputPath;
 }
 
 // Telegram chat actions last 5 seconds or less, so match OpenClaw's cadence:

@@ -28,6 +28,8 @@ acpella exec /status # run one local admin command
 | `ACPELLA_TELEGRAM_ALLOWED_CHAT_IDS` | —               | Comma-separated chat IDs (group allowlist) |
 | `ACPELLA_HOME`                      | `process.cwd()` | Agent working directory                    |
 
+When Telegram users upload files (photo/document/video/voice/audio), acpella stores downloaded files under `/tmp/acpella-uploads/` and appends the saved file path to the prompt text.
+
 ## Configuring Agent
 
 The default agent is the built-in `test` echo agent. See [skills/acpella](skills/acpella/SKILL.md) for current agent registration, session, customization, cron, and service administration workflows.

@@ -1,5 +1,9 @@
+import { mkdtemp, readFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { expect, onTestFinished, test, vi } from "vitest";
 import {
+  downloadTelegramFile,
   formatTelegramUploadPrompt,
   getTelegramUploadFileId,
   normalizeUserMention,
@@ -94,4 +98,45 @@ test(formatTelegramUploadPrompt, () => {
     
     [User uploaded file: /tmp/acpella-uploads/test.png]"
   `);
+});
+
+test(downloadTelegramFile, async () => {
+  const uploadDir = await mkdtemp(path.join(os.tmpdir(), "acpella-upload-test-"));
+  const filePath = await downloadTelegramFile({
+    getFile: async () => ({ file_path: "media/..screenshot?.png" }),
+    token: "dummy-token",
+    fileId: "ab:c",
+    uploadDir,
+    now: () => 123,
+    uuid: () => "uuid",
+    fetchImpl: async () => new Response("test-content"),
+  });
+  expect(filePath).toMatch(`${uploadDir}/123-ab_c-uuid.png`);
+  expect(await readFile(filePath, "utf-8")).toBe("test-content");
+});
+
+test("downloadTelegramFile throws on missing file_path", async () => {
+  const uploadDir = await mkdtemp(path.join(os.tmpdir(), "acpella-upload-test-"));
+  await expect(
+    downloadTelegramFile({
+      getFile: async () => ({}),
+      token: "dummy-token",
+      fileId: "ab:c",
+      uploadDir,
+      fetchImpl: async () => new Response("test-content"),
+    }),
+  ).rejects.toThrowError("file_path is missing for file_id=ab:c");
+});
+
+test("downloadTelegramFile throws on HTTP error", async () => {
+  const uploadDir = await mkdtemp(path.join(os.tmpdir(), "acpella-upload-test-"));
+  await expect(
+    downloadTelegramFile({
+      getFile: async () => ({ file_path: "media/screenshot.png" }),
+      token: "dummy-token",
+      fileId: "ab:c",
+      uploadDir,
+      fetchImpl: async () => new Response("bad", { status: 500, statusText: "Boom" }),
+    }),
+  ).rejects.toThrowError("download failed: 500 Boom");
 });
