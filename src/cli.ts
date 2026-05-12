@@ -1,4 +1,6 @@
 import "temporal-polyfill/global";
+import { mkdir, writeFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { createInterface } from "node:readline/promises";
 import { run } from "@grammyjs/runner";
@@ -10,8 +12,10 @@ import { CronRunner } from "./lib/cron/runner.ts";
 import { CronStore } from "./lib/cron/store.ts";
 import { markdownToTelegramHtml } from "./lib/telegram/format-html.ts";
 import {
+  formatTelegramUploadPrompt,
   formatTelegramConversationMetadata,
   formatTelegramSessionName,
+  getTelegramUploadFileId,
   getTelegramRetryAfter,
   normalizeUserMention,
   TelegramChatActionManager,
@@ -121,15 +125,17 @@ ${CLI_HELP}`);
 
   const allowedUsers = new Set(config.telegram.allowedUserIds);
   const allowedChats = new Set(config.telegram.allowedChatIds);
+  const uploadDir = path.join(os.tmpdir(), "acpella-uploads");
 
   if (!config.telegram.token) {
     throw new Error("ACPELLA_TELEGRAM_BOT_TOKEN is required");
   }
+  const telegramToken = config.telegram.token;
   if (allowedUsers.size === 0) {
     throw new Error("ACPELLA_TELEGRAM_ALLOWED_USER_IDS must be non-empty");
   }
 
-  const bot = new Bot(config.telegram.token);
+  const bot = new Bot(telegramToken);
   const botInfo = await bot.api.getMe();
   const botUsername = botInfo.username;
 
@@ -248,6 +254,135 @@ ${CLI_HELP}`);
     }
   });
 
+  bot.on(
+    ["message:photo", "message:document", "message:video", "message:voice", "message:audio"],
+    async (ctx) => {
+      const chatId = ctx.chat.id;
+      const userId = ctx.from?.id;
+      const sessionName = formatTelegramSessionName(ctx);
+      const label = `[${sessionName}:${ctx.message.message_id}]`;
+
+      if (allowedChats.size && !allowedChats.has(chatId)) {
+        console.error(`${label} rejected: chat ${chatId} is not allowed`);
+        return;
+      }
+      if (!userId || (allowedUsers.size && !allowedUsers.has(userId))) {
+        console.error(`${label} rejected: user ${userId ?? "unknown"} is not allowed`);
+        return;
+      }
+
+      const fileId = getTelegramUploadFileId(ctx.message);
+      if (!fileId) {
+        console.error(`${label} rejected: message has no supported file`);
+        return;
+      }
+
+      const replyWithRetry = async (...args: Parameters<typeof ctx.reply>) => {
+        try {
+          return await ctx.reply(...args);
+        } catch (error) {
+          // rethrow non rate limit errors
+          const retryAfter = getTelegramRetryAfter(error);
+          if (!retryAfter) {
+            throw error;
+          }
+          console.error(`${label} reply failed. retrying...`, {
+            args,
+            error,
+            retryAfter,
+          });
+          await sleep((retryAfter + 1) * 1000);
+          return await ctx.reply(...args);
+        }
+      };
+
+      let savedPath: string;
+      try {
+        savedPath = await downloadTelegramFile({
+          bot,
+          token: telegramToken,
+          fileId,
+          uploadDir,
+        });
+      } catch (error) {
+        console.error(`${label} failed to download upload`, error);
+        const name = error instanceof Error ? error.name : "Error";
+        const message = error instanceof Error ? error.message : String(error);
+        await replyWithRetry(`${name}: ${truncateString(message, 200)}`);
+        return;
+      }
+
+      const caption = "caption" in ctx.message ? ctx.message.caption : undefined;
+      const text = formatTelegramUploadPrompt({
+        caption: caption
+          ? normalizeUserMention({
+              text: caption,
+              username: botUsername,
+            })
+          : undefined,
+        filePath: savedPath,
+      });
+      console.log(
+        addIndent({
+          indent: `${label} (request) `,
+          text: truncateString(text, 200),
+        }),
+      );
+
+      const chatActionManager = new TelegramChatActionManager({
+        send: () => ctx.replyWithChatAction("typing"),
+        logLabel: label,
+      });
+      chatActionManager.start();
+
+      try {
+        await handler.handle({
+          sessionName,
+          text,
+          metadata: {
+            promptMetadata: {
+              timestamp: ctx.message.date * 1000,
+              channel: formatTelegramConversationMetadata(ctx),
+            },
+            cronDeliveryTarget: {
+              telegram: {
+                chatId,
+                messageThreadId: ctx.message.message_thread_id,
+              },
+            },
+          },
+          send: async (replyText) => {
+            const html = markdownToTelegramHtml(replyText);
+            try {
+              return await replyWithRetry(html, {
+                parse_mode: "HTML",
+              });
+            } catch (error) {
+              // rethrow rate limit errors
+              if (getTelegramRetryAfter(error)) {
+                throw error;
+              }
+              console.error(`${label} formatted reply failed; falling back to raw text:`, error);
+              return await replyWithRetry(replyText);
+            }
+          },
+        });
+        console.log(`${label} (response ok)`);
+      } catch (error) {
+        if (getTelegramRetryAfter(error)) {
+          console.error(`${label} reply failed due to rate limit.`, error);
+          return;
+        }
+        console.error(`${label} (response error)`, error);
+        const name = error instanceof Error ? error.name : "Error";
+        const message = error instanceof Error ? error.message : String(error);
+        await replyWithRetry(`${name}: ${truncateString(message, 200)}`);
+      } finally {
+        chatActionManager.stop();
+      }
+    },
+  );
+
   console.log(`Starting service (version: ${version}, home: ${config.home})`);
 
   cronRunner.start();
@@ -258,6 +393,31 @@ ${CLI_HELP}`);
     },
   });
   await botRunner.task();
+}
+
+async function downloadTelegramFile({
+  bot,
+  token,
+  fileId,
+  uploadDir,
+}: {
+  bot: Bot;
+  token: string;
+  fileId: string;
+  uploadDir: string;
+}): Promise<string> {
+  const file = await bot.api.getFile(fileId);
+  if (!file.file_path) {
+    throw new Error(`file_path is missing for file_id=${fileId}`);
+  }
+  const response = await fetch(`https://api.telegram.org/file/bot${token}/${file.file_path}`);
+  if (!response.ok) {
+    throw new Error(`download failed: ${response.status} ${response.statusText}`);
+  }
+  const outputPath = path.join(uploadDir, path.basename(file.file_path));
+  await mkdir(uploadDir, { recursive: true });
+  await writeFile(outputPath, Buffer.from(await response.arrayBuffer()));
+  return outputPath;
 }
 
 async function startRepl({

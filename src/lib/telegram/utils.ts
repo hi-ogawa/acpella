@@ -56,6 +56,39 @@ export function getTelegramRetryAfter(error: unknown): number | undefined {
   }
 }
 
+export function getTelegramUploadFileId(
+  message: NonNullable<Context["message"]>,
+): string | undefined {
+  if ("photo" in message && message.photo && message.photo.length > 0) {
+    return message.photo.at(-1)?.file_id;
+  }
+  if ("document" in message && message.document) {
+    return message.document.file_id;
+  }
+  if ("video" in message && message.video) {
+    return message.video.file_id;
+  }
+  if ("voice" in message && message.voice) {
+    return message.voice.file_id;
+  }
+  if ("audio" in message && message.audio) {
+    return message.audio.file_id;
+  }
+}
+
+export function formatTelegramUploadPrompt({
+  caption,
+  filePath,
+}: {
+  caption?: string;
+  filePath: string;
+}): string {
+  if (!caption?.trim()) {
+    return `[User uploaded file: ${filePath}]`;
+  }
+  return `${caption}\n\n[User uploaded file: ${filePath}]`;
+}
+
 // Telegram chat actions last 5 seconds or less, so match OpenClaw's cadence:
 // delayed first cue to avoid flashing on fast replies, then 3s keepalive.
 // https://core.telegram.org/bots/api#sendchataction

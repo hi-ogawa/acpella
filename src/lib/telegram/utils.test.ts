@@ -1,5 +1,10 @@
 import { expect, onTestFinished, test, vi } from "vitest";
-import { normalizeUserMention, TelegramChatActionManager } from "./utils.ts";
+import {
+  formatTelegramUploadPrompt,
+  getTelegramUploadFileId,
+  normalizeUserMention,
+  TelegramChatActionManager,
+} from "./utils.ts";
 
 test(normalizeUserMention, () => {
   const username = "good_bot";
@@ -58,4 +63,35 @@ test("TelegramChatActionManager clears the delayed chat action on stop", async (
 
   await vi.advanceTimersByTimeAsync(1000);
   expect(send).not.toHaveBeenCalled();
+});
+
+test(getTelegramUploadFileId, () => {
+  expect(
+    getTelegramUploadFileId({
+      photo: [{ file_id: "small" }, { file_id: "large" }],
+    } as never),
+  ).toBe("large");
+  expect(getTelegramUploadFileId({ document: { file_id: "doc" } } as never)).toBe("doc");
+  expect(getTelegramUploadFileId({ video: { file_id: "video" } } as never)).toBe("video");
+  expect(getTelegramUploadFileId({ voice: { file_id: "voice" } } as never)).toBe("voice");
+  expect(getTelegramUploadFileId({ audio: { file_id: "audio" } } as never)).toBe("audio");
+  expect(getTelegramUploadFileId({} as never)).toBe(undefined);
+});
+
+test(formatTelegramUploadPrompt, () => {
+  expect(
+    formatTelegramUploadPrompt({
+      filePath: "/tmp/acpella-uploads/test.png",
+    }),
+  ).toMatchInlineSnapshot(`"[User uploaded file: /tmp/acpella-uploads/test.png]"`);
+  expect(
+    formatTelegramUploadPrompt({
+      caption: "please check this",
+      filePath: "/tmp/acpella-uploads/test.png",
+    }),
+  ).toMatchInlineSnapshot(`
+    "please check this
+    
+    [User uploaded file: /tmp/acpella-uploads/test.png]"
+  `);
 });
