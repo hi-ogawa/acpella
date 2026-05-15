@@ -32,6 +32,7 @@ Options:
   --env-file <path> Use this env file for config resolution.
   -h, --help        Show this help.
 `;
+const TELEGRAM_UPLOAD_DIR = "/tmp/acpella-uploads";
 
 async function main() {
   const cliArgv = process.argv.slice(2);
@@ -167,11 +168,10 @@ ${CLI_HELP}`);
     if (!response.ok) {
       throw new Error(`Failed to download Telegram file: ${response.status} ${response.statusText}`);
     }
-    const uploadDir = "/tmp/acpella-uploads";
-    await mkdir(uploadDir, { recursive: true });
+    await mkdir(TELEGRAM_UPLOAD_DIR, { recursive: true });
     const fallbackName = fileName ?? path.basename(file.file_path);
     const baseName = path.basename(fallbackName) || fileId;
-    const outputPath = path.join(uploadDir, `${Date.now()}-${baseName}`);
+    const outputPath = path.join(TELEGRAM_UPLOAD_DIR, `${Date.now()}-${fileId}-${baseName}`);
     const data = Buffer.from(await response.arrayBuffer());
     await writeFile(outputPath, data);
     return outputPath;
