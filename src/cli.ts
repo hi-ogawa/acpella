@@ -170,7 +170,7 @@ ${CLI_HELP}`);
     const uploadDir = "/tmp/acpella-uploads";
     await mkdir(uploadDir, { recursive: true });
     const fallbackName = fileName ?? path.basename(file.file_path);
-    const baseName = path.basename(fallbackName || fileId);
+    const baseName = path.basename(fallbackName) || fileId;
     const outputPath = path.join(uploadDir, `${Date.now()}-${baseName}`);
     const data = Buffer.from(await response.arrayBuffer());
     await writeFile(outputPath, data);
