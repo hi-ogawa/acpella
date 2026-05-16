@@ -8,7 +8,7 @@ import { createHandler, type Handler } from "./handler.ts";
 import { parseCli } from "./lib/cli.ts";
 import { CronRunner } from "./lib/cron/runner.ts";
 import { CronStore } from "./lib/cron/store.ts";
-import { downloadTelegramDocument, downloadTelegramPhotoSize } from "./lib/telegram/download-file";
+import { downloadTelegramDocument, downloadTelegramPhotoSize } from "./lib/telegram/file";
 import { markdownToTelegramHtml } from "./lib/telegram/format-html.ts";
 import {
   formatTelegramConversationMetadata,
