@@ -2,12 +2,13 @@ import "temporal-polyfill/global";
 import path from "node:path";
 import { createInterface } from "node:readline/promises";
 import { run } from "@grammyjs/runner";
-import { Bot } from "grammy";
+import { Bot, type Context, type Filter } from "grammy";
 import { loadConfig, type AppConfig } from "./config.ts";
 import { createHandler, type Handler } from "./handler.ts";
 import { parseCli } from "./lib/cli.ts";
 import { CronRunner } from "./lib/cron/runner.ts";
 import { CronStore } from "./lib/cron/store.ts";
+import { downloadTelegramFile } from "./lib/telegram/file";
 import { markdownToTelegramHtml } from "./lib/telegram/format-html.ts";
 import {
   formatTelegramConversationMetadata,
@@ -129,7 +130,8 @@ ${CLI_HELP}`);
     throw new Error("ACPELLA_TELEGRAM_ALLOWED_USER_IDS must be non-empty");
   }
 
-  const bot = new Bot(config.telegram.token);
+  const telegramToken = config.telegram.token;
+  const bot = new Bot(telegramToken);
   const botInfo = await bot.api.getMe();
   const botUsername = botInfo.username;
 
@@ -150,7 +152,16 @@ ${CLI_HELP}`);
     console.error(`${label} (bot error)`, error.error);
   });
 
-  bot.on("message:text", async (ctx) => {
+  async function handleTelegramMessage({
+    ctx,
+    getText,
+  }: {
+    ctx:
+      | Filter<Context, "message:text">
+      | Filter<Context, "message:document">
+      | Filter<Context, "message:photo">;
+    getText: () => Promise<string>;
+  }): Promise<void> {
     const chatId = ctx.chat.id;
     const userId = ctx.from?.id;
     const sessionName = formatTelegramSessionName(ctx);
@@ -164,14 +175,6 @@ ${CLI_HELP}`);
       console.error(`${label} rejected: user ${userId ?? "unknown"} is not allowed`);
       return;
     }
-
-    const text = ctx.message.text;
-    console.log(
-      addIndent({
-        indent: `${label} (request) `,
-        text: truncateString(text, 200),
-      }),
-    );
 
     const chatActionManager = new TelegramChatActionManager({
       send: () => ctx.replyWithChatAction("typing"),
@@ -201,10 +204,18 @@ ${CLI_HELP}`);
     };
 
     try {
+      const text = await getText();
+      console.log(
+        addIndent({
+          indent: `${label} (request) `,
+          text: truncateString(text, 200),
+        }),
+      );
+
       await handler.handle({
         sessionName,
         text: normalizeUserMention({
-          text: ctx.message.text,
+          text,
           username: botUsername,
         }),
         metadata: {
@@ -246,6 +257,49 @@ ${CLI_HELP}`);
       const message = error instanceof Error ? error.message : String(error);
       await replyWithRetry(`${name}: ${truncateString(message, 200)}`);
     }
+  }
+
+  bot.on("message:text", async (ctx) => {
+    await handleTelegramMessage({
+      ctx,
+      getText: async () => ctx.message.text,
+    });
+  });
+
+  bot.on("message:document", async (ctx) => {
+    await handleTelegramMessage({
+      ctx,
+      getText: async () => {
+        const uploadedFilePath = await downloadTelegramFile({
+          bot,
+          fileId: ctx.message.document.file_id,
+          fileName: ctx.message.document.file_name,
+        });
+        return [ctx.message.caption, `[User uploaded file: ${uploadedFilePath}]`]
+          .filter(Boolean)
+          .join("\n\n");
+      },
+    });
+  });
+
+  bot.on("message:photo", async (ctx) => {
+    await handleTelegramMessage({
+      ctx,
+      getText: async () => {
+        const photo = ctx.message.photo.at(-1);
+        if (!photo) {
+          throw new Error("Telegram photo is missing");
+        }
+        const uploadedFilePath = await downloadTelegramFile({
+          bot,
+          fileId: photo.file_id,
+          fileName: `${photo.file_unique_id}.jpg`,
+        });
+        return [ctx.message.caption, `[User uploaded image: ${uploadedFilePath}]`]
+          .filter(Boolean)
+          .join("\n\n");
+      },
+    });
   });
 
   console.log(`Starting service (version: ${version}, home: ${config.home})`);
