@@ -8,7 +8,7 @@ import { createHandler, type Handler } from "./handler.ts";
 import { parseCli } from "./lib/cli.ts";
 import { CronRunner } from "./lib/cron/runner.ts";
 import { CronStore } from "./lib/cron/store.ts";
-import { downloadTelegramFile } from "./lib/telegram/download-file";
+import { downloadTelegramDocument, downloadTelegramPhotoSize } from "./lib/telegram/download-file";
 import { markdownToTelegramHtml } from "./lib/telegram/format-html.ts";
 import {
   formatTelegramConversationMetadata,
@@ -156,7 +156,10 @@ ${CLI_HELP}`);
     ctx,
     getText,
   }: {
-    ctx: Filter<Context, "message:text"> | Filter<Context, "message:document">;
+    ctx:
+      | Filter<Context, "message:text">
+      | Filter<Context, "message:document">
+      | Filter<Context, "message:photo">;
     getText: () => Promise<string>;
   }): Promise<void> {
     const chatId = ctx.chat.id;
@@ -267,11 +270,30 @@ ${CLI_HELP}`);
     await handleTelegramMessage({
       ctx,
       getText: async () => {
-        const uploadedFilePath = await downloadTelegramFile({
+        const uploadedFilePath = await downloadTelegramDocument({
           bot,
           document: ctx.message.document,
         });
         return [ctx.message.caption, `[User uploaded file: ${uploadedFilePath}]`]
+          .filter(Boolean)
+          .join("\n\n");
+      },
+    });
+  });
+
+  bot.on("message:photo", async (ctx) => {
+    await handleTelegramMessage({
+      ctx,
+      getText: async () => {
+        const photo = ctx.message.photo.at(-1);
+        if (!photo) {
+          throw new Error("Telegram photo is missing");
+        }
+        const uploadedFilePath = await downloadTelegramPhotoSize({
+          bot,
+          photoSize: photo,
+        });
+        return [ctx.message.caption, `[User uploaded image: ${uploadedFilePath}]`]
           .filter(Boolean)
           .join("\n\n");
       },
