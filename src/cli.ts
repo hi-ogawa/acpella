@@ -8,7 +8,7 @@ import { createHandler, type Handler } from "./handler.ts";
 import { parseCli } from "./lib/cli.ts";
 import { CronRunner } from "./lib/cron/runner.ts";
 import { CronStore } from "./lib/cron/store.ts";
-import { downloadTelegramDocument, downloadTelegramPhotoSize } from "./lib/telegram/file";
+import { downloadTelegramFile } from "./lib/telegram/file";
 import { markdownToTelegramHtml } from "./lib/telegram/format-html.ts";
 import {
   formatTelegramConversationMetadata,
@@ -270,9 +270,10 @@ ${CLI_HELP}`);
     await handleTelegramMessage({
       ctx,
       getText: async () => {
-        const uploadedFilePath = await downloadTelegramDocument({
+        const uploadedFilePath = await downloadTelegramFile({
           bot,
-          document: ctx.message.document,
+          fileId: ctx.message.document.file_id,
+          fileName: ctx.message.document.file_name,
         });
         return [ctx.message.caption, `[User uploaded file: ${uploadedFilePath}]`]
           .filter(Boolean)
@@ -289,9 +290,10 @@ ${CLI_HELP}`);
         if (!photo) {
           throw new Error("Telegram photo is missing");
         }
-        const uploadedFilePath = await downloadTelegramPhotoSize({
+        const uploadedFilePath = await downloadTelegramFile({
           bot,
-          photoSize: photo,
+          fileId: photo.file_id,
+          fileName: `${photo.file_unique_id}.jpg`,
         });
         return [ctx.message.caption, `[User uploaded image: ${uploadedFilePath}]`]
           .filter(Boolean)
