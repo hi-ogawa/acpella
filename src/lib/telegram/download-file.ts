@@ -1,7 +1,6 @@
-import { createWriteStream, mkdirSync } from "node:fs";
+import fs from "node:fs";
 import path from "node:path";
 import { Readable } from "node:stream";
-import { pipeline } from "node:stream/promises";
 import type { Bot } from "grammy";
 import type { Document } from "grammy/types";
 
@@ -26,13 +25,13 @@ export async function downloadTelegramFile({
   if (!response.body) {
     throw new Error(`Failed to download Telegram file: response body is missing`);
   }
-  mkdirSync(TELEGRAM_UPLOAD_DIR, { recursive: true });
+  fs.mkdirSync(TELEGRAM_UPLOAD_DIR, { recursive: true });
   const fallbackName = document.file_name ?? path.basename(file.file_path);
   const baseName = path.basename(fallbackName) || document.file_id;
   const outputPath = path.join(
     TELEGRAM_UPLOAD_DIR,
     `${Date.now()}-${document.file_id}-${baseName}`,
   );
-  await pipeline(Readable.fromWeb(response.body as any), createWriteStream(outputPath));
+  await fs.promises.writeFile(outputPath, Readable.fromWeb(response.body as any));
   return outputPath;
 }
