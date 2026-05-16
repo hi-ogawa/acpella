@@ -2,7 +2,7 @@ import "temporal-polyfill/global";
 import path from "node:path";
 import { createInterface } from "node:readline/promises";
 import { run } from "@grammyjs/runner";
-import { Bot } from "grammy";
+import { Bot, type Context } from "grammy";
 import { loadConfig, type AppConfig } from "./config.ts";
 import { createHandler, type Handler } from "./handler.ts";
 import { parseCli } from "./lib/cli.ts";
@@ -152,105 +152,16 @@ ${CLI_HELP}`);
     console.error(`${label} (bot error)`, error.error);
   });
 
-  bot.on("message:text", async (ctx) => {
-    const chatId = ctx.chat.id;
-    const userId = ctx.from?.id;
-    const sessionName = formatTelegramSessionName(ctx);
-    const label = `[${sessionName}:${ctx.message.message_id}]`;
-
-    if (allowedChats.size && !allowedChats.has(chatId)) {
-      console.error(`${label} rejected: chat ${chatId} is not allowed`);
-      return;
-    }
-    if (!userId || (allowedUsers.size && !allowedUsers.has(userId))) {
-      console.error(`${label} rejected: user ${userId ?? "unknown"} is not allowed`);
-      return;
-    }
-
-    const text = ctx.message.text;
-    console.log(
-      addIndent({
-        indent: `${label} (request) `,
-        text: truncateString(text, 200),
-      }),
-    );
-
-    const chatActionManager = new TelegramChatActionManager({
-      send: () => ctx.replyWithChatAction("typing"),
-      logLabel: label,
-    });
-    chatActionManager.start();
-
-    const replyWithRetry = async (...args: Parameters<typeof ctx.reply>) => {
-      try {
-        return await ctx.reply(...args);
-      } catch (error) {
-        // rethrow non rate limit errors
-        const retryAfter = getTelegramRetryAfter(error);
-        if (!retryAfter) {
-          throw error;
-        }
-        console.error(`${label} reply failed. retrying...`, {
-          args,
-          error,
-          retryAfter,
-        });
-        await sleep((retryAfter + 1) * 1000);
-        return await ctx.reply(...args);
-      }
+  async function handleTelegramMessage({
+    ctx,
+    getText,
+  }: {
+    ctx: Context & {
+      chat: NonNullable<Context["chat"]>;
+      message: NonNullable<Context["message"]>;
     };
-
-    try {
-      await handler.handle({
-        sessionName,
-        text: normalizeUserMention({
-          text: ctx.message.text,
-          username: botUsername,
-        }),
-        metadata: {
-          promptMetadata: {
-            timestamp: ctx.message.date * 1000,
-            channel: formatTelegramConversationMetadata(ctx),
-          },
-          cronDeliveryTarget: {
-            telegram: {
-              chatId,
-              messageThreadId: ctx.message.message_thread_id,
-            },
-          },
-        },
-        send: async (replyText) => {
-          const html = markdownToTelegramHtml(replyText);
-          try {
-            return await replyWithRetry(html, {
-              parse_mode: "HTML",
-            });
-          } catch (error) {
-            // rethrow rate limit errors
-            if (getTelegramRetryAfter(error)) {
-              throw error;
-            }
-            console.error(`${label} formatted reply failed; falling back to raw text:`, error);
-            return await replyWithRetry(replyText);
-          }
-        },
-      });
-      console.log(`${label} (response ok)`);
-    } catch (error) {
-      if (getTelegramRetryAfter(error)) {
-        console.error(`${label} reply failed due to rate limit.`, error);
-        return;
-      }
-      console.error(`${label} (response error)`, error);
-      const name = error instanceof Error ? error.name : "Error";
-      const message = error instanceof Error ? error.message : String(error);
-      await replyWithRetry(`${name}: ${truncateString(message, 200)}`);
-    } finally {
-      chatActionManager.stop();
-    }
-  });
-
-  bot.on("message:document", async (ctx) => {
+    getText: () => Promise<{ text: string; logText?: string }> | { text: string; logText?: string };
+  }): Promise<void> {
     const chatId = ctx.chat.id;
     const userId = ctx.from?.id;
     const sessionName = formatTelegramSessionName(ctx);
@@ -291,19 +202,11 @@ ${CLI_HELP}`);
     };
 
     try {
-      const uploadedFilePath = await downloadTelegramFile({
-        bot,
-        document: ctx.message.document,
-      });
-      const caption = normalizeUserMention({
-        text: ctx.message.caption ?? "",
-        username: botUsername,
-      });
-      const text = `${caption}${caption ? "\n\n" : ""}[User uploaded file: ${uploadedFilePath}]`;
+      const { text, logText = text } = await getText();
       console.log(
         addIndent({
           indent: `${label} (request) `,
-          text: truncateString(text, 200),
+          text: truncateString(logText, 200),
         }),
       );
 
@@ -351,6 +254,37 @@ ${CLI_HELP}`);
     } finally {
       chatActionManager.stop();
     }
+  }
+
+  bot.on("message:text", async (ctx) => {
+    await handleTelegramMessage({
+      ctx,
+      getText: () => ({
+        logText: ctx.message.text,
+        text: normalizeUserMention({
+          text: ctx.message.text,
+          username: botUsername,
+        }),
+      }),
+    });
+  });
+
+  bot.on("message:document", async (ctx) => {
+    await handleTelegramMessage({
+      ctx,
+      getText: async () => {
+        const uploadedFilePath = await downloadTelegramFile({
+          bot,
+          document: ctx.message.document,
+        });
+        const caption = normalizeUserMention({
+          text: ctx.message.caption ?? "",
+          username: botUsername,
+        });
+        const text = `${caption}${caption ? "\n\n" : ""}[User uploaded file: ${uploadedFilePath}]`;
+        return { text };
+      },
+    });
   });
 
   console.log(`Starting service (version: ${version}, home: ${config.home})`);
