@@ -13,6 +13,7 @@ export async function downloadTelegramFile({
   bot: Bot;
   document: Document;
 }): Promise<string> {
+  // https://core.telegram.org/bots/api#getfile
   const file = await bot.api.getFile(document.file_id);
   if (!file.file_path) {
     throw new Error(`Telegram file path is missing for file_id=${document.file_id}`);
@@ -26,8 +27,7 @@ export async function downloadTelegramFile({
     throw new Error(`Failed to download Telegram file: response body is missing`);
   }
   fs.mkdirSync(TELEGRAM_UPLOAD_DIR, { recursive: true });
-  const fallbackName = document.file_name ?? path.basename(file.file_path);
-  const baseName = path.basename(fallbackName) || document.file_id;
+  const baseName = path.basename(document.file_name || file.file_path) || document.file_id;
   const outputPath = path.join(
     TELEGRAM_UPLOAD_DIR,
     `${Date.now()}-${document.file_id}-${baseName}`,
