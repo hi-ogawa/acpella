@@ -271,9 +271,9 @@ ${CLI_HELP}`);
           bot,
           document: ctx.message.document,
         });
-        const caption = ctx.message.caption ?? "";
-        const text = `${caption}${caption ? "\n\n" : ""}[User uploaded file: ${uploadedFilePath}]`;
-        return text;
+        return [ctx.message.caption, `[User uploaded file: ${uploadedFilePath}]`]
+          .filter(Boolean)
+          .join("\n\n");
       },
     });
   });
