@@ -2,7 +2,7 @@ import "temporal-polyfill/global";
 import path from "node:path";
 import { createInterface } from "node:readline/promises";
 import { run } from "@grammyjs/runner";
-import { Bot, type Context } from "grammy";
+import { Bot, type Context, type Filter } from "grammy";
 import { loadConfig, type AppConfig } from "./config.ts";
 import { createHandler, type Handler } from "./handler.ts";
 import { parseCli } from "./lib/cli.ts";
@@ -156,11 +156,8 @@ ${CLI_HELP}`);
     ctx,
     getText,
   }: {
-    ctx: Context & {
-      chat: NonNullable<Context["chat"]>;
-      message: NonNullable<Context["message"]>;
-    };
-    getText: () => Promise<{ text: string; logText?: string }> | { text: string; logText?: string };
+    ctx: Filter<Context, "message:text"> | Filter<Context, "message:document">;
+    getText: () => Promise<{ text: string; logText?: string }>;
   }): Promise<void> {
     const chatId = ctx.chat.id;
     const userId = ctx.from?.id;
@@ -259,7 +256,7 @@ ${CLI_HELP}`);
   bot.on("message:text", async (ctx) => {
     await handleTelegramMessage({
       ctx,
-      getText: () => ({
+      getText: async () => ({
         logText: ctx.message.text,
         text: normalizeUserMention({
           text: ctx.message.text,
