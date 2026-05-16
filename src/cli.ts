@@ -157,7 +157,7 @@ ${CLI_HELP}`);
     getText,
   }: {
     ctx: Filter<Context, "message:text"> | Filter<Context, "message:document">;
-    getText: () => Promise<{ text: string; logText?: string }>;
+    getText: () => Promise<string>;
   }): Promise<void> {
     const chatId = ctx.chat.id;
     const userId = ctx.from?.id;
@@ -199,17 +199,20 @@ ${CLI_HELP}`);
     };
 
     try {
-      const { text, logText = text } = await getText();
+      const text = await getText();
       console.log(
         addIndent({
           indent: `${label} (request) `,
-          text: truncateString(logText, 200),
+          text: truncateString(text, 200),
         }),
       );
 
       await handler.handle({
         sessionName,
-        text,
+        text: normalizeUserMention({
+          text,
+          username: botUsername,
+        }),
         metadata: {
           promptMetadata: {
             timestamp: ctx.message.date * 1000,
@@ -256,13 +259,7 @@ ${CLI_HELP}`);
   bot.on("message:text", async (ctx) => {
     await handleTelegramMessage({
       ctx,
-      getText: async () => ({
-        logText: ctx.message.text,
-        text: normalizeUserMention({
-          text: ctx.message.text,
-          username: botUsername,
-        }),
-      }),
+      getText: async () => ctx.message.text,
     });
   });
 
@@ -274,12 +271,9 @@ ${CLI_HELP}`);
           bot,
           document: ctx.message.document,
         });
-        const caption = normalizeUserMention({
-          text: ctx.message.caption ?? "",
-          username: botUsername,
-        });
+        const caption = ctx.message.caption ?? "";
         const text = `${caption}${caption ? "\n\n" : ""}[User uploaded file: ${uploadedFilePath}]`;
-        return { text };
+        return text;
       },
     });
   });
