@@ -47,6 +47,7 @@ class OpencodeAcpAgent implements Agent {
 
   private async getServer(): Promise<OpencodeServer> {
     // Match OpenCode's ACP mode so interactive-only tools like question are not registered.
+    // https://github.com/anomalyco/opencode/blob/b5aed287cae33f5cbfd1e4f512869faa93f82507/packages/opencode/src/cli/cmd/acp.ts#L24
     process.env.OPENCODE_CLIENT = "acp";
     this.server ??= await createOpencodeServer({
       port: 0,
