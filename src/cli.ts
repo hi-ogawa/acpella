@@ -181,6 +181,8 @@ ${CLI_HELP}`);
       logLabel: label,
     });
     chatActionManager.start();
+    await using cleanup = new AsyncDisposableStack();
+    cleanup.defer(() => chatActionManager.stop());
 
     const replyWithRetry = async (...args: Parameters<typeof ctx.reply>) => {
       try {
@@ -254,8 +256,6 @@ ${CLI_HELP}`);
       const name = error instanceof Error ? error.name : "Error";
       const message = error instanceof Error ? error.message : String(error);
       await replyWithRetry(`${name}: ${truncateString(message, 200)}`);
-    } finally {
-      chatActionManager.stop();
     }
   }
 
@@ -335,7 +335,7 @@ async function startRepl({
     }
   }
 
-  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  using rl = createInterface({ input: process.stdin, output: process.stdout });
 
   let cancelRequested = false;
   rl.on("SIGINT", () => {
@@ -364,8 +364,6 @@ async function startRepl({
     if (!(e instanceof Error && e.name === "AbortError")) {
       throw e;
     }
-  } finally {
-    rl.close();
   }
 }
 
