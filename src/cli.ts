@@ -1,5 +1,4 @@
 import "temporal-polyfill/global";
-import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { createInterface } from "node:readline/promises";
 import { run } from "@grammyjs/runner";
@@ -9,6 +8,7 @@ import { createHandler, type Handler } from "./handler.ts";
 import { parseCli } from "./lib/cli.ts";
 import { CronRunner } from "./lib/cron/runner.ts";
 import { CronStore } from "./lib/cron/store.ts";
+import { downloadTelegramFile } from "./lib/telegram/download-file";
 import { markdownToTelegramHtml } from "./lib/telegram/format-html.ts";
 import {
   formatTelegramConversationMetadata,
@@ -32,7 +32,6 @@ Options:
   --env-file <path> Use this env file for config resolution.
   -h, --help        Show this help.
 `;
-const TELEGRAM_UPLOAD_DIR = "/tmp/acpella-uploads";
 
 async function main() {
   const cliArgv = process.argv.slice(2);
@@ -131,7 +130,8 @@ ${CLI_HELP}`);
     throw new Error("ACPELLA_TELEGRAM_ALLOWED_USER_IDS must be non-empty");
   }
 
-  const bot = new Bot(config.telegram.token);
+  const telegramToken = config.telegram.token;
+  const bot = new Bot(telegramToken);
   const botInfo = await bot.api.getMe();
   const botUsername = botInfo.username;
 
@@ -151,31 +151,6 @@ ${CLI_HELP}`);
     const label = `[${sessionName}:${ctx.message?.message_id ?? "unknown"}]`;
     console.error(`${label} (bot error)`, error.error);
   });
-
-  async function downloadTelegramFile({
-    fileId,
-    fileName,
-  }: {
-    fileId: string;
-    fileName?: string;
-  }): Promise<string> {
-    const file = await bot.api.getFile(fileId);
-    if (!file.file_path) {
-      throw new Error(`Telegram file path is missing for file_id=${fileId}`);
-    }
-    const url = `https://api.telegram.org/file/bot${config.telegram.token}/${file.file_path}`;
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Failed to download Telegram file: ${response.status} ${response.statusText}`);
-    }
-    await mkdir(TELEGRAM_UPLOAD_DIR, { recursive: true });
-    const fallbackName = fileName ?? path.basename(file.file_path);
-    const baseName = path.basename(fallbackName) || fileId;
-    const outputPath = path.join(TELEGRAM_UPLOAD_DIR, `${Date.now()}-${fileId}-${baseName}`);
-    const data = Buffer.from(await response.arrayBuffer());
-    await writeFile(outputPath, data);
-    return outputPath;
-  }
 
   bot.on("message:text", async (ctx) => {
     const chatId = ctx.chat.id;
@@ -317,8 +292,8 @@ ${CLI_HELP}`);
 
     try {
       const uploadedFilePath = await downloadTelegramFile({
-        fileId: ctx.message.document.file_id,
-        fileName: ctx.message.document.file_name,
+        bot,
+        document: ctx.message.document,
       });
       const caption = normalizeUserMention({
         text: ctx.message.caption ?? "",
