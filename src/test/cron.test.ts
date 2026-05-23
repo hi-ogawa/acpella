@@ -519,7 +519,12 @@ test("cron error delivery", async ({ onTestFinished }) => {
     session_name: test
 
     Error:
-    RequestError: { message: 'Internal error' }
+    RequestError: {
+      message: 'Internal error',
+      code: -32603,
+      data: { details: 'simulated error' },
+      name: 'RequestError'
+    }
     ",
     ]
   `);
@@ -533,7 +538,12 @@ test("cron error delivery", async ({ onTestFinished }) => {
     target session: test
     delivery target: repl
     next: 2026-04-18T07:02:00+07:00
-    last: failed, scheduled 2026-04-18T07:01:00+07:00, finished 2026-04-18T07:01:00+07:00, error: RequestError: { message: 'Internal error' }
+    last: failed, scheduled 2026-04-18T07:01:00+07:00, finished 2026-04-18T07:01:00+07:00, error: RequestError: {
+      message: 'Internal error',
+      code: -32603,
+      data: { details: 'simulated error' },
+      name: 'RequestError'
+    }
     prompt: __throw_error__"
   `);
   expect(await session.request("/cron list --compact")).toMatchInlineSnapshot(`
@@ -921,7 +931,12 @@ test("cron one-shot: disabled after failed run", async ({ onTestFinished }) => {
     target session: test
     delivery target: repl
     next: none
-    last: failed, scheduled 2026-04-18T07:01:00+07:00, finished 2026-04-18T07:01:00+07:00, error: RequestError: { message: 'Internal error' }
+    last: failed, scheduled 2026-04-18T07:01:00+07:00, finished 2026-04-18T07:01:00+07:00, error: RequestError: {
+      message: 'Internal error',
+      code: -32603,
+      data: { details: 'simulated error' },
+      name: 'RequestError'
+    }
     prompt: __throw_error__"
   `);
 });
