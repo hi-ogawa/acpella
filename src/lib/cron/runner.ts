@@ -1,5 +1,6 @@
 import { FileWatcher } from "../../utils/fs.ts";
 import { formatError, formatTime } from "../../utils/index.ts";
+import { stringifyError } from "../../utils/node.ts";
 import type { CronJob, CronStore, CronDeliveryTarget } from "./store.ts";
 import { CronScheduler, type CronDueEvent } from "./timer.ts";
 
@@ -119,7 +120,7 @@ ${response}`;
       });
     } catch (error) {
       console.error(`[cron] Failed to run cron '${job.id}':`, error);
-      const errorMessage = formatError(error);
+      const errorMessage = stringifyError(error);
       store.updateRun(run.id, {
         finishedAt: formatTime(Date.now()),
         status: "failed",

@@ -19,6 +19,7 @@ import {
 } from "./lib/telegram/utils.ts";
 import { getVersion } from "./lib/version.ts";
 import { addIndent, sleep, truncateString } from "./utils/index.ts";
+import { stringifyError } from "./utils/node.ts";
 
 const CLI_HELP = `\
 Usage: acpella [command]
@@ -253,9 +254,7 @@ ${CLI_HELP}`);
         return;
       }
       console.error(`${label} (response error)`, error);
-      const name = error instanceof Error ? error.name : "Error";
-      const message = error instanceof Error ? error.message : String(error);
-      await replyWithRetry(`${name}: ${truncateString(message, 200)}`);
+      await replyWithRetry(`[acpella error]\n${truncateString(stringifyError(error), 2000)}`);
     }
   }
 
