@@ -2,12 +2,10 @@ import { inspect } from "node:util";
 
 export function stringifyError(error: unknown): string {
   if (error instanceof Error) {
-    const fields: Record<PropertyKey, unknown> = {};
-    Object.assign(fields, error);
-    delete fields.message;
+    const { message, ...fields } = error;
     return `${error.name}: ${inspect(
       {
-        message: error.message,
+        message,
         ...fields,
       },
       { depth: 10 },
