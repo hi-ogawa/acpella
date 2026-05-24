@@ -24,6 +24,7 @@
     "lint-dead-code": "fallow dead-code --unused-exports --unused-types"
   },
   "dependencies": {
+    "@agentclientprotocol/sdk": "^0.18.2",
     "@grammyjs/runner": "^2.0.3",
     "@opencode-ai/sdk": "^1.14.29",
     "croner": "^10.0.1",
@@ -36,13 +37,10 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@agentclientprotocol/sdk": "^0.18.2",
     "@types/mdast": "^4.0.4",
     "@types/node": "^24.12.2",
     "@vitest/coverage-v8": "^4.1.4",
     "@vitest/ui": "^4.1.4",
-    "@zed-industries/codex-acp": "^0.11.1",
-    "acpx": "^0.5.3",
     "fallow": "^2.50.0",
     "typescript": "^6.0.2",
     "vite-plus": "^0.1.16",
