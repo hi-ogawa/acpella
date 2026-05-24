@@ -83,6 +83,7 @@ export function renderSessionInfo(options: {
   usage?: AgentSessionUsage;
   timezone: string;
   indent?: string;
+  activeTurn?: boolean;
 }): string {
   let lines = [
     `session: ${options.name}`,
@@ -94,6 +95,9 @@ export function renderSessionInfo(options: {
       timezone: options.timezone,
     })}`,
   ];
+  if (options.activeTurn !== undefined) {
+    lines.push(`active turn: ${options.activeTurn ? "yes" : "no"}`);
+  }
   if (options.usage) {
     lines.push(renderSessionContextUsage(options.usage));
   }

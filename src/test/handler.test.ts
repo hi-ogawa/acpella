@@ -3,7 +3,6 @@ Coverage checklist:
 
 - /status
   - [x] output, including default agent
-  - [x] shows in-flight sessions
 - /service
   - [x] usage output
   - [x] exit calls onServiceExit
@@ -13,7 +12,9 @@ Coverage checklist:
   - [ ] active turn fallback kill path
 - /session
   - [x] info
+  - [x] info shows active turn
   - [x] info includes verbose status
+  - [x] list shows active turn
   - [x] new with default agent
   - [ ] new with named agent
   - [x] new resets agentSessionId before creating a fresh ACP session
@@ -240,36 +241,52 @@ test("cancel command", async () => {
   `);
 });
 
-test("status shows in-flight sessions", async () => {
+test("session info and list show active turn", async () => {
   const tester = await createHandlerTester();
   const session = tester.createSession("test");
 
   const result = session.requestStream("__wait_cancel__");
   await expect.poll(() => result.replies).toMatchObject({ length: 1 });
 
-  expect(await session.request("/status")).toMatchInlineSnapshot(`
+  expect(await session.request("/session info")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    status: running
-    version: v1.0.0-test
-    default agent: test
-    env file: (none)
-    home: <home>
-    current session: test
-    in-flight sessions:
-    - test -> test:__testSession1"
+    session: test
+    agent: test
+    agent session id: __testSession1
+    verbose: thinking
+    renew: off
+    active turn: yes"
+  `);
+  expect(await session.request("/session list")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    - session: test
+      agent: test
+      agent session id: __testSession1
+      verbose: thinking
+      renew: off
+      active turn: yes"
   `);
 
   await session.request("/cancel");
   await result.promise;
 
-  expect(await session.request("/status")).toMatchInlineSnapshot(`
+  expect(await session.request("/session info")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    status: running
-    version: v1.0.0-test
-    default agent: test
-    env file: (none)
-    home: <home>
-    current session: test"
+    session: test
+    agent: test
+    agent session id: __testSession1
+    verbose: thinking
+    renew: off
+    active turn: no"
+  `);
+  expect(await session.request("/session list")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    - session: test
+      agent: test
+      agent session id: __testSession1
+      verbose: thinking
+      renew: off
+      active turn: no"
   `);
 });
 
@@ -340,7 +357,8 @@ test("session commands", async () => {
     agent: test
     agent session id: none
     verbose: thinking
-    renew: off"
+    renew: off
+    active turn: no"
   `);
   expect(await session.request("/session list")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -353,7 +371,8 @@ test("session commands", async () => {
     agent: test
     agent session id: __testSession1
     verbose: thinking
-    renew: off"
+    renew: off
+    active turn: no"
   `);
   expect(await session.request("/session list")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -361,7 +380,8 @@ test("session commands", async () => {
       agent: test
       agent session id: __testSession1
       verbose: thinking
-      renew: off"
+      renew: off
+      active turn: no"
   `);
   expect(await session.request("/session load")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -378,7 +398,8 @@ test("session commands", async () => {
     agent: test
     agent session id: __testSession2
     verbose: thinking
-    renew: off"
+    renew: off
+    active turn: no"
   `);
   expect(await session.request("__session")).toMatchInlineSnapshot(`"session: __testSession2"`);
   expect(await session.request("/session list")).toMatchInlineSnapshot(`
@@ -387,7 +408,8 @@ test("session commands", async () => {
       agent: test
       agent session id: __testSession2
       verbose: thinking
-      renew: off"
+      renew: off
+      active turn: no"
   `);
   expect(await session.request("/agent sessions")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -410,7 +432,8 @@ test("session commands", async () => {
     agent: test
     agent session id: __testSession3
     verbose: thinking
-    renew: off"
+    renew: off
+    active turn: no"
   `);
   expect(await session.request("/session new --target other")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -422,7 +445,8 @@ test("session commands", async () => {
     agent: test
     agent session id: none
     verbose: thinking
-    renew: off"
+    renew: off
+    active turn: no"
   `);
   expect(await session.request("/session info")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -430,7 +454,8 @@ test("session commands", async () => {
     agent: test
     agent session id: __testSession2
     verbose: thinking
-    renew: off"
+    renew: off
+    active turn: no"
   `);
   // /session info with explicit target sessionName: does not exist
   expect(await session.request("/session info --target no-such-session")).toMatchInlineSnapshot(`
@@ -461,7 +486,8 @@ test("session context usage", async () => {
     agent: test
     agent session id: __testSession1
     verbose: thinking
-    renew: off"
+    renew: off
+    active turn: no"
   `);
 
   // Send a usage_update
@@ -477,6 +503,7 @@ test("session context usage", async () => {
     agent session id: __testSession1
     verbose: thinking
     renew: off
+    active turn: no
     context: 54321 / 200000 tokens (27%)"
   `);
   expect(tester.readStateFile()).toMatchInlineSnapshot(`
@@ -557,7 +584,8 @@ test("session config toggles verbose output", async () => {
     agent: test
     agent session id: __testSession1
     verbose: thinking
-    renew: off"
+    renew: off
+    active turn: no"
   `);
   expect(await session.request("/session config verbose=tool")).toMatchInlineSnapshot(`
       "[⚙️ System]
@@ -742,7 +770,8 @@ test("agent command", async () => {
     agent: test-error
     agent session id: none
     verbose: thinking
-    renew: off"
+    renew: off
+    active turn: no"
   `);
   expect(await session.request("/agent remove test-error")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -760,7 +789,8 @@ test("agent command", async () => {
     agent: test2
     agent session id: __testSession1
     verbose: thinking
-    renew: off"
+    renew: off
+    active turn: no"
   `);
   expect(await session.request("/session list")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -768,7 +798,8 @@ test("agent command", async () => {
       agent: test2
       agent session id: __testSession1
       verbose: thinking
-      renew: off"
+      renew: off
+      active turn: no"
   `);
   expect(await session.request("/agent remove test-error")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -807,7 +838,8 @@ test("agent command", async () => {
     agent: test
     agent session id: __testSession1
     verbose: thinking
-    renew: off"
+    renew: off
+    active turn: no"
   `);
   expect(await session.request("/session close test2:__testSession1")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -844,7 +876,8 @@ test("agent command", async () => {
     agent: test2
     agent session id: __testSession2
     verbose: thinking
-    renew: off"
+    renew: off
+    active turn: no"
   `);
   expect(await session.request("/session new --target other test")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -856,7 +889,8 @@ test("agent command", async () => {
     agent: test
     agent session id: none
     verbose: thinking
-    renew: off"
+    renew: off
+    active turn: no"
   `);
   expect(await session2.request("hello2")).toMatchInlineSnapshot(`"echo: hello2"`);
   expect(await session.request("/session info --target other")).toMatchInlineSnapshot(`
@@ -865,7 +899,8 @@ test("agent command", async () => {
     agent: test
     agent session id: __testSession3
     verbose: thinking
-    renew: off"
+    renew: off
+    active turn: no"
   `);
   expect(await session.request("/session new --target other no-such-agent")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -877,7 +912,8 @@ test("agent command", async () => {
     agent: test
     agent session id: __testSession3
     verbose: thinking
-    renew: off"
+    renew: off
+    active turn: no"
   `);
 });
 

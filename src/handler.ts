@@ -244,6 +244,7 @@ export async function createHandler(
           session: stateSession,
           usage: stateStore.getAgentSessionUsageByName(sessionName),
           timezone: config.timezone,
+          activeTurn: activeSessions.has(sessionName),
         });
         await reply.system(output);
       },
@@ -262,6 +263,7 @@ export async function createHandler(
             usage: stateStore.getAgentSessionUsageByName(sessionName),
             timezone: config.timezone,
             indent: "  ",
+            activeTurn: activeSessions.has(sessionName),
           });
           entries.push(output.replace(/^  /, "- "));
         }
@@ -761,24 +763,13 @@ enabled jobs: ${enabledJobs.length}
         usage: "/status",
         description: "Show service status.",
         run: async ({ reply, sessionName }) => {
-          const inFlightSessions = [...activeSessions.entries()]
-            .map(([sessionName, session]) => {
-              const stateSession = stateStore.getSession(sessionName);
-              return `- ${sessionName} -> ${toAgentSessionKey({
-                agentKey: stateSession.agentKey,
-                agentSessionId: session.sessionId,
-              })}`;
-            })
-            .join("\n");
           await reply.system(`\
 status: running
 version: ${handlerOptions.version ?? "(unknown)"}
 default agent: ${stateStore.get().defaultAgent}
 env file: ${config.envFile ?? "(none)"}
 home: ${config.home}
-current session: ${sessionName}
-${inFlightSessions ? `in-flight sessions:\n${inFlightSessions}` : ""}
-`);
+current session: ${sessionName}`);
         },
       },
     ],
