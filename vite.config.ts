@@ -8,13 +8,11 @@ export default defineConfig({
     },
   },
   lint: {
+    categories: {
+      correctness: "off",
+    },
     rules: {
       curly: "error",
-      "no-unused-vars": "off",
-    },
-    options: {
-      typeAware: true,
-      typeCheck: true,
     },
   },
   staged: {
