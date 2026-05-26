@@ -27,7 +27,7 @@
   "dependencies": {
     "@agentclientprotocol/sdk": "^0.18.2",
     "@grammyjs/runner": "^2.0.3",
-    "@opencode-ai/sdk": "^1.14.29",
+    "@opencode-ai/sdk": "^1.15.10",
     "croner": "^10.0.1",
     "grammy": "^1.42.0",
     "mdast-util-from-markdown": "^2.0.3",
