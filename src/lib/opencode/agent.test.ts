@@ -79,6 +79,7 @@ it("stops the opencode server child process when the adapter stops", async () =>
 
 it("model options", async () => {
   // https://opencode.ai/docs/models/#configure-models
+  // https://github.com/anomalyco/opencode/blob/dbb787232605f5293945edc5b1ac14856e5d43e3/packages/llm/src/providers/openai-options.ts#L7
   const { root } = useFs({ prefix: "opencode-acp-model-options" });
   const manager = new AgentManager({
     command: `${OPENCODE_ACP_COMMAND} --model openai/gpt-5.2 --model-option reasoningEffort=low`,
