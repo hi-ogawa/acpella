@@ -451,11 +451,10 @@ Options:
     if (!modelParts) {
       throw new Error("--model-option requires --model in <provider/model> format");
     }
-    const [providerID, modelID] = modelParts;
     config.provider = {
-      [providerID]: {
+      [modelParts[0]]: {
         models: {
-          [modelID]: {
+          [modelParts[1]]: {
             options,
           },
         },
