@@ -30,6 +30,7 @@ import {
   type ServerOptions,
   type ToolPart,
 } from "@opencode-ai/sdk/v2";
+import { splitOnce } from "../../utils/index.ts";
 
 type OpencodeServer = Awaited<ReturnType<typeof createOpencodeServer>>;
 
@@ -351,14 +352,6 @@ async function getModel(
   return provider?.models[options.modelID];
 }
 
-function splitOnce(value: string, separator: string): [string, string] | undefined {
-  const separatorIndex = value.indexOf(separator);
-  if (separatorIndex < 0) {
-    return undefined;
-  }
-  return [value.slice(0, separatorIndex), value.slice(separatorIndex + separator.length)];
-}
-
 const TOOL_KIND_BY_NAME: Record<string, ToolKind> = {
   bash: "execute",
   glob: "search",
@@ -448,15 +441,14 @@ Options:
     }
     const options: Record<string, string> = {};
     for (const entry of modelOptionArgs) {
-      const parts = splitOnce(entry, "=");
-      const key = parts?.[0].trim();
-      if (!parts || !key) {
+      const kv = splitOnce(entry, "=");
+      if (!kv) {
         throw new Error(`Invalid --model-option "${entry}". Expected key=value.`);
       }
-      options[key] = parts[1];
+      options[kv[0]] = kv[1];
     }
     const modelParts = splitOnce(model, "/");
-    if (!modelParts || !modelParts[0] || !modelParts[1]) {
+    if (!modelParts) {
       throw new Error("--model-option requires --model in <provider/model> format");
     }
     const [providerID, modelID] = modelParts;

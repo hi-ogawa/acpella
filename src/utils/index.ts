@@ -12,6 +12,13 @@ export function addIndent({ text, indent }: { text: string; indent: string }): s
     .join("\n");
 }
 
+export function splitOnce(value: string, sep: string): [string, string] | undefined {
+  const i = value.indexOf(sep);
+  if (i >= 0) {
+    return [value.slice(0, i), value.slice(i + sep.length)];
+  }
+}
+
 export function objectPickBy<K extends PropertyKey, V>(
   o: Record<K, V>,
   f: (v: V, k: K) => boolean,
