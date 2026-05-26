@@ -33,18 +33,13 @@ import {
 
 type OpencodeServer = Awaited<ReturnType<typeof createOpencodeServer>>;
 
-type OpencodeAcpAgentOptions = {
-  model?: string;
-  modelOptions?: Record<string, string>;
-};
-
 class OpencodeAcpAgent implements Agent {
   private server?: OpencodeServer;
   private sessions = new Map<string, Session>();
 
   constructor(
     private connection: AgentSideConnection,
-    private options: OpencodeAcpAgentOptions,
+    private config: ServerOptions["config"],
   ) {}
 
   private async getServer(): Promise<OpencodeServer> {
@@ -54,7 +49,7 @@ class OpencodeAcpAgent implements Agent {
     this.server ??= await createOpencodeServer({
       port: 0,
       timeout: 10000,
-      config: createOpencodeConfig(this.options),
+      config: this.config,
     });
     return this.server;
   }
@@ -356,33 +351,6 @@ async function getModel(
   return provider?.models[options.modelID];
 }
 
-function createOpencodeConfig(options: OpencodeAcpAgentOptions) {
-  const config: ServerOptions["config"] = {
-    model: options.model,
-    permission: {
-      question: "deny",
-    },
-  };
-
-  if (options.modelOptions && Object.keys(options.modelOptions).length > 0) {
-    if (!options.model) {
-      throw new Error("--model-option requires --model <provider/model>");
-    }
-    const parsedModel = parseModelID(options.model);
-    config.provider = {
-      [parsedModel.providerID]: {
-        models: {
-          [parsedModel.modelID]: {
-            options: options.modelOptions,
-          },
-        },
-      },
-    };
-  }
-
-  return config;
-}
-
 function parseModelID(model: string): { providerID: string; modelID: string } {
   const separatorIndex = model.indexOf("/");
   if (separatorIndex <= 0 || separatorIndex === model.length - 1) {
@@ -469,19 +437,39 @@ Options:
   }
 
   const modelOptionEntries = parsed.values["model-option"] ?? [];
-  const options: OpencodeAcpAgentOptions = {
-    model: parsed.values.model,
-    modelOptions: Object.fromEntries(
-      modelOptionEntries.map((entry) => {
-        const separatorIndex = entry.indexOf("=");
-        const key = entry.slice(0, separatorIndex).trim();
-        if (separatorIndex <= 0 || !key) {
-          throw new Error(`Invalid --model-option "${entry}". Expected key=value.`);
-        }
-        return [key, entry.slice(separatorIndex + 1)];
-      }),
-    ),
+  const model = parsed.values.model;
+  if (modelOptionEntries.length > 0 && !model) {
+    throw new Error("--model-option requires --model <provider/model>");
+  }
+  const parsedModel = modelOptionEntries.length > 0 ? parseModelID(model!) : undefined;
+
+  const config: ServerOptions["config"] = {
+    model,
+    permission: {
+      question: "deny",
+    },
   };
+
+  if (modelOptionEntries.length > 0 && parsedModel) {
+    config.provider = {
+      [parsedModel.providerID]: {
+        models: {
+          [parsedModel.modelID]: {
+            options: Object.fromEntries(
+              modelOptionEntries.map((entry) => {
+                const separatorIndex = entry.indexOf("=");
+                const key = entry.slice(0, separatorIndex).trim();
+                if (separatorIndex <= 0 || !key) {
+                  throw new Error(`Invalid --model-option "${entry}". Expected key=value.`);
+                }
+                return [key, entry.slice(separatorIndex + 1)];
+              }),
+            ),
+          },
+        },
+      },
+    };
+  }
 
   const input = Writable.toWeb(process.stdout);
   const output = Readable.toWeb(process.stdin) as ReadableStream<Uint8Array>;
@@ -489,7 +477,7 @@ Options:
 
   let agent: OpencodeAcpAgent;
   const connection = new AgentSideConnection((connection) => {
-    agent = new OpencodeAcpAgent(connection, options);
+    agent = new OpencodeAcpAgent(connection, config);
     return agent;
   }, stream);
 
