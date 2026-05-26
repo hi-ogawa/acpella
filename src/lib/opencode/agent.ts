@@ -34,6 +34,7 @@ type OpencodeServer = Awaited<ReturnType<typeof createOpencodeServer>>;
 
 type OpencodeAcpAgentOptions = {
   model?: string;
+  modelOptions?: Record<string, unknown>;
 };
 
 class OpencodeAcpAgent implements Agent {
@@ -52,12 +53,7 @@ class OpencodeAcpAgent implements Agent {
     this.server ??= await createOpencodeServer({
       port: 0,
       timeout: 10000,
-      config: {
-        model: this.options.model,
-        permission: {
-          question: "deny",
-        },
-      },
+      config: createOpencodeConfig(this.options),
     });
     return this.server;
   }
@@ -359,6 +355,112 @@ async function getModel(
   return provider?.models[options.modelID];
 }
 
+function createOpencodeConfig(options: OpencodeAcpAgentOptions) {
+  const config: NonNullable<Parameters<typeof createOpencodeServer>[0]>["config"] = {
+    model: options.model,
+    permission: {
+      question: "deny",
+    },
+  };
+
+  if (options.modelOptions && Object.keys(options.modelOptions).length > 0) {
+    if (!options.model) {
+      throw new Error("--model-option requires --model <provider/model>");
+    }
+    const parsedModel = parseModelID(options.model);
+    config.provider = {
+      [parsedModel.providerID]: {
+        models: {
+          [parsedModel.modelID]: {
+            options: options.modelOptions,
+          },
+        },
+      },
+    };
+  }
+
+  return config;
+}
+
+function parseModelID(model: string): { providerID: string; modelID: string } {
+  const separatorIndex = model.indexOf("/");
+  if (separatorIndex <= 0 || separatorIndex === model.length - 1) {
+    throw new Error("--model-option requires --model in <provider/model> format");
+  }
+  return {
+    providerID: model.slice(0, separatorIndex),
+    modelID: model.slice(separatorIndex + 1),
+  };
+}
+
+function parseModelOptions(entries: string[]): Record<string, unknown> | undefined {
+  if (entries.length === 0) {
+    return undefined;
+  }
+
+  const options: Record<string, unknown> = {};
+  for (const entry of entries) {
+    const separatorIndex = entry.indexOf("=");
+    if (separatorIndex <= 0) {
+      throw new Error(`Invalid --model-option "${entry}". Expected key=value.`);
+    }
+
+    const key = entry.slice(0, separatorIndex).trim();
+    if (!key) {
+      throw new Error(`Invalid --model-option "${entry}". Expected key=value.`);
+    }
+
+    setModelOption(options, key, parseModelOptionValue(entry.slice(separatorIndex + 1)));
+  }
+
+  return options;
+}
+
+function setModelOption(target: Record<string, unknown>, key: string, value: unknown): void {
+  const path = key.split(".");
+  let cursor = target;
+  for (const [index, part] of path.entries()) {
+    if (!part) {
+      throw new Error(`Invalid --model-option key "${key}". Empty path segment.`);
+    }
+
+    if (index === path.length - 1) {
+      cursor[part] = value;
+      return;
+    }
+
+    const next = cursor[part];
+    if (!isRecord(next)) {
+      cursor[part] = {};
+    }
+    cursor = cursor[part] as Record<string, unknown>;
+  }
+}
+
+function parseModelOptionValue(value: string): unknown {
+  const trimmed = value.trim();
+  if (trimmed === "true") {
+    return true;
+  }
+  if (trimmed === "false") {
+    return false;
+  }
+  if (/^-?(?:0|[1-9]\d*)(?:\.\d+)?$/.test(trimmed)) {
+    return Number(trimmed);
+  }
+  if (
+    (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
+    (trimmed.startsWith("[") && trimmed.endsWith("]"))
+  ) {
+    return JSON.parse(trimmed);
+  }
+  return value;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 const TOOL_KIND_BY_NAME: Record<string, ToolKind> = {
   bash: "execute",
   glob: "search",
@@ -416,20 +518,27 @@ function main() {
     options: {
       help: { type: "boolean" },
       model: { type: "string" },
+      "model-option": { type: "string", multiple: true },
     },
     strict: true,
     allowPositionals: false,
   });
   if (parsed.values.help) {
     console.log(`\
-Usage: acpella-opencode-acp [--model <provider/model>]
+Usage: acpella-opencode-acp [--model <provider/model>] [--model-option <key=value>...]
 
 Options:
-  --model <provider/model>  Model to use. Example: "openai/gpt-5.5". You can list by running "opencode models".
-  --help                    Show this help
+  --model <provider/model>     Model to use. Example: "openai/gpt-5.5". You can list by running "opencode models".
+  --model-option <key=value>   Per-model OpenCode option for the selected model. Repeatable. Dotted keys create nested objects.
+  --help                       Show this help
 `);
     return;
   }
+
+  const options: OpencodeAcpAgentOptions = {
+    model: parsed.values.model,
+    modelOptions: parseModelOptions(parsed.values["model-option"] ?? []),
+  };
 
   const input = Writable.toWeb(process.stdout);
   const output = Readable.toWeb(process.stdin) as ReadableStream<Uint8Array>;
@@ -437,7 +546,7 @@ Options:
 
   let agent: OpencodeAcpAgent;
   const connection = new AgentSideConnection((connection) => {
-    agent = new OpencodeAcpAgent(connection, parsed.values);
+    agent = new OpencodeAcpAgent(connection, options);
     return agent;
   }, stream);
 
