@@ -77,6 +77,23 @@ it("stops the opencode server child process when the adapter stops", async () =>
   await expect.poll(() => processExists(serverPid)).toBe(false);
 });
 
+it("model options", async () => {
+  // https://opencode.ai/docs/models/#configure-models
+  const { root } = useFs({ prefix: "opencode-acp-model-options" });
+  const manager = new AgentManager({
+    command: `${OPENCODE_ACP_COMMAND} --model openai/gpt-5.2 --model-option reasoningEffort=low`,
+    cwd: root,
+  });
+
+  const session = await manager.newSession({ sessionCwd: root });
+  onTestFinished(() => session.stop());
+
+  const result = session.prompt("Say exactly: world");
+  const updates = await arrayFromAsyncIterator(result.consume());
+  await expect(result.promise).resolves.toEqual({ stopReason: "end_turn" });
+  expect(textFromUpdates(updates).toLowerCase()).toContain("world");
+});
+
 function textFromUpdates(updates: SessionUpdate[]) {
   return updates
     .map((update) => {
