@@ -436,13 +436,7 @@ Options:
     return;
   }
 
-  const modelOptionEntries = parsed.values["model-option"] ?? [];
   const model = parsed.values.model;
-  if (modelOptionEntries.length > 0 && !model) {
-    throw new Error("--model-option requires --model <provider/model>");
-  }
-  const parsedModel = modelOptionEntries.length > 0 ? parseModelID(model!) : undefined;
-
   const config: ServerOptions["config"] = {
     model,
     permission: {
@@ -450,21 +444,26 @@ Options:
     },
   };
 
-  if (modelOptionEntries.length > 0 && parsedModel) {
+  const modelOptionArgs = parsed.values["model-option"] ?? [];
+  if (modelOptionArgs.length > 0) {
+    if (!model) {
+      throw new Error("--model-option requires --model");
+    }
+    const options: Record<string, string> = {};
+    for (const entry of modelOptionArgs) {
+      const separatorIndex = entry.indexOf("=");
+      const key = entry.slice(0, separatorIndex).trim();
+      if (separatorIndex <= 0 || !key) {
+        throw new Error(`Invalid --model-option "${entry}". Expected key=value.`);
+      }
+      options[key] = entry.slice(separatorIndex + 1);
+    }
+    const { providerID, modelID } = parseModelID(model);
     config.provider = {
-      [parsedModel.providerID]: {
+      [providerID]: {
         models: {
-          [parsedModel.modelID]: {
-            options: Object.fromEntries(
-              modelOptionEntries.map((entry) => {
-                const separatorIndex = entry.indexOf("=");
-                const key = entry.slice(0, separatorIndex).trim();
-                if (separatorIndex <= 0 || !key) {
-                  throw new Error(`Invalid --model-option "${entry}". Expected key=value.`);
-                }
-                return [key, entry.slice(separatorIndex + 1)];
-              }),
-            ),
+          [modelID]: {
+            options,
           },
         },
       },
