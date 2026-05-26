@@ -351,15 +351,12 @@ async function getModel(
   return provider?.models[options.modelID];
 }
 
-function parseModelID(model: string): { providerID: string; modelID: string } {
-  const separatorIndex = model.indexOf("/");
-  if (separatorIndex <= 0 || separatorIndex === model.length - 1) {
-    throw new Error("--model-option requires --model in <provider/model> format");
+function splitOnce(value: string, separator: string): [string, string] | undefined {
+  const separatorIndex = value.indexOf(separator);
+  if (separatorIndex < 0) {
+    return undefined;
   }
-  return {
-    providerID: model.slice(0, separatorIndex),
-    modelID: model.slice(separatorIndex + 1),
-  };
+  return [value.slice(0, separatorIndex), value.slice(separatorIndex + separator.length)];
 }
 
 const TOOL_KIND_BY_NAME: Record<string, ToolKind> = {
@@ -451,14 +448,18 @@ Options:
     }
     const options: Record<string, string> = {};
     for (const entry of modelOptionArgs) {
-      const separatorIndex = entry.indexOf("=");
-      const key = entry.slice(0, separatorIndex).trim();
-      if (separatorIndex <= 0 || !key) {
+      const parts = splitOnce(entry, "=");
+      const key = parts?.[0].trim();
+      if (!parts || !key) {
         throw new Error(`Invalid --model-option "${entry}". Expected key=value.`);
       }
-      options[key] = entry.slice(separatorIndex + 1);
+      options[key] = parts[1];
     }
-    const { providerID, modelID } = parseModelID(model);
+    const modelParts = splitOnce(model, "/");
+    if (!modelParts || !modelParts[0] || !modelParts[1]) {
+      throw new Error("--model-option requires --model in <provider/model> format");
+    }
+    const [providerID, modelID] = modelParts;
     config.provider = {
       [providerID]: {
         models: {
