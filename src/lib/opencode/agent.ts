@@ -27,6 +27,7 @@ import {
   type Part,
   type Session,
   type SessionPromptResponse,
+  type ServerOptions,
   type ToolPart,
 } from "@opencode-ai/sdk/v2";
 
@@ -356,7 +357,7 @@ async function getModel(
 }
 
 function createOpencodeConfig(options: OpencodeAcpAgentOptions) {
-  const config: NonNullable<Parameters<typeof createOpencodeServer>[0]>["config"] = {
+  const config: ServerOptions["config"] = {
     model: options.model,
     permission: {
       question: "deny",
