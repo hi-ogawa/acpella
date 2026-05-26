@@ -436,9 +436,6 @@ Options:
 
   const modelOptionArgs = parsed.values["model-option"] ?? [];
   if (modelOptionArgs.length > 0) {
-    if (!model) {
-      throw new Error("--model-option requires --model");
-    }
     const options: Record<string, string> = {};
     for (const entry of modelOptionArgs) {
       const kv = splitOnce(entry, "=");
@@ -446,6 +443,9 @@ Options:
         throw new Error(`Invalid --model-option "${entry}". Expected key=value.`);
       }
       options[kv[0]] = kv[1];
+    }
+    if (!model) {
+      throw new Error("--model-option requires --model");
     }
     const modelParts = splitOnce(model, "/");
     if (!modelParts) {
