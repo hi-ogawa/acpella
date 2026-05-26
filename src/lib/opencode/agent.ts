@@ -27,14 +27,12 @@ import {
   type Part,
   type Session,
   type SessionPromptResponse,
+  type ServerOptions,
   type ToolPart,
 } from "@opencode-ai/sdk/v2";
+import { splitOnce } from "../../utils/index.ts";
 
 type OpencodeServer = Awaited<ReturnType<typeof createOpencodeServer>>;
-
-type OpencodeAcpAgentOptions = {
-  model?: string;
-};
 
 class OpencodeAcpAgent implements Agent {
   private server?: OpencodeServer;
@@ -42,7 +40,7 @@ class OpencodeAcpAgent implements Agent {
 
   constructor(
     private connection: AgentSideConnection,
-    private options: OpencodeAcpAgentOptions,
+    private config: ServerOptions["config"],
   ) {}
 
   private async getServer(): Promise<OpencodeServer> {
@@ -52,12 +50,7 @@ class OpencodeAcpAgent implements Agent {
     this.server ??= await createOpencodeServer({
       port: 0,
       timeout: 10000,
-      config: {
-        model: this.options.model,
-        permission: {
-          question: "deny",
-        },
-      },
+      config: this.config,
     });
     return this.server;
   }
@@ -416,19 +409,57 @@ function main() {
     options: {
       help: { type: "boolean" },
       model: { type: "string" },
+      "model-option": { type: "string", multiple: true },
     },
     strict: true,
     allowPositionals: false,
   });
   if (parsed.values.help) {
     console.log(`\
-Usage: acpella-opencode-acp [--model <provider/model>]
+Usage: acpella-opencode-acp [--model <provider/model>] [--model-option <key=value>...]
 
 Options:
-  --model <provider/model>  Model to use. Example: "openai/gpt-5.5". You can list by running "opencode models".
-  --help                    Show this help
+  --model <provider/model>     Model to use. Example: "openai/gpt-5.5". You can list by running "opencode models".
+  --model-option <key=value>   Per-model OpenCode string option for the selected model. Repeatable.
+  --help                       Show this help
 `);
     return;
+  }
+
+  const model = parsed.values.model;
+  const config: ServerOptions["config"] = {
+    model,
+    permission: {
+      question: "deny",
+    },
+  };
+
+  const modelOptionArgs = parsed.values["model-option"] ?? [];
+  if (modelOptionArgs.length > 0) {
+    const options: Record<string, string> = {};
+    for (const entry of modelOptionArgs) {
+      const kv = splitOnce(entry, "=");
+      if (!kv) {
+        throw new Error(`Invalid --model-option "${entry}". Expected key=value.`);
+      }
+      options[kv[0]] = kv[1];
+    }
+    if (!model) {
+      throw new Error("--model-option requires --model");
+    }
+    const modelParts = splitOnce(model, "/");
+    if (!modelParts) {
+      throw new Error("--model-option requires --model in <provider/model> format");
+    }
+    config.provider = {
+      [modelParts[0]]: {
+        models: {
+          [modelParts[1]]: {
+            options,
+          },
+        },
+      },
+    };
   }
 
   const input = Writable.toWeb(process.stdout);
@@ -437,7 +468,7 @@ Options:
 
   let agent: OpencodeAcpAgent;
   const connection = new AgentSideConnection((connection) => {
-    agent = new OpencodeAcpAgent(connection, parsed.values);
+    agent = new OpencodeAcpAgent(connection, config);
     return agent;
   }, stream);
 

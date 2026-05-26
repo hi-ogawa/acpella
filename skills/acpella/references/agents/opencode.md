@@ -32,6 +32,12 @@ acpella exec /agent new opencode acpella-opencode-acp --model openai/gpt-5.5
 
 Use `opencode models` to list available provider/model values before choosing the `--model` target.
 
+Pass repeated `--model-option <key=value>` flags to set OpenCode per-model options for the selected model:
+
+```bash
+acpella exec /agent new opencode acpella-opencode-acp --model openai/gpt-5 --model-option reasoningEffort=high
+```
+
 ## OpenCode Feature Flags
 
 OpenCode gates some features behind environment variables. Bake those into the registered agent command when needed.
