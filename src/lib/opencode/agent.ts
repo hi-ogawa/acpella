@@ -393,29 +393,6 @@ function parseModelID(model: string): { providerID: string; modelID: string } {
   };
 }
 
-function parseModelOptions(entries: string[]): Record<string, string> | undefined {
-  if (entries.length === 0) {
-    return undefined;
-  }
-
-  const options: Record<string, string> = {};
-  for (const entry of entries) {
-    const separatorIndex = entry.indexOf("=");
-    if (separatorIndex <= 0) {
-      throw new Error(`Invalid --model-option "${entry}". Expected key=value.`);
-    }
-
-    const key = entry.slice(0, separatorIndex).trim();
-    if (!key) {
-      throw new Error(`Invalid --model-option "${entry}". Expected key=value.`);
-    }
-
-    options[key] = entry.slice(separatorIndex + 1);
-  }
-
-  return options;
-}
-
 const TOOL_KIND_BY_NAME: Record<string, ToolKind> = {
   bash: "execute",
   glob: "search",
@@ -490,9 +467,19 @@ Options:
     return;
   }
 
+  const modelOptionEntries = parsed.values["model-option"] ?? [];
   const options: OpencodeAcpAgentOptions = {
     model: parsed.values.model,
-    modelOptions: parseModelOptions(parsed.values["model-option"] ?? []),
+    modelOptions: Object.fromEntries(
+      modelOptionEntries.map((entry) => {
+        const separatorIndex = entry.indexOf("=");
+        const key = entry.slice(0, separatorIndex).trim();
+        if (separatorIndex <= 0 || !key) {
+          throw new Error(`Invalid --model-option "${entry}". Expected key=value.`);
+        }
+        return [key, entry.slice(separatorIndex + 1)];
+      }),
+    ),
   };
 
   const input = Writable.toWeb(process.stdout);
