@@ -2,34 +2,7 @@ import { spawn } from "node:child_process";
 
 const DEFAULT_SHELL_TIMEOUT_MS = 10_000;
 
-type ShellResult = {
-  command: string;
-  stdout: string;
-  stderr: string;
-  timeoutMs: number;
-  exitCode?: number;
-  signal?: string;
-  timedOut: boolean;
-};
-
 export async function handleShellCommand({
-  command,
-  cwd,
-  timeoutMs,
-}: {
-  command: string;
-  cwd: string;
-  timeoutMs?: number;
-}): Promise<string> {
-  const result = await runShellCommand({
-    command,
-    cwd,
-    ...(timeoutMs === undefined ? {} : { timeoutMs }),
-  });
-  return formatShellResult(result);
-}
-
-async function runShellCommand({
   command,
   cwd,
   timeoutMs = DEFAULT_SHELL_TIMEOUT_MS,
@@ -37,82 +10,67 @@ async function runShellCommand({
   command: string;
   cwd: string;
   timeoutMs?: number;
-}): Promise<ShellResult> {
-  return await new Promise((resolve) => {
-    const child = spawn(command, {
-      cwd,
-      detached: true,
-      shell: true,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    const stdout: Buffer[] = [];
-    const stderr: Buffer[] = [];
-    let timedOut = false;
-
-    child.stdout.on("data", (chunk: Buffer) => {
-      stdout.push(chunk);
-    });
-    child.stderr.on("data", (chunk: Buffer) => {
-      stderr.push(chunk);
-    });
-
-    const timeout = setTimeout(() => {
-      timedOut = true;
-      if (child.pid) {
-        try {
-          process.kill(-child.pid, "SIGTERM");
-        } catch {
-          child.kill("SIGTERM");
-        }
-      }
-    }, timeoutMs);
-
-    child.on("error", (error) => {
-      clearTimeout(timeout);
-      resolve({
-        command,
-        stdout: Buffer.concat(stdout).toString(),
-        stderr: `${Buffer.concat(stderr).toString()}${error.message}`,
-        timeoutMs,
-        timedOut,
-      });
-    });
-
-    child.on("close", (code, signal) => {
-      clearTimeout(timeout);
-      resolve({
-        command,
-        stdout: Buffer.concat(stdout).toString(),
-        stderr: Buffer.concat(stderr).toString(),
-        timeoutMs,
-        exitCode: code ?? undefined,
-        signal: signal ?? undefined,
-        timedOut,
-      });
-    });
+}): Promise<string> {
+  const { promise, resolve } = Promise.withResolvers<void>();
+  const child = spawn(command, {
+    cwd,
+    detached: true,
+    shell: true,
+    stdio: ["ignore", "pipe", "pipe"],
   });
-}
+  const stdout: Buffer[] = [];
+  const stderr: Buffer[] = [];
+  let timedOut = false;
+  let error: Error | undefined;
 
-function formatShellResult(result: ShellResult): string {
-  const lines = [`$ ${result.command}`];
-  if (result.timedOut) {
-    lines.push(`timed out after ${result.timeoutMs / 1000}s`);
+  child.stdout.on("data", (chunk: Buffer) => {
+    stdout.push(chunk);
+  });
+  child.stderr.on("data", (chunk: Buffer) => {
+    stderr.push(chunk);
+  });
+
+  const timeout = setTimeout(() => {
+    timedOut = true;
+    if (child.pid) {
+      try {
+        process.kill(-child.pid, "SIGTERM");
+      } catch {
+        child.kill("SIGTERM");
+      }
+    }
+  }, timeoutMs);
+
+  child.on("error", (errorEvent) => {
+    error = errorEvent;
+    resolve();
+  });
+
+  child.on("close", () => {
+    resolve();
+  });
+
+  await promise;
+  clearTimeout(timeout);
+
+  const trimmedStdout = Buffer.concat(stdout).toString().trimEnd();
+  const trimmedStderr = `${Buffer.concat(stderr).toString()}${error?.message ?? ""}`.trimEnd();
+  const lines = [`$ ${command}`];
+  if (timedOut) {
+    lines.push(`timed out after ${timeoutMs / 1000}s`);
   } else {
-    lines.push(`exit: ${result.exitCode ?? "(unknown)"}`);
+    lines.push(`exit: ${child.exitCode ?? "(unknown)"}`);
   }
-  if (result.signal) {
-    lines.push(`signal: ${result.signal}`);
+  if (child.signalCode) {
+    lines.push(`signal: ${child.signalCode}`);
   }
-
-  const stdout = result.stdout.trimEnd();
-  const stderr = result.stderr.trimEnd();
-  if (stdout) {
-    lines.push("", "stdout:", stdout);
+  if (trimmedStdout) {
+    lines.push("", "stdout:", trimmedStdout);
   }
-  if (stderr) {
-    lines.push("", "stderr:", stderr);
+  if (trimmedStderr) {
+    lines.push("", "stderr:", trimmedStderr);
   }
-  if (!stdout && !stderr) {
+  if (!trimmedStdout && !trimmedStderr) {
     lines.push("", "(no output)");
   }
   return lines.join("\n");
