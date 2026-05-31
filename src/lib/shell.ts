@@ -1,4 +1,4 @@
-import { exec, type ExecException } from "node:child_process";
+import { spawn } from "node:child_process";
 
 const DEFAULT_SHELL_TIMEOUT_MS = 10_000;
 
@@ -39,27 +39,57 @@ async function runShellCommand({
   timeoutMs?: number;
 }): Promise<ShellResult> {
   return await new Promise((resolve) => {
-    exec(
-      command,
-      {
-        cwd,
-        timeout: timeoutMs,
-      },
-      (error, stdout, stderr) => {
-        const execError = (error ?? undefined) as ExecException | undefined;
-        const code = typeof execError?.code === "number" ? execError.code : undefined;
-        const signal = execError?.signal ?? undefined;
-        resolve({
-          command,
-          stdout,
-          stderr,
-          timeoutMs,
-          exitCode: code ?? (execError ? undefined : 0),
-          signal,
-          timedOut: Boolean(execError?.killed && signal === "SIGTERM"),
-        });
-      },
-    );
+    const child = spawn(command, {
+      cwd,
+      detached: true,
+      shell: true,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    const stdout: Buffer[] = [];
+    const stderr: Buffer[] = [];
+    let timedOut = false;
+
+    child.stdout.on("data", (chunk: Buffer) => {
+      stdout.push(chunk);
+    });
+    child.stderr.on("data", (chunk: Buffer) => {
+      stderr.push(chunk);
+    });
+
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      if (child.pid) {
+        try {
+          process.kill(-child.pid, "SIGTERM");
+        } catch {
+          child.kill("SIGTERM");
+        }
+      }
+    }, timeoutMs);
+
+    child.on("error", (error) => {
+      clearTimeout(timeout);
+      resolve({
+        command,
+        stdout: Buffer.concat(stdout).toString(),
+        stderr: `${Buffer.concat(stderr).toString()}${error.message}`,
+        timeoutMs,
+        timedOut,
+      });
+    });
+
+    child.on("close", (code, signal) => {
+      clearTimeout(timeout);
+      resolve({
+        command,
+        stdout: Buffer.concat(stdout).toString(),
+        stderr: Buffer.concat(stderr).toString(),
+        timeoutMs,
+        exitCode: code ?? undefined,
+        signal: signal ?? undefined,
+        timedOut,
+      });
+    });
   });
 }
 
