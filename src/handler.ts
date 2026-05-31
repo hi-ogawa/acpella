@@ -24,6 +24,7 @@ import {
 } from "./lib/session/command.ts";
 import { shouldRenewSession } from "./lib/session/renew.ts";
 import { getVerboseSessionUpdateTypes } from "./lib/session/verbose.ts";
+import { formatShellResult, runShellCommand } from "./lib/shell.ts";
 import { handleSystemdInstall } from "./lib/systemd.ts";
 import { parseTelegramSessionName } from "./lib/telegram/utils.ts";
 import { parseAgentSessionKey, SessionStateStore, toAgentSessionKey } from "./state.ts";
@@ -818,6 +819,23 @@ current session: ${sessionName}`);
         },
       },
     ],
+    shell: [
+      {
+        tokens: [],
+        usage: "/shell <command...>",
+        description: "Run a shell command from ACPELLA_HOME.",
+        withArgs: true,
+        run: async ({ args, reply, usage }) => {
+          const command = args.join(" ").trim();
+          if (!command) {
+            await reply.system(usage);
+            return;
+          }
+          const result = await runShellCommand({ command, cwd: config.home });
+          await reply.system(formatShellResult(result));
+        },
+      },
+    ],
     session: systemSessionCommands,
     agent: systemAgentCommands,
     cron: systemCronCommands,
@@ -828,6 +846,7 @@ current session: ${sessionName}`);
     status: "Show service status",
     service: "Manager service",
     cancel: "Cancel currently active agent turn",
+    shell: "Run shell commands",
     session: "Manage sessions",
     agent: "Manage agents",
     cron: "Manage cron jobs",

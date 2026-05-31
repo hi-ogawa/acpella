@@ -86,6 +86,9 @@ test("basic", async () => {
     /cancel
       /cancel - Cancel the active agent turn.
 
+    /shell
+      /shell <command...> - Run a shell command from ACPELLA_HOME.
+
     /session
       /session info [--target <sessionName>] - Show info about a session.
       /session list - List acpella sessions.

@@ -19,6 +19,14 @@ acpella repl         # run REPL
 acpella exec /status # run one local admin command
 ```
 
+Operators can run quick host utilities through the slash command surface:
+
+```bash
+/shell pwd
+```
+
+`/shell` runs as the acpella process user from `ACPELLA_HOME` and has a hard-coded 10s timeout.
+
 ## Config
 
 | Variable                            | Default         | Description                                |
