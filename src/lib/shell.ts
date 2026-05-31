@@ -54,7 +54,7 @@ export async function handleShellCommand({
   clearTimeout(timeout);
 
   const trimmedStdout = Buffer.concat(stdout).toString().trimEnd();
-  const trimmedStderr = `${Buffer.concat(stderr).toString()}${error?.message ?? ""}`.trimEnd();
+  const trimmedStderr = Buffer.concat(stderr).toString().trimEnd();
   const lines = [`$ ${command}`];
   if (timedOut) {
     lines.push(`timed out after ${timeoutMs / 1000}s`);
@@ -70,7 +70,10 @@ export async function handleShellCommand({
   if (trimmedStderr) {
     lines.push("", "stderr:", trimmedStderr);
   }
-  if (!trimmedStdout && !trimmedStderr) {
+  if (error) {
+    lines.push("", "error:", error.message);
+  }
+  if (!trimmedStdout && !trimmedStderr && !error) {
     lines.push("", "(no output)");
   }
   return lines.join("\n");

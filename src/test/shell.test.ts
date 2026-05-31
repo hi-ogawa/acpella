@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import { expect, test } from "vitest";
 import { createHandlerTester } from "./tester.ts";
 
@@ -50,4 +51,22 @@ test("shell command times out", async () => {
 
       (no output)"
     `);
+});
+
+test("shell command reports spawn errors separately from stderr", async () => {
+  const tester = await createHandlerTester();
+  const session = tester.createSession("test");
+
+  // break shell command
+  fs.rmSync(tester.config.home, { force: true, recursive: true });
+
+  const result = await session.request("/shell pwd");
+  expect(result).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    $ pwd
+    exit: -2
+
+    error:
+    spawn /bin/sh ENOENT"
+  `);
 });
