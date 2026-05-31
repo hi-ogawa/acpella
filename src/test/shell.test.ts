@@ -73,13 +73,13 @@ test("shell command reports spawn errors separately from stderr", async () => {
     $ pwd
     exit: -2
 
+    error:
+    spawn /bin/sh ENOENT
+
     stdout:
     (empty)
 
     stderr:
-    (empty)
-
-    error:
-    spawn /bin/sh ENOENT"
+    (empty)"
   `);
 });
