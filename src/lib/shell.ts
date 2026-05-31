@@ -118,22 +118,19 @@ function formatShellResult(result: ShellResult): string {
   return lines.join("\n");
 }
 
-export function parseShellCommandArgs(
-  args: string[],
-): { ok: true; command: string; timeoutMs?: number } | { ok: false; error: string } {
+export function parseShellCommandArgs(args: string[]): { command: string; timeoutMs?: number } {
   const [first, ...rest] = args;
   if (!first?.startsWith("--timeout=")) {
-    return { ok: true, command: args.join(" ").trim() };
+    return { command: args.join(" ").trim() };
   }
 
   const value = first.slice("--timeout=".length);
   const timeoutSeconds = Number(value);
   if (!Number.isFinite(timeoutSeconds) || timeoutSeconds <= 0) {
-    return { ok: false, error: `Invalid timeout: ${first}` };
+    throw new Error(`Invalid timeout: ${first}`);
   }
 
   return {
-    ok: true,
     command: rest.join(" ").trim(),
     timeoutMs: timeoutSeconds * 1000,
   };

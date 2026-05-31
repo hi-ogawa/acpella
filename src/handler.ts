@@ -827,10 +827,6 @@ current session: ${sessionName}`);
         withArgs: true,
         run: async ({ args, reply, usage }) => {
           const parsed = parseShellCommandArgs(args);
-          if (!parsed.ok) {
-            await reply.system(parsed.error);
-            return;
-          }
           const { command, timeoutMs } = parsed;
           if (!command) {
             await reply.system(usage);
