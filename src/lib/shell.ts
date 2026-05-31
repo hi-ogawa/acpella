@@ -73,9 +73,9 @@ export async function handleShellCommand({
 }
 
 export function parseShellCommandArgs(args: string[]): { command: string; timeoutMs: number } {
-  const [first] = args;
   let timeoutMs = DEFAULT_SHELL_TIMEOUT_MS;
 
+  const first = args[0];
   if (first?.startsWith("--timeout=")) {
     const value = first.slice("--timeout=".length);
     const timeoutSeconds = Number(value);
