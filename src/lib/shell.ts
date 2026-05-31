@@ -53,8 +53,6 @@ export async function handleShellCommand({
   await promise;
   clearTimeout(timeout);
 
-  const trimmedStdout = Buffer.concat(stdout).toString().trimEnd();
-  const trimmedStderr = Buffer.concat(stderr).toString().trimEnd();
   const lines = [`$ ${command}`];
   if (timedOut) {
     lines.push(`timed out after ${timeoutMs / 1000}s`);
@@ -64,18 +62,13 @@ export async function handleShellCommand({
   if (child.signalCode) {
     lines.push(`signal: ${child.signalCode}`);
   }
-  if (trimmedStdout) {
-    lines.push("", "stdout:", trimmedStdout);
-  }
-  if (trimmedStderr) {
-    lines.push("", "stderr:", trimmedStderr);
-  }
   if (error) {
     lines.push("", "error:", error.message);
   }
-  if (!trimmedStdout && !trimmedStderr && !error) {
-    lines.push("", "(no output)");
-  }
+  const trimmedStdout = Buffer.concat(stdout).toString().trimEnd();
+  const trimmedStderr = Buffer.concat(stderr).toString().trimEnd();
+  lines.push("", "stdout:", trimmedStdout || "(empty)");
+  lines.push("", "stderr:", trimmedStderr || "(empty)");
   return lines.join("\n");
 }
 

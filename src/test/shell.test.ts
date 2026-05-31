@@ -13,7 +13,10 @@ test("shell command succeeds", async () => {
       exit: 0
 
       stdout:
-      <home>"
+      <home>
+
+      stderr:
+      (empty)"
     `);
 });
 
@@ -49,7 +52,11 @@ test("shell command times out", async () => {
       timed out after 0.5s
       signal: SIGTERM
 
-      (no output)"
+      stdout:
+      (empty)
+
+      stderr:
+      (empty)"
     `);
 });
 
@@ -65,6 +72,12 @@ test("shell command reports spawn errors separately from stderr", async () => {
     "[⚙️ System]
     $ pwd
     exit: -2
+
+    stdout:
+    (empty)
+
+    stderr:
+    (empty)
 
     error:
     spawn /bin/sh ENOENT"
