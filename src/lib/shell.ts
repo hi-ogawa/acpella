@@ -76,20 +76,24 @@ export async function handleShellCommand({
   return lines.join("\n");
 }
 
-export function parseShellCommandArgs(args: string[]): { command: string; timeoutMs?: number } {
-  const [first, ...rest] = args;
-  if (!first?.startsWith("--timeout=")) {
-    return { command: args.join(" ").trim() };
+export function parseShellCommandArgs(args: string[]): { command: string; timeoutMs: number } {
+  const [first] = args;
+  let timeoutMs = DEFAULT_SHELL_TIMEOUT_MS;
+
+  if (first?.startsWith("--timeout=")) {
+    const value = first.slice("--timeout=".length);
+    const timeoutSeconds = Number(value);
+    if (!Number.isFinite(timeoutSeconds) || timeoutSeconds <= 0) {
+      throw new Error(`Invalid timeout: ${first}`);
+    }
+    args = args.slice(1);
+    timeoutMs = timeoutSeconds * 1000;
   }
 
-  const value = first.slice("--timeout=".length);
-  const timeoutSeconds = Number(value);
-  if (!Number.isFinite(timeoutSeconds) || timeoutSeconds <= 0) {
-    throw new Error(`Invalid timeout: ${first}`);
+  const command = args.join(" ").trim();
+  if (!command) {
+    throw new Error("Missing command");
   }
 
-  return {
-    command: rest.join(" ").trim(),
-    timeoutMs: timeoutSeconds * 1000,
-  };
+  return { command, timeoutMs };
 }

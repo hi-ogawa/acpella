@@ -825,17 +825,11 @@ current session: ${sessionName}`);
         usage: "/shell [--timeout=<seconds>] <command...>",
         description: "Run a shell command from ACPELLA_HOME with a default 10s timeout.",
         withArgs: true,
-        run: async ({ args, reply, usage }) => {
+        run: async ({ args, reply }) => {
           const parsed = parseShellCommandArgs(args);
-          const { command, timeoutMs } = parsed;
-          if (!command) {
-            await reply.system(usage);
-            return;
-          }
           const result = await handleShellCommand({
-            command,
+            ...parsed,
             cwd: config.home,
-            ...(timeoutMs === undefined ? {} : { timeoutMs }),
           });
           await reply.system(result);
         },
