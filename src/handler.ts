@@ -24,7 +24,7 @@ import {
 } from "./lib/session/command.ts";
 import { shouldRenewSession } from "./lib/session/renew.ts";
 import { getVerboseSessionUpdateTypes } from "./lib/session/verbose.ts";
-import { formatShellResult, runShellCommand } from "./lib/shell.ts";
+import { formatShellResult, parseShellCommandArgs, runShellCommand } from "./lib/shell.ts";
 import { handleSystemdInstall } from "./lib/systemd.ts";
 import { parseTelegramSessionName } from "./lib/telegram/utils.ts";
 import { parseAgentSessionKey, SessionStateStore, toAgentSessionKey } from "./state.ts";
@@ -925,25 +925,4 @@ current session: ${sessionName}`);
   };
 
   return handler;
-}
-
-function parseShellCommandArgs(
-  args: string[],
-): { ok: true; command: string; timeoutMs?: number } | { ok: false; error: string } {
-  const [first, ...rest] = args;
-  if (!first?.startsWith("--timeout=")) {
-    return { ok: true, command: args.join(" ").trim() };
-  }
-
-  const value = first.slice("--timeout=".length);
-  const timeoutSeconds = Number(value);
-  if (!Number.isFinite(timeoutSeconds) || timeoutSeconds <= 0) {
-    return { ok: false, error: `Invalid timeout: ${first}` };
-  }
-
-  return {
-    ok: true,
-    command: rest.join(" ").trim(),
-    timeoutMs: timeoutSeconds * 1000,
-  };
 }

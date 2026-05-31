@@ -1,7 +1,6 @@
 import { exec, type ExecException } from "node:child_process";
 
 const DEFAULT_SHELL_TIMEOUT_MS = 10_000;
-const SHELL_OUTPUT_LIMIT = 12_000;
 
 type ShellResult = {
   command: string;
@@ -28,7 +27,6 @@ export async function runShellCommand({
       {
         cwd,
         timeout: timeoutMs,
-        maxBuffer: SHELL_OUTPUT_LIMIT * 4,
       },
       (error, stdout, stderr) => {
         const execError = (error ?? undefined) as ExecException | undefined;
@@ -59,8 +57,8 @@ export function formatShellResult(result: ShellResult): string {
     lines.push(`signal: ${result.signal}`);
   }
 
-  const stdout = truncateOutput(result.stdout);
-  const stderr = truncateOutput(result.stderr);
+  const stdout = result.stdout.trimEnd();
+  const stderr = result.stderr.trimEnd();
   if (stdout) {
     lines.push("", "stdout:", stdout);
   }
@@ -73,10 +71,23 @@ export function formatShellResult(result: ShellResult): string {
   return lines.join("\n");
 }
 
-function truncateOutput(output: string): string {
-  if (output.length <= SHELL_OUTPUT_LIMIT) {
-    return output.trimEnd();
+export function parseShellCommandArgs(
+  args: string[],
+): { ok: true; command: string; timeoutMs?: number } | { ok: false; error: string } {
+  const [first, ...rest] = args;
+  if (!first?.startsWith("--timeout=")) {
+    return { ok: true, command: args.join(" ").trim() };
   }
-  const truncated = output.slice(0, SHELL_OUTPUT_LIMIT).trimEnd();
-  return `${truncated}\n... truncated after ${SHELL_OUTPUT_LIMIT} characters`;
+
+  const value = first.slice("--timeout=".length);
+  const timeoutSeconds = Number(value);
+  if (!Number.isFinite(timeoutSeconds) || timeoutSeconds <= 0) {
+    return { ok: false, error: `Invalid timeout: ${first}` };
+  }
+
+  return {
+    ok: true,
+    command: rest.join(" ").trim(),
+    timeoutMs: timeoutSeconds * 1000,
+  };
 }
