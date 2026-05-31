@@ -24,7 +24,7 @@ import {
 } from "./lib/session/command.ts";
 import { shouldRenewSession } from "./lib/session/renew.ts";
 import { getVerboseSessionUpdateTypes } from "./lib/session/verbose.ts";
-import { formatShellResult, parseShellCommandArgs, runShellCommand } from "./lib/shell.ts";
+import { handleShellCommand, parseShellCommandArgs } from "./lib/shell.ts";
 import { handleSystemdInstall } from "./lib/systemd.ts";
 import { parseTelegramSessionName } from "./lib/telegram/utils.ts";
 import { parseAgentSessionKey, SessionStateStore, toAgentSessionKey } from "./state.ts";
@@ -836,12 +836,12 @@ current session: ${sessionName}`);
             await reply.system(usage);
             return;
           }
-          const result = await runShellCommand({
+          const result = await handleShellCommand({
             command,
             cwd: config.home,
             ...(timeoutMs === undefined ? {} : { timeoutMs }),
           });
-          await reply.system(formatShellResult(result));
+          await reply.system(result);
         },
       },
     ],

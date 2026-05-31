@@ -12,7 +12,24 @@ type ShellResult = {
   timedOut: boolean;
 };
 
-export async function runShellCommand({
+export async function handleShellCommand({
+  command,
+  cwd,
+  timeoutMs,
+}: {
+  command: string;
+  cwd: string;
+  timeoutMs?: number;
+}): Promise<string> {
+  const result = await runShellCommand({
+    command,
+    cwd,
+    ...(timeoutMs === undefined ? {} : { timeoutMs }),
+  });
+  return formatShellResult(result);
+}
+
+async function runShellCommand({
   command,
   cwd,
   timeoutMs = DEFAULT_SHELL_TIMEOUT_MS,
@@ -46,7 +63,7 @@ export async function runShellCommand({
   });
 }
 
-export function formatShellResult(result: ShellResult): string {
+function formatShellResult(result: ShellResult): string {
   const lines = [`$ ${result.command}`];
   if (result.timedOut) {
     lines.push(`timed out after ${result.timeoutMs / 1000}s`);
