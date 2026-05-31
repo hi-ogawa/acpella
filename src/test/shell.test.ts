@@ -36,3 +36,18 @@ test("shell command fails", async () => {
     err"
   `);
 });
+
+test("shell command times out", async () => {
+  const tester = await createHandlerTester();
+  const session = tester.createSession("test");
+
+  expect(await session.request('/shell --timeout=1 node -e "setTimeout(() => {}, 2000)"'))
+    .toMatchInlineSnapshot(`
+      "[⚙️ System]
+      $ node -e "setTimeout(() => {}, 2000)"
+      timed out after 1s
+      signal: SIGTERM
+
+      (no output)"
+    `);
+});
