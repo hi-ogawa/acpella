@@ -937,7 +937,7 @@ function parseShellCommandArgs(
 
   const value = first.slice("--timeout=".length);
   const timeoutSeconds = Number(value);
-  if (!Number.isInteger(timeoutSeconds) || timeoutSeconds <= 0) {
+  if (!Number.isFinite(timeoutSeconds) || timeoutSeconds <= 0) {
     return { ok: false, error: `Invalid timeout: ${first}` };
   }
 

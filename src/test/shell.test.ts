@@ -41,11 +41,11 @@ test("shell command times out", async () => {
   const tester = await createHandlerTester();
   const session = tester.createSession("test");
 
-  expect(await session.request('/shell --timeout=1 node -e "setTimeout(() => {}, 2000)"'))
+  expect(await session.request('/shell --timeout=0.5 node -e "setTimeout(() => {}, 2000)"'))
     .toMatchInlineSnapshot(`
       "[⚙️ System]
       $ node -e "setTimeout(() => {}, 2000)"
-      timed out after 1s
+      timed out after 0.5s
       signal: SIGTERM
 
       (no output)"
