@@ -823,7 +823,7 @@ current session: ${sessionName}`);
       {
         tokens: [],
         usage: "/shell [--timeout=<seconds>] <command...>",
-        description: "Run a shell command from ACPELLA_HOME.",
+        description: "Run a shell command from ACPELLA_HOME with a default 10s timeout.",
         withArgs: true,
         run: async ({ args, reply, usage }) => {
           const parsed = parseShellCommandArgs(args);

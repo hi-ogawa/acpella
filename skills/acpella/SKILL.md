@@ -19,7 +19,7 @@ Acpella is a small bridge from a messaging surface, currently Telegram or the lo
 - Acpella stores its own state under `ACPELLA_HOME/.acpella/`, including session mappings, configured agents, cron jobs, logs, and optional custom instructions.
 - A Telegram chat/thread or REPL context maps to an acpella session name.
 - An acpella session points at a selected ACP agent and, after use, an agent session id.
-- Slash commands such as `/agent`, `/session`, `/cron`, `/status`, `/service`, and `/shell` are handled by acpella, not sent to the agent.
+- Slash commands such as `/help`, `/agent`, `/session`, `/cron`, `/status`, `/service`, and `/shell` are handled by acpella, not sent to the agent.
 - Normal user prompts are forwarded to the selected ACP agent.
 
 Use this skill when the task is about operating acpella itself: setup, service management, agent registration, session routing, prompt customization, cron jobs, or troubleshooting. For tasks about the user's project inside `ACPELLA_HOME`, follow that project's own instructions instead.
@@ -49,6 +49,7 @@ Command examples use `acpella`, which assumes the global CLI is linked to the ch
 Good `exec` examples:
 
 ```bash
+acpella exec /help
 acpella exec /status
 acpella exec /agent list
 acpella exec /session list
