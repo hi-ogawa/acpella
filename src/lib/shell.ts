@@ -1,12 +1,13 @@
 import { exec, type ExecException } from "node:child_process";
 
-const SHELL_TIMEOUT_MS = 10_000;
+const DEFAULT_SHELL_TIMEOUT_MS = 10_000;
 const SHELL_OUTPUT_LIMIT = 12_000;
 
 type ShellResult = {
   command: string;
   stdout: string;
   stderr: string;
+  timeoutMs: number;
   exitCode?: number;
   signal?: string;
   timedOut: boolean;
@@ -15,16 +16,18 @@ type ShellResult = {
 export async function runShellCommand({
   command,
   cwd,
+  timeoutMs = DEFAULT_SHELL_TIMEOUT_MS,
 }: {
   command: string;
   cwd: string;
+  timeoutMs?: number;
 }): Promise<ShellResult> {
   return await new Promise((resolve) => {
     exec(
       command,
       {
         cwd,
-        timeout: SHELL_TIMEOUT_MS,
+        timeout: timeoutMs,
         maxBuffer: SHELL_OUTPUT_LIMIT * 4,
       },
       (error, stdout, stderr) => {
@@ -35,6 +38,7 @@ export async function runShellCommand({
           command,
           stdout,
           stderr,
+          timeoutMs,
           exitCode: code ?? (execError ? undefined : 0),
           signal,
           timedOut: Boolean(execError?.killed && signal === "SIGTERM"),
@@ -47,7 +51,7 @@ export async function runShellCommand({
 export function formatShellResult(result: ShellResult): string {
   const lines = [`$ ${result.command}`];
   if (result.timedOut) {
-    lines.push(`timed out after ${SHELL_TIMEOUT_MS / 1000}s`);
+    lines.push(`timed out after ${result.timeoutMs / 1000}s`);
   } else {
     lines.push(`exit: ${result.exitCode ?? "(unknown)"}`);
   }

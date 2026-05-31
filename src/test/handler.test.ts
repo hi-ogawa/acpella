@@ -87,7 +87,7 @@ test("basic", async () => {
       /cancel - Cancel the active agent turn.
 
     /shell
-      /shell <command...> - Run a shell command from ACPELLA_HOME.
+      /shell [--timeout=<seconds>] <command...> - Run a shell command from ACPELLA_HOME.
 
     /session
       /session info [--target <sessionName>] - Show info about a session.

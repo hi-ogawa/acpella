@@ -5,7 +5,7 @@ test("shell command succeeds", async () => {
   const tester = await createHandlerTester();
   const session = tester.createSession("test");
 
-  expect(await session.request('/shell node -e "console.log(process.cwd())"'))
+  expect(await session.request('/shell --timeout=2 node -e "console.log(process.cwd())"'))
     .toMatchInlineSnapshot(`
       "[⚙️ System]
       $ node -e "console.log(process.cwd())"

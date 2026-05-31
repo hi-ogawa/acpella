@@ -822,16 +822,25 @@ current session: ${sessionName}`);
     shell: [
       {
         tokens: [],
-        usage: "/shell <command...>",
+        usage: "/shell [--timeout=<seconds>] <command...>",
         description: "Run a shell command from ACPELLA_HOME.",
         withArgs: true,
         run: async ({ args, reply, usage }) => {
-          const command = args.join(" ").trim();
+          const parsed = parseShellCommandArgs(args);
+          if (!parsed.ok) {
+            await reply.system(parsed.error);
+            return;
+          }
+          const { command, timeoutMs } = parsed;
           if (!command) {
             await reply.system(usage);
             return;
           }
-          const result = await runShellCommand({ command, cwd: config.home });
+          const result = await runShellCommand({
+            command,
+            cwd: config.home,
+            ...(timeoutMs === undefined ? {} : { timeoutMs }),
+          });
           await reply.system(formatShellResult(result));
         },
       },
@@ -916,4 +925,25 @@ current session: ${sessionName}`);
   };
 
   return handler;
+}
+
+function parseShellCommandArgs(
+  args: string[],
+): { ok: true; command: string; timeoutMs?: number } | { ok: false; error: string } {
+  const [first, ...rest] = args;
+  if (!first?.startsWith("--timeout=")) {
+    return { ok: true, command: args.join(" ").trim() };
+  }
+
+  const value = first.slice("--timeout=".length);
+  const timeoutSeconds = Number(value);
+  if (!Number.isInteger(timeoutSeconds) || timeoutSeconds <= 0) {
+    return { ok: false, error: `Invalid timeout: ${first}` };
+  }
+
+  return {
+    ok: true,
+    command: rest.join(" ").trim(),
+    timeoutMs: timeoutSeconds * 1000,
+  };
 }

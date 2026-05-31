@@ -23,9 +23,10 @@ Operators can run quick host utilities through the slash command surface:
 
 ```bash
 /shell pwd
+/shell --timeout=30 journalctl --user -u acpella -n 50
 ```
 
-`/shell` runs as the acpella process user from `ACPELLA_HOME` and has a hard-coded 10s timeout.
+`/shell` runs as the acpella process user from `ACPELLA_HOME` and uses a 10s timeout unless `--timeout=<seconds>` is provided.
 
 ## Config
 
