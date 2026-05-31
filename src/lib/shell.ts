@@ -5,11 +5,11 @@ const DEFAULT_SHELL_TIMEOUT_MS = 10_000;
 export async function handleShellCommand({
   command,
   cwd,
-  timeoutMs = DEFAULT_SHELL_TIMEOUT_MS,
+  timeoutMs,
 }: {
   command: string;
   cwd: string;
-  timeoutMs?: number;
+  timeoutMs: number;
 }): Promise<string> {
   const { promise, resolve } = Promise.withResolvers<void>();
   const child = spawn(command, {
