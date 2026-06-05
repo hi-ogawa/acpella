@@ -9,12 +9,13 @@ test("help", async () => {
     "Usage: acpella [command]
 
     Commands:
-      serve             Run Telegram bot service. Default when no command is provided.
+      serve             Run bot service. Default when no command is provided.
       repl              Run local in-process REPL.
       exec <message...> Run one local message, then exit.
 
     Options:
       --env-file <path> Use this env file for config resolution.
+      --channel <name>  Service channel for \`serve\` (telegram or discord, default: telegram).
       -h, --help        Show this help.
 
     "
@@ -52,6 +53,26 @@ test("serve fails without telegram env", async ({ onTestFinished }) => {
     .toThrowErrorMatchingInlineSnapshot(`
       "Command failed: pnpm -s dev serve
       Error: ACPELLA_TELEGRAM_ALLOWED_USER_IDS must be non-empty"
+    `);
+});
+
+test("serve fails without discord env", async ({ onTestFinished }) => {
+  const cli = useCli();
+  expect(process.env.ACPELLA_DISCORD_BOT_TOKEN).toBe(undefined);
+  await expect(cli.cli("serve", "--channel=discord").catch(sanitizeCliError)).resolves
+    .toThrowErrorMatchingInlineSnapshot(`
+    "Command failed: pnpm -s dev serve --channel=discord
+    Error: ACPELLA_DISCORD_BOT_TOKEN is required"
+  `);
+  process.env.ACPELLA_DISCORD_BOT_TOKEN = "ok";
+  onTestFinished(() => {
+    delete process.env.ACPELLA_DISCORD_BOT_TOKEN;
+  });
+  expect(process.env.ACPELLA_DISCORD_ALLOWED_USER_IDS).toBe(undefined);
+  await expect(cli.cli("serve", "--channel=discord").catch(sanitizeCliError)).resolves
+    .toThrowErrorMatchingInlineSnapshot(`
+      "Command failed: pnpm -s dev serve --channel=discord
+      Error: ACPELLA_DISCORD_ALLOWED_USER_IDS must be non-empty"
     `);
 });
 

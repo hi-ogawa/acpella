@@ -17,13 +17,18 @@ const cronTelegramDeliveryTargetSchema = z.object({
   messageThreadId: z.number().int().optional(),
 });
 
+const cronDiscordDeliveryTargetSchema = z.object({
+  channelId: z.string().min(1),
+});
+
 const CronDeliveryTargetSchema = z
   .object({
     telegram: cronTelegramDeliveryTargetSchema.optional(),
+    discord: cronDiscordDeliveryTargetSchema.optional(),
     repl: z.boolean().optional(),
   })
   .superRefine((delivery, ctx) => {
-    if (!delivery.telegram && !delivery.repl) {
+    if (!delivery.telegram && !delivery.discord && !delivery.repl) {
       ctx.addIssue({
         code: "custom",
         message: "cron delivery target must include at least one surface",

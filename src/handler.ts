@@ -13,6 +13,7 @@ import {
 } from "./lib/cron/command.ts";
 import type { CronRunner, CronRunnerAgentOptions } from "./lib/cron/runner.ts";
 import type { CronDeliveryTarget, CronJob, CronStore } from "./lib/cron/store.ts";
+import { parseDiscordSessionName } from "./lib/discord/utils.ts";
 import type { MessageMetadata } from "./lib/prompt.ts";
 import { buildFirstPrompt, buildMessageMetadataPrompt } from "./lib/prompt.ts";
 import { MESSAGE_SPLIT_BUDGET, ReplyManager } from "./lib/reply.ts";
@@ -44,6 +45,7 @@ export interface HandlerContext {
   sessionName: string;
   text: string;
   send: (text: string) => Promise<unknown>;
+  replyLimit?: number;
   metadata?: {
     promptMetadata?: MessageMetadata;
     cronDeliveryTarget?: CronDeliveryTarget;
@@ -52,6 +54,17 @@ export interface HandlerContext {
 
 interface HandlerExtraContext extends HandlerContext {
   reply: ReplyManager;
+}
+
+function parseSessionCronDeliveryTarget(sessionName: string): CronDeliveryTarget | undefined {
+  const telegram = parseTelegramSessionName(sessionName);
+  if (telegram) {
+    return { telegram };
+  }
+  const discord = parseDiscordSessionName(sessionName);
+  if (discord) {
+    return { discord };
+  }
 }
 
 type SystemCommandTree = CommandTree<HandlerExtraContext>;
@@ -588,12 +601,12 @@ enabled jobs: ${enabledJobs.length}
             await reply.system(`Unknown session: ${cron.target}`);
             return;
           }
-          const parsedSesssion = parseTelegramSessionName(cron.target);
-          if (!parsedSesssion) {
+          const deliveryBySession = parseSessionCronDeliveryTarget(cron.target);
+          if (!deliveryBySession) {
             await reply.system(`Invalid session as delivery target: ${cron.target}`);
             return;
           }
-          delivery = { telegram: parsedSesssion };
+          delivery = deliveryBySession;
           sessionName = cron.target;
         }
         if (!delivery) {
@@ -645,12 +658,12 @@ enabled jobs: ${enabledJobs.length}
             await reply.system(`Unknown session: ${cron.target}`);
             return;
           }
-          const parsedSesssion = parseTelegramSessionName(cron.target);
-          if (!parsedSesssion) {
+          const deliveryBySession = parseSessionCronDeliveryTarget(cron.target);
+          if (!deliveryBySession) {
             await reply.system(`Invalid session as delivery target: ${cron.target}`);
             return;
           }
-          const delivery = { telegram: parsedSesssion };
+          const delivery = deliveryBySession;
           patch.target = {
             sessionName: cron.target,
             delivery,
@@ -861,7 +874,7 @@ current session: ${sessionName}`);
   const handle: Handler["handle"] = async (context) => {
     const reply = new ReplyManager({
       send: context.send,
-      limit: MESSAGE_SPLIT_BUDGET,
+      limit: context.replyLimit ?? MESSAGE_SPLIT_BUDGET,
     });
     const extraContext: HandlerExtraContext = { ...context, reply };
 

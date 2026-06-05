@@ -1,36 +1,26 @@
 import "temporal-polyfill/global";
 import path from "node:path";
 import { createInterface } from "node:readline/promises";
-import { run } from "@grammyjs/runner";
-import { Bot, type Context, type Filter } from "grammy";
+import { serveDiscord } from "./channel/discord.ts";
+import { serveTelegram } from "./channel/telegram.ts";
 import { loadConfig, type AppConfig } from "./config.ts";
 import { createHandler, type Handler } from "./handler.ts";
 import { parseCli } from "./lib/cli.ts";
 import { CronRunner } from "./lib/cron/runner.ts";
-import { CronStore } from "./lib/cron/store.ts";
-import { downloadTelegramFile } from "./lib/telegram/file";
-import { markdownToTelegramHtml } from "./lib/telegram/format-html.ts";
-import {
-  formatTelegramConversationMetadata,
-  formatTelegramSessionName,
-  getTelegramRetryAfter,
-  normalizeUserMention,
-  TelegramChatActionManager,
-} from "./lib/telegram/utils.ts";
+import { type CronDeliveryTarget, CronStore } from "./lib/cron/store.ts";
 import { getVersion } from "./lib/version.ts";
-import { addIndent, sleep, truncateString } from "./utils/index.ts";
-import { stringifyError } from "./utils/node.ts";
 
 const CLI_HELP = `\
 Usage: acpella [command]
 
 Commands:
-  serve             Run Telegram bot service. Default when no command is provided.
+  serve             Run bot service. Default when no command is provided.
   repl              Run local in-process REPL.
   exec <message...> Run one local message, then exit.
 
 Options:
   --env-file <path> Use this env file for config resolution.
+  --channel <name>  Service channel for \`serve\` (telegram or discord, default: telegram).
   -h, --help        Show this help.
 `;
 
@@ -46,6 +36,7 @@ async function main() {
     commands: ["serve", "repl", "exec"],
     defaultCommand: "serve",
   });
+  const channel = cli.channel ?? "telegram";
 
   if (cli.command !== "exec" && cli.args.length > 0) {
     throw new Error(`\
@@ -60,6 +51,12 @@ Missing message for exec
 
 ${CLI_HELP}`);
   }
+  if (cli.channel && cli.command !== "serve") {
+    throw new Error(`--channel can only be used with serve`);
+  }
+  if (cli.command === "serve" && !["telegram", "discord"].includes(channel)) {
+    throw new Error(`Invalid --channel: ${channel}`);
+  }
 
   const config = loadConfig({
     envFile: cli.envFile,
@@ -69,6 +66,7 @@ ${CLI_HELP}`);
     cronFile: config.cronFile,
     cronStateFile: config.cronStateFile,
   });
+  let handleCronDelivery = async (_target: CronDeliveryTarget, _text: string): Promise<void> => {};
   const cronRunner = new CronRunner({
     store: cronStore,
     agent: {
@@ -80,13 +78,8 @@ ${CLI_HELP}`);
           console.log("[cron] repl delivery:", text);
           console.log(text);
         }
-        if (cli.command === "serve" && target.telegram) {
-          const { chatId, messageThreadId } = target.telegram;
-          // TODO: fallback, retry, and error handling
-          await bot.api.sendMessage(chatId, markdownToTelegramHtml(text), {
-            parse_mode: "HTML",
-            message_thread_id: messageThreadId,
-          });
+        if (cli.command === "serve") {
+          await handleCronDelivery(target, text);
         }
       },
     },
@@ -120,197 +113,26 @@ ${CLI_HELP}`);
     await runExec({ handler, text: cli.args.join(" ") });
     return;
   }
-
-  const allowedUsers = new Set(config.telegram.allowedUserIds);
-  const allowedChats = new Set(config.telegram.allowedChatIds);
-
-  if (!config.telegram.token) {
-    throw new Error("ACPELLA_TELEGRAM_BOT_TOKEN is required");
-  }
-  if (allowedUsers.size === 0) {
-    throw new Error("ACPELLA_TELEGRAM_ALLOWED_USER_IDS must be non-empty");
-  }
-
-  const telegramToken = config.telegram.token;
-  const bot = new Bot(telegramToken);
-  const botInfo = await bot.api.getMe();
-  const botUsername = botInfo.username;
-
-  try {
-    const commands = Object.entries(handler.commands).map(([command, description]) => ({
-      command,
-      description,
-    }));
-    await bot.api.setMyCommands(commands);
-  } catch (error) {
-    console.error("[telegram] failed to register bot commands:", error);
-  }
-
-  bot.catch((error) => {
-    const ctx = error.ctx;
-    const sessionName = formatTelegramSessionName(ctx);
-    const label = `[${sessionName}:${ctx.message?.message_id ?? "unknown"}]`;
-    console.error(`${label} (bot error)`, error.error);
-  });
-
-  async function handleTelegramMessage({
-    ctx,
-    getText,
-  }: {
-    ctx:
-      | Filter<Context, "message:text">
-      | Filter<Context, "message:document">
-      | Filter<Context, "message:photo">;
-    getText: () => Promise<string>;
-  }): Promise<void> {
-    const chatId = ctx.chat.id;
-    const userId = ctx.from?.id;
-    const sessionName = formatTelegramSessionName(ctx);
-    const label = `[${sessionName}:${ctx.message.message_id}]`;
-
-    if (allowedChats.size && !allowedChats.has(chatId)) {
-      console.error(`${label} rejected: chat ${chatId} is not allowed`);
-      return;
-    }
-    if (!userId || (allowedUsers.size && !allowedUsers.has(userId))) {
-      console.error(`${label} rejected: user ${userId ?? "unknown"} is not allowed`);
-      return;
-    }
-
-    const chatActionManager = new TelegramChatActionManager({
-      send: () => ctx.replyWithChatAction("typing"),
-      logLabel: label,
-    });
-    chatActionManager.start();
-    await using cleanup = new AsyncDisposableStack();
-    cleanup.defer(() => chatActionManager.stop());
-
-    const replyWithRetry = async (...args: Parameters<typeof ctx.reply>) => {
-      try {
-        return await ctx.reply(...args);
-      } catch (error) {
-        // rethrow non rate limit errors
-        const retryAfter = getTelegramRetryAfter(error);
-        if (!retryAfter) {
-          throw error;
-        }
-        console.error(`${label} reply failed. retrying...`, {
-          args,
-          error,
-          retryAfter,
-        });
-        await sleep((retryAfter + 1) * 1000);
-        return await ctx.reply(...args);
-      }
-    };
-
-    try {
-      const text = await getText();
-      console.log(
-        addIndent({
-          indent: `${label} (request) `,
-          text: truncateString(text, 200),
-        }),
-      );
-
-      await handler.handle({
-        sessionName,
-        text: normalizeUserMention({
-          text,
-          username: botUsername,
-        }),
-        metadata: {
-          promptMetadata: {
-            timestamp: ctx.message.date * 1000,
-            channel: formatTelegramConversationMetadata(ctx),
-          },
-          cronDeliveryTarget: {
-            telegram: {
-              chatId,
-              messageThreadId: ctx.message.message_thread_id,
-            },
-          },
-        },
-        send: async (replyText) => {
-          const html = markdownToTelegramHtml(replyText);
-          try {
-            return await replyWithRetry(html, {
-              parse_mode: "HTML",
-            });
-          } catch (error) {
-            // rethrow rate limit errors
-            if (getTelegramRetryAfter(error)) {
-              throw error;
-            }
-            console.error(`${label} formatted reply failed; falling back to raw text:`, error);
-            return await replyWithRetry(replyText);
-          }
-        },
-      });
-      console.log(`${label} (response ok)`);
-    } catch (error) {
-      if (getTelegramRetryAfter(error)) {
-        console.error(`${label} reply failed due to rate limit.`, error);
-        return;
-      }
-      console.error(`${label} (response error)`, error);
-      await replyWithRetry(`[acpella error]\n${truncateString(stringifyError(error), 2000)}`);
-    }
-  }
-
-  bot.on("message:text", async (ctx) => {
-    await handleTelegramMessage({
-      ctx,
-      getText: async () => ctx.message.text,
-    });
-  });
-
-  bot.on("message:document", async (ctx) => {
-    await handleTelegramMessage({
-      ctx,
-      getText: async () => {
-        const uploadedFilePath = await downloadTelegramFile({
-          bot,
-          fileId: ctx.message.document.file_id,
-          fileName: ctx.message.document.file_name,
-        });
-        return [ctx.message.caption, `[User uploaded file: ${uploadedFilePath}]`]
-          .filter(Boolean)
-          .join("\n\n");
-      },
-    });
-  });
-
-  bot.on("message:photo", async (ctx) => {
-    await handleTelegramMessage({
-      ctx,
-      getText: async () => {
-        const photo = ctx.message.photo.at(-1);
-        if (!photo) {
-          throw new Error("Telegram photo is missing");
-        }
-        const uploadedFilePath = await downloadTelegramFile({
-          bot,
-          fileId: photo.file_id,
-          fileName: `${photo.file_unique_id}.jpg`,
-        });
-        return [ctx.message.caption, `[User uploaded image: ${uploadedFilePath}]`]
-          .filter(Boolean)
-          .join("\n\n");
-      },
-    });
-  });
-
-  console.log(`Starting service (version: ${version}, home: ${config.home})`);
-
   cronRunner.start();
-  const botRunner = run(bot, {
-    sink: {
-      // @grammyjs/runner defaults to 500; keep acpella conservative because prompts spawn child agents.
-      concurrency: 5,
+  if (channel === "telegram") {
+    await serveTelegram({
+      config,
+      handler,
+      version,
+      setCronDeliveryHandler: (next) => {
+        handleCronDelivery = next;
+      },
+    });
+    return;
+  }
+  await serveDiscord({
+    config,
+    handler,
+    version,
+    setCronDeliveryHandler: (next) => {
+      handleCronDelivery = next;
     },
   });
-  await botRunner.task();
 }
 
 async function startRepl({

@@ -602,6 +602,7 @@ test("cron with session name", async ({ onTestFinished }) => {
   // - Update tg-job with --target tg-12345-678 and verify thread Telegram delivery.
   // - Add tg-job2 with --target tg-12345-678 and verify thread Telegram delivery.
   // - Add tg-job3 with a multi-word prompt and verify prompt parsing is preserved.
+  // - Add dc-job with --target discord:987654321 and verify Discord delivery target formatting.
   vi.useFakeTimers({
     now: Date.parse("2026-04-18T07:00:00+07:00"),
   });
@@ -616,6 +617,8 @@ test("cron with session name", async ({ onTestFinished }) => {
   await targetSession1.request("hello");
   const targetSession2 = tester.createSession("tg-12345-678");
   await targetSession2.request("hello");
+  const targetSession3 = tester.createSession("discord:987654321");
+  await targetSession3.request("hello");
 
   // setup cron from repl
   const session = tester.createSession("test", {
@@ -699,6 +702,26 @@ test("cron with session name", async ({ onTestFinished }) => {
     next: 2026-04-18T07:01:00+07:00
     last: none
     prompt: hello world"
+  `);
+
+  expect(
+    await session.request("/cron add dc-job * * * * * --target discord:987654321 -- hello-discord"),
+  ).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Added cron job: dc-job"
+  `);
+  expect(await session.request("/cron show dc-job")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    id: dc-job
+    enabled: yes
+    once: no
+    schedule: * * * * *
+    timezone: Asia/Jakarta
+    target session: discord:987654321
+    delivery target: discord:987654321
+    next: 2026-04-18T07:01:00+07:00
+    last: none
+    prompt: hello-discord"
   `);
 });
 

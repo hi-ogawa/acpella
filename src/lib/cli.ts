@@ -2,6 +2,7 @@ type ParsedCli = {
   command: string;
   args: string[];
   envFile?: string;
+  channel?: string;
 };
 
 export function parseCli(options: {
@@ -10,14 +11,36 @@ export function parseCli(options: {
   defaultCommand?: string;
 }): ParsedCli {
   let envFile: string | undefined;
-  const argv = [...options.argv];
-  if (argv[0] === "--env-file") {
-    const value = argv[1];
-    if (!value) {
-      throw new Error("Missing value for --env-file");
+  let channel: string | undefined;
+  const argv: string[] = [];
+  const input = [...options.argv];
+  while (input.length > 0) {
+    const arg = input.shift()!;
+    if (arg === "--env-file") {
+      const value = input.shift();
+      if (!value) {
+        throw new Error("Missing value for --env-file");
+      }
+      envFile = value;
+      continue;
     }
-    envFile = value;
-    argv.splice(0, 2);
+    if (arg === "--channel") {
+      const value = input.shift();
+      if (!value) {
+        throw new Error("Missing value for --channel");
+      }
+      channel = value;
+      continue;
+    }
+    if (arg.startsWith("--channel=")) {
+      const value = arg.slice("--channel=".length);
+      if (!value) {
+        throw new Error("Missing value for --channel");
+      }
+      channel = value;
+      continue;
+    }
+    argv.push(arg);
   }
 
   const command = argv[0] ?? options.defaultCommand;
@@ -32,6 +55,7 @@ export function parseCli(options: {
   return {
     command,
     args,
-    envFile,
+    ...(envFile ? { envFile } : {}),
+    ...(channel ? { channel } : {}),
   };
 }

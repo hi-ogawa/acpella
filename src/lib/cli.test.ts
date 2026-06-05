@@ -27,4 +27,30 @@ describe(parseCli, () => {
       }),
     ).toThrowErrorMatchingInlineSnapshot(`[Error: Missing value for --env-file]`);
   });
+
+  it("parses channel option", () => {
+    expect(
+      parseCli({
+        argv: ["serve", "--channel=discord"],
+        commands: ["serve", "repl", "exec"],
+        defaultCommand: "serve",
+      }),
+    ).toMatchInlineSnapshot(`
+      {
+        "args": [],
+        "channel": "discord",
+        "command": "serve",
+      }
+    `);
+  });
+
+  it("fails when channel value is missing", () => {
+    expect(() =>
+      parseCli({
+        argv: ["serve", "--channel"],
+        commands: ["serve", "repl", "exec"],
+        defaultCommand: "serve",
+      }),
+    ).toThrowErrorMatchingInlineSnapshot(`[Error: Missing value for --channel]`);
+  });
 });

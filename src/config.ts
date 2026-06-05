@@ -17,6 +17,12 @@ export interface AppConfig {
     allowedUserIds: number[];
     allowedChatIds: number[];
   };
+  discord: {
+    token?: string;
+    allowedUserIds: string[];
+    allowedGuildIds: string[];
+    allowedChannelIds: string[];
+  };
   /** Conventional custom-instructions file, read lazily when creating a new session. */
   prompt: {
     file: string;
@@ -29,6 +35,10 @@ const envSchema = z
     ACPELLA_TELEGRAM_BOT_TOKEN: z.string().optional(),
     ACPELLA_TELEGRAM_ALLOWED_USER_IDS: z.string().optional(),
     ACPELLA_TELEGRAM_ALLOWED_CHAT_IDS: z.string().optional(),
+    ACPELLA_DISCORD_BOT_TOKEN: z.string().optional(),
+    ACPELLA_DISCORD_ALLOWED_USER_IDS: z.string().optional(),
+    ACPELLA_DISCORD_ALLOWED_GUILD_IDS: z.string().optional(),
+    ACPELLA_DISCORD_ALLOWED_CHANNEL_IDS: z.string().optional(),
     // pin timezone to make tests deterministic on local and CI
     TEST_ACPELLA_TIMEZONE: z.string().optional(),
   })
@@ -70,6 +80,12 @@ export function loadConfig(options: {
       allowedUserIds: parseIdList(env.ACPELLA_TELEGRAM_ALLOWED_USER_IDS) ?? [],
       allowedChatIds: parseIdList(env.ACPELLA_TELEGRAM_ALLOWED_CHAT_IDS) ?? [],
     },
+    discord: {
+      token: env.ACPELLA_DISCORD_BOT_TOKEN,
+      allowedUserIds: parseStringList(env.ACPELLA_DISCORD_ALLOWED_USER_IDS) ?? [],
+      allowedGuildIds: parseStringList(env.ACPELLA_DISCORD_ALLOWED_GUILD_IDS) ?? [],
+      allowedChannelIds: parseStringList(env.ACPELLA_DISCORD_ALLOWED_CHANNEL_IDS) ?? [],
+    },
     prompt: {
       file: path.join(home, ".acpella", "AGENTS.md"),
     },
@@ -97,4 +113,14 @@ function parseIdList(value: string | undefined): number[] | undefined {
     }
     return id;
   });
+}
+
+function parseStringList(value: string | undefined): string[] | undefined {
+  if (value === undefined) {
+    return;
+  }
+  if (value.trim() === "") {
+    return [];
+  }
+  return value.split(",").map((part) => part.trim());
 }
