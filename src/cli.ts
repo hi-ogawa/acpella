@@ -43,7 +43,7 @@ Commands:
 
 Options:
   --env-file <path> Use this env file for config resolution.
-  --channel <name>  Service channel for \`serve\` (telegram or discord, default: telegram).
+  --channel=<name> Service channel for \`serve\` (telegram or discord, default: telegram).
   -h, --help        Show this help.
 `;
 

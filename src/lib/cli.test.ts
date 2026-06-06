@@ -47,7 +47,7 @@ describe(parseCli, () => {
   it("fails when channel value is missing", () => {
     expect(() =>
       parseCli({
-        argv: ["serve", "--channel"],
+        argv: ["serve", "--channel="],
         commands: ["serve", "repl", "exec"],
         defaultCommand: "serve",
       }),

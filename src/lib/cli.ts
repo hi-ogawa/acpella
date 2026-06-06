@@ -24,14 +24,6 @@ export function parseCli(options: {
       envFile = value;
       continue;
     }
-    if (arg === "--channel") {
-      const value = input.shift();
-      if (!value) {
-        throw new Error("Missing value for --channel");
-      }
-      channel = value;
-      continue;
-    }
     if (arg.startsWith("--channel=")) {
       const value = arg.slice("--channel=".length);
       if (!value) {
