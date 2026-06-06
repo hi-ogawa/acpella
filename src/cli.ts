@@ -483,6 +483,7 @@ async function serveDiscord(options: {
               channelId,
               isDirectMessage: message.channel.isDMBased(),
             }),
+            ...(message.channel.isThread() ? { thread_name: message.channel.name } : {}),
           },
           cronDeliveryTarget: {
             discord: {
