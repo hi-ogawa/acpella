@@ -13,7 +13,7 @@ import {
 } from "./lib/cron/command.ts";
 import type { CronRunner, CronRunnerAgentOptions } from "./lib/cron/runner.ts";
 import type { CronDeliveryTarget, CronJob, CronStore } from "./lib/cron/store.ts";
-import { parseDiscordSessionName } from "./lib/discord/utils.ts";
+import { parseSessionCronDeliveryTarget } from "./lib/cron/target.ts";
 import type { MessageMetadata } from "./lib/prompt.ts";
 import { buildFirstPrompt, buildMessageMetadataPrompt } from "./lib/prompt.ts";
 import { MESSAGE_SPLIT_BUDGET, ReplyManager } from "./lib/reply.ts";
@@ -27,7 +27,6 @@ import { shouldRenewSession } from "./lib/session/renew.ts";
 import { getVerboseSessionUpdateTypes } from "./lib/session/verbose.ts";
 import { handleShellCommand, parseShellCommandArgs } from "./lib/shell.ts";
 import { handleSystemdInstall } from "./lib/systemd.ts";
-import { parseTelegramSessionName } from "./lib/telegram/utils.ts";
 import { parseAgentSessionKey, SessionStateStore, toAgentSessionKey } from "./state.ts";
 import type { StateAgentSession } from "./state.ts";
 import { AsyncLane, DefaultMap, formatError } from "./utils/index.ts";
@@ -54,17 +53,6 @@ export interface HandlerContext {
 
 interface HandlerExtraContext extends HandlerContext {
   reply: ReplyManager;
-}
-
-function parseSessionCronDeliveryTarget(sessionName: string): CronDeliveryTarget | undefined {
-  const telegram = parseTelegramSessionName(sessionName);
-  if (telegram) {
-    return { telegram };
-  }
-  const discord = parseDiscordSessionName(sessionName);
-  if (discord) {
-    return { discord };
-  }
 }
 
 type SystemCommandTree = CommandTree<HandlerExtraContext>;
