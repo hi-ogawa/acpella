@@ -408,17 +408,75 @@ async function serveDiscord(options: {
     await channel.send(text);
   });
 
+  async function handleDiscordMessage(message: Message) {
+    const userId = message.author.id;
+    const guildId = message.guildId ?? undefined;
+    const channelId = message.channelId;
+    const sessionName = formatDiscordSessionName(channelId);
+    const label = `[${sessionName}:${message.id}]`;
+
+    if (allowedChannels.size && !allowedChannels.has(channelId)) {
+      console.error(`${label} rejected: channel ${channelId} is not allowed`);
+      return;
+    }
+    if (!guildId || !allowedGuilds.has(guildId)) {
+      console.error(`${label} rejected: guild ${guildId ?? "direct-message"} is not allowed`);
+      return;
+    }
+    if (allowedUsers.size && !allowedUsers.has(userId)) {
+      console.error(`${label} rejected: user ${userId} is not allowed`);
+      return;
+    }
+
+    const text = message.content.trim();
+    if (!text) {
+      // TODO: support Discord media and attachment-only messages.
+      console.error(`${label} ignored: message has no text content`);
+      return;
+    }
+    const replyChannel = message.channel;
+    if (!replyChannel.isSendable()) {
+      console.error(`${label} rejected: channel is not sendable`);
+      return;
+    }
+
+    try {
+      await handler.handle({
+        sessionName,
+        text,
+        // TODO: move transport-specific split/render policy out of HandlerContext.
+        replyLimit: DISCORD_MESSAGE_SPLIT_BUDGET,
+        metadata: {
+          promptMetadata: {
+            timestamp: message.createdTimestamp,
+            channel: formatDiscordConversationMetadata({
+              guildId,
+              channelId,
+              isDirectMessage: message.channel.isDMBased(),
+            }),
+          },
+          cronDeliveryTarget: {
+            discord: {
+              channelId,
+            },
+          },
+        },
+        send: async (replyText) => {
+          return await replyChannel.send(replyText);
+        },
+      });
+      console.log(`${label} (response ok)`);
+    } catch (error) {
+      console.error(`${label} (response error)`, error);
+      await replyChannel.send(`[acpella error]\n${truncateString(stringifyError(error), 1800)}`);
+    }
+  }
+
   client.on("messageCreate", async (message) => {
     if (message.author.bot) {
       return;
     }
-    await handleDiscordMessage({
-      message,
-      handler,
-      allowedUsers,
-      allowedGuilds,
-      allowedChannels,
-    });
+    await handleDiscordMessage(message);
   });
 
   client.on("error", (error) => {
@@ -428,77 +486,6 @@ async function serveDiscord(options: {
   console.log(`Starting service (version: ${version}, home: ${config.home}, channel: discord)`);
   await client.login(config.discord.token);
   await new Promise<never>(() => {});
-}
-
-async function handleDiscordMessage(options: {
-  message: Message;
-  handler: Handler;
-  allowedUsers: Set<string>;
-  allowedGuilds: Set<string>;
-  allowedChannels: Set<string>;
-}) {
-  const { message, handler, allowedUsers, allowedGuilds, allowedChannels } = options;
-  const userId = message.author.id;
-  const guildId = message.guildId ?? undefined;
-  const channelId = message.channelId;
-  const sessionName = formatDiscordSessionName(channelId);
-  const label = `[${sessionName}:${message.id}]`;
-
-  if (allowedChannels.size && !allowedChannels.has(channelId)) {
-    console.error(`${label} rejected: channel ${channelId} is not allowed`);
-    return;
-  }
-  if (!guildId || !allowedGuilds.has(guildId)) {
-    console.error(`${label} rejected: guild ${guildId ?? "direct-message"} is not allowed`);
-    return;
-  }
-  if (allowedUsers.size && !allowedUsers.has(userId)) {
-    console.error(`${label} rejected: user ${userId} is not allowed`);
-    return;
-  }
-
-  const text = message.content.trim();
-  if (!text) {
-    // TODO: support Discord media and attachment-only messages.
-    console.error(`${label} ignored: message has no text content`);
-    return;
-  }
-  const replyChannel = message.channel;
-  if (!replyChannel.isSendable()) {
-    console.error(`${label} rejected: channel is not sendable`);
-    return;
-  }
-
-  try {
-    await handler.handle({
-      sessionName,
-      text,
-      // TODO: move transport-specific split/render policy out of HandlerContext.
-      replyLimit: DISCORD_MESSAGE_SPLIT_BUDGET,
-      metadata: {
-        promptMetadata: {
-          timestamp: message.createdTimestamp,
-          channel: formatDiscordConversationMetadata({
-            guildId,
-            channelId,
-            isDirectMessage: message.channel.isDMBased(),
-          }),
-        },
-        cronDeliveryTarget: {
-          discord: {
-            channelId,
-          },
-        },
-      },
-      send: async (replyText) => {
-        return await replyChannel.send(replyText);
-      },
-    });
-    console.log(`${label} (response ok)`);
-  } catch (error) {
-    console.error(`${label} (response error)`, error);
-    await replyChannel.send(`[acpella error]\n${truncateString(stringifyError(error), 1800)}`);
-  }
 }
 
 async function startRepl({
