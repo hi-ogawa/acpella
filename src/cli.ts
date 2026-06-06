@@ -459,6 +459,8 @@ async function handleDiscordMessage(options: {
 
   const text = message.content.trim();
   if (!text) {
+    // TODO: support Discord media and attachment-only messages.
+    console.error(`${label} ignored: message has no text content`);
     return;
   }
   const replyChannel = message.channel;
@@ -471,6 +473,7 @@ async function handleDiscordMessage(options: {
     await handler.handle({
       sessionName,
       text,
+      // TODO: move transport-specific split/render policy out of HandlerContext.
       replyLimit: DISCORD_MESSAGE_SPLIT_BUDGET,
       metadata: {
         promptMetadata: {
