@@ -53,6 +53,13 @@ Run the Discord bot:
 acpella serve --channel=discord
 ```
 
+When running Telegram and Discord as separate service processes, run cron in only one of them:
+
+```bash
+acpella serve --channel=telegram
+acpella serve --channel=discord --no-cron
+```
+
 Run the local REPL:
 
 ```bash

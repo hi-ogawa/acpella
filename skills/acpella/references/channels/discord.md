@@ -42,3 +42,10 @@ ACPELLA_DISCORD_ALLOWED_CHANNEL_IDS=123456789012345678
 ```bash
 acpella serve --channel=discord
 ```
+
+When dogfooding Telegram and Discord as separate service processes, let only one process run cron:
+
+```bash
+acpella serve --channel=telegram
+acpella serve --channel=discord --no-cron
+```

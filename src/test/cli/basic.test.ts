@@ -16,6 +16,7 @@ test("help", async () => {
     Options:
       --env-file=<path> Use this env file for config resolution.
       --channel=<name>  Service channel for \`serve\` (telegram or discord, default: telegram).
+      --no-cron         Disable cron runner for this process.
       -h, --help        Show this help.
 
     "
@@ -34,6 +35,11 @@ test("cli error", async () => {
     "Command failed: pnpm -s dev yay
     Error: Unknown command: yay"
   `);
+  await expect(cli.cli("repl", "--no-cron").catch(sanitizeCliError)).resolves
+    .toThrowErrorMatchingInlineSnapshot(`
+      "Command failed: pnpm -s dev repl --no-cron
+      Error: --no-cron can only be used with serve"
+    `);
 });
 
 test("serve fails without telegram env", async ({ onTestFinished }) => {

@@ -38,6 +38,7 @@ Commands:
 Options:
   --env-file=<path> Use this env file for config resolution.
   --channel=<name>  Service channel for \`serve\` (telegram or discord, default: telegram).
+  --no-cron         Disable cron runner for this process.
   -h, --help        Show this help.
 `;
 
@@ -71,6 +72,9 @@ ${CLI_HELP}`);
 
   if (cli.channel && cli.command !== "serve") {
     throw new Error(`--channel can only be used with serve`);
+  }
+  if (cli.noCron && cli.command !== "serve") {
+    throw new Error(`--no-cron can only be used with serve`);
   }
 
   // TODO: support serving multiple channels at once
@@ -141,7 +145,9 @@ ${CLI_HELP}`);
     return;
   }
 
-  cronRunner.start();
+  if (!cli.noCron) {
+    cronRunner.start();
+  }
   if (channel === "telegram") {
     await serveTelegram({
       config,
