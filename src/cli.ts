@@ -87,7 +87,7 @@ ${CLI_HELP}`);
     cronFile: config.cronFile,
     cronStateFile: config.cronStateFile,
   });
-  let handleCronDelivery: CronDeliveryHandler = async () => {};
+  const cronDeliveryHandlers = new Set<CronDeliveryHandler>();
   const cronRunner = new CronRunner({
     store: cronStore,
     agent: {
@@ -95,12 +95,8 @@ ${CLI_HELP}`);
     },
     delivery: {
       send: async ({ target, text }) => {
-        if (target.repl) {
-          console.log("[cron] repl delivery:", text);
-          console.log(text);
-        }
-        if (cli.command === "serve") {
-          await handleCronDelivery(target, text);
+        for (const handler of cronDeliveryHandlers) {
+          await handler(target, text);
         }
       },
     },
@@ -126,7 +122,14 @@ ${CLI_HELP}`);
   cleanup.defer(() => cronRunner.stop());
 
   if (cli.command === "repl") {
-    await startRepl({ config, handler, version });
+    await startRepl({
+      config,
+      handler,
+      version,
+      registerCronDeliveryHandler: (next) => {
+        cronDeliveryHandlers.add(next);
+      },
+    });
     return;
   }
 
@@ -142,7 +145,7 @@ ${CLI_HELP}`);
       handler,
       version,
       registerCronDeliveryHandler: (next) => {
-        handleCronDelivery = next;
+        cronDeliveryHandlers.add(next);
       },
     });
   }
@@ -152,7 +155,7 @@ ${CLI_HELP}`);
       handler,
       version,
       registerCronDeliveryHandler: (next) => {
-        handleCronDelivery = next;
+        cronDeliveryHandlers.add(next);
       },
     });
   }
@@ -500,13 +503,22 @@ async function handleDiscordMessage(options: {
 async function startRepl({
   config,
   handler,
+  registerCronDeliveryHandler,
   version,
 }: {
   config: AppConfig;
   handler: Handler;
+  registerCronDeliveryHandler: (handler: CronDeliveryHandler) => void;
   version: string;
 }) {
   console.log(`Starting repl (version: ${version}, home: ${config.home})`);
+  registerCronDeliveryHandler(async (target, text) => {
+    if (!target.repl) {
+      return;
+    }
+    console.log("[cron] repl delivery:", text);
+    console.log(text);
+  });
 
   let isHandling = false;
   async function sendMessage(text: string) {
