@@ -51,6 +51,7 @@ async function main() {
   const cli = parseCli({
     argv: cliArgv,
     commands: ["serve", "repl", "exec"],
+    // TODO: remove default command and make top-level command explicit
     defaultCommand: "serve",
   });
 
@@ -72,6 +73,7 @@ ${CLI_HELP}`);
     throw new Error(`--channel can only be used with serve`);
   }
 
+  // TODO: support serving multiple channels at once
   const channel = cli.channel ?? "telegram";
   if (cli.command === "serve" && !["telegram", "discord"].includes(channel)) {
     throw new Error(`Invalid --channel: ${channel}`);
