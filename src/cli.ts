@@ -1,14 +1,37 @@
 import "temporal-polyfill/global";
 import path from "node:path";
 import { createInterface } from "node:readline/promises";
-import { serveDiscord } from "./channel/discord.ts";
-import { serveTelegram } from "./channel/telegram.ts";
+import { run } from "@grammyjs/runner";
+import {
+  Client,
+  GatewayIntentBits,
+  Partials,
+  type MessageCreateOptions,
+  type Message,
+} from "discord.js";
+import { Bot, type Context, type Filter } from "grammy";
 import { loadConfig, type AppConfig } from "./config.ts";
 import { createHandler, type Handler } from "./handler.ts";
 import { parseCli } from "./lib/cli.ts";
 import { CronRunner } from "./lib/cron/runner.ts";
 import { type CronDeliveryTarget, CronStore } from "./lib/cron/store.ts";
+import {
+  formatDiscordConversationMetadata,
+  formatDiscordSessionName,
+} from "./lib/discord/utils.ts";
+import { DISCORD_MESSAGE_SPLIT_BUDGET } from "./lib/reply.ts";
+import { downloadTelegramFile } from "./lib/telegram/file";
+import { markdownToTelegramHtml } from "./lib/telegram/format-html.ts";
+import {
+  formatTelegramConversationMetadata,
+  formatTelegramSessionName,
+  getTelegramRetryAfter,
+  normalizeUserMention,
+  TelegramChatActionManager,
+} from "./lib/telegram/utils.ts";
 import { getVersion } from "./lib/version.ts";
+import { addIndent, sleep, truncateString } from "./utils/index.ts";
+import { stringifyError } from "./utils/node.ts";
 
 const CLI_HELP = `\
 Usage: acpella [command]
@@ -210,6 +233,370 @@ async function runExec({ handler, text }: { handler: Handler; text: string }) {
       console.log(replyText);
     },
   });
+}
+
+async function serveTelegram(options: {
+  config: AppConfig;
+  handler: Handler;
+  version: string;
+  setCronDeliveryHandler: (
+    handler: (target: CronDeliveryTarget, text: string) => Promise<void>,
+  ) => void;
+}) {
+  const { config, handler, version, setCronDeliveryHandler } = options;
+  const allowedUsers = new Set(config.telegram.allowedUserIds);
+  const allowedChats = new Set(config.telegram.allowedChatIds);
+
+  if (!config.telegram.token) {
+    throw new Error("ACPELLA_TELEGRAM_BOT_TOKEN is required");
+  }
+  if (allowedUsers.size === 0) {
+    throw new Error("ACPELLA_TELEGRAM_ALLOWED_USER_IDS must be non-empty");
+  }
+
+  const bot = new Bot(config.telegram.token);
+  const botInfo = await bot.api.getMe();
+  const botUsername = botInfo.username;
+
+  setCronDeliveryHandler(async (target, text) => {
+    if (!target.telegram) {
+      return;
+    }
+    const { chatId, messageThreadId } = target.telegram;
+    // TODO: fallback, retry, and error handling
+    await bot.api.sendMessage(chatId, markdownToTelegramHtml(text), {
+      parse_mode: "HTML",
+      message_thread_id: messageThreadId,
+    });
+  });
+
+  try {
+    const commands = Object.entries(handler.commands).map(([command, description]) => ({
+      command,
+      description,
+    }));
+    await bot.api.setMyCommands(commands);
+  } catch (error) {
+    console.error("[telegram] failed to register bot commands:", error);
+  }
+
+  bot.catch((error) => {
+    const ctx = error.ctx;
+    const sessionName = formatTelegramSessionName(ctx);
+    const label = `[${sessionName}:${ctx.message?.message_id ?? "unknown"}]`;
+    console.error(`${label} (bot error)`, error.error);
+  });
+
+  async function handleTelegramMessage({
+    ctx,
+    getText,
+  }: {
+    ctx:
+      | Filter<Context, "message:text">
+      | Filter<Context, "message:document">
+      | Filter<Context, "message:photo">;
+    getText: () => Promise<string>;
+  }): Promise<void> {
+    const chatId = ctx.chat.id;
+    const userId = ctx.from?.id;
+    const sessionName = formatTelegramSessionName(ctx);
+    const label = `[${sessionName}:${ctx.message.message_id}]`;
+
+    if (allowedChats.size && !allowedChats.has(chatId)) {
+      console.error(`${label} rejected: chat ${chatId} is not allowed`);
+      return;
+    }
+    if (!userId || (allowedUsers.size && !allowedUsers.has(userId))) {
+      console.error(`${label} rejected: user ${userId ?? "unknown"} is not allowed`);
+      return;
+    }
+
+    const chatActionManager = new TelegramChatActionManager({
+      send: () => ctx.replyWithChatAction("typing"),
+      logLabel: label,
+    });
+    chatActionManager.start();
+    await using cleanup = new AsyncDisposableStack();
+    cleanup.defer(() => chatActionManager.stop());
+
+    const replyWithRetry = async (...args: Parameters<typeof ctx.reply>) => {
+      try {
+        return await ctx.reply(...args);
+      } catch (error) {
+        // rethrow non rate limit errors
+        const retryAfter = getTelegramRetryAfter(error);
+        if (!retryAfter) {
+          throw error;
+        }
+        console.error(`${label} reply failed. retrying...`, {
+          args,
+          error,
+          retryAfter,
+        });
+        await sleep((retryAfter + 1) * 1000);
+        return await ctx.reply(...args);
+      }
+    };
+
+    try {
+      const text = await getText();
+      console.log(
+        addIndent({
+          indent: `${label} (request) `,
+          text: truncateString(text, 200),
+        }),
+      );
+
+      await handler.handle({
+        sessionName,
+        text: normalizeUserMention({
+          text,
+          username: botUsername,
+        }),
+        metadata: {
+          promptMetadata: {
+            timestamp: ctx.message.date * 1000,
+            channel: formatTelegramConversationMetadata(ctx),
+          },
+          cronDeliveryTarget: {
+            telegram: {
+              chatId,
+              messageThreadId: ctx.message.message_thread_id,
+            },
+          },
+        },
+        send: async (replyText) => {
+          const html = markdownToTelegramHtml(replyText);
+          try {
+            return await replyWithRetry(html, {
+              parse_mode: "HTML",
+            });
+          } catch (error) {
+            // rethrow rate limit errors
+            if (getTelegramRetryAfter(error)) {
+              throw error;
+            }
+            console.error(`${label} formatted reply failed; falling back to raw text:`, error);
+            return await replyWithRetry(replyText);
+          }
+        },
+      });
+      console.log(`${label} (response ok)`);
+    } catch (error) {
+      if (getTelegramRetryAfter(error)) {
+        console.error(`${label} reply failed due to rate limit.`, error);
+        return;
+      }
+      console.error(`${label} (response error)`, error);
+      await replyWithRetry(`[acpella error]\n${truncateString(stringifyError(error), 2000)}`);
+    }
+  }
+
+  bot.on("message:text", async (ctx) => {
+    await handleTelegramMessage({
+      ctx,
+      getText: async () => ctx.message.text,
+    });
+  });
+
+  bot.on("message:document", async (ctx) => {
+    await handleTelegramMessage({
+      ctx,
+      getText: async () => {
+        const uploadedFilePath = await downloadTelegramFile({
+          bot,
+          fileId: ctx.message.document.file_id,
+          fileName: ctx.message.document.file_name,
+        });
+        return [ctx.message.caption, `[User uploaded file: ${uploadedFilePath}]`]
+          .filter(Boolean)
+          .join("\n\n");
+      },
+    });
+  });
+
+  bot.on("message:photo", async (ctx) => {
+    await handleTelegramMessage({
+      ctx,
+      getText: async () => {
+        const photo = ctx.message.photo.at(-1);
+        if (!photo) {
+          throw new Error("Telegram photo is missing");
+        }
+        const uploadedFilePath = await downloadTelegramFile({
+          bot,
+          fileId: photo.file_id,
+          fileName: `${photo.file_unique_id}.jpg`,
+        });
+        return [ctx.message.caption, `[User uploaded image: ${uploadedFilePath}]`]
+          .filter(Boolean)
+          .join("\n\n");
+      },
+    });
+  });
+
+  console.log(`Starting service (version: ${version}, home: ${config.home}, channel: telegram)`);
+
+  const botRunner = run(bot, {
+    sink: {
+      // @grammyjs/runner defaults to 500; keep acpella conservative because prompts spawn child agents.
+      concurrency: 5,
+    },
+  });
+  await botRunner.task();
+}
+
+async function serveDiscord(options: {
+  config: AppConfig;
+  handler: Handler;
+  version: string;
+  setCronDeliveryHandler: (
+    handler: (target: CronDeliveryTarget, text: string) => Promise<void>,
+  ) => void;
+}) {
+  const { config, handler, version, setCronDeliveryHandler } = options;
+
+  if (!config.discord.token) {
+    throw new Error("ACPELLA_DISCORD_BOT_TOKEN is required");
+  }
+  if (config.discord.allowedUserIds.length === 0) {
+    throw new Error("ACPELLA_DISCORD_ALLOWED_USER_IDS must be non-empty");
+  }
+
+  const allowedUsers = new Set(config.discord.allowedUserIds);
+  const allowedGuilds = new Set(config.discord.allowedGuildIds);
+  const allowedChannels = new Set(config.discord.allowedChannelIds);
+
+  const client = new Client({
+    intents: [
+      GatewayIntentBits.Guilds,
+      GatewayIntentBits.GuildMessages,
+      GatewayIntentBits.DirectMessages,
+      GatewayIntentBits.MessageContent,
+    ],
+    partials: [Partials.Channel],
+  });
+
+  setCronDeliveryHandler(async (target, text) => {
+    if (!target.discord) {
+      return;
+    }
+    const channel = await client.channels.fetch(target.discord.channelId);
+    if (!channel?.isTextBased() || !isSendableChannel(channel)) {
+      throw new Error(`Discord channel is not text-based: ${target.discord.channelId}`);
+    }
+    await sendDiscordMessage(channel, text);
+  });
+
+  client.on("messageCreate", async (message) => {
+    if (message.author.bot) {
+      return;
+    }
+    await handleDiscordMessage({
+      message,
+      handler,
+      allowedUsers,
+      allowedGuilds,
+      allowedChannels,
+    });
+  });
+
+  client.on("error", (error) => {
+    console.error("[discord] client error", error);
+  });
+
+  console.log(`Starting service (version: ${version}, home: ${config.home}, channel: discord)`);
+  await client.login(config.discord.token);
+  await new Promise<never>(() => {});
+}
+
+async function handleDiscordMessage(options: {
+  message: Message;
+  handler: Handler;
+  allowedUsers: Set<string>;
+  allowedGuilds: Set<string>;
+  allowedChannels: Set<string>;
+}) {
+  const { message, handler, allowedUsers, allowedGuilds, allowedChannels } = options;
+  const userId = message.author.id;
+  const guildId = message.guildId ?? undefined;
+  const channelId = message.channelId;
+  const sessionName = formatDiscordSessionName(channelId);
+  const label = `[${sessionName}:${message.id}]`;
+
+  if (allowedChannels.size && !allowedChannels.has(channelId)) {
+    console.error(`${label} rejected: channel ${channelId} is not allowed`);
+    return;
+  }
+  if (allowedGuilds.size && (!guildId || !allowedGuilds.has(guildId))) {
+    console.error(`${label} rejected: guild ${guildId ?? "direct-message"} is not allowed`);
+    return;
+  }
+  if (allowedUsers.size && !allowedUsers.has(userId)) {
+    console.error(`${label} rejected: user ${userId} is not allowed`);
+    return;
+  }
+
+  const text = message.content.trim();
+  if (!text) {
+    return;
+  }
+  const replyChannel = message.channel;
+  if (!isSendableChannel(replyChannel)) {
+    console.error(`${label} rejected: channel is not sendable`);
+    return;
+  }
+
+  try {
+    await handler.handle({
+      sessionName,
+      text,
+      replyLimit: DISCORD_MESSAGE_SPLIT_BUDGET,
+      metadata: {
+        promptMetadata: {
+          timestamp: message.createdTimestamp,
+          channel: formatDiscordConversationMetadata({
+            guildId,
+            channelId,
+            isDirectMessage: message.channel.isDMBased(),
+          }),
+        },
+        cronDeliveryTarget: {
+          discord: {
+            channelId,
+          },
+        },
+      },
+      send: async (replyText) => {
+        return await sendDiscordMessage(replyChannel, replyText);
+      },
+    });
+    console.log(`${label} (response ok)`);
+  } catch (error) {
+    console.error(`${label} (response error)`, error);
+    await sendDiscordMessage(
+      replyChannel,
+      `[acpella error]\n${truncateString(stringifyError(error), 1800)}`,
+    );
+  }
+}
+
+function isSendableChannel(channel: unknown): channel is {
+  send: (content: string | MessageCreateOptions) => Promise<unknown>;
+} {
+  return (
+    typeof channel === "object" &&
+    channel !== null &&
+    "send" in channel &&
+    typeof channel.send === "function"
+  );
+}
+
+async function sendDiscordMessage(
+  channel: { send: (content: string | MessageCreateOptions) => Promise<unknown> },
+  text: string,
+) {
+  await channel.send(text);
 }
 
 main().catch((err) => {
