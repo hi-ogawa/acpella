@@ -9,7 +9,9 @@ import { createHandler, type Handler } from "./handler.ts";
 import { parseCli } from "./lib/cli.ts";
 import { CronRunner, type CronDeliveryHandler } from "./lib/cron/runner.ts";
 import { CronStore } from "./lib/cron/store.ts";
+import { downloadDiscordAttachment } from "./lib/discord/file.ts";
 import {
+  buildDiscordPromptText,
   formatDiscordConversationMetadata,
   formatDiscordSessionName,
 } from "./lib/discord/utils.ts";
@@ -442,12 +444,26 @@ async function serveDiscord(options: {
       return;
     }
 
-    const text = message.content.trim();
-    if (!text) {
-      // TODO: support Discord media and attachment-only messages.
-      console.error(`${label} ignored: message has no text content`);
+    const content = message.content.trim();
+    const attachments = [...message.attachments.values()];
+    if (!content && attachments.length === 0) {
+      console.error(`${label} ignored: message has no text content or attachments`);
       return;
     }
+
+    const downloadedAttachments: { localPath: string; isImage: boolean }[] = [];
+    for (const attachment of attachments) {
+      const localPath = await downloadDiscordAttachment({
+        url: attachment.url,
+        fileName: attachment.name,
+      });
+      downloadedAttachments.push({
+        localPath,
+        isImage: attachment.contentType?.startsWith("image/") ?? false,
+      });
+    }
+
+    const text = buildDiscordPromptText({ content, attachments: downloadedAttachments });
     console.log(
       addIndent({
         indent: `${label} (request) `,
