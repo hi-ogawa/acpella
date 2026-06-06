@@ -451,28 +451,18 @@ async function serveDiscord(options: {
     }
 
     try {
-      const downloadedAttachments: { localPath: string; isImage: boolean }[] = [];
+      let text = content;
       for (const attachment of attachments) {
         const localPath = await downloadDiscordAttachment({
           url: attachment.url,
           fileName: attachment.name,
         });
-        downloadedAttachments.push({
-          localPath,
-          isImage: attachment.contentType?.startsWith("image/") ?? false,
-        });
+        const uploadText = attachment.contentType?.startsWith("image/")
+          ? `[User uploaded image: ${localPath}]`
+          : `[User uploaded file: ${localPath}]`;
+        text = [text, uploadText].filter(Boolean).join("\n\n");
       }
 
-      const text = [
-        content,
-        ...downloadedAttachments.map((attachment) =>
-          attachment.isImage
-            ? `[User uploaded image: ${attachment.localPath}]`
-            : `[User uploaded file: ${attachment.localPath}]`,
-        ),
-      ]
-        .filter(Boolean)
-        .join("\n\n");
       console.log(
         addIndent({
           indent: `${label} (request) `,
