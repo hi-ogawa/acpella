@@ -2,8 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { Readable } from "node:stream";
 import type { Bot } from "grammy";
-
-const TELEGRAM_UPLOAD_DIR = "/tmp/acpella-uploads";
+import { ACPELLA_UPLOAD_DIR } from "../uploads.ts";
 
 export async function downloadTelegramFile({
   bot,
@@ -27,9 +26,13 @@ export async function downloadTelegramFile({
   if (!response.body) {
     throw new Error(`Failed to download Telegram file: response body is missing`);
   }
-  fs.mkdirSync(TELEGRAM_UPLOAD_DIR, { recursive: true });
   const baseName = path.basename(fileName || telegramFile.file_path) || fileId;
-  const outputPath = path.join(TELEGRAM_UPLOAD_DIR, `${Date.now()}-${fileId}-${baseName}`);
+  const outputPath = path.join(
+    ACPELLA_UPLOAD_DIR,
+    "telegram",
+    `${Date.now()}-${fileId}-${baseName}`,
+  );
+  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   await fs.promises.writeFile(outputPath, Readable.fromWeb(response.body as any));
   return outputPath;
 }

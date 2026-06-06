@@ -9,6 +9,7 @@ import { createHandler, type Handler } from "./handler.ts";
 import { parseCli } from "./lib/cli.ts";
 import { CronRunner, type CronDeliveryHandler } from "./lib/cron/runner.ts";
 import { CronStore } from "./lib/cron/store.ts";
+import { downloadDiscordAttachment } from "./lib/discord/file.ts";
 import {
   formatDiscordConversationMetadata,
   formatDiscordSessionName,
@@ -443,10 +444,10 @@ async function serveDiscord(options: {
       return;
     }
 
-    const text = message.content.trim();
-    if (!text) {
-      // TODO: support Discord media and attachment-only messages.
-      console.error(`${label} ignored: message has no text content`);
+    const content = message.content.trim();
+    const attachments = [...message.attachments.values()];
+    if (!content && attachments.length === 0) {
+      console.error(`${label} ignored: message has no text content or attachments`);
       return;
     }
 
@@ -458,14 +459,26 @@ async function serveDiscord(options: {
     await using cleanup = new AsyncDisposableStack();
     cleanup.defer(() => typingIndicatorManager.stop());
 
-    console.log(
-      addIndent({
-        indent: `${label} (request) `,
-        text: truncateString(text, 200),
-      }),
-    );
-
     try {
+      let text = content;
+      for (const attachment of attachments) {
+        const localPath = await downloadDiscordAttachment({
+          url: attachment.url,
+          fileName: attachment.name,
+        });
+        const uploadText = attachment.contentType?.startsWith("image/")
+          ? `[User uploaded image: ${localPath}]`
+          : `[User uploaded file: ${localPath}]`;
+        text = [text, uploadText].filter(Boolean).join("\n\n");
+      }
+
+      console.log(
+        addIndent({
+          indent: `${label} (request) `,
+          text: truncateString(text, 200),
+        }),
+      );
+
       await handler.handle({
         sessionName,
         text,
@@ -479,6 +492,7 @@ async function serveDiscord(options: {
               channelId,
               isDirectMessage: message.channel.isDMBased(),
             }),
+            ...(message.channel.isThread() ? { thread_name: message.channel.name } : {}),
           },
           cronDeliveryTarget: {
             discord: {
