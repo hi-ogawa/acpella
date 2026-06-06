@@ -41,6 +41,8 @@ Options:
   -h, --help        Show this help.
 `;
 
+type CronDeliveryHandler = (target: CronDeliveryTarget, text: string) => Promise<void>;
+
 async function main() {
   const cliArgv = process.argv.slice(2);
   if (cliArgv.some((arg) => ["-h", "--help"].includes(arg))) {
@@ -85,7 +87,7 @@ ${CLI_HELP}`);
     cronFile: config.cronFile,
     cronStateFile: config.cronStateFile,
   });
-  let handleCronDelivery = async (_target: CronDeliveryTarget, _text: string): Promise<void> => {};
+  let handleCronDelivery: CronDeliveryHandler = async () => {};
   const cronRunner = new CronRunner({
     store: cronStore,
     agent: {
@@ -139,7 +141,7 @@ ${CLI_HELP}`);
       config,
       handler,
       version,
-      setCronDeliveryHandler: (next) => {
+      registerCronDeliveryHandler: (next) => {
         handleCronDelivery = next;
       },
     });
@@ -149,7 +151,7 @@ ${CLI_HELP}`);
       config,
       handler,
       version,
-      setCronDeliveryHandler: (next) => {
+      registerCronDeliveryHandler: (next) => {
         handleCronDelivery = next;
       },
     });
@@ -160,11 +162,9 @@ async function serveTelegram(options: {
   config: AppConfig;
   handler: Handler;
   version: string;
-  setCronDeliveryHandler: (
-    handler: (target: CronDeliveryTarget, text: string) => Promise<void>,
-  ) => void;
+  registerCronDeliveryHandler: (handler: CronDeliveryHandler) => void;
 }) {
-  const { config, handler, version, setCronDeliveryHandler } = options;
+  const { config, handler, version, registerCronDeliveryHandler } = options;
   const allowedUsers = new Set(config.telegram.allowedUserIds);
   const allowedChats = new Set(config.telegram.allowedChatIds);
 
@@ -179,7 +179,7 @@ async function serveTelegram(options: {
   const botInfo = await bot.api.getMe();
   const botUsername = botInfo.username;
 
-  setCronDeliveryHandler(async (target, text) => {
+  registerCronDeliveryHandler(async (target, text) => {
     if (!target.telegram) {
       return;
     }
@@ -371,11 +371,9 @@ async function serveDiscord(options: {
   config: AppConfig;
   handler: Handler;
   version: string;
-  setCronDeliveryHandler: (
-    handler: (target: CronDeliveryTarget, text: string) => Promise<void>,
-  ) => void;
+  registerCronDeliveryHandler: (handler: CronDeliveryHandler) => void;
 }) {
-  const { config, handler, version, setCronDeliveryHandler } = options;
+  const { config, handler, version, registerCronDeliveryHandler } = options;
 
   if (!config.discord.token) {
     throw new Error("ACPELLA_DISCORD_BOT_TOKEN is required");
@@ -398,7 +396,7 @@ async function serveDiscord(options: {
     partials: [Partials.Channel],
   });
 
-  setCronDeliveryHandler(async (target, text) => {
+  registerCronDeliveryHandler(async (target, text) => {
     if (!target.discord) {
       return;
     }
