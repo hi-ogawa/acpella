@@ -132,6 +132,7 @@ ${CLI_HELP}`);
     await runExec({ handler, text: cli.args.join(" ") });
     return;
   }
+
   cronRunner.start();
   if (channel === "telegram") {
     await serveTelegram({
@@ -142,16 +143,17 @@ ${CLI_HELP}`);
         handleCronDelivery = next;
       },
     });
-    return;
   }
-  await serveDiscord({
-    config,
-    handler,
-    version,
-    setCronDeliveryHandler: (next) => {
-      handleCronDelivery = next;
-    },
-  });
+  if (channel === "discord") {
+    await serveDiscord({
+      config,
+      handler,
+      version,
+      setCronDeliveryHandler: (next) => {
+        handleCronDelivery = next;
+      },
+    });
+  }
 }
 
 async function serveTelegram(options: {
