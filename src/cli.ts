@@ -11,7 +11,6 @@ import { CronRunner, type CronDeliveryHandler } from "./lib/cron/runner.ts";
 import { CronStore } from "./lib/cron/store.ts";
 import { downloadDiscordAttachment } from "./lib/discord/file.ts";
 import {
-  buildDiscordPromptText,
   formatDiscordConversationMetadata,
   formatDiscordSessionName,
 } from "./lib/discord/utils.ts";
@@ -451,27 +450,36 @@ async function serveDiscord(options: {
       return;
     }
 
-    const downloadedAttachments: { localPath: string; isImage: boolean }[] = [];
-    for (const attachment of attachments) {
-      const localPath = await downloadDiscordAttachment({
-        url: attachment.url,
-        fileName: attachment.name,
-      });
-      downloadedAttachments.push({
-        localPath,
-        isImage: attachment.contentType?.startsWith("image/") ?? false,
-      });
-    }
-
-    const text = buildDiscordPromptText({ content, attachments: downloadedAttachments });
-    console.log(
-      addIndent({
-        indent: `${label} (request) `,
-        text: truncateString(text, 200),
-      }),
-    );
-
     try {
+      const downloadedAttachments: { localPath: string; isImage: boolean }[] = [];
+      for (const attachment of attachments) {
+        const localPath = await downloadDiscordAttachment({
+          url: attachment.url,
+          fileName: attachment.name,
+        });
+        downloadedAttachments.push({
+          localPath,
+          isImage: attachment.contentType?.startsWith("image/") ?? false,
+        });
+      }
+
+      const text = [
+        content,
+        ...downloadedAttachments.map((attachment) =>
+          attachment.isImage
+            ? `[User uploaded image: ${attachment.localPath}]`
+            : `[User uploaded file: ${attachment.localPath}]`,
+        ),
+      ]
+        .filter(Boolean)
+        .join("\n\n");
+      console.log(
+        addIndent({
+          indent: `${label} (request) `,
+          text: truncateString(text, 200),
+        }),
+      );
+
       await handler.handle({
         sessionName,
         text,

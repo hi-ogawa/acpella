@@ -20,24 +20,3 @@ export function formatDiscordConversationMetadata(options: {
   }
   return `discord:guild:${options.guildId ?? "unknown"}:channel:${options.channelId}`;
 }
-
-export function buildDiscordPromptText({
-  content,
-  attachments,
-}: {
-  content: string;
-  attachments: { localPath: string; isImage: boolean }[];
-}): string {
-  const parts: string[] = [];
-  if (content) {
-    parts.push(content);
-  }
-  for (const attachment of attachments) {
-    if (attachment.isImage) {
-      parts.push(`[User uploaded image: ${attachment.localPath}]`);
-    } else {
-      parts.push(`[User uploaded file: ${attachment.localPath}]`);
-    }
-  }
-  return parts.join("\n\n");
-}
