@@ -68,11 +68,11 @@ test("serve fails without discord env", async ({ onTestFinished }) => {
   onTestFinished(() => {
     delete process.env.ACPELLA_DISCORD_BOT_TOKEN;
   });
-  expect(process.env.ACPELLA_DISCORD_ALLOWED_USER_IDS).toBe(undefined);
+  expect(process.env.ACPELLA_DISCORD_ALLOWED_GUILD_IDS).toBe(undefined);
   await expect(cli.cli("serve", "--channel=discord").catch(sanitizeCliError)).resolves
     .toThrowErrorMatchingInlineSnapshot(`
       "Command failed: pnpm -s dev serve --channel=discord
-      Error: ACPELLA_DISCORD_ALLOWED_USER_IDS must be non-empty"
+      Error: ACPELLA_DISCORD_ALLOWED_GUILD_IDS must be non-empty"
     `);
 });
 

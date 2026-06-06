@@ -379,8 +379,8 @@ async function serveDiscord(options: {
   if (!config.discord.token) {
     throw new Error("ACPELLA_DISCORD_BOT_TOKEN is required");
   }
-  if (config.discord.allowedUserIds.length === 0) {
-    throw new Error("ACPELLA_DISCORD_ALLOWED_USER_IDS must be non-empty");
+  if (config.discord.allowedGuildIds.length === 0) {
+    throw new Error("ACPELLA_DISCORD_ALLOWED_GUILD_IDS must be non-empty");
   }
 
   const allowedUsers = new Set(config.discord.allowedUserIds);
@@ -448,7 +448,7 @@ async function handleDiscordMessage(options: {
     console.error(`${label} rejected: channel ${channelId} is not allowed`);
     return;
   }
-  if (allowedGuilds.size && (!guildId || !allowedGuilds.has(guildId))) {
+  if (!guildId || !allowedGuilds.has(guildId)) {
     console.error(`${label} rejected: guild ${guildId ?? "direct-message"} is not allowed`);
     return;
   }
