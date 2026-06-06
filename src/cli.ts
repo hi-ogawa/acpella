@@ -158,83 +158,6 @@ ${CLI_HELP}`);
   });
 }
 
-async function startRepl({
-  config,
-  handler,
-  version,
-}: {
-  config: AppConfig;
-  handler: Handler;
-  version: string;
-}) {
-  console.log(`Starting repl (version: ${version}, home: ${config.home})`);
-
-  let isHandling = false;
-  async function sendMessage(text: string) {
-    isHandling = true;
-    try {
-      await runExec({ handler, text });
-    } catch (error) {
-      console.error(error);
-    } finally {
-      isHandling = false;
-    }
-  }
-
-  using rl = createInterface({ input: process.stdin, output: process.stdout });
-
-  let cancelRequested = false;
-  rl.on("SIGINT", () => {
-    if (!isHandling || cancelRequested) {
-      rl.close();
-      return;
-    }
-    cancelRequested = true;
-    void sendMessage("/cancel").finally(() => {
-      cancelRequested = false;
-    });
-  });
-
-  try {
-    while (true) {
-      const text = await rl.question("> ");
-      if (!text) {
-        continue;
-      }
-      if (text === "/quit") {
-        break;
-      }
-      await sendMessage(text);
-    }
-  } catch (e) {
-    if (!(e instanceof Error && e.name === "AbortError")) {
-      throw e;
-    }
-  }
-}
-
-// TODO:
-// make exitCode non-zero for soft errors (e.g. invalid command usages) on exec.
-// currently only hard errors can make exitCode = 1.
-// (plan: enhance context.send interface to include status semantics)
-async function runExec({ handler, text }: { handler: Handler; text: string }) {
-  await handler.handle({
-    sessionName: "repl",
-    text,
-    metadata: {
-      promptMetadata: {
-        timestamp: Date.now(),
-      },
-      cronDeliveryTarget: {
-        repl: true,
-      },
-    },
-    send: async (replyText) => {
-      console.log(replyText);
-    },
-  });
-}
-
 async function serveTelegram(options: {
   config: AppConfig;
   handler: Handler;
@@ -597,6 +520,83 @@ async function sendDiscordMessage(
   text: string,
 ) {
   await channel.send(text);
+}
+
+async function startRepl({
+  config,
+  handler,
+  version,
+}: {
+  config: AppConfig;
+  handler: Handler;
+  version: string;
+}) {
+  console.log(`Starting repl (version: ${version}, home: ${config.home})`);
+
+  let isHandling = false;
+  async function sendMessage(text: string) {
+    isHandling = true;
+    try {
+      await runExec({ handler, text });
+    } catch (error) {
+      console.error(error);
+    } finally {
+      isHandling = false;
+    }
+  }
+
+  using rl = createInterface({ input: process.stdin, output: process.stdout });
+
+  let cancelRequested = false;
+  rl.on("SIGINT", () => {
+    if (!isHandling || cancelRequested) {
+      rl.close();
+      return;
+    }
+    cancelRequested = true;
+    void sendMessage("/cancel").finally(() => {
+      cancelRequested = false;
+    });
+  });
+
+  try {
+    while (true) {
+      const text = await rl.question("> ");
+      if (!text) {
+        continue;
+      }
+      if (text === "/quit") {
+        break;
+      }
+      await sendMessage(text);
+    }
+  } catch (e) {
+    if (!(e instanceof Error && e.name === "AbortError")) {
+      throw e;
+    }
+  }
+}
+
+// TODO:
+// make exitCode non-zero for soft errors (e.g. invalid command usages) on exec.
+// currently only hard errors can make exitCode = 1.
+// (plan: enhance context.send interface to include status semantics)
+async function runExec({ handler, text }: { handler: Handler; text: string }) {
+  await handler.handle({
+    sessionName: "repl",
+    text,
+    metadata: {
+      promptMetadata: {
+        timestamp: Date.now(),
+      },
+      cronDeliveryTarget: {
+        repl: true,
+      },
+    },
+    send: async (replyText) => {
+      console.log(replyText);
+    },
+  });
 }
 
 main().catch((err) => {
