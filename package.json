@@ -14,7 +14,7 @@
   "scripts": {
     "prepare": "vp config",
     "cli": "node ./src/bin/cli.js",
-    "dev": "node ./src/bin/cli.js --env-file .env.dev",
+    "dev": "node ./src/bin/cli.js --env-file=.env.dev",
     "test": "vitest --project=unit",
     "test-ci": "CI=true vitest --project=unit --coverage",
     "test-codex": "vitest --project=codex",
@@ -29,6 +29,7 @@
     "@grammyjs/runner": "^2.0.3",
     "@opencode-ai/sdk": "^1.15.10",
     "croner": "^10.0.1",
+    "discord.js": "^14.23.2",
     "grammy": "^1.42.0",
     "mdast-util-from-markdown": "^2.0.3",
     "mdast-util-gfm": "^3.1.0",

@@ -2,12 +2,18 @@ import "temporal-polyfill/global";
 import path from "node:path";
 import { createInterface } from "node:readline/promises";
 import { run } from "@grammyjs/runner";
+import { Client, GatewayIntentBits, Partials, type Message } from "discord.js";
 import { Bot, type Context, type Filter } from "grammy";
 import { loadConfig, type AppConfig } from "./config.ts";
 import { createHandler, type Handler } from "./handler.ts";
 import { parseCli } from "./lib/cli.ts";
-import { CronRunner } from "./lib/cron/runner.ts";
+import { CronRunner, type CronDeliveryHandler } from "./lib/cron/runner.ts";
 import { CronStore } from "./lib/cron/store.ts";
+import {
+  formatDiscordConversationMetadata,
+  formatDiscordSessionName,
+} from "./lib/discord/utils.ts";
+import { DISCORD_MESSAGE_SPLIT_BUDGET } from "./lib/reply.ts";
 import { downloadTelegramFile } from "./lib/telegram/file";
 import { markdownToTelegramHtml } from "./lib/telegram/format-html.ts";
 import {
@@ -25,12 +31,14 @@ const CLI_HELP = `\
 Usage: acpella [command]
 
 Commands:
-  serve             Run Telegram bot service. Default when no command is provided.
+  serve             Run bot service. Default when no command is provided.
   repl              Run local in-process REPL.
   exec <message...> Run one local message, then exit.
 
 Options:
-  --env-file <path> Use this env file for config resolution.
+  --env-file=<path> Use this env file for config resolution.
+  --channel=<name>  Service channel for \`serve\` (telegram or discord, default: telegram).
+  --no-cron         Disable cron runner for this process.
   -h, --help        Show this help.
 `;
 
@@ -44,6 +52,7 @@ async function main() {
   const cli = parseCli({
     argv: cliArgv,
     commands: ["serve", "repl", "exec"],
+    // TODO: remove default command and make top-level command explicit
     defaultCommand: "serve",
   });
 
@@ -61,6 +70,19 @@ Missing message for exec
 ${CLI_HELP}`);
   }
 
+  if (cli.channel && cli.command !== "serve") {
+    throw new Error(`--channel can only be used with serve`);
+  }
+  if (cli.noCron && cli.command !== "serve") {
+    throw new Error(`--no-cron can only be used with serve`);
+  }
+
+  // TODO: support serving multiple channels at once
+  const channel = cli.channel ?? "telegram";
+  if (cli.command === "serve" && !["telegram", "discord"].includes(channel)) {
+    throw new Error(`Invalid --channel: ${channel}`);
+  }
+
   const config = loadConfig({
     envFile: cli.envFile,
   });
@@ -69,6 +91,12 @@ ${CLI_HELP}`);
     cronFile: config.cronFile,
     cronStateFile: config.cronStateFile,
   });
+
+  const cronDeliveryHandlers = new Set<CronDeliveryHandler>();
+  function registerCronDeliveryHandler(handler: CronDeliveryHandler): void {
+    cronDeliveryHandlers.add(handler);
+  }
+
   const cronRunner = new CronRunner({
     store: cronStore,
     agent: {
@@ -76,17 +104,8 @@ ${CLI_HELP}`);
     },
     delivery: {
       send: async ({ target, text }) => {
-        if (target.repl) {
-          console.log("[cron] repl delivery:", text);
-          console.log(text);
-        }
-        if (cli.command === "serve" && target.telegram) {
-          const { chatId, messageThreadId } = target.telegram;
-          // TODO: fallback, retry, and error handling
-          await bot.api.sendMessage(chatId, markdownToTelegramHtml(text), {
-            parse_mode: "HTML",
-            message_thread_id: messageThreadId,
-          });
+        for (const handler of cronDeliveryHandlers) {
+          await handler({ target, text });
         }
       },
     },
@@ -112,7 +131,12 @@ ${CLI_HELP}`);
   cleanup.defer(() => cronRunner.stop());
 
   if (cli.command === "repl") {
-    await startRepl({ config, handler, version });
+    await startRepl({
+      config,
+      handler,
+      version,
+      registerCronDeliveryHandler,
+    });
     return;
   }
 
@@ -121,6 +145,34 @@ ${CLI_HELP}`);
     return;
   }
 
+  if (!cli.noCron) {
+    cronRunner.start();
+  }
+  if (channel === "telegram") {
+    await serveTelegram({
+      config,
+      handler,
+      version,
+      registerCronDeliveryHandler,
+    });
+  }
+  if (channel === "discord") {
+    await serveDiscord({
+      config,
+      handler,
+      version,
+      registerCronDeliveryHandler,
+    });
+  }
+}
+
+async function serveTelegram(options: {
+  config: AppConfig;
+  handler: Handler;
+  version: string;
+  registerCronDeliveryHandler: (handler: CronDeliveryHandler) => void;
+}) {
+  const { config, handler, version, registerCronDeliveryHandler } = options;
   const allowedUsers = new Set(config.telegram.allowedUserIds);
   const allowedChats = new Set(config.telegram.allowedChatIds);
 
@@ -135,6 +187,18 @@ ${CLI_HELP}`);
   const bot = new Bot(telegramToken);
   const botInfo = await bot.api.getMe();
   const botUsername = botInfo.username;
+
+  registerCronDeliveryHandler(async ({ target, text }) => {
+    if (!target.telegram) {
+      return;
+    }
+    const { chatId, messageThreadId } = target.telegram;
+    // TODO: fallback, retry, and error handling
+    await bot.api.sendMessage(chatId, markdownToTelegramHtml(text), {
+      parse_mode: "HTML",
+      message_thread_id: messageThreadId,
+    });
+  });
 
   try {
     const commands = Object.entries(handler.commands).map(([command, description]) => ({
@@ -301,9 +365,8 @@ ${CLI_HELP}`);
     });
   });
 
-  console.log(`Starting service (version: ${version}, home: ${config.home})`);
+  console.log(`Starting service (version: ${version}, home: ${config.home}, channel: telegram)`);
 
-  cronRunner.start();
   const botRunner = run(bot, {
     sink: {
       // @grammyjs/runner defaults to 500; keep acpella conservative because prompts spawn child agents.
@@ -313,16 +376,152 @@ ${CLI_HELP}`);
   await botRunner.task();
 }
 
+async function serveDiscord(options: {
+  config: AppConfig;
+  handler: Handler;
+  version: string;
+  registerCronDeliveryHandler: (handler: CronDeliveryHandler) => void;
+}) {
+  const { config, handler, version, registerCronDeliveryHandler } = options;
+
+  if (!config.discord.token) {
+    throw new Error("ACPELLA_DISCORD_BOT_TOKEN is required");
+  }
+  if (config.discord.allowedGuildIds.length === 0) {
+    throw new Error("ACPELLA_DISCORD_ALLOWED_GUILD_IDS must be non-empty");
+  }
+
+  const allowedUsers = new Set(config.discord.allowedUserIds);
+  const allowedGuilds = new Set(config.discord.allowedGuildIds);
+  const allowedChannels = new Set(config.discord.allowedChannelIds);
+
+  const client = new Client({
+    intents: [
+      GatewayIntentBits.Guilds,
+      GatewayIntentBits.GuildMessages,
+      GatewayIntentBits.DirectMessages,
+      GatewayIntentBits.MessageContent,
+    ],
+    partials: [Partials.Channel],
+  });
+
+  registerCronDeliveryHandler(async ({ target, text }) => {
+    if (!target.discord) {
+      return;
+    }
+    const channel = await client.channels.fetch(target.discord.channelId);
+    if (!channel?.isSendable()) {
+      throw new Error(`Discord channel is not sendable: ${target.discord.channelId}`);
+    }
+    await channel.send(text);
+  });
+
+  async function handleDiscordMessage(message: Message) {
+    const userId = message.author.id;
+    const guildId = message.guildId ?? undefined;
+    const channelId = message.channelId;
+    const sessionName = formatDiscordSessionName(channelId);
+    const label = `[${sessionName}:${message.id}]`;
+
+    if (allowedChannels.size && !allowedChannels.has(channelId)) {
+      console.error(`${label} rejected: channel ${channelId} is not allowed`);
+      return;
+    }
+    if (!guildId || !allowedGuilds.has(guildId)) {
+      console.error(`${label} rejected: guild ${guildId ?? "direct-message"} is not allowed`);
+      return;
+    }
+    if (allowedUsers.size && !allowedUsers.has(userId)) {
+      console.error(`${label} rejected: user ${userId} is not allowed`);
+      return;
+    }
+
+    const replyChannel = message.channel;
+    if (!replyChannel.isSendable()) {
+      console.error(`${label} rejected: channel is not sendable`);
+      return;
+    }
+
+    const text = message.content.trim();
+    if (!text) {
+      // TODO: support Discord media and attachment-only messages.
+      console.error(`${label} ignored: message has no text content`);
+      return;
+    }
+    console.log(
+      addIndent({
+        indent: `${label} (request) `,
+        text: truncateString(text, 200),
+      }),
+    );
+
+    try {
+      await handler.handle({
+        sessionName,
+        text,
+        // TODO: move transport-specific split/render policy out of HandlerContext.
+        replyLimit: DISCORD_MESSAGE_SPLIT_BUDGET,
+        metadata: {
+          promptMetadata: {
+            timestamp: message.createdTimestamp,
+            channel: formatDiscordConversationMetadata({
+              guildId,
+              channelId,
+              isDirectMessage: message.channel.isDMBased(),
+            }),
+          },
+          cronDeliveryTarget: {
+            discord: {
+              channelId,
+            },
+          },
+        },
+        send: async (replyText) => {
+          return await replyChannel.send(replyText);
+        },
+      });
+      console.log(`${label} (response ok)`);
+    } catch (error) {
+      console.error(`${label} (response error)`, error);
+      await replyChannel.send(`[acpella error]\n${truncateString(stringifyError(error), 1800)}`);
+    }
+  }
+
+  client.on("messageCreate", async (message) => {
+    if (message.author.bot) {
+      return;
+    }
+    await handleDiscordMessage(message);
+  });
+
+  client.on("error", (error) => {
+    console.error("[discord] client error", error);
+  });
+
+  console.log(`Starting service (version: ${version}, home: ${config.home}, channel: discord)`);
+  await client.login(config.discord.token);
+  await new Promise<never>(() => {});
+}
+
 async function startRepl({
   config,
   handler,
+  registerCronDeliveryHandler,
   version,
 }: {
   config: AppConfig;
   handler: Handler;
+  registerCronDeliveryHandler: (handler: CronDeliveryHandler) => void;
   version: string;
 }) {
   console.log(`Starting repl (version: ${version}, home: ${config.home})`);
+  registerCronDeliveryHandler(async ({ target, text }) => {
+    if (!target.repl) {
+      return;
+    }
+    console.log("[cron] repl delivery:", text);
+    console.log(text);
+  });
 
   let isHandling = false;
   async function sendMessage(text: string) {

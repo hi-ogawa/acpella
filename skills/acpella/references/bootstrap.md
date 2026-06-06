@@ -19,16 +19,22 @@ After copying `.env`, edit the main config values below.
 
 ## Config
 
-| Variable                            | Default         | Description                                  |
-| ----------------------------------- | --------------- | -------------------------------------------- |
-| `ACPELLA_TELEGRAM_BOT_TOKEN`        | -               | Bot token from @BotFather                    |
-| `ACPELLA_TELEGRAM_ALLOWED_USER_IDS` | -               | Comma-separated numeric Telegram user IDs    |
-| `ACPELLA_TELEGRAM_ALLOWED_CHAT_IDS` | -               | Comma-separated chat IDs for group allowlist |
-| `ACPELLA_HOME`                      | `process.cwd()` | Agent working directory                      |
+| Variable                              | Default         | Description                                  |
+| ------------------------------------- | --------------- | -------------------------------------------- |
+| `ACPELLA_TELEGRAM_BOT_TOKEN`          | -               | Bot token from @BotFather                    |
+| `ACPELLA_TELEGRAM_ALLOWED_USER_IDS`   | -               | Comma-separated numeric Telegram user IDs    |
+| `ACPELLA_TELEGRAM_ALLOWED_CHAT_IDS`   | -               | Comma-separated chat IDs for group allowlist |
+| `ACPELLA_DISCORD_BOT_TOKEN`           | -               | Discord bot token                            |
+| `ACPELLA_DISCORD_ALLOWED_GUILD_IDS`   | -               | Comma-separated Discord server IDs           |
+| `ACPELLA_DISCORD_ALLOWED_USER_IDS`    | -               | Optional comma-separated Discord user IDs    |
+| `ACPELLA_DISCORD_ALLOWED_CHANNEL_IDS` | -               | Optional comma-separated Discord channel IDs |
+| `ACPELLA_HOME`                        | `process.cwd()` | Agent working directory                      |
 
 Notes:
 
-- Telegram configuration is not required for `acpella repl`.
+- Telegram and Discord configuration are not required for `acpella repl`.
+- For Telegram setup details, see [channels/telegram.md](channels/telegram.md).
+- For Discord setup details, see [channels/discord.md](channels/discord.md).
 - If `ACPELLA_HOME/.acpella/AGENTS.md` exists, acpella sends it as custom instructions once when creating a new session.
 
 ## First local runs
@@ -39,6 +45,19 @@ Run the Telegram bot:
 
 ```bash
 acpella serve
+```
+
+Run the Discord bot:
+
+```bash
+acpella serve --channel=discord
+```
+
+When running Telegram and Discord as separate service processes, run cron in only one of them:
+
+```bash
+acpella serve --channel=telegram
+acpella serve --channel=discord --no-cron
 ```
 
 Run the local REPL:

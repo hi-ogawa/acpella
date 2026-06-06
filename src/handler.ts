@@ -13,6 +13,7 @@ import {
 } from "./lib/cron/command.ts";
 import type { CronRunner, CronRunnerAgentOptions } from "./lib/cron/runner.ts";
 import type { CronDeliveryTarget, CronJob, CronStore } from "./lib/cron/store.ts";
+import { parseSessionCronDeliveryTarget } from "./lib/cron/target.ts";
 import type { MessageMetadata } from "./lib/prompt.ts";
 import { buildFirstPrompt, buildMessageMetadataPrompt } from "./lib/prompt.ts";
 import { MESSAGE_SPLIT_BUDGET, ReplyManager } from "./lib/reply.ts";
@@ -26,7 +27,6 @@ import { shouldRenewSession } from "./lib/session/renew.ts";
 import { getVerboseSessionUpdateTypes } from "./lib/session/verbose.ts";
 import { handleShellCommand, parseShellCommandArgs } from "./lib/shell.ts";
 import { handleSystemdInstall } from "./lib/systemd.ts";
-import { parseTelegramSessionName } from "./lib/telegram/utils.ts";
 import { parseAgentSessionKey, SessionStateStore, toAgentSessionKey } from "./state.ts";
 import type { StateAgentSession } from "./state.ts";
 import { AsyncLane, DefaultMap, formatError } from "./utils/index.ts";
@@ -44,6 +44,7 @@ export interface HandlerContext {
   sessionName: string;
   text: string;
   send: (text: string) => Promise<unknown>;
+  replyLimit?: number;
   metadata?: {
     promptMetadata?: MessageMetadata;
     cronDeliveryTarget?: CronDeliveryTarget;
@@ -588,12 +589,12 @@ enabled jobs: ${enabledJobs.length}
             await reply.system(`Unknown session: ${cron.target}`);
             return;
           }
-          const parsedSesssion = parseTelegramSessionName(cron.target);
-          if (!parsedSesssion) {
+          const deliveryBySession = parseSessionCronDeliveryTarget(cron.target);
+          if (!deliveryBySession) {
             await reply.system(`Invalid session as delivery target: ${cron.target}`);
             return;
           }
-          delivery = { telegram: parsedSesssion };
+          delivery = deliveryBySession;
           sessionName = cron.target;
         }
         if (!delivery) {
@@ -645,12 +646,12 @@ enabled jobs: ${enabledJobs.length}
             await reply.system(`Unknown session: ${cron.target}`);
             return;
           }
-          const parsedSesssion = parseTelegramSessionName(cron.target);
-          if (!parsedSesssion) {
+          const deliveryBySession = parseSessionCronDeliveryTarget(cron.target);
+          if (!deliveryBySession) {
             await reply.system(`Invalid session as delivery target: ${cron.target}`);
             return;
           }
-          const delivery = { telegram: parsedSesssion };
+          const delivery = deliveryBySession;
           patch.target = {
             sessionName: cron.target,
             delivery,
@@ -861,7 +862,7 @@ current session: ${sessionName}`);
   const handle: Handler["handle"] = async (context) => {
     const reply = new ReplyManager({
       send: context.send,
-      limit: MESSAGE_SPLIT_BUDGET,
+      limit: context.replyLimit ?? MESSAGE_SPLIT_BUDGET,
     });
     const extraContext: HandlerExtraContext = { ...context, reply };
 

@@ -166,6 +166,9 @@ function formatDeliveryTarget(target: CronJob["target"]["delivery"]): string {
     }
     surfaces.push(output);
   }
+  if (target.discord) {
+    surfaces.push(`discord:${target.discord.channelId}`);
+  }
   if (target.repl) {
     surfaces.push("repl");
   }
