@@ -2,13 +2,7 @@ import "temporal-polyfill/global";
 import path from "node:path";
 import { createInterface } from "node:readline/promises";
 import { run } from "@grammyjs/runner";
-import {
-  Client,
-  GatewayIntentBits,
-  Partials,
-  type MessageCreateOptions,
-  type Message,
-} from "discord.js";
+import { Client, GatewayIntentBits, Partials, type Message } from "discord.js";
 import { Bot, type Context, type Filter } from "grammy";
 import { loadConfig, type AppConfig } from "./config.ts";
 import { createHandler, type Handler } from "./handler.ts";
@@ -407,10 +401,10 @@ async function serveDiscord(options: {
       return;
     }
     const channel = await client.channels.fetch(target.discord.channelId);
-    if (!channel?.isTextBased() || !isSendableChannel(channel)) {
-      throw new Error(`Discord channel is not text-based: ${target.discord.channelId}`);
+    if (!channel?.isSendable()) {
+      throw new Error(`Discord channel is not sendable: ${target.discord.channelId}`);
     }
-    await sendDiscordMessage(channel, text);
+    await channel.send(text);
   });
 
   client.on("messageCreate", async (message) => {
@@ -467,7 +461,7 @@ async function handleDiscordMessage(options: {
     return;
   }
   const replyChannel = message.channel;
-  if (!isSendableChannel(replyChannel)) {
+  if (!replyChannel.isSendable()) {
     console.error(`${label} rejected: channel is not sendable`);
     return;
   }
@@ -493,35 +487,14 @@ async function handleDiscordMessage(options: {
         },
       },
       send: async (replyText) => {
-        return await sendDiscordMessage(replyChannel, replyText);
+        return await replyChannel.send(replyText);
       },
     });
     console.log(`${label} (response ok)`);
   } catch (error) {
     console.error(`${label} (response error)`, error);
-    await sendDiscordMessage(
-      replyChannel,
-      `[acpella error]\n${truncateString(stringifyError(error), 1800)}`,
-    );
+    await replyChannel.send(`[acpella error]\n${truncateString(stringifyError(error), 1800)}`);
   }
-}
-
-function isSendableChannel(channel: unknown): channel is {
-  send: (content: string | MessageCreateOptions) => Promise<unknown>;
-} {
-  return (
-    typeof channel === "object" &&
-    channel !== null &&
-    "send" in channel &&
-    typeof channel.send === "function"
-  );
-}
-
-async function sendDiscordMessage(
-  channel: { send: (content: string | MessageCreateOptions) => Promise<unknown> },
-  text: string,
-) {
-  await channel.send(text);
 }
 
 async function startRepl({
