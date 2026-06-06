@@ -21,6 +21,7 @@ import {
   formatTelegramSessionName,
   getTelegramRetryAfter,
   normalizeUserMention,
+  TypingIndicatorManager,
   TelegramChatActionManager,
 } from "./lib/telegram/utils.ts";
 import { getVersion } from "./lib/version.ts";
@@ -448,6 +449,15 @@ async function serveDiscord(options: {
       console.error(`${label} ignored: message has no text content`);
       return;
     }
+
+    const typingIndicatorManager = new TypingIndicatorManager({
+      send: () => replyChannel.sendTyping(),
+      logLabel: label,
+    });
+    typingIndicatorManager.start();
+    await using cleanup = new AsyncDisposableStack();
+    cleanup.defer(() => typingIndicatorManager.stop());
+
     console.log(
       addIndent({
         indent: `${label} (request) `,

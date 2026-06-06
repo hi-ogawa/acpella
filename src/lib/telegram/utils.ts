@@ -56,14 +56,12 @@ export function getTelegramRetryAfter(error: unknown): number | undefined {
   }
 }
 
-// Telegram chat actions last 5 seconds or less, so match OpenClaw's cadence:
-// delayed first cue to avoid flashing on fast replies, then 3s keepalive.
-// https://core.telegram.org/bots/api#sendchataction
-// See refs/openclaw/src/channels/typing.ts and refs/openclaw/src/channels/typing-lifecycle.ts.
-export class TelegramChatActionManager {
+// Typing indicators should be delayed briefly to avoid flashing on fast replies.
+export class TypingIndicatorManager {
   options: {
     send: () => Promise<unknown>;
     logLabel: string;
+    getRetryAfter?: (error: unknown) => number | undefined;
   };
   timeout?: ReturnType<typeof setTimeout>;
   interval?: ReturnType<typeof setInterval>;
@@ -71,7 +69,7 @@ export class TelegramChatActionManager {
   stopped = true;
   retryAfterUntil = 0;
 
-  constructor(options: TelegramChatActionManager["options"]) {
+  constructor(options: TypingIndicatorManager["options"]) {
     this.options = options;
   }
 
@@ -107,7 +105,7 @@ export class TelegramChatActionManager {
     try {
       await this.options.send();
     } catch (error) {
-      const retryAfter = getTelegramRetryAfter(error);
+      const retryAfter = this.options.getRetryAfter?.(error);
       if (!retryAfter) {
         console.error(`${this.options.logLabel} typing indicator failed:`, error);
         this.stop();
@@ -121,5 +119,18 @@ export class TelegramChatActionManager {
     } finally {
       this.inFlight = false;
     }
+  }
+}
+
+// Telegram chat actions last 5 seconds or less, so match OpenClaw's cadence:
+// delayed first cue to avoid flashing on fast replies, then 3s keepalive.
+// https://core.telegram.org/bots/api#sendchataction
+// See refs/openclaw/src/channels/typing.ts and refs/openclaw/src/channels/typing-lifecycle.ts.
+export class TelegramChatActionManager extends TypingIndicatorManager {
+  constructor(options: { send: () => Promise<unknown>; logLabel: string }) {
+    super({
+      ...options,
+      getRetryAfter: getTelegramRetryAfter,
+    });
   }
 }

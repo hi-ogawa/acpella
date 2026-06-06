@@ -1,5 +1,5 @@
 import { expect, onTestFinished, test, vi } from "vitest";
-import { normalizeUserMention, TelegramChatActionManager } from "./utils.ts";
+import { normalizeUserMention, TypingIndicatorManager } from "./utils.ts";
 
 test(normalizeUserMention, () => {
   const username = "good_bot";
@@ -14,14 +14,14 @@ test(normalizeUserMention, () => {
   expect(runTest("hello /status@good_bot")).toMatchInlineSnapshot(`"hello /status@good_bot"`);
 });
 
-test("TelegramChatActionManager delays the first chat action by 1s", async () => {
+test("TypingIndicatorManager delays the first typing indicator by 1s", async () => {
   vi.useFakeTimers();
   onTestFinished(() => {
     vi.useRealTimers();
   });
 
   const send = vi.fn(async () => undefined);
-  const manager = new TelegramChatActionManager({
+  const manager = new TypingIndicatorManager({
     send,
     logLabel: "[test]",
   });
@@ -41,14 +41,14 @@ test("TelegramChatActionManager delays the first chat action by 1s", async () =>
   manager.stop();
 });
 
-test("TelegramChatActionManager clears the delayed chat action on stop", async () => {
+test("TypingIndicatorManager clears the delayed typing indicator on stop", async () => {
   vi.useFakeTimers();
   onTestFinished(() => {
     vi.useRealTimers();
   });
 
   const send = vi.fn(async () => undefined);
-  const manager = new TelegramChatActionManager({
+  const manager = new TypingIndicatorManager({
     send,
     logLabel: "[test]",
   });
