@@ -121,16 +121,3 @@ export class TypingIndicatorManager {
     }
   }
 }
-
-// Telegram chat actions last 5 seconds or less, so match OpenClaw's cadence:
-// delayed first cue to avoid flashing on fast replies, then 3s keepalive.
-// https://core.telegram.org/bots/api#sendchataction
-// See refs/openclaw/src/channels/typing.ts and refs/openclaw/src/channels/typing-lifecycle.ts.
-export class TelegramChatActionManager extends TypingIndicatorManager {
-  constructor(options: { send: () => Promise<unknown>; logLabel: string }) {
-    super({
-      ...options,
-      getRetryAfter: getTelegramRetryAfter,
-    });
-  }
-}

@@ -23,7 +23,6 @@ import {
   getTelegramRetryAfter,
   normalizeUserMention,
   TypingIndicatorManager,
-  TelegramChatActionManager,
 } from "./lib/telegram/utils.ts";
 import { getVersion } from "./lib/version.ts";
 import { addIndent, sleep, truncateString } from "./utils/index.ts";
@@ -243,9 +242,10 @@ async function serveTelegram(options: {
       return;
     }
 
-    const chatActionManager = new TelegramChatActionManager({
+    const chatActionManager = new TypingIndicatorManager({
       send: () => ctx.replyWithChatAction("typing"),
       logLabel: label,
+      getRetryAfter: getTelegramRetryAfter,
     });
     chatActionManager.start();
     await using cleanup = new AsyncDisposableStack();
