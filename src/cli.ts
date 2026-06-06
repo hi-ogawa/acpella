@@ -59,7 +59,6 @@ async function main() {
     commands: ["serve", "repl", "exec"],
     defaultCommand: "serve",
   });
-  const channel = cli.channel ?? "telegram";
 
   if (cli.command !== "exec" && cli.args.length > 0) {
     throw new Error(`\
@@ -74,9 +73,12 @@ Missing message for exec
 
 ${CLI_HELP}`);
   }
+
   if (cli.channel && cli.command !== "serve") {
     throw new Error(`--channel can only be used with serve`);
   }
+
+  const channel = cli.channel ?? "telegram";
   if (cli.command === "serve" && !["telegram", "discord"].includes(channel)) {
     throw new Error(`Invalid --channel: ${channel}`);
   }
