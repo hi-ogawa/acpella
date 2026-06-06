@@ -47,7 +47,7 @@ export function parseCli(options: {
   return {
     command,
     args,
-    ...(envFile ? { envFile } : {}),
-    ...(channel ? { channel } : {}),
+    envFile,
+    channel,
   };
 }
