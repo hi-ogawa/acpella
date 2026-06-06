@@ -4,11 +4,16 @@ import { stringifyError } from "../../utils/node.ts";
 import type { CronJob, CronStore, CronDeliveryTarget } from "./store.ts";
 import { CronScheduler, type CronDueEvent } from "./timer.ts";
 
+export type CronDeliveryHandler = (options: {
+  target: CronDeliveryTarget;
+  text: string;
+}) => Promise<void>;
+
 interface CronRunnerOptions {
   store: CronStore;
   agent: CronRunnerAgentOptions;
   delivery: {
-    send: (options: { target: CronDeliveryTarget; text: string }) => Promise<void>;
+    send: CronDeliveryHandler;
   };
 }
 

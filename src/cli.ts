@@ -7,8 +7,8 @@ import { Bot, type Context, type Filter } from "grammy";
 import { loadConfig, type AppConfig } from "./config.ts";
 import { createHandler, type Handler } from "./handler.ts";
 import { parseCli } from "./lib/cli.ts";
-import { CronRunner } from "./lib/cron/runner.ts";
-import { type CronDeliveryTarget, CronStore } from "./lib/cron/store.ts";
+import { CronRunner, type CronDeliveryHandler } from "./lib/cron/runner.ts";
+import { CronStore } from "./lib/cron/store.ts";
 import {
   formatDiscordConversationMetadata,
   formatDiscordSessionName,
@@ -40,8 +40,6 @@ Options:
   --channel=<name>  Service channel for \`serve\` (telegram or discord, default: telegram).
   -h, --help        Show this help.
 `;
-
-type CronDeliveryHandler = (target: CronDeliveryTarget, text: string) => Promise<void>;
 
 async function main() {
   const cliArgv = process.argv.slice(2);
@@ -87,7 +85,12 @@ ${CLI_HELP}`);
     cronFile: config.cronFile,
     cronStateFile: config.cronStateFile,
   });
+
   const cronDeliveryHandlers = new Set<CronDeliveryHandler>();
+  function registerCronDeliveryHandler(handler: CronDeliveryHandler): void {
+    cronDeliveryHandlers.add(handler);
+  }
+
   const cronRunner = new CronRunner({
     store: cronStore,
     agent: {
@@ -96,7 +99,7 @@ ${CLI_HELP}`);
     delivery: {
       send: async ({ target, text }) => {
         for (const handler of cronDeliveryHandlers) {
-          await handler(target, text);
+          await handler({ target, text });
         }
       },
     },
@@ -126,9 +129,7 @@ ${CLI_HELP}`);
       config,
       handler,
       version,
-      registerCronDeliveryHandler: (next) => {
-        cronDeliveryHandlers.add(next);
-      },
+      registerCronDeliveryHandler,
     });
     return;
   }
@@ -144,9 +145,7 @@ ${CLI_HELP}`);
       config,
       handler,
       version,
-      registerCronDeliveryHandler: (next) => {
-        cronDeliveryHandlers.add(next);
-      },
+      registerCronDeliveryHandler,
     });
   }
   if (channel === "discord") {
@@ -154,9 +153,7 @@ ${CLI_HELP}`);
       config,
       handler,
       version,
-      registerCronDeliveryHandler: (next) => {
-        cronDeliveryHandlers.add(next);
-      },
+      registerCronDeliveryHandler,
     });
   }
 }
@@ -182,7 +179,7 @@ async function serveTelegram(options: {
   const botInfo = await bot.api.getMe();
   const botUsername = botInfo.username;
 
-  registerCronDeliveryHandler(async (target, text) => {
+  registerCronDeliveryHandler(async ({ target, text }) => {
     if (!target.telegram) {
       return;
     }
@@ -399,7 +396,7 @@ async function serveDiscord(options: {
     partials: [Partials.Channel],
   });
 
-  registerCronDeliveryHandler(async (target, text) => {
+  registerCronDeliveryHandler(async ({ target, text }) => {
     if (!target.discord) {
       return;
     }
@@ -512,7 +509,7 @@ async function startRepl({
   version: string;
 }) {
   console.log(`Starting repl (version: ${version}, home: ${config.home})`);
-  registerCronDeliveryHandler(async (target, text) => {
+  registerCronDeliveryHandler(async ({ target, text }) => {
     if (!target.repl) {
       return;
     }
