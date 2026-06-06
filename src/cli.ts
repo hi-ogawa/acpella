@@ -428,17 +428,24 @@ async function serveDiscord(options: {
       return;
     }
 
+    const replyChannel = message.channel;
+    if (!replyChannel.isSendable()) {
+      console.error(`${label} rejected: channel is not sendable`);
+      return;
+    }
+
     const text = message.content.trim();
     if (!text) {
       // TODO: support Discord media and attachment-only messages.
       console.error(`${label} ignored: message has no text content`);
       return;
     }
-    const replyChannel = message.channel;
-    if (!replyChannel.isSendable()) {
-      console.error(`${label} rejected: channel is not sendable`);
-      return;
-    }
+    console.log(
+      addIndent({
+        indent: `${label} (request) `,
+        text: truncateString(text, 200),
+      }),
+    );
 
     try {
       await handler.handle({
