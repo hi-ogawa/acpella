@@ -9,7 +9,7 @@ description: >-
 
 # acpella
 
-Acpella is a small bridge from a messaging surface, currently Telegram or the local REPL, to an ACP-compatible agent such as Codex ACP. Acpella owns delivery, slash-command routing, session mappings, cron scheduling, and `.acpella` state. The selected ACP agent owns the actual assistant behavior, tool execution, and long-running agent session.
+Acpella is a small bridge from a messaging surface, currently Telegram, Discord, or the local REPL, to an ACP-compatible agent such as Codex ACP. Acpella owns delivery, slash-command routing, session mappings, cron scheduling, and `.acpella` state. The selected ACP agent owns the actual assistant behavior, tool execution, and long-running agent session.
 
 ## Working model
 
@@ -17,7 +17,7 @@ Acpella is a small bridge from a messaging surface, currently Telegram or the lo
 - The normal operator CLI is the globally linked `acpella` command, installed from the source checkout with `pnpm link --global`.
 - `ACPELLA_HOME` is the working directory acpella uses for agent sessions and acpella state.
 - Acpella stores its own state under `ACPELLA_HOME/.acpella/`, including session mappings, configured agents, cron jobs, logs, and optional custom instructions.
-- A Telegram chat/thread or REPL context maps to an acpella session name.
+- A Telegram chat/thread, Discord channel, or REPL context maps to an acpella session name.
 - An acpella session points at a selected ACP agent and, after use, an agent session id.
 - Slash commands such as `/help`, `/agent`, `/session`, `/cron`, `/status`, `/service`, and `/shell` are handled by acpella, not sent to the agent.
 - Normal user prompts are forwarded to the selected ACP agent.
@@ -26,19 +26,20 @@ Use this skill when the task is about operating acpella itself: setup, service m
 
 ## Command surface
 
-Administrative slash commands use the same text syntax across Telegram, the local REPL, and local one-shot execution, but they run inside whichever acpella process receives them.
+Administrative slash commands use the same text syntax across Telegram, Discord, the local REPL, and local one-shot execution, but they run inside whichever acpella process receives them.
 
-When unsure which slash command or arguments to use, start with `/help` from Telegram, the local REPL, or `acpella exec /help`. Treat it as the source of truth for the currently installed command surface.
+When unsure which slash command or arguments to use, start with `/help` from Telegram, Discord, the local REPL, or `acpella exec /help`. Treat it as the source of truth for the currently installed command surface.
 
 ## Command process scope
 
 - Telegram commands are handled by the long-running acpella bot service.
+- Discord commands are handled by the long-running acpella bot service when served with `--channel=discord`.
 - REPL commands are handled by that REPL process.
 - `acpella exec <slash-command...>` starts a separate short-lived acpella process, handles one command, then exits.
 
 Commands that only read or mutate shared `.acpella` state, such as `/agent list`, `/session list`, `/cron add`, or `/cron update`, are usually fine through `exec`.
 
-`/shell` is process-local host administration. Through Telegram or REPL it runs inside that long-running process; through `acpella exec` it runs inside the short-lived local process. Use it only when that process/user/cwd boundary is the intended target.
+`/shell` is process-local host administration. Through Telegram, Discord, or REPL it runs inside that long-running process; through `acpella exec` it runs inside the short-lived local process. Use it only when that process/user/cwd boundary is the intended target.
 
 Commands that control process-local runtime state, such as `/cron start`, `/cron stop`, `/session new` without `--target`, `/session load`, or `/session close`, must be sent to the process whose runtime state should change. Do not use `exec` to control another running acpella service.
 
@@ -58,11 +59,13 @@ acpella exec /service systemd install
 acpella exec /shell pwd
 ```
 
-Do not use `exec` to send normal agent prompts. Do not use `exec` for session lifecycle actions that depend on the current Telegram or REPL conversation context, such as `/session new` without `--target`, `/session load`, or `/session close`. Use `/session list` and `/session info --target <sessionName>` through `exec` to discover or inspect existing sessions. Use `/session new --target <sessionName>` through `exec` only when intentionally resetting a known existing acpella session for administrative workflows such as cron topics.
+Do not use `exec` to send normal agent prompts. Do not use `exec` for session lifecycle actions that depend on the current Telegram, Discord, or REPL conversation context, such as `/session new` without `--target`, `/session load`, or `/session close`. Use `/session list` and `/session info --target <sessionName>` through `exec` to discover or inspect existing sessions. Use `/session new --target <sessionName>` through `exec` only when intentionally resetting a known existing acpella session for administrative workflows such as cron topics.
 
 ## Route by user question
 
 - **Bootstrap, install, `.env`, or first run**: read [references/bootstrap.md](references/bootstrap.md).
+- **Telegram bot setup or Telegram env vars**: read [references/channels/telegram.md](references/channels/telegram.md).
+- **Discord bot setup or Discord env vars**: read [references/channels/discord.md](references/channels/discord.md).
 - **Systemd setup, restart flow, or service logs**: read [references/systemd.md](references/systemd.md).
 - **Customizing behavior with `.acpella/AGENTS.md`, includes, directives, or skills**: read [references/customization.md](references/customization.md).
 - **Managing sessions or ACP agents**: read [references/sessions-and-agents.md](references/sessions-and-agents.md). For backend-specific registration flags, follow its links under `references/agents/`.
