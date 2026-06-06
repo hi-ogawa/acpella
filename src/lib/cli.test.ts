@@ -5,7 +5,7 @@ describe(parseCli, () => {
   it("parses global env-file option before command", () => {
     expect(
       parseCli({
-        argv: ["--env-file", "./custom.env", "repl"],
+        argv: ["--env-file=./custom.env", "repl"],
         commands: ["serve", "repl", "exec"],
         defaultCommand: "serve",
       }),
@@ -21,10 +21,36 @@ describe(parseCli, () => {
   it("fails when env-file path is missing", () => {
     expect(() =>
       parseCli({
-        argv: ["--env-file"],
+        argv: ["--env-file="],
         commands: ["serve", "repl", "exec"],
         defaultCommand: "serve",
       }),
     ).toThrowErrorMatchingInlineSnapshot(`[Error: Missing value for --env-file]`);
+  });
+
+  it("parses channel option", () => {
+    expect(
+      parseCli({
+        argv: ["serve", "--channel=discord"],
+        commands: ["serve", "repl", "exec"],
+        defaultCommand: "serve",
+      }),
+    ).toMatchInlineSnapshot(`
+      {
+        "args": [],
+        "channel": "discord",
+        "command": "serve",
+      }
+    `);
+  });
+
+  it("fails when channel value is missing", () => {
+    expect(() =>
+      parseCli({
+        argv: ["serve", "--channel="],
+        commands: ["serve", "repl", "exec"],
+        defaultCommand: "serve",
+      }),
+    ).toThrowErrorMatchingInlineSnapshot(`[Error: Missing value for --channel]`);
   });
 });

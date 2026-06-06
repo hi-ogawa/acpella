@@ -16,8 +16,8 @@ export function parseCli(options: {
   const input = [...options.argv];
   while (input.length > 0) {
     const arg = input.shift()!;
-    if (arg === "--env-file") {
-      const value = input.shift();
+    if (arg.startsWith("--env-file=")) {
+      const value = arg.slice("--env-file=".length);
       if (!value) {
         throw new Error("Missing value for --env-file");
       }

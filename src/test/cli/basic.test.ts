@@ -14,7 +14,7 @@ test("help", async () => {
       exec <message...> Run one local message, then exit.
 
     Options:
-      --env-file <path> Use this env file for config resolution.
+      --env-file=<path> Use this env file for config resolution.
       --channel=<name> Service channel for \`serve\` (telegram or discord, default: telegram).
       -h, --help        Show this help.
 
