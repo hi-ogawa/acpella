@@ -175,7 +175,8 @@ async function serveTelegram(options: {
     throw new Error("ACPELLA_TELEGRAM_ALLOWED_USER_IDS must be non-empty");
   }
 
-  const bot = new Bot(config.telegram.token);
+  const telegramToken = config.telegram.token;
+  const bot = new Bot(telegramToken);
   const botInfo = await bot.api.getMe();
   const botUsername = botInfo.username;
 
