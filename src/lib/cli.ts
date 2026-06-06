@@ -13,9 +13,7 @@ export function parseCli(options: {
   let envFile: string | undefined;
   let channel: string | undefined;
   const argv: string[] = [];
-  const input = [...options.argv];
-  while (input.length > 0) {
-    const arg = input.shift()!;
+  for (const arg of options.argv) {
     if (arg.startsWith("--env-file=")) {
       const value = arg.slice("--env-file=".length);
       if (!value) {
