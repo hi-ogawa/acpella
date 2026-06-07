@@ -41,12 +41,6 @@ Options:
   -h, --help        Show this help.
 `;
 
-interface ChannelService {
-  start: () => Promise<void>;
-  wait: () => Promise<void>;
-  stop: () => Promise<void> | void;
-}
-
 async function main() {
   const cliArgv = process.argv.slice(2);
   if (cliArgv.some((arg) => ["-h", "--help"].includes(arg))) {
@@ -137,45 +131,41 @@ ${CLI_HELP}`);
     return;
   }
 
-  const channelServices: ChannelService[] = [];
+  const channelTasks: Promise<void>[] = [];
   if (config.telegram.token) {
-    channelServices.push(
-      await createTelegramService({
-        config,
-        handler,
-        version,
-        registerCronDeliveryHandler,
-      }),
-    );
+    const botRunner = await serveTelegram({
+      config,
+      handler,
+      version,
+      registerCronDeliveryHandler,
+    });
+    cleanup.defer(() => botRunner.stop());
+    channelTasks.push(botRunner.task()!);
   }
   if (config.discord.token) {
-    channelServices.push(
-      await createDiscordService({
-        config,
-        handler,
-        version,
-        registerCronDeliveryHandler,
-      }),
-    );
+    const client = await serveDiscord({
+      config,
+      handler,
+      version,
+      registerCronDeliveryHandler,
+    });
+    cleanup.defer(() => client.destroy());
+    channelTasks.push(new Promise<never>(() => {}));
   }
-  if (channelServices.length === 0) {
+  if (channelTasks.length === 0) {
     throw new Error("No service channels configured. Configure Telegram or Discord credentials.");
   }
-  for (const service of channelServices) {
-    cleanup.defer(() => service.stop());
-  }
 
-  await Promise.all(channelServices.map((service) => service.start()));
   cronRunner.start();
-  await Promise.all(channelServices.map((service) => service.wait()));
+  await Promise.all(channelTasks);
 }
 
-async function createTelegramService(options: {
+async function serveTelegram(options: {
   config: AppConfig;
   handler: Handler;
   version: string;
   registerCronDeliveryHandler: (handler: CronDeliveryHandler) => void;
-}): Promise<ChannelService> {
+}): Promise<RunnerHandle> {
   const { config, handler, version, registerCronDeliveryHandler } = options;
   const allowedUsers = new Set(config.telegram.allowedUserIds);
   const allowedChats = new Set(config.telegram.allowedChatIds);
@@ -366,34 +356,21 @@ async function createTelegramService(options: {
     });
   });
 
-  let botRunner: RunnerHandle | undefined;
-  return {
-    start: async () => {
-      console.log(
-        `Starting service (version: ${version}, home: ${config.home}, channel: telegram)`,
-      );
-      botRunner = run(bot, {
-        sink: {
-          // @grammyjs/runner defaults to 500; keep acpella conservative because prompts spawn child agents.
-          concurrency: 5,
-        },
-      });
+  console.log(`Starting service (version: ${version}, home: ${config.home}, channel: telegram)`);
+  return run(bot, {
+    sink: {
+      // @grammyjs/runner defaults to 500; keep acpella conservative because prompts spawn child agents.
+      concurrency: 5,
     },
-    wait: async () => {
-      await botRunner?.task();
-    },
-    stop: async () => {
-      await botRunner?.stop();
-    },
-  };
+  });
 }
 
-async function createDiscordService(options: {
+async function serveDiscord(options: {
   config: AppConfig;
   handler: Handler;
   version: string;
   registerCronDeliveryHandler: (handler: CronDeliveryHandler) => void;
-}): Promise<ChannelService> {
+}): Promise<Client> {
   const { config, handler, version, registerCronDeliveryHandler } = options;
 
   const allowedUsers = new Set(config.discord.allowedUserIds);
@@ -529,18 +506,9 @@ async function createDiscordService(options: {
   });
 
   const discordToken = config.discord.token!;
-  return {
-    start: async () => {
-      console.log(`Starting service (version: ${version}, home: ${config.home}, channel: discord)`);
-      await client.login(discordToken);
-    },
-    wait: async () => {
-      await new Promise<never>(() => {});
-    },
-    stop: () => {
-      client.destroy();
-    },
-  };
+  console.log(`Starting service (version: ${version}, home: ${config.home}, channel: discord)`);
+  await client.login(discordToken);
+  return client;
 }
 
 async function startRepl({
