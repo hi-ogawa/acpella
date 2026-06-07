@@ -6,6 +6,7 @@ import { Client, GatewayIntentBits, Partials, type Message } from "discord.js";
 import { Bot, type Context, type Filter } from "grammy";
 import { loadConfig, type AppConfig } from "./config.ts";
 import { createHandler, type Handler } from "./handler.ts";
+import { TypingIndicatorManager } from "./lib/channel/typing-indicator.ts";
 import { parseCli } from "./lib/cli.ts";
 import { CronRunner, type CronDeliveryHandler } from "./lib/cron/runner.ts";
 import { CronStore } from "./lib/cron/store.ts";
@@ -22,7 +23,6 @@ import {
   formatTelegramSessionName,
   getTelegramRetryAfter,
   normalizeUserMention,
-  TelegramChatActionManager,
 } from "./lib/telegram/utils.ts";
 import { getVersion } from "./lib/version.ts";
 import { addIndent, sleep, truncateString } from "./utils/index.ts";
@@ -242,9 +242,10 @@ async function serveTelegram(options: {
       return;
     }
 
-    const chatActionManager = new TelegramChatActionManager({
+    const chatActionManager = new TypingIndicatorManager({
       send: () => ctx.replyWithChatAction("typing"),
       logLabel: label,
+      getRetryAfter: getTelegramRetryAfter,
     });
     chatActionManager.start();
     await using cleanup = new AsyncDisposableStack();
@@ -449,6 +450,14 @@ async function serveDiscord(options: {
       console.error(`${label} ignored: message has no text content or attachments`);
       return;
     }
+
+    const typingIndicatorManager = new TypingIndicatorManager({
+      send: () => replyChannel.sendTyping(),
+      logLabel: label,
+    });
+    typingIndicatorManager.start();
+    await using cleanup = new AsyncDisposableStack();
+    cleanup.defer(() => typingIndicatorManager.stop());
 
     try {
       let text = content;
