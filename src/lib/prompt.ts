@@ -11,9 +11,9 @@ export function buildFirstPrompt(file: string): string {
   let output = "";
 
   output += `\
+<acpella_runtime>
 Use these installed acpella runtime instructions for this session:
 
-<acpella_runtime>
 Available Skills
 
 ${buildSkillsCatalog(ACPELLA_RUNTIME_SKILLS_DIR).trim()}

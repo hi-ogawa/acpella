@@ -134,6 +134,10 @@ class EchoAgent implements Agent {
         .map((c) => c.text)
         .join("") || "(empty)";
 
+    if (!text.includes("__keep_runtime") && text.startsWith("<acpella_runtime>")) {
+      text = text.replace(/^<acpella_runtime>[\s\S]*?<\/acpella_runtime>\s*/, "");
+    }
+
     if (!text.includes("__keep_metadata") && text.startsWith("<message_metadata>")) {
       text = text.replace(/^<message_metadata>[\s\S]*?<\/message_metadata>/, "").trim();
     }

@@ -9,9 +9,9 @@ function normalizePromptOutput(output: string) {
 test("basic", () => {
   const output = buildFirstPrompt(path.resolve("./fixtures/prompt-includes/AGENTS.md"));
   expect(normalizePromptOutput(output)).toMatchInlineSnapshot(`
-    "Use these installed acpella runtime instructions for this session:
+    "<acpella_runtime>
+    Use these installed acpella runtime instructions for this session:
 
-    <acpella_runtime>
     Available Skills
 
     - Skill directory: acpella
@@ -46,9 +46,9 @@ test("basic", () => {
 test("not-found", () => {
   const output = buildFirstPrompt(path.resolve("./fixtures/prompt-includes/MISSING.md"));
   expect(normalizePromptOutput(output)).toMatchInlineSnapshot(`
-    "Use these installed acpella runtime instructions for this session:
+    "<acpella_runtime>
+    Use these installed acpella runtime instructions for this session:
 
-    <acpella_runtime>
     Available Skills
 
     - Skill directory: acpella
@@ -70,9 +70,9 @@ test("not-found", () => {
 test("acpella skills directive", () => {
   const output = buildFirstPrompt(path.resolve("./fixtures/prompt-directives/AGENTS.md"));
   expect(normalizePromptOutput(output)).toMatchInlineSnapshot(`
-    "Use these installed acpella runtime instructions for this session:
+    "<acpella_runtime>
+    Use these installed acpella runtime instructions for this session:
 
-    <acpella_runtime>
     Available Skills
 
     - Skill directory: acpella
