@@ -14,16 +14,6 @@ ${EDITOR:-vi} ~/.config/acpella/.env
 
 After creating `.env`, set the main config values below.
 
-For source checkout development:
-
-```bash
-git clone https://github.com/hi-ogawa/acpella
-cd acpella
-pnpm install
-pnpm vp config
-pnpm link --global
-```
-
 ## Config
 
 | Variable                              | Default         | Description                                  |
