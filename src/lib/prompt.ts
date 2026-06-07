@@ -1,12 +1,25 @@
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { addIndent, formatTime } from "../utils/index.ts";
 
 const INCLUDE_LINE_RE = /^[^\S\r\n]*@(\S+)[^\S\r\n]*$/gm;
 const ACP_DIRECTIVE_LINE_RE = /^[^\S\r\n]*::acpella\s+(\S+)(?:\s+(.+?))?[^\S\r\n]*$/gm;
+const ACPELLA_RUNTIME_SKILLS_DIR = fileURLToPath(new URL("../../skills", import.meta.url));
 
 export function buildFirstPrompt(file: string): string {
   let output = "";
+
+  output += `\
+Use these installed acpella runtime instructions for this session:
+
+<acpella_runtime>
+Available Skills
+
+${buildSkillsCatalog(ACPELLA_RUNTIME_SKILLS_DIR).trim()}
+</acpella_runtime>
+`;
+
   const customPrompt = readOptionalPromptFile(file);
   if (customPrompt) {
     output += `\
