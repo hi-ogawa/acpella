@@ -60,21 +60,6 @@ systemctl --user daemon-reload
 systemctl --user restart acpella
 ```
 
-## After updating acpella
-
-```bash
-npm install -g github:hi-ogawa/acpella
-systemctl --user restart acpella
-```
-
-If the Node or npm global prefix changed, regenerate the unit before restarting:
-
-```bash
-acpella exec /service systemd install
-systemctl --user daemon-reload
-systemctl --user restart acpella
-```
-
 ## Live logs
 
 ```bash
