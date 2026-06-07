@@ -29,7 +29,7 @@ import { addIndent, sleep, truncateString } from "./utils/index.ts";
 import { stringifyError } from "./utils/node.ts";
 
 const CLI_HELP = `\
-Usage: acpella [command]
+Usage: acpella <command>
 
 Commands:
   serve             Run bot service.

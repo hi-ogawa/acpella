@@ -6,7 +6,7 @@ test("help", async () => {
   const result = await cli.cli("--help");
   expect(sanitizeOutput(result.stderr)).toMatchInlineSnapshot(`""`);
   expect(result.stdout).toMatchInlineSnapshot(`
-    "Usage: acpella [command]
+    "Usage: acpella <command>
 
     Commands:
       serve             Run bot service.
@@ -42,7 +42,7 @@ test("cli error", async () => {
       "Command failed: pnpm -s dev serve --channel=discord
       Error: Unexpected arguments for serve: --channel=discord
 
-      Usage: acpella [command]
+      Usage: acpella <command>
 
       Commands:
         serve             Run bot service.

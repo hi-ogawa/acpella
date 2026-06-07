@@ -4,11 +4,7 @@ type ParsedCli = {
   envFile?: string;
 };
 
-export function parseCli(options: {
-  argv: string[];
-  commands: string[];
-  defaultCommand?: string;
-}): ParsedCli {
+export function parseCli(options: { argv: string[]; commands: string[] }): ParsedCli {
   let envFile: string | undefined;
   const argv: string[] = [];
   for (const arg of options.argv) {
@@ -23,7 +19,7 @@ export function parseCli(options: {
     argv.push(arg);
   }
 
-  const command = argv[0] ?? options.defaultCommand;
+  const command = argv[0];
   const args = argv.slice(1);
 
   if (!command) {
