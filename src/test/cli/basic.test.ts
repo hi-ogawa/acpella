@@ -27,16 +27,24 @@ function sanitizeCliError(error: Error) {
     .trim();
 }
 
-test("cli error", async () => {
+test("unknown command error", async () => {
   const cli = useCli();
   await expect(cli.cli("yay").catch(sanitizeCliError)).resolves.toThrowErrorMatchingInlineSnapshot(`
     "Command failed: pnpm -s dev yay
     Error: Unknown command: yay"
   `);
+});
+
+test("missing command error", async () => {
+  const cli = useCli();
   await expect(cli.cli().catch(sanitizeCliError)).resolves.toThrowErrorMatchingInlineSnapshot(`
     "Command failed: pnpm -s dev
     Error: Missing command"
   `);
+});
+
+test("unexpected command arguments error", async () => {
+  const cli = useCli();
   await expect(cli.cli("serve", "--channel=discord").catch(sanitizeCliError)).resolves
     .toThrowErrorMatchingInlineSnapshot(`
       "Command failed: pnpm -s dev serve --channel=discord
