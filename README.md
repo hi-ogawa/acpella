@@ -5,32 +5,10 @@ Thin service that connects a messaging channel (Telegram) to AI agent via [ACP](
 ## Setup
 
 ```bash
-pnpm install
-
-# Make `acpella` cli available globally
-pnpm link --global
-
-# Edit .env using the Config section below
-mkdir -p ~/.config/acpella
-cp .env.example ~/.config/acpella/.env
-
-acpella serve        # run Telegram bot service
-acpella repl         # run REPL
-acpella exec /status # run one local admin command
+npm install -g github:hi-ogawa/acpella
 ```
 
-## Config
-
-| Variable                            | Default         | Description                                |
-| ----------------------------------- | --------------- | ------------------------------------------ |
-| `ACPELLA_TELEGRAM_BOT_TOKEN`        | —               | Bot token from @BotFather                  |
-| `ACPELLA_TELEGRAM_ALLOWED_USER_IDS` | —               | Comma-separated numeric Telegram user IDs  |
-| `ACPELLA_TELEGRAM_ALLOWED_CHAT_IDS` | —               | Comma-separated chat IDs (group allowlist) |
-| `ACPELLA_HOME`                      | `process.cwd()` | Agent working directory                    |
-
-## Configuring Agent
-
-The default agent is the built-in `test` echo agent. See [skills/acpella](skills/acpella/SKILL.md) for current agent registration, session, customization, cron, and service administration workflows.
+See [`skills/acpella`](skills/acpella/SKILL.md) for setup, configuration, deployment, agent registration, systemd, cron, and troubleshooting workflows.
 
 ## Development
 
@@ -38,6 +16,10 @@ Test locally on checkout source
 
 ```sh
 pnpm install
+pnpm vp config
+
+# optionally make this checkout available as the global CLI while developing
+pnpm link --global
 
 # run with .env.dev
 pnpm dev repl
