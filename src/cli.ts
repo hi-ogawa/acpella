@@ -139,12 +139,51 @@ ${CLI_HELP}`);
     return;
   }
 
-  const channelServices = await createConfiguredChannelServices({
-    config,
-    handler,
-    version,
-    registerCronDeliveryHandler,
-  });
+  const channelServices: ChannelService[] = [];
+  if (
+    Boolean(config.telegram.token) ||
+    config.telegram.allowedUserIds.length > 0 ||
+    config.telegram.allowedChatIds.length > 0
+  ) {
+    if (!config.telegram.token) {
+      throw new Error("ACPELLA_TELEGRAM_BOT_TOKEN is required");
+    }
+    if (config.telegram.allowedUserIds.length === 0) {
+      throw new Error("ACPELLA_TELEGRAM_ALLOWED_USER_IDS must be non-empty");
+    }
+    channelServices.push(
+      await createTelegramService({
+        config,
+        handler,
+        version,
+        registerCronDeliveryHandler,
+      }),
+    );
+  }
+  if (
+    Boolean(config.discord.token) ||
+    config.discord.allowedUserIds.length > 0 ||
+    config.discord.allowedGuildIds.length > 0 ||
+    config.discord.allowedChannelIds.length > 0
+  ) {
+    if (!config.discord.token) {
+      throw new Error("ACPELLA_DISCORD_BOT_TOKEN is required");
+    }
+    if (config.discord.allowedGuildIds.length === 0) {
+      throw new Error("ACPELLA_DISCORD_ALLOWED_GUILD_IDS must be non-empty");
+    }
+    channelServices.push(
+      await createDiscordService({
+        config,
+        handler,
+        version,
+        registerCronDeliveryHandler,
+      }),
+    );
+  }
+  if (channelServices.length === 0) {
+    throw new Error("No service channels configured. Configure Telegram or Discord credentials.");
+  }
   for (const service of channelServices) {
     cleanup.defer(() => service.stop());
   }
@@ -152,80 +191,6 @@ ${CLI_HELP}`);
   await Promise.all(channelServices.map((service) => service.start()));
   cronRunner.start();
   await Promise.all(channelServices.map((service) => service.wait()));
-}
-
-async function createConfiguredChannelServices(options: {
-  config: AppConfig;
-  handler: Handler;
-  version: string;
-  registerCronDeliveryHandler: (handler: CronDeliveryHandler) => void;
-}): Promise<ChannelService[]> {
-  const channels = resolveConfiguredChannels(options.config);
-  const services: ChannelService[] = [];
-  for (const channel of channels) {
-    switch (channel) {
-      case "telegram": {
-        services.push(await createTelegramService(options));
-        break;
-      }
-      case "discord": {
-        services.push(await createDiscordService(options));
-        break;
-      }
-    }
-  }
-  return services;
-}
-
-function resolveConfiguredChannels(config: AppConfig): ChannelName[] {
-  const channels: ChannelName[] = [];
-  if (hasAnyTelegramConfig(config)) {
-    validateTelegramConfig(config);
-    channels.push("telegram");
-  }
-  if (hasAnyDiscordConfig(config)) {
-    validateDiscordConfig(config);
-    channels.push("discord");
-  }
-  if (channels.length === 0) {
-    throw new Error("No service channels configured. Configure Telegram or Discord credentials.");
-  }
-  return channels;
-}
-
-function hasAnyTelegramConfig(config: AppConfig): boolean {
-  return (
-    Boolean(config.telegram.token) ||
-    config.telegram.allowedUserIds.length > 0 ||
-    config.telegram.allowedChatIds.length > 0
-  );
-}
-
-function validateTelegramConfig(config: AppConfig): void {
-  if (!config.telegram.token) {
-    throw new Error("ACPELLA_TELEGRAM_BOT_TOKEN is required");
-  }
-  if (config.telegram.allowedUserIds.length === 0) {
-    throw new Error("ACPELLA_TELEGRAM_ALLOWED_USER_IDS must be non-empty");
-  }
-}
-
-function hasAnyDiscordConfig(config: AppConfig): boolean {
-  return (
-    Boolean(config.discord.token) ||
-    config.discord.allowedUserIds.length > 0 ||
-    config.discord.allowedGuildIds.length > 0 ||
-    config.discord.allowedChannelIds.length > 0
-  );
-}
-
-function validateDiscordConfig(config: AppConfig): void {
-  if (!config.discord.token) {
-    throw new Error("ACPELLA_DISCORD_BOT_TOKEN is required");
-  }
-  if (config.discord.allowedGuildIds.length === 0) {
-    throw new Error("ACPELLA_DISCORD_ALLOWED_GUILD_IDS must be non-empty");
-  }
 }
 
 async function createTelegramService(options: {
