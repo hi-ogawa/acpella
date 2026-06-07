@@ -7,14 +7,14 @@ Thin service that connects a messaging channel (Telegram) to AI agent via [ACP](
 ```bash
 npm install -g github:hi-ogawa/acpella
 
-# Create .env using the Config section below
 mkdir -p ~/.config/acpella
 ${EDITOR:-vi} ~/.config/acpella/.env
 
-acpella serve        # run Telegram bot service
-acpella repl         # run REPL
-acpella exec /status # run one local admin command
+acpella repl
+acpella exec /status
 ```
+
+Set the required values from the Config section below. For deployment, systemd, agent registration, cron, and troubleshooting workflows, see [`skills/acpella`](skills/acpella/SKILL.md).
 
 ## Config
 
