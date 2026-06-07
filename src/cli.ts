@@ -138,11 +138,7 @@ ${CLI_HELP}`);
   }
 
   const channelServices: ChannelService[] = [];
-  if (
-    Boolean(config.telegram.token) ||
-    config.telegram.allowedUserIds.length > 0 ||
-    config.telegram.allowedChatIds.length > 0
-  ) {
+  if (config.telegram.token) {
     if (!config.telegram.token) {
       throw new Error("ACPELLA_TELEGRAM_BOT_TOKEN is required");
     }
@@ -158,12 +154,7 @@ ${CLI_HELP}`);
       }),
     );
   }
-  if (
-    Boolean(config.discord.token) ||
-    config.discord.allowedUserIds.length > 0 ||
-    config.discord.allowedGuildIds.length > 0 ||
-    config.discord.allowedChannelIds.length > 0
-  ) {
+  if (config.discord.token) {
     if (!config.discord.token) {
       throw new Error("ACPELLA_DISCORD_BOT_TOKEN is required");
     }
