@@ -4,18 +4,25 @@ Use this reference for first-time setup and initial local runs of acpella.
 
 ## Basic setup
 
-Clone the source from https://github.com/hi-ogawa/acpella:
+Install acpella globally from GitHub:
+
+```bash
+npm install -g github:hi-ogawa/acpella
+mkdir -p ~/.config/acpella
+${EDITOR:-vi} ~/.config/acpella/.env
+```
+
+After creating `.env`, set the main config values below.
+
+For source checkout development:
 
 ```bash
 git clone https://github.com/hi-ogawa/acpella
 cd acpella
 pnpm install
+pnpm vp config
 pnpm link --global
-mkdir -p ~/.config/acpella
-cp .env.example ~/.config/acpella/.env
 ```
-
-After copying `.env`, edit the main config values below.
 
 ## Config
 
@@ -39,7 +46,7 @@ Notes:
 
 ## First local runs
 
-Run these after linking the global CLI from the acpella source checkout.
+Run these after installing the global CLI.
 
 Run the Telegram bot:
 

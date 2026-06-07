@@ -47,7 +47,7 @@ acpella exec /status
 acpella exec /agent list
 ```
 
-Run these through the global `acpella` CLI linked to the checkout/version that owns the running service, not from `ACPELLA_HOME` unless they are the same directory.
+Run these through the global `acpella` CLI installation/version that owns the running service, not from `ACPELLA_HOME` unless they are the same directory.
 
 ## Prompt customization not taking effect
 
@@ -86,7 +86,7 @@ acpella exec /cron status
 acpella exec /cron list
 ```
 
-Run these through the global `acpella` CLI linked to the checkout/version that owns the running service, not from `ACPELLA_HOME` unless they are the same directory.
+Run these through the global `acpella` CLI installation/version that owns the running service, not from `ACPELLA_HOME` unless they are the same directory.
 
 ## When deeper inspection is needed
 

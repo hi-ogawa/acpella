@@ -5,14 +5,11 @@ Thin service that connects a messaging channel (Telegram) to AI agent via [ACP](
 ## Setup
 
 ```bash
-pnpm install
+npm install -g github:hi-ogawa/acpella
 
-# Make `acpella` cli available globally
-pnpm link --global
-
-# Edit .env using the Config section below
+# Create .env using the Config section below
 mkdir -p ~/.config/acpella
-cp .env.example ~/.config/acpella/.env
+${EDITOR:-vi} ~/.config/acpella/.env
 
 acpella serve        # run Telegram bot service
 acpella repl         # run REPL
@@ -39,6 +36,9 @@ Test locally on checkout source
 ```sh
 pnpm install
 pnpm vp config
+
+# optionally make this checkout available as the global CLI while developing
+pnpm link --global
 
 # run with .env.dev
 pnpm dev repl
