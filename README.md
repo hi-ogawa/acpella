@@ -6,28 +6,9 @@ Thin service that connects a messaging channel (Telegram) to AI agent via [ACP](
 
 ```bash
 npm install -g github:hi-ogawa/acpella
-
-mkdir -p ~/.config/acpella
-${EDITOR:-vi} ~/.config/acpella/.env
-
-acpella repl
-acpella exec /status
 ```
 
-Set the required values from the Config section below. For deployment, systemd, agent registration, cron, and troubleshooting workflows, see [`skills/acpella`](skills/acpella/SKILL.md).
-
-## Config
-
-| Variable                            | Default         | Description                                |
-| ----------------------------------- | --------------- | ------------------------------------------ |
-| `ACPELLA_TELEGRAM_BOT_TOKEN`        | —               | Bot token from @BotFather                  |
-| `ACPELLA_TELEGRAM_ALLOWED_USER_IDS` | —               | Comma-separated numeric Telegram user IDs  |
-| `ACPELLA_TELEGRAM_ALLOWED_CHAT_IDS` | —               | Comma-separated chat IDs (group allowlist) |
-| `ACPELLA_HOME`                      | `process.cwd()` | Agent working directory                    |
-
-## Configuring Agent
-
-The default agent is the built-in `test` echo agent. See [skills/acpella](skills/acpella/SKILL.md) for current agent registration, session, customization, cron, and service administration workflows.
+See [`skills/acpella`](skills/acpella/SKILL.md) for setup, configuration, deployment, agent registration, systemd, cron, and troubleshooting workflows.
 
 ## Development
 
