@@ -24,7 +24,7 @@ import {
   getTelegramRetryAfter,
   normalizeUserMention,
 } from "./lib/telegram/utils.ts";
-import { getVersion } from "./lib/version.ts";
+import { getPackagePath, getVersion } from "./lib/version.ts";
 import { addIndent, sleep, truncateString } from "./utils/index.ts";
 import { stringifyError } from "./utils/node.ts";
 
@@ -88,6 +88,7 @@ ${CLI_HELP}`);
     envFile: cli.envFile,
   });
   const version = await getVersion({ cwd: path.join(import.meta.dirname, "..") });
+  const packagePath = getPackagePath();
   const cronStore = new CronStore({
     cronFile: config.cronFile,
     cronStateFile: config.cronStateFile,
@@ -114,6 +115,7 @@ ${CLI_HELP}`);
 
   const handler = await createHandler(config, {
     version,
+    packagePath,
     onServiceExit: () => {
       setImmediate(() => {
         console.log("Exiting by /service exit");

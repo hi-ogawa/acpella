@@ -36,6 +36,7 @@ export async function createHandlerTester() {
   const onServiceExit = vi.fn();
   const handler = await createHandler(config, {
     version: "v1.0.0-test",
+    packagePath: process.cwd(),
     onServiceExit,
     cronStore,
     getCronRunner: () => cronRunner,

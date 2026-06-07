@@ -61,6 +61,7 @@ export async function createHandler(
   config: AppConfig,
   handlerOptions: {
     version?: string;
+    packagePath?: string;
     onServiceExit: () => void;
     cronStore: CronStore;
     getCronRunner?: () => CronRunner;
@@ -768,6 +769,7 @@ enabled jobs: ${enabledJobs.length}
           await reply.system(`\
 status: running
 version: ${handlerOptions.version ?? "(unknown)"}
+package: ${handlerOptions.packagePath ?? "(unknown)"}
 default agent: ${stateStore.get().defaultAgent}
 env file: ${config.envFile ?? "(none)"}
 home: ${config.home}
