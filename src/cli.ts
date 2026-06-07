@@ -41,8 +41,6 @@ Options:
   -h, --help        Show this help.
 `;
 
-type ChannelName = "telegram" | "discord";
-
 interface ChannelService {
   start: () => Promise<void>;
   wait: () => Promise<void>;
