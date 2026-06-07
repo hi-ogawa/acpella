@@ -1,7 +1,7 @@
 import "temporal-polyfill/global";
 import path from "node:path";
 import { createInterface } from "node:readline/promises";
-import { run } from "@grammyjs/runner";
+import { run, type RunnerHandle } from "@grammyjs/runner";
 import { Client, GatewayIntentBits, Partials, type Message } from "discord.js";
 import { Bot, type Context, type Filter } from "grammy";
 import { loadConfig, type AppConfig } from "./config.ts";
@@ -38,10 +38,16 @@ Commands:
 
 Options:
   --env-file=<path> Use this env file for config resolution.
-  --channel=<name>  Service channel for \`serve\` (telegram or discord, default: telegram).
-  --no-cron         Disable cron runner for this process.
   -h, --help        Show this help.
 `;
+
+type ChannelName = "telegram" | "discord";
+
+interface ChannelService {
+  start: () => Promise<void>;
+  wait: () => Promise<void>;
+  stop: () => Promise<void> | void;
+}
 
 async function main() {
   const cliArgv = process.argv.slice(2);
@@ -69,19 +75,6 @@ ${CLI_HELP}`);
 Missing message for exec
 
 ${CLI_HELP}`);
-  }
-
-  if (cli.channel && cli.command !== "serve") {
-    throw new Error(`--channel can only be used with serve`);
-  }
-  if (cli.noCron && cli.command !== "serve") {
-    throw new Error(`--no-cron can only be used with serve`);
-  }
-
-  // TODO: support serving multiple channels at once
-  const channel = cli.channel ?? "telegram";
-  if (cli.command === "serve" && !["telegram", "discord"].includes(channel)) {
-    throw new Error(`Invalid --channel: ${channel}`);
   }
 
   const config = loadConfig({
@@ -146,45 +139,109 @@ ${CLI_HELP}`);
     return;
   }
 
-  if (!cli.noCron) {
-    cronRunner.start();
+  const channelServices = await createConfiguredChannelServices({
+    config,
+    handler,
+    version,
+    registerCronDeliveryHandler,
+  });
+  for (const service of channelServices) {
+    cleanup.defer(() => service.stop());
   }
-  if (channel === "telegram") {
-    await serveTelegram({
-      config,
-      handler,
-      version,
-      registerCronDeliveryHandler,
-    });
-  }
-  if (channel === "discord") {
-    await serveDiscord({
-      config,
-      handler,
-      version,
-      registerCronDeliveryHandler,
-    });
-  }
+
+  await Promise.all(channelServices.map((service) => service.start()));
+  cronRunner.start();
+  await Promise.all(channelServices.map((service) => service.wait()));
 }
 
-async function serveTelegram(options: {
+async function createConfiguredChannelServices(options: {
   config: AppConfig;
   handler: Handler;
   version: string;
   registerCronDeliveryHandler: (handler: CronDeliveryHandler) => void;
-}) {
+}): Promise<ChannelService[]> {
+  const channels = resolveConfiguredChannels(options.config);
+  const services: ChannelService[] = [];
+  for (const channel of channels) {
+    switch (channel) {
+      case "telegram": {
+        services.push(await createTelegramService(options));
+        break;
+      }
+      case "discord": {
+        services.push(await createDiscordService(options));
+        break;
+      }
+    }
+  }
+  return services;
+}
+
+function resolveConfiguredChannels(config: AppConfig): ChannelName[] {
+  const channels: ChannelName[] = [];
+  if (hasAnyTelegramConfig(config)) {
+    validateTelegramConfig(config);
+    channels.push("telegram");
+  }
+  if (hasAnyDiscordConfig(config)) {
+    validateDiscordConfig(config);
+    channels.push("discord");
+  }
+  if (channels.length === 0) {
+    throw new Error("No service channels configured. Configure Telegram or Discord credentials.");
+  }
+  return channels;
+}
+
+function hasAnyTelegramConfig(config: AppConfig): boolean {
+  return (
+    Boolean(config.telegram.token) ||
+    config.telegram.allowedUserIds.length > 0 ||
+    config.telegram.allowedChatIds.length > 0
+  );
+}
+
+function validateTelegramConfig(config: AppConfig): void {
+  if (!config.telegram.token) {
+    throw new Error("ACPELLA_TELEGRAM_BOT_TOKEN is required");
+  }
+  if (config.telegram.allowedUserIds.length === 0) {
+    throw new Error("ACPELLA_TELEGRAM_ALLOWED_USER_IDS must be non-empty");
+  }
+}
+
+function hasAnyDiscordConfig(config: AppConfig): boolean {
+  return (
+    Boolean(config.discord.token) ||
+    config.discord.allowedUserIds.length > 0 ||
+    config.discord.allowedGuildIds.length > 0 ||
+    config.discord.allowedChannelIds.length > 0
+  );
+}
+
+function validateDiscordConfig(config: AppConfig): void {
+  if (!config.discord.token) {
+    throw new Error("ACPELLA_DISCORD_BOT_TOKEN is required");
+  }
+  if (config.discord.allowedGuildIds.length === 0) {
+    throw new Error("ACPELLA_DISCORD_ALLOWED_GUILD_IDS must be non-empty");
+  }
+}
+
+async function createTelegramService(options: {
+  config: AppConfig;
+  handler: Handler;
+  version: string;
+  registerCronDeliveryHandler: (handler: CronDeliveryHandler) => void;
+}): Promise<ChannelService> {
   const { config, handler, version, registerCronDeliveryHandler } = options;
   const allowedUsers = new Set(config.telegram.allowedUserIds);
   const allowedChats = new Set(config.telegram.allowedChatIds);
 
-  if (!config.telegram.token) {
+  const telegramToken = config.telegram.token;
+  if (!telegramToken) {
     throw new Error("ACPELLA_TELEGRAM_BOT_TOKEN is required");
   }
-  if (allowedUsers.size === 0) {
-    throw new Error("ACPELLA_TELEGRAM_ALLOWED_USER_IDS must be non-empty");
-  }
-
-  const telegramToken = config.telegram.token;
   const bot = new Bot(telegramToken);
   const botInfo = await bot.api.getMe();
   const botUsername = botInfo.username;
@@ -367,31 +424,35 @@ async function serveTelegram(options: {
     });
   });
 
-  console.log(`Starting service (version: ${version}, home: ${config.home}, channel: telegram)`);
-
-  const botRunner = run(bot, {
-    sink: {
-      // @grammyjs/runner defaults to 500; keep acpella conservative because prompts spawn child agents.
-      concurrency: 5,
+  let botRunner: RunnerHandle | undefined;
+  return {
+    start: async () => {
+      console.log(
+        `Starting service (version: ${version}, home: ${config.home}, channel: telegram)`,
+      );
+      botRunner = run(bot, {
+        sink: {
+          // @grammyjs/runner defaults to 500; keep acpella conservative because prompts spawn child agents.
+          concurrency: 5,
+        },
+      });
     },
-  });
-  await botRunner.task();
+    wait: async () => {
+      await botRunner?.task();
+    },
+    stop: async () => {
+      await botRunner?.stop();
+    },
+  };
 }
 
-async function serveDiscord(options: {
+async function createDiscordService(options: {
   config: AppConfig;
   handler: Handler;
   version: string;
   registerCronDeliveryHandler: (handler: CronDeliveryHandler) => void;
-}) {
+}): Promise<ChannelService> {
   const { config, handler, version, registerCronDeliveryHandler } = options;
-
-  if (!config.discord.token) {
-    throw new Error("ACPELLA_DISCORD_BOT_TOKEN is required");
-  }
-  if (config.discord.allowedGuildIds.length === 0) {
-    throw new Error("ACPELLA_DISCORD_ALLOWED_GUILD_IDS must be non-empty");
-  }
 
   const allowedUsers = new Set(config.discord.allowedUserIds);
   const allowedGuilds = new Set(config.discord.allowedGuildIds);
@@ -522,9 +583,23 @@ async function serveDiscord(options: {
     console.error("[discord] client error", error);
   });
 
-  console.log(`Starting service (version: ${version}, home: ${config.home}, channel: discord)`);
-  await client.login(config.discord.token);
-  await new Promise<never>(() => {});
+  const discordToken = config.discord.token;
+  if (!discordToken) {
+    throw new Error("ACPELLA_DISCORD_BOT_TOKEN is required");
+  }
+
+  return {
+    start: async () => {
+      console.log(`Starting service (version: ${version}, home: ${config.home}, channel: discord)`);
+      await client.login(discordToken);
+    },
+    wait: async () => {
+      await new Promise<never>(() => {});
+    },
+    stop: () => {
+      client.destroy();
+    },
+  };
 }
 
 async function startRepl({

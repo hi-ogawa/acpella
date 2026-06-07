@@ -38,23 +38,10 @@ Notes:
 
 Run these after installing the global CLI.
 
-Run the Telegram bot:
+Run the configured bot service. If both Telegram and Discord are configured, this starts both channels from one process:
 
 ```bash
 acpella serve
-```
-
-Run the Discord bot:
-
-```bash
-acpella serve --channel=discord
-```
-
-When running Telegram and Discord as separate service processes, run cron in only one of them:
-
-```bash
-acpella serve --channel=telegram
-acpella serve --channel=discord --no-cron
 ```
 
 Run the local REPL:

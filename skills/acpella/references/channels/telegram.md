@@ -1,6 +1,6 @@
 # Telegram Channel
 
-Use this reference for a lightweight Telegram setup for `acpella serve --channel=telegram`.
+Use this reference for a lightweight Telegram setup for `acpella serve`.
 
 ## Telegram Bot
 
@@ -39,4 +39,4 @@ ACPELLA_TELEGRAM_ALLOWED_CHAT_IDS=123456789
 acpella serve
 ```
 
-Telegram is the default channel. `acpella serve --channel=telegram` is equivalent.
+If Discord is also configured, the same process starts both channels.
