@@ -170,10 +170,14 @@ async function serveTelegram(options: {
   const allowedUsers = new Set(config.telegram.allowedUserIds);
   const allowedChats = new Set(config.telegram.allowedChatIds);
 
+  if (!config.telegram.token) {
+    throw new Error("ACPELLA_TELEGRAM_BOT_TOKEN is required");
+  }
   if (allowedUsers.size === 0) {
     throw new Error("ACPELLA_TELEGRAM_ALLOWED_USER_IDS must be non-empty");
   }
-  const telegramToken = config.telegram.token!;
+
+  const telegramToken = config.telegram.token;
   const bot = new Bot(telegramToken);
   const botInfo = await bot.api.getMe();
   const botUsername = botInfo.username;
@@ -357,12 +361,14 @@ async function serveTelegram(options: {
   });
 
   console.log(`Starting service (version: ${version}, home: ${config.home}, channel: telegram)`);
-  return run(bot, {
+
+  const botRunner = run(bot, {
     sink: {
       // @grammyjs/runner defaults to 500; keep acpella conservative because prompts spawn child agents.
       concurrency: 5,
     },
   });
+  return botRunner;
 }
 
 async function serveDiscord(options: {
@@ -373,13 +379,17 @@ async function serveDiscord(options: {
 }): Promise<Client> {
   const { config, handler, version, registerCronDeliveryHandler } = options;
 
+  if (!config.discord.token) {
+    throw new Error("ACPELLA_DISCORD_BOT_TOKEN is required");
+  }
+  if (config.discord.allowedGuildIds.length === 0) {
+    throw new Error("ACPELLA_DISCORD_ALLOWED_GUILD_IDS must be non-empty");
+  }
+
   const allowedUsers = new Set(config.discord.allowedUserIds);
   const allowedGuilds = new Set(config.discord.allowedGuildIds);
   const allowedChannels = new Set(config.discord.allowedChannelIds);
 
-  if (allowedGuilds.size === 0) {
-    throw new Error("ACPELLA_DISCORD_ALLOWED_GUILD_IDS must be non-empty");
-  }
   const client = new Client({
     intents: [
       GatewayIntentBits.Guilds,
@@ -505,9 +515,8 @@ async function serveDiscord(options: {
     console.error("[discord] client error", error);
   });
 
-  const discordToken = config.discord.token!;
   console.log(`Starting service (version: ${version}, home: ${config.home}, channel: discord)`);
-  await client.login(discordToken);
+  await client.login(config.discord.token);
   return client;
 }
 
