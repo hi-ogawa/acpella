@@ -1,6 +1,6 @@
 # Telegram Channel
 
-Use this reference for a lightweight Telegram setup for `acpella serve --channel=telegram`.
+Use this reference for a lightweight Telegram setup for `acpella serve`.
 
 ## Telegram Bot
 
@@ -35,8 +35,8 @@ ACPELLA_TELEGRAM_ALLOWED_CHAT_IDS=123456789
 
 ## Run
 
+Telegram is enabled for `acpella serve` when `ACPELLA_TELEGRAM_BOT_TOKEN` is set.
+
 ```bash
 acpella serve
 ```
-
-Telegram is the default channel. `acpella serve --channel=telegram` is equivalent.

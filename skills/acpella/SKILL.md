@@ -33,7 +33,7 @@ When unsure which slash command or arguments to use, start with `/help` from Tel
 ## Command process scope
 
 - Telegram commands are handled by the long-running acpella bot service.
-- Discord commands are handled by the long-running acpella bot service when served with `--channel=discord`.
+- Discord commands are handled by the long-running acpella bot service.
 - REPL commands are handled by that REPL process.
 - `acpella exec <slash-command...>` starts a separate short-lived acpella process, handles one command, then exits.
 
