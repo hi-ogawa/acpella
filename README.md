@@ -1,6 +1,6 @@
 # acpella
 
-Thin service that connects a messaging channel (Telegram) to AI agent via [ACP](https://github.com/agentclientprotocol/agent-client-protocol). Agent-agnostic — works with [OpenCode](https://github.com/anomalyco/opencode), [Codex](https://github.com/zed-industries/codex-acp/), or any [ACP-compatible agent](https://agentclientprotocol.com/get-started/agents).
+Thin service that connects messaging channels such as Telegram and Discord to AI agents via [ACP](https://github.com/agentclientprotocol/agent-client-protocol). Agent-agnostic — works with [OpenCode](https://github.com/anomalyco/opencode), [Codex](https://github.com/zed-industries/codex-acp/), or any [ACP-compatible agent](https://agentclientprotocol.com/get-started/agents).
 
 ## Setup
 
