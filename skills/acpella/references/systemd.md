@@ -10,7 +10,9 @@ Use the global `acpella` CLI installed with the version you want the service to 
 acpella exec /service systemd install
 ```
 
-This writes a user unit for the current acpella installation. Prefer running this from a local shell through `exec`; it is a host administration side effect.
+This writes a user unit for the current acpella service environment. Prefer running this from a local shell through `exec`; it is a host administration side effect.
+
+The generated unit starts acpella with `ExecStart=/usr/bin/env acpella serve`. `/usr/bin/env` resolves `acpella` from the unit's `PATH` at service start, and that same service `PATH` is available to child agent commands.
 
 ## First install
 
@@ -63,11 +65,11 @@ systemctl --user restart acpella
 ## After updating acpella
 
 ```bash
-npm install -g github:hi-ogawa/acpella
+pnpm add --global github:hi-ogawa/acpella
 systemctl --user restart acpella
 ```
 
-If the Node or npm global prefix changed, regenerate the unit before restarting:
+If the service environment changed, regenerate the unit before restarting:
 
 ```bash
 acpella exec /service systemd install
