@@ -1,7 +1,7 @@
 import "temporal-polyfill/global";
 import path from "node:path";
 import { createInterface } from "node:readline/promises";
-import { run, type RunnerHandle } from "@grammyjs/runner";
+import { run } from "@grammyjs/runner";
 import { Client, GatewayIntentBits, Partials, type Message } from "discord.js";
 import { Bot, type Context, type Filter } from "grammy";
 import { loadConfig, type AppConfig } from "./config.ts";
@@ -165,7 +165,7 @@ async function serveTelegram(options: {
   handler: Handler;
   version: string;
   registerCronDeliveryHandler: (handler: CronDeliveryHandler) => void;
-}): Promise<RunnerHandle> {
+}) {
   const { config, handler, version, registerCronDeliveryHandler } = options;
   const allowedUsers = new Set(config.telegram.allowedUserIds);
   const allowedChats = new Set(config.telegram.allowedChatIds);
@@ -376,7 +376,7 @@ async function serveDiscord(options: {
   handler: Handler;
   version: string;
   registerCronDeliveryHandler: (handler: CronDeliveryHandler) => void;
-}): Promise<Client> {
+}) {
   const { config, handler, version, registerCronDeliveryHandler } = options;
 
   if (!config.discord.token) {
