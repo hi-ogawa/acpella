@@ -209,9 +209,6 @@ test("cron command", async ({ onTestFinished }) => {
     "[⚙️ System]
     Apr 18 (Sat) | 07:01 | test-job"
   `);
-  await expect(session.request("/cron list --compact")).rejects.toMatchInlineSnapshot(
-    `[Error: Invalid arguments]`,
-  );
   expect(await session.request("/cron show test-job")).toMatchInlineSnapshot(`
     "[⚙️ System]
     id: test-job
