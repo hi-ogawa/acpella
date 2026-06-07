@@ -39,6 +39,8 @@ ACPELLA_DISCORD_ALLOWED_CHANNEL_IDS=123456789012345678
 
 ## Run
 
+Discord is enabled for `acpella serve` when `ACPELLA_DISCORD_BOT_TOKEN` is set.
+
 ```bash
 acpella serve
 ```

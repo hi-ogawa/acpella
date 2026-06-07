@@ -30,6 +30,7 @@ After creating `.env`, set the main config values below.
 Notes:
 
 - Telegram and Discord configuration are not required for `acpella repl`.
+- `acpella serve` enables each channel based on its bot token. Set `ACPELLA_TELEGRAM_BOT_TOKEN` to enable Telegram, `ACPELLA_DISCORD_BOT_TOKEN` to enable Discord, or set both tokens to run both channels from the same service process.
 - For Telegram setup details, see [channels/telegram.md](channels/telegram.md).
 - For Discord setup details, see [channels/discord.md](channels/discord.md).
 - If `ACPELLA_HOME/.acpella/AGENTS.md` exists, acpella sends it as custom instructions once when creating a new session.
@@ -38,7 +39,7 @@ Notes:
 
 Run these after installing the global CLI.
 
-Run the configured bot service. If both Telegram and Discord are configured, this starts both channels from one process:
+Run the configured bot service. A single `acpella serve` process can serve Telegram, Discord, or both, depending on which bot tokens are configured:
 
 ```bash
 acpella serve

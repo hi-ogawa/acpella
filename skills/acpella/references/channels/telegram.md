@@ -35,8 +35,10 @@ ACPELLA_TELEGRAM_ALLOWED_CHAT_IDS=123456789
 
 ## Run
 
+Telegram is enabled for `acpella serve` when `ACPELLA_TELEGRAM_BOT_TOKEN` is set.
+
 ```bash
 acpella serve
 ```
 
-If Discord is also configured, the same process starts both channels.
+If Discord's bot token is also configured, the same process starts both channels.
