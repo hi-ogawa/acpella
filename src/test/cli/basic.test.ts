@@ -9,7 +9,7 @@ test("help", async () => {
     "Usage: acpella [command]
 
     Commands:
-      serve             Run bot service. Default when no command is provided.
+      serve             Run bot service.
       repl              Run local in-process REPL.
       exec <message...> Run one local message, then exit.
 
@@ -33,6 +33,10 @@ test("cli error", async () => {
     "Command failed: pnpm -s dev yay
     Error: Unknown command: yay"
   `);
+  await expect(cli.cli().catch(sanitizeCliError)).resolves.toThrowErrorMatchingInlineSnapshot(`
+    "Command failed: pnpm -s dev
+    Error: Missing command"
+  `);
   await expect(cli.cli("serve", "--channel=discord").catch(sanitizeCliError)).resolves
     .toThrowErrorMatchingInlineSnapshot(`
       "Command failed: pnpm -s dev serve --channel=discord
@@ -41,7 +45,7 @@ test("cli error", async () => {
       Usage: acpella [command]
 
       Commands:
-        serve             Run bot service. Default when no command is provided.
+        serve             Run bot service.
         repl              Run local in-process REPL.
         exec <message...> Run one local message, then exit.
 
