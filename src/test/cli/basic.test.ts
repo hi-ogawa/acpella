@@ -81,7 +81,7 @@ test("serve fails with partial discord env", async ({ onTestFinished }) => {
   await expect(cli.cli("serve").catch(sanitizeCliError)).resolves
     .toThrowErrorMatchingInlineSnapshot(`
     "Command failed: pnpm -s dev serve
-    Error: ACPELLA_DISCORD_BOT_TOKEN is required"
+    Error: No service channels configured. Configure Telegram or Discord credentials."
   `);
   delete process.env.ACPELLA_DISCORD_ALLOWED_GUILD_IDS;
   process.env.ACPELLA_DISCORD_BOT_TOKEN = "ok";
