@@ -131,22 +131,23 @@ ${CLI_HELP}`);
     return;
   }
 
+  const channelNames: string[] = [];
   const channelTasks: Promise<void>[] = [];
   if (config.telegram.token) {
+    channelNames.push("telegram");
     const botRunner = await serveTelegram({
       config,
       handler,
-      version,
       registerCronDeliveryHandler,
     });
     cleanup.defer(() => botRunner.stop());
     channelTasks.push(botRunner.task()!);
   }
   if (config.discord.token) {
+    channelNames.push("discord");
     const client = await serveDiscord({
       config,
       handler,
-      version,
       registerCronDeliveryHandler,
     });
     cleanup.defer(() => client.destroy());
@@ -156,6 +157,9 @@ ${CLI_HELP}`);
     throw new Error("No service channels configured. Configure Telegram or Discord credentials.");
   }
 
+  console.log(
+    `Starting service (version: ${version}, home: ${config.home}, channels: ${channelNames.join(", ")})`,
+  );
   cronRunner.start();
   await Promise.all(channelTasks);
 }
@@ -163,10 +167,9 @@ ${CLI_HELP}`);
 async function serveTelegram(options: {
   config: AppConfig;
   handler: Handler;
-  version: string;
   registerCronDeliveryHandler: (handler: CronDeliveryHandler) => void;
 }) {
-  const { config, handler, version, registerCronDeliveryHandler } = options;
+  const { config, handler, registerCronDeliveryHandler } = options;
   const allowedUsers = new Set(config.telegram.allowedUserIds);
   const allowedChats = new Set(config.telegram.allowedChatIds);
 
@@ -360,8 +363,6 @@ async function serveTelegram(options: {
     });
   });
 
-  console.log(`Starting service (version: ${version}, home: ${config.home}, channel: telegram)`);
-
   const botRunner = run(bot, {
     sink: {
       // @grammyjs/runner defaults to 500; keep acpella conservative because prompts spawn child agents.
@@ -374,10 +375,9 @@ async function serveTelegram(options: {
 async function serveDiscord(options: {
   config: AppConfig;
   handler: Handler;
-  version: string;
   registerCronDeliveryHandler: (handler: CronDeliveryHandler) => void;
 }) {
-  const { config, handler, version, registerCronDeliveryHandler } = options;
+  const { config, handler, registerCronDeliveryHandler } = options;
 
   if (!config.discord.token) {
     throw new Error("ACPELLA_DISCORD_BOT_TOKEN is required");
@@ -515,7 +515,6 @@ async function serveDiscord(options: {
     console.error("[discord] client error", error);
   });
 
-  console.log(`Starting service (version: ${version}, home: ${config.home}, channel: discord)`);
   await client.login(config.discord.token);
   return client;
 }
