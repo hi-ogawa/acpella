@@ -139,12 +139,6 @@ ${CLI_HELP}`);
 
   const channelServices: ChannelService[] = [];
   if (config.telegram.token) {
-    if (!config.telegram.token) {
-      throw new Error("ACPELLA_TELEGRAM_BOT_TOKEN is required");
-    }
-    if (config.telegram.allowedUserIds.length === 0) {
-      throw new Error("ACPELLA_TELEGRAM_ALLOWED_USER_IDS must be non-empty");
-    }
     channelServices.push(
       await createTelegramService({
         config,
@@ -155,12 +149,6 @@ ${CLI_HELP}`);
     );
   }
   if (config.discord.token) {
-    if (!config.discord.token) {
-      throw new Error("ACPELLA_DISCORD_BOT_TOKEN is required");
-    }
-    if (config.discord.allowedGuildIds.length === 0) {
-      throw new Error("ACPELLA_DISCORD_ALLOWED_GUILD_IDS must be non-empty");
-    }
     channelServices.push(
       await createDiscordService({
         config,
@@ -192,10 +180,10 @@ async function createTelegramService(options: {
   const allowedUsers = new Set(config.telegram.allowedUserIds);
   const allowedChats = new Set(config.telegram.allowedChatIds);
 
-  const telegramToken = config.telegram.token;
-  if (!telegramToken) {
-    throw new Error("ACPELLA_TELEGRAM_BOT_TOKEN is required");
+  if (allowedUsers.size === 0) {
+    throw new Error("ACPELLA_TELEGRAM_ALLOWED_USER_IDS must be non-empty");
   }
+  const telegramToken = config.telegram.token!;
   const bot = new Bot(telegramToken);
   const botInfo = await bot.api.getMe();
   const botUsername = botInfo.username;
@@ -412,6 +400,9 @@ async function createDiscordService(options: {
   const allowedGuilds = new Set(config.discord.allowedGuildIds);
   const allowedChannels = new Set(config.discord.allowedChannelIds);
 
+  if (allowedGuilds.size === 0) {
+    throw new Error("ACPELLA_DISCORD_ALLOWED_GUILD_IDS must be non-empty");
+  }
   const client = new Client({
     intents: [
       GatewayIntentBits.Guilds,
@@ -537,11 +528,7 @@ async function createDiscordService(options: {
     console.error("[discord] client error", error);
   });
 
-  const discordToken = config.discord.token;
-  if (!discordToken) {
-    throw new Error("ACPELLA_DISCORD_BOT_TOKEN is required");
-  }
-
+  const discordToken = config.discord.token!;
   return {
     start: async () => {
       console.log(`Starting service (version: ${version}, home: ${config.home}, channel: discord)`);
