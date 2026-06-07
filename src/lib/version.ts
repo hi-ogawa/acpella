@@ -1,6 +1,13 @@
+import packageJson from "../../package.json" with { type: "json" };
 import { execFileAsync } from "../utils/process.ts";
 
 export async function getVersion(options: { cwd: string }): Promise<string> {
+  const gitMetadata = await getGitMetadata({ cwd: options.cwd });
+  const packageVersion = `package ${packageJson.version}`;
+  return gitMetadata ? `${packageVersion} (${gitMetadata})` : packageVersion;
+}
+
+async function getGitMetadata(options: { cwd: string }): Promise<string | undefined> {
   async function git(args: string[]): Promise<string> {
     const { stdout } = await execFileAsync("git", args, {
       cwd: options.cwd,
@@ -16,9 +23,9 @@ export async function getVersion(options: { cwd: string }): Promise<string> {
       git(["status", "--porcelain=v1"]),
     ]);
     const checkout = branch || "detached";
-    const dirty = status ? " (dirty)" : "";
+    const dirty = status ? " dirty" : "";
     return `git ${head} ${checkout}${dirty}`;
   } catch {
-    return "git failed";
+    return undefined;
   }
 }
