@@ -38,6 +38,7 @@ Test locally on checkout source
 
 ```sh
 pnpm install
+pnpm vp config
 
 # run with .env.dev
 pnpm dev repl
