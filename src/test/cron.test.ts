@@ -76,7 +76,7 @@ test("cron auto reloads external cron file changes", async ({ onTestFinished }) 
   });
 
   vi.advanceTimersByTime(1250);
-  expect(await session.request("/cron list")).toMatchInlineSnapshot(`
+  expect(await session.request("/cron list --full")).toMatchInlineSnapshot(`
     "[⚙️ System]
     - file-job [enabled]
       schedule: 2 * * * *
@@ -113,7 +113,7 @@ test("cron auto reloads external cron file changes", async ({ onTestFinished }) 
       ]
     `);
   }
-  expect(await session.request("/cron list")).toMatchInlineSnapshot(`
+  expect(await session.request("/cron list --full")).toMatchInlineSnapshot(`
     "[⚙️ System]
     - file-job [enabled]
       schedule: 2 * * * *
@@ -195,7 +195,7 @@ test("cron command", async ({ onTestFinished }) => {
     "[⚙️ System]
     Added cron job: test-job"
   `);
-  expect(await session.request("/cron list")).toMatchInlineSnapshot(`
+  expect(await session.request("/cron list --full")).toMatchInlineSnapshot(`
     "[⚙️ System]
     - test-job [enabled]
       schedule: * * * * *
@@ -205,7 +205,7 @@ test("cron command", async ({ onTestFinished }) => {
       next: 2026-04-18T07:01:00+07:00
       last: none"
   `);
-  expect(await session.request("/cron list --compact")).toMatchInlineSnapshot(`
+  expect(await session.request("/cron list")).toMatchInlineSnapshot(`
     "[⚙️ System]
     Apr 18 (Sat) | 07:01 | test-job"
   `);
@@ -287,7 +287,7 @@ test("cron command", async ({ onTestFinished }) => {
     "[⚙️ System]
     Disabled cron job: test-job"
   `);
-  expect(await session.request("/cron list")).toMatchInlineSnapshot(`
+  expect(await session.request("/cron list --full")).toMatchInlineSnapshot(`
     "[⚙️ System]
     - test-job [disabled]
       schedule: * * * * *
@@ -305,7 +305,7 @@ test("cron command", async ({ onTestFinished }) => {
       next: 2026-04-18T07:03:00+07:00
       last: none"
   `);
-  expect(await session.request("/cron list --compact")).toMatchInlineSnapshot(`
+  expect(await session.request("/cron list")).toMatchInlineSnapshot(`
     "[⚙️ System]
     Apr 18 (Sat) | 07:03 | other-job
 
@@ -404,7 +404,7 @@ test("cron command", async ({ onTestFinished }) => {
     ",
     ]
   `);
-  expect(await session.request("/cron list")).toMatchInlineSnapshot(`
+  expect(await session.request("/cron list --full")).toMatchInlineSnapshot(`
     "[⚙️ System]
     - test-job [disabled]
       schedule: * * * * *
@@ -437,7 +437,7 @@ test("cron command", async ({ onTestFinished }) => {
     "[⚙️ System]
     Deleted cron job: test-job"
   `);
-  expect(await session.request("/cron list")).toMatchInlineSnapshot(`
+  expect(await session.request("/cron list --full")).toMatchInlineSnapshot(`
     "[⚙️ System]
     - other-job [enabled]
       schedule: 4 * * * *
@@ -546,7 +546,7 @@ test("cron error delivery", async ({ onTestFinished }) => {
     }
     prompt: __throw_error__"
   `);
-  expect(await session.request("/cron list --compact")).toMatchInlineSnapshot(`
+  expect(await session.request("/cron list")).toMatchInlineSnapshot(`
     "[⚙️ System]
     Apr 18 (Sat) | 07:02 | test-job (failed)"
   `);
@@ -859,7 +859,7 @@ test("cron one-shot: disabled after successful run", async ({ onTestFinished }) 
     last: none
     prompt: __raw:NO_REPLY"
   `);
-  expect(await session.request("/cron list")).toMatchInlineSnapshot(`
+  expect(await session.request("/cron list --full")).toMatchInlineSnapshot(`
     "[⚙️ System]
     - once-job [enabled, once]
       schedule: * * * * *
@@ -869,7 +869,7 @@ test("cron one-shot: disabled after successful run", async ({ onTestFinished }) 
       next: 2026-04-18T07:01:00+07:00
       last: none"
   `);
-  expect(await session.request("/cron list --compact")).toMatchInlineSnapshot(`
+  expect(await session.request("/cron list")).toMatchInlineSnapshot(`
     "[⚙️ System]
     Apr 18 (Sat) | 07:01 | once-job (once)"
   `);
@@ -893,7 +893,7 @@ test("cron one-shot: disabled after successful run", async ({ onTestFinished }) 
     last: succeeded, scheduled 2026-04-18T07:01:00+07:00, finished 2026-04-18T07:01:00+07:00
     prompt: __raw:NO_REPLY"
   `);
-  expect(await session.request("/cron list")).toMatchInlineSnapshot(`
+  expect(await session.request("/cron list --full")).toMatchInlineSnapshot(`
     "[⚙️ System]
     - once-job [disabled, once]
       schedule: * * * * *
@@ -903,7 +903,7 @@ test("cron one-shot: disabled after successful run", async ({ onTestFinished }) 
       next: none
       last: succeeded, scheduled 2026-04-18T07:01:00+07:00, finished 2026-04-18T07:01:00+07:00"
   `);
-  expect(await session.request("/cron list --compact")).toMatchInlineSnapshot(`
+  expect(await session.request("/cron list")).toMatchInlineSnapshot(`
     "[⚙️ System]
     disabled:
     - once-job (once)"
