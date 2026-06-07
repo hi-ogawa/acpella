@@ -3,7 +3,7 @@ import { execFileAsync } from "../utils/process.ts";
 
 export async function getVersion(options: { cwd: string }): Promise<string> {
   const gitMetadata = await getGitMetadata({ cwd: options.cwd });
-  const packageVersion = `package ${packageJson.version}`;
+  const packageVersion = `v${packageJson.version}`;
   return gitMetadata ? `${packageVersion} (${gitMetadata})` : packageVersion;
 }
 
