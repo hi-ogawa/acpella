@@ -74,16 +74,11 @@ test("serve fails without channel env", async ({ onTestFinished }) => {
 test("serve fails with partial discord env", async ({ onTestFinished }) => {
   const cli = useCli();
   expect(process.env.ACPELLA_DISCORD_BOT_TOKEN).toBe(undefined);
-  process.env.ACPELLA_DISCORD_ALLOWED_GUILD_IDS = "123";
-  onTestFinished(() => {
-    delete process.env.ACPELLA_DISCORD_ALLOWED_GUILD_IDS;
-  });
   await expect(cli.cli("serve").catch(sanitizeCliError)).resolves
     .toThrowErrorMatchingInlineSnapshot(`
     "Command failed: pnpm -s dev serve
     Error: No service channels configured. Configure Telegram or Discord credentials."
   `);
-  delete process.env.ACPELLA_DISCORD_ALLOWED_GUILD_IDS;
   process.env.ACPELLA_DISCORD_BOT_TOKEN = "ok";
   onTestFinished(() => {
     delete process.env.ACPELLA_DISCORD_BOT_TOKEN;
