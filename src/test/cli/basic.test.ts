@@ -6,10 +6,10 @@ test("help", async () => {
   const result = await cli.cli("--help");
   expect(sanitizeOutput(result.stderr)).toMatchInlineSnapshot(`""`);
   expect(result.stdout).toMatchInlineSnapshot(`
-    "Usage: acpella [command]
+    "Usage: acpella <command>
 
     Commands:
-      serve             Run bot service. Default when no command is provided.
+      serve             Run bot service.
       repl              Run local in-process REPL.
       exec <message...> Run one local message, then exit.
 
@@ -27,21 +27,33 @@ function sanitizeCliError(error: Error) {
     .trim();
 }
 
-test("cli error", async () => {
+test("unknown command error", async () => {
   const cli = useCli();
   await expect(cli.cli("yay").catch(sanitizeCliError)).resolves.toThrowErrorMatchingInlineSnapshot(`
     "Command failed: pnpm -s dev yay
     Error: Unknown command: yay"
   `);
+});
+
+test("missing command error", async () => {
+  const cli = useCli();
+  await expect(cli.cli().catch(sanitizeCliError)).resolves.toThrowErrorMatchingInlineSnapshot(`
+    "Command failed: pnpm -s dev
+    Error: Missing command"
+  `);
+});
+
+test("unexpected command arguments error", async () => {
+  const cli = useCli();
   await expect(cli.cli("serve", "--channel=discord").catch(sanitizeCliError)).resolves
     .toThrowErrorMatchingInlineSnapshot(`
       "Command failed: pnpm -s dev serve --channel=discord
       Error: Unexpected arguments for serve: --channel=discord
 
-      Usage: acpella [command]
+      Usage: acpella <command>
 
       Commands:
-        serve             Run bot service. Default when no command is provided.
+        serve             Run bot service.
         repl              Run local in-process REPL.
         exec <message...> Run one local message, then exit.
 

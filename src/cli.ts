@@ -29,10 +29,10 @@ import { addIndent, sleep, truncateString } from "./utils/index.ts";
 import { stringifyError } from "./utils/node.ts";
 
 const CLI_HELP = `\
-Usage: acpella [command]
+Usage: acpella <command>
 
 Commands:
-  serve             Run bot service. Default when no command is provided.
+  serve             Run bot service.
   repl              Run local in-process REPL.
   exec <message...> Run one local message, then exit.
 
@@ -51,8 +51,6 @@ async function main() {
   const cli = parseCli({
     argv: cliArgv,
     commands: ["serve", "repl", "exec"],
-    // TODO: remove default command and make top-level command explicit
-    defaultCommand: "serve",
   });
 
   if (cli.command !== "exec" && cli.args.length > 0) {
