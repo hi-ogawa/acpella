@@ -156,7 +156,6 @@ ${CLI_HELP}`);
   if (channelTasks.length === 0) {
     throw new Error("No service channels configured. Configure Telegram or Discord credentials.");
   }
-
   console.log(
     `Starting service (version: ${version}, home: ${config.home}, channels: ${channelNames.join(", ")})`,
   );
