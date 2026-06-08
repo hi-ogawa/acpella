@@ -120,7 +120,6 @@ test("basic", async () => {
     "[⚙️ System]
     status: running
     version: v1.0.0-test
-    package path: <cwd>
     default agent: test
     env file: (none)
     home: <home>
