@@ -14,6 +14,7 @@ import { downloadDiscordAttachment } from "./lib/discord/file.ts";
 import {
   formatDiscordConversationMetadata,
   formatDiscordSessionName,
+  parseDiscordThreadNameChangeEvent,
 } from "./lib/discord/utils.ts";
 import { DISCORD_MESSAGE_SPLIT_BUDGET } from "./lib/reply.ts";
 import { downloadTelegramFile } from "./lib/telegram/file";
@@ -436,7 +437,14 @@ async function serveDiscord(options: {
 
     const content = message.content.trim();
     const attachments = [...message.attachments.values()];
-    if (!content && attachments.length === 0) {
+    const threadNameChangeEvent = parseDiscordThreadNameChangeEvent({
+      messageType: message.type,
+      system: message.system,
+      content,
+      isThread: message.channel.isThread(),
+      threadName: message.channel.isThread() ? message.channel.name : null,
+    });
+    if (!threadNameChangeEvent && !content && attachments.length === 0) {
       console.error(`${label} ignored: message has no text content or attachments`);
       return;
     }
@@ -450,7 +458,9 @@ async function serveDiscord(options: {
     cleanup.defer(() => typingIndicatorManager.stop());
 
     try {
-      let text = content;
+      let text = threadNameChangeEvent
+        ? `Discord thread/forum post title was changed to: ${threadNameChangeEvent.newThreadName}`
+        : content;
       for (const attachment of attachments) {
         const localPath = await downloadDiscordAttachment({
           url: attachment.url,
@@ -482,6 +492,15 @@ async function serveDiscord(options: {
               channelId,
               isDirectMessage: message.channel.isDMBased(),
             }),
+            ...(threadNameChangeEvent
+              ? {
+                  discord_event: threadNameChangeEvent.event,
+                  new_thread_name: threadNameChangeEvent.newThreadName,
+                  ...(threadNameChangeEvent.oldThreadName
+                    ? { old_thread_name: threadNameChangeEvent.oldThreadName }
+                    : {}),
+                }
+              : {}),
             ...(message.channel.isThread() ? { thread_name: message.channel.name } : {}),
           },
           cronDeliveryTarget: {
