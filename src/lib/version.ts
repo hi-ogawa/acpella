@@ -1,10 +1,16 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import packageJson from "../../package.json" with { type: "json" };
 import { execFileAsync } from "../utils/process.ts";
+
+const PACKAGE_ROOT = path.dirname(fileURLToPath(new URL("../../package.json", import.meta.url)));
 
 export async function getVersion(options: { cwd: string }): Promise<string> {
   const gitMetadata = await getGitMetadata({ cwd: options.cwd });
   const packageVersion = `v${packageJson.version}`;
-  return [packageVersion, gitMetadata ? `(${gitMetadata})` : undefined].filter(Boolean).join(" ");
+  return [packageVersion, gitMetadata ? `(${gitMetadata})` : undefined, `(${PACKAGE_ROOT})`]
+    .filter(Boolean)
+    .join(" ");
 }
 
 async function getGitMetadata(options: { cwd: string }): Promise<string | undefined> {
