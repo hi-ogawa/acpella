@@ -1,4 +1,5 @@
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import type { SessionUpdate } from "@agentclientprotocol/sdk";
 import type { AppConfig } from "./config.ts";
 import { AgentManager } from "./lib/acp/index.ts";
@@ -56,6 +57,13 @@ interface HandlerExtraContext extends HandlerContext {
 }
 
 type SystemCommandTree = CommandTree<HandlerExtraContext>;
+const ACPELLA_PACKAGE_ROOT = (() => {
+  try {
+    return path.dirname(fileURLToPath(import.meta.resolve("acpella/package.json")));
+  } catch {
+    return path.join(import.meta.dirname, "..");
+  }
+})();
 
 export async function createHandler(
   config: AppConfig,
@@ -768,6 +776,7 @@ enabled jobs: ${enabledJobs.length}
           await reply.system(`\
 status: running
 version: ${handlerOptions.version ?? "(unknown)"}
+package path: ${ACPELLA_PACKAGE_ROOT}
 default agent: ${stateStore.get().defaultAgent}
 env file: ${config.envFile ?? "(none)"}
 home: ${config.home}
