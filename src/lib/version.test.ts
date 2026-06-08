@@ -1,12 +1,14 @@
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { expect, test } from "vitest";
+import { expect, onTestFinished, test } from "vitest";
 import { useFs } from "../test/helper.ts";
 import { getVersion } from "./version.ts";
 
 test("returns package path without git metadata when cwd is not a git repository", async () => {
-  const { root } = useFs({ prefix: "version" });
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "acpella-version-"));
+  onTestFinished(() => fs.rmSync(root, { recursive: true, force: true }));
   const output = await getVersion({ cwd: root });
   expect(output).toBe(`v0.0.0 (${path.resolve(".")})`);
 });
