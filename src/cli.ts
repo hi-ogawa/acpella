@@ -2,7 +2,7 @@ import "temporal-polyfill/global";
 import path from "node:path";
 import { createInterface } from "node:readline/promises";
 import { run } from "@grammyjs/runner";
-import { Client, GatewayIntentBits, Partials, type Message } from "discord.js";
+import { Client, GatewayIntentBits, MessageType, Partials, type Message } from "discord.js";
 import { Bot, type Context, type Filter } from "grammy";
 import { loadConfig, type AppConfig } from "./config.ts";
 import { createHandler, type Handler } from "./handler.ts";
@@ -14,7 +14,6 @@ import { downloadDiscordAttachment } from "./lib/discord/file.ts";
 import {
   formatDiscordConversationMetadata,
   formatDiscordSessionName,
-  parseDiscordThreadNameChangeEvent,
 } from "./lib/discord/utils.ts";
 import { DISCORD_MESSAGE_SPLIT_BUDGET } from "./lib/reply.ts";
 import { downloadTelegramFile } from "./lib/telegram/file";
@@ -437,14 +436,14 @@ async function serveDiscord(options: {
 
     const content = message.content.trim();
     const attachments = [...message.attachments.values()];
-    const threadNameChangeEvent = parseDiscordThreadNameChangeEvent({
-      messageType: message.type,
-      system: message.system,
-      content,
-      isThread: message.channel.isThread(),
-      threadName: message.channel.isThread() ? message.channel.name : null,
-    });
-    if (!threadNameChangeEvent && !content && attachments.length === 0) {
+    const isThreadNameChangeEvent =
+      message.system &&
+      message.type === MessageType.ChannelNameChange &&
+      message.channel.isThread();
+    const newThreadName = isThreadNameChangeEvent ? (message.channel.name ?? content) : undefined;
+    const oldThreadName =
+      isThreadNameChangeEvent && content && content !== newThreadName ? content : undefined;
+    if (!(isThreadNameChangeEvent && newThreadName) && !content && attachments.length === 0) {
       console.error(`${label} ignored: message has no text content or attachments`);
       return;
     }
@@ -458,9 +457,10 @@ async function serveDiscord(options: {
     cleanup.defer(() => typingIndicatorManager.stop());
 
     try {
-      let text = threadNameChangeEvent
-        ? `Discord thread/forum post title was changed to: ${threadNameChangeEvent.newThreadName}`
-        : content;
+      let text =
+        newThreadName && isThreadNameChangeEvent
+          ? `Discord thread/forum post title was changed to: ${newThreadName}`
+          : content;
       for (const attachment of attachments) {
         const localPath = await downloadDiscordAttachment({
           url: attachment.url,
@@ -492,13 +492,11 @@ async function serveDiscord(options: {
               channelId,
               isDirectMessage: message.channel.isDMBased(),
             }),
-            ...(threadNameChangeEvent
+            ...(isThreadNameChangeEvent && newThreadName
               ? {
-                  discord_event: threadNameChangeEvent.event,
-                  new_thread_name: threadNameChangeEvent.newThreadName,
-                  ...(threadNameChangeEvent.oldThreadName
-                    ? { old_thread_name: threadNameChangeEvent.oldThreadName }
-                    : {}),
+                  discord_event: "thread_name_changed",
+                  new_thread_name: newThreadName,
+                  ...(oldThreadName ? { old_thread_name: oldThreadName } : {}),
                 }
               : {}),
             ...(message.channel.isThread() ? { thread_name: message.channel.name } : {}),
