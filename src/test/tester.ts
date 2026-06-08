@@ -98,6 +98,7 @@ export async function createHandlerTester() {
 
 export function sanitizeOutput(output: string, config: AppConfig) {
   return output
+    .replaceAll(/<acpella_runtime>[\s\S]*?<\/acpella_runtime>(?:\\n|\s)*/g, "")
     .replaceAll(config.home, () => "<home>")
     .replaceAll(process.cwd(), () => "<cwd>")
     .replaceAll(/"t":(\d+|"[^"]+")/g, `"t":"<time>"`)
