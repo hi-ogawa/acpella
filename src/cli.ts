@@ -434,6 +434,11 @@ async function serveDiscord(options: {
       return;
     }
 
+    if (message.system) {
+      console.error(`${label} ignored: system message type ${message.type}`);
+      return;
+    }
+
     const content = message.content.trim();
     const attachments = [...message.attachments.values()];
     if (!content && attachments.length === 0) {
