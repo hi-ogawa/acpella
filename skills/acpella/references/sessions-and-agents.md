@@ -103,6 +103,7 @@ That registers a real ACP agent and makes it the default for future sessions.
 Load only the backend reference needed for the agent being configured:
 
 - **Codex ACP**: read [agents/codex.md](agents/codex.md).
+- **Claude Agent ACP**: read [agents/claude.md](agents/claude.md).
 - **OpenCode ACP**: read [agents/opencode.md](agents/opencode.md).
 
 Use these references for backend-specific command paths, model flags, and configuration overrides. Keep the generic `/agent` and `/session` mental model in this file.
