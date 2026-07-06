@@ -51,4 +51,4 @@ acpella exec /agent new claude-opus env -u ANTHROPIC_API_KEY ANTHROPIC_MODEL=opu
 
 ## Help
 
-For adapter details, inspect the installed package README or run the binary with the adapter-supported flags for the installed version.
+For adapter details, see https://github.com/agentclientprotocol/claude-agent-acp.
