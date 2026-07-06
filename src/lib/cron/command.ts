@@ -60,10 +60,10 @@ export function parseCronIdArg(args: string[]): string {
 
 export function parseCronListArgs(args: string[]) {
   if (args.length === 0) {
-    return { compact: false };
-  }
-  if (args.length === 1 && args[0] === "--compact") {
     return { compact: true };
+  }
+  if (args.length === 1 && args[0] === "--full") {
+    return { compact: false };
   }
   throw new Error("Invalid arguments");
 }

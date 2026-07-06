@@ -4,18 +4,15 @@ Use this reference for first-time setup and initial local runs of acpella.
 
 ## Basic setup
 
-Clone the source from https://github.com/hi-ogawa/acpella:
+Install acpella globally from GitHub:
 
 ```bash
-git clone https://github.com/hi-ogawa/acpella
-cd acpella
-pnpm install
-pnpm link --global
+npm install -g github:hi-ogawa/acpella
 mkdir -p ~/.config/acpella
-cp .env.example ~/.config/acpella/.env
+${EDITOR:-vi} ~/.config/acpella/.env
 ```
 
-After copying `.env`, edit the main config values below.
+After creating `.env`, set the main config values below.
 
 ## Config
 
@@ -33,31 +30,19 @@ After copying `.env`, edit the main config values below.
 Notes:
 
 - Telegram and Discord configuration are not required for `acpella repl`.
+- `acpella serve` enables each channel based on its bot token. Set `ACPELLA_TELEGRAM_BOT_TOKEN` to enable Telegram, `ACPELLA_DISCORD_BOT_TOKEN` to enable Discord, or set both tokens to run both channels from the same service process.
 - For Telegram setup details, see [channels/telegram.md](channels/telegram.md).
 - For Discord setup details, see [channels/discord.md](channels/discord.md).
 - If `ACPELLA_HOME/.acpella/AGENTS.md` exists, acpella sends it as custom instructions once when creating a new session.
 
 ## First local runs
 
-Run these after linking the global CLI from the acpella source checkout.
+Run these after installing the global CLI.
 
-Run the Telegram bot:
+Run the configured bot service. A single `acpella serve` process can serve Telegram, Discord, or both, depending on which bot tokens are configured:
 
 ```bash
 acpella serve
-```
-
-Run the Discord bot:
-
-```bash
-acpella serve --channel=discord
-```
-
-When running Telegram and Discord as separate service processes, run cron in only one of them:
-
-```bash
-acpella serve --channel=telegram
-acpella serve --channel=discord --no-cron
 ```
 
 Run the local REPL:

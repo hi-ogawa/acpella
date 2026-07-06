@@ -6,6 +6,7 @@ import { Client, GatewayIntentBits, Partials, type Message } from "discord.js";
 import { Bot, type Context, type Filter } from "grammy";
 import { loadConfig, type AppConfig } from "./config.ts";
 import { createHandler, type Handler } from "./handler.ts";
+import { TypingIndicatorManager } from "./lib/channel/typing-indicator.ts";
 import { parseCli } from "./lib/cli.ts";
 import { CronRunner, type CronDeliveryHandler } from "./lib/cron/runner.ts";
 import { CronStore } from "./lib/cron/store.ts";
@@ -22,24 +23,21 @@ import {
   formatTelegramSessionName,
   getTelegramRetryAfter,
   normalizeUserMention,
-  TelegramChatActionManager,
 } from "./lib/telegram/utils.ts";
 import { getVersion } from "./lib/version.ts";
 import { addIndent, sleep, truncateString } from "./utils/index.ts";
 import { stringifyError } from "./utils/node.ts";
 
 const CLI_HELP = `\
-Usage: acpella [command]
+Usage: acpella <command>
 
 Commands:
-  serve             Run bot service. Default when no command is provided.
+  serve             Run bot service.
   repl              Run local in-process REPL.
   exec <message...> Run one local message, then exit.
 
 Options:
   --env-file=<path> Use this env file for config resolution.
-  --channel=<name>  Service channel for \`serve\` (telegram or discord, default: telegram).
-  --no-cron         Disable cron runner for this process.
   -h, --help        Show this help.
 `;
 
@@ -53,8 +51,6 @@ async function main() {
   const cli = parseCli({
     argv: cliArgv,
     commands: ["serve", "repl", "exec"],
-    // TODO: remove default command and make top-level command explicit
-    defaultCommand: "serve",
   });
 
   if (cli.command !== "exec" && cli.args.length > 0) {
@@ -69,19 +65,6 @@ ${CLI_HELP}`);
 Missing message for exec
 
 ${CLI_HELP}`);
-  }
-
-  if (cli.channel && cli.command !== "serve") {
-    throw new Error(`--channel can only be used with serve`);
-  }
-  if (cli.noCron && cli.command !== "serve") {
-    throw new Error(`--no-cron can only be used with serve`);
-  }
-
-  // TODO: support serving multiple channels at once
-  const channel = cli.channel ?? "telegram";
-  if (cli.command === "serve" && !["telegram", "discord"].includes(channel)) {
-    throw new Error(`Invalid --channel: ${channel}`);
   }
 
   const config = loadConfig({
@@ -146,34 +129,44 @@ ${CLI_HELP}`);
     return;
   }
 
-  if (!cli.noCron) {
-    cronRunner.start();
-  }
-  if (channel === "telegram") {
-    await serveTelegram({
+  const channelNames: string[] = [];
+  const channelTasks: Promise<void>[] = [];
+  if (config.telegram.token) {
+    channelNames.push("telegram");
+    const botRunner = await serveTelegram({
       config,
       handler,
-      version,
       registerCronDeliveryHandler,
     });
+    cleanup.defer(() => botRunner.stop());
+    channelTasks.push(botRunner.task()!);
   }
-  if (channel === "discord") {
-    await serveDiscord({
+  if (config.discord.token) {
+    channelNames.push("discord");
+    const client = await serveDiscord({
       config,
       handler,
-      version,
       registerCronDeliveryHandler,
     });
+    cleanup.defer(() => client.destroy());
+    channelTasks.push(new Promise<never>(() => {}));
   }
+  if (channelTasks.length === 0) {
+    throw new Error("No service channels configured. Configure Telegram or Discord credentials.");
+  }
+  console.log(
+    `Starting service (version: ${version}, home: ${config.home}, channels: ${channelNames.join(", ")})`,
+  );
+  cronRunner.start();
+  await Promise.all(channelTasks);
 }
 
 async function serveTelegram(options: {
   config: AppConfig;
   handler: Handler;
-  version: string;
   registerCronDeliveryHandler: (handler: CronDeliveryHandler) => void;
 }) {
-  const { config, handler, version, registerCronDeliveryHandler } = options;
+  const { config, handler, registerCronDeliveryHandler } = options;
   const allowedUsers = new Set(config.telegram.allowedUserIds);
   const allowedChats = new Set(config.telegram.allowedChatIds);
 
@@ -242,9 +235,10 @@ async function serveTelegram(options: {
       return;
     }
 
-    const chatActionManager = new TelegramChatActionManager({
+    const chatActionManager = new TypingIndicatorManager({
       send: () => ctx.replyWithChatAction("typing"),
       logLabel: label,
+      getRetryAfter: getTelegramRetryAfter,
     });
     chatActionManager.start();
     await using cleanup = new AsyncDisposableStack();
@@ -366,24 +360,21 @@ async function serveTelegram(options: {
     });
   });
 
-  console.log(`Starting service (version: ${version}, home: ${config.home}, channel: telegram)`);
-
   const botRunner = run(bot, {
     sink: {
       // @grammyjs/runner defaults to 500; keep acpella conservative because prompts spawn child agents.
       concurrency: 5,
     },
   });
-  await botRunner.task();
+  return botRunner;
 }
 
 async function serveDiscord(options: {
   config: AppConfig;
   handler: Handler;
-  version: string;
   registerCronDeliveryHandler: (handler: CronDeliveryHandler) => void;
 }) {
-  const { config, handler, version, registerCronDeliveryHandler } = options;
+  const { config, handler, registerCronDeliveryHandler } = options;
 
   if (!config.discord.token) {
     throw new Error("ACPELLA_DISCORD_BOT_TOKEN is required");
@@ -443,12 +434,25 @@ async function serveDiscord(options: {
       return;
     }
 
+    if (message.system) {
+      console.error(`${label} ignored: system message type ${message.type}`);
+      return;
+    }
+
     const content = message.content.trim();
     const attachments = [...message.attachments.values()];
     if (!content && attachments.length === 0) {
       console.error(`${label} ignored: message has no text content or attachments`);
       return;
     }
+
+    const typingIndicatorManager = new TypingIndicatorManager({
+      send: () => replyChannel.sendTyping(),
+      logLabel: label,
+    });
+    typingIndicatorManager.start();
+    await using cleanup = new AsyncDisposableStack();
+    cleanup.defer(() => typingIndicatorManager.stop());
 
     try {
       let text = content;
@@ -513,9 +517,8 @@ async function serveDiscord(options: {
     console.error("[discord] client error", error);
   });
 
-  console.log(`Starting service (version: ${version}, home: ${config.home}, channel: discord)`);
   await client.login(config.discord.token);
-  await new Promise<never>(() => {});
+  return client;
 }
 
 async function startRepl({

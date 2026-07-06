@@ -17,7 +17,7 @@ Use:
 - `/cron stop`
 - `/cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--once] [--target <sessionName>] -- <prompt...>`
 - `/cron update <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--target <sessionName>] [-- <prompt...>]`
-- `/cron list [--compact]`
+- `/cron list [--full]`
 - `/cron show <id>`
 - `/cron enable <id>`
 - `/cron disable <id>`
@@ -57,13 +57,13 @@ Add `--once` to make a job self-disable after its first execution, whether the r
 acpella exec '/cron add remind-deploy 0 14 5 * * --once --target tg-123456789 -- Remind the team to deploy the release.'
 ```
 
-After the job fires, `/cron show remind-deploy` will show `once: yes` and `/cron list` will show `[disabled, once]`. Use `/cron enable remind-deploy` to arm it again for another single run.
+After the job fires, `/cron show remind-deploy` will show `once: yes` and `/cron list` will show the disabled one-shot job in the compact disabled section. Use `/cron enable remind-deploy` to arm it again for another single run.
 
 ## Common workflow
 
 1. Find the target session with `acpella exec /session list` if creating the job from local shell administration; if more than one candidate could match, confirm with the user before continuing.
 2. Add the job with `acpella exec '/cron add ... --target <sessionName> -- <prompt...>'` for actual Telegram delivery.
-3. Check it with `/cron show <id>`, `/cron list`, or `/cron list --compact` for a timeline-style summary sorted by next run.
+3. Check it with `/cron show <id>`, use `/cron list` for a timeline-style summary sorted by next run, or use `/cron list --full` for detailed metadata.
 4. Use `/cron update <id> <minute> <hour> <day-of-month> <month> <day-of-week> ...` to change its schedule, destination, or prompt.
 5. Use `/cron disable <id>` when you want to pause it.
 6. Use `/cron enable <id>` to resume it.

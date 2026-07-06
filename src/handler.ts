@@ -668,7 +668,7 @@ enabled jobs: ${enabledJobs.length}
     },
     {
       tokens: ["list"],
-      usage: "/cron list [--compact]",
+      usage: "/cron list [--full]",
       description: "List cron jobs.",
       withArgs: true,
       run: async ({ args, reply }) => {

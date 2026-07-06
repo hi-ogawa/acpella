@@ -14,7 +14,7 @@ Acpella is a small bridge from a messaging surface, currently Telegram, Discord,
 ## Working model
 
 - Acpella source lives at https://github.com/hi-ogawa/acpella.
-- The normal operator CLI is the globally linked `acpella` command, installed from the source checkout with `pnpm link --global`.
+- The normal operator CLI is the globally installed `acpella` command, usually installed with `npm install -g github:hi-ogawa/acpella`.
 - `ACPELLA_HOME` is the working directory acpella uses for agent sessions and acpella state.
 - Acpella stores its own state under `ACPELLA_HOME/.acpella/`, including session mappings, configured agents, cron jobs, logs, and optional custom instructions.
 - A Telegram chat/thread, Discord channel, or REPL context maps to an acpella session name.
@@ -33,7 +33,7 @@ When unsure which slash command or arguments to use, start with `/help` from Tel
 ## Command process scope
 
 - Telegram commands are handled by the long-running acpella bot service.
-- Discord commands are handled by the long-running acpella bot service when served with `--channel=discord`.
+- Discord commands are handled by the long-running acpella bot service.
 - REPL commands are handled by that REPL process.
 - `acpella exec <slash-command...>` starts a separate short-lived acpella process, handles one command, then exits.
 
@@ -45,7 +45,7 @@ Commands that control process-local runtime state, such as `/cron start`, `/cron
 
 Use `acpella exec <slash-command...>` only for local shell administration of acpella itself: inspecting or changing installation-wide state, listing configured objects, or running setup commands.
 
-Command examples use `acpella`, which assumes the global CLI is linked to the checkout/version that owns the running service. If it is not, run `pnpm link --global` from the intended checkout or use that installation's equivalent acpella CLI entrypoint.
+Command examples use `acpella`, which assumes the global CLI is the installation/version that owns the running service. For deployment, install or update it with `npm install -g github:hi-ogawa/acpella`. For source checkout development, use `pnpm link --global`.
 
 Good `exec` examples:
 

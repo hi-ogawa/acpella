@@ -6,17 +6,15 @@ test("help", async () => {
   const result = await cli.cli("--help");
   expect(sanitizeOutput(result.stderr)).toMatchInlineSnapshot(`""`);
   expect(result.stdout).toMatchInlineSnapshot(`
-    "Usage: acpella [command]
+    "Usage: acpella <command>
 
     Commands:
-      serve             Run bot service. Default when no command is provided.
+      serve             Run bot service.
       repl              Run local in-process REPL.
       exec <message...> Run one local message, then exit.
 
     Options:
       --env-file=<path> Use this env file for config resolution.
-      --channel=<name>  Service channel for \`serve\` (telegram or discord, default: telegram).
-      --no-cron         Disable cron runner for this process.
       -h, --help        Show this help.
 
     "
@@ -29,26 +27,49 @@ function sanitizeCliError(error: Error) {
     .trim();
 }
 
-test("cli error", async () => {
+test("unknown command error", async () => {
   const cli = useCli();
   await expect(cli.cli("yay").catch(sanitizeCliError)).resolves.toThrowErrorMatchingInlineSnapshot(`
     "Command failed: pnpm -s dev yay
     Error: Unknown command: yay"
   `);
-  await expect(cli.cli("repl", "--no-cron").catch(sanitizeCliError)).resolves
+});
+
+test("missing command error", async () => {
+  const cli = useCli();
+  await expect(cli.cli().catch(sanitizeCliError)).resolves.toThrowErrorMatchingInlineSnapshot(`
+    "Command failed: pnpm -s dev
+    Error: Missing command"
+  `);
+});
+
+test("unexpected command arguments error", async () => {
+  const cli = useCli();
+  await expect(cli.cli("serve", "--channel=discord").catch(sanitizeCliError)).resolves
     .toThrowErrorMatchingInlineSnapshot(`
-      "Command failed: pnpm -s dev repl --no-cron
-      Error: --no-cron can only be used with serve"
+      "Command failed: pnpm -s dev serve --channel=discord
+      Error: Unexpected arguments for serve: --channel=discord
+
+      Usage: acpella <command>
+
+      Commands:
+        serve             Run bot service.
+        repl              Run local in-process REPL.
+        exec <message...> Run one local message, then exit.
+
+      Options:
+        --env-file=<path> Use this env file for config resolution.
+        -h, --help        Show this help."
     `);
 });
 
-test("serve fails without telegram env", async ({ onTestFinished }) => {
+test("serve fails without channel env", async ({ onTestFinished }) => {
   const cli = useCli();
   expect(process.env.ACPELLA_TELEGRAM_BOT_TOKEN).toBe(undefined);
   await expect(cli.cli("serve").catch(sanitizeCliError)).resolves
     .toThrowErrorMatchingInlineSnapshot(`
     "Command failed: pnpm -s dev serve
-    Error: ACPELLA_TELEGRAM_BOT_TOKEN is required"
+    Error: No service channels configured. Configure Telegram or Discord credentials."
   `);
   process.env.ACPELLA_TELEGRAM_BOT_TOKEN = "ok";
   onTestFinished(() => {
@@ -62,22 +83,22 @@ test("serve fails without telegram env", async ({ onTestFinished }) => {
     `);
 });
 
-test("serve fails without discord env", async ({ onTestFinished }) => {
+test("serve fails with partial discord env", async ({ onTestFinished }) => {
   const cli = useCli();
   expect(process.env.ACPELLA_DISCORD_BOT_TOKEN).toBe(undefined);
-  await expect(cli.cli("serve", "--channel=discord").catch(sanitizeCliError)).resolves
+  await expect(cli.cli("serve").catch(sanitizeCliError)).resolves
     .toThrowErrorMatchingInlineSnapshot(`
-    "Command failed: pnpm -s dev serve --channel=discord
-    Error: ACPELLA_DISCORD_BOT_TOKEN is required"
+    "Command failed: pnpm -s dev serve
+    Error: No service channels configured. Configure Telegram or Discord credentials."
   `);
   process.env.ACPELLA_DISCORD_BOT_TOKEN = "ok";
   onTestFinished(() => {
     delete process.env.ACPELLA_DISCORD_BOT_TOKEN;
   });
   expect(process.env.ACPELLA_DISCORD_ALLOWED_GUILD_IDS).toBe(undefined);
-  await expect(cli.cli("serve", "--channel=discord").catch(sanitizeCliError)).resolves
+  await expect(cli.cli("serve").catch(sanitizeCliError)).resolves
     .toThrowErrorMatchingInlineSnapshot(`
-      "Command failed: pnpm -s dev serve --channel=discord
+      "Command failed: pnpm -s dev serve
       Error: ACPELLA_DISCORD_ALLOWED_GUILD_IDS must be non-empty"
     `);
 });

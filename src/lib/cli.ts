@@ -2,18 +2,10 @@ type ParsedCli = {
   command: string;
   args: string[];
   envFile?: string;
-  channel?: string;
-  noCron: boolean;
 };
 
-export function parseCli(options: {
-  argv: string[];
-  commands: string[];
-  defaultCommand?: string;
-}): ParsedCli {
+export function parseCli(options: { argv: string[]; commands: string[] }): ParsedCli {
   let envFile: string | undefined;
-  let channel: string | undefined;
-  let noCron = false;
   const argv: string[] = [];
   for (const arg of options.argv) {
     if (arg.startsWith("--env-file=")) {
@@ -24,22 +16,10 @@ export function parseCli(options: {
       envFile = value;
       continue;
     }
-    if (arg.startsWith("--channel=")) {
-      const value = arg.slice("--channel=".length);
-      if (!value) {
-        throw new Error("Missing value for --channel");
-      }
-      channel = value;
-      continue;
-    }
-    if (arg === "--no-cron") {
-      noCron = true;
-      continue;
-    }
     argv.push(arg);
   }
 
-  const command = argv[0] ?? options.defaultCommand;
+  const command = argv[0];
   const args = argv.slice(1);
 
   if (!command) {
@@ -52,7 +32,5 @@ export function parseCli(options: {
     command,
     args,
     envFile,
-    channel,
-    noCron,
   };
 }

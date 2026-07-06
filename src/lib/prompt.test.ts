@@ -2,10 +2,31 @@ import path from "node:path";
 import { expect, test } from "vitest";
 import { buildFirstPrompt, buildMessageMetadataPrompt } from "./prompt.ts";
 
+function normalizePromptOutput(output: string) {
+  return output.replaceAll(process.cwd(), "<root>");
+}
+
 test("basic", () => {
   const output = buildFirstPrompt(path.resolve("./fixtures/prompt-includes/AGENTS.md"));
-  expect(output).toMatchInlineSnapshot(`
-    "Use these additional instructions for this session:
+  expect(normalizePromptOutput(output)).toMatchInlineSnapshot(`
+    "<acpella_runtime>
+    Use these installed acpella runtime instructions for this session:
+
+    Available Skills
+
+    - Skill directory: acpella
+      File: <root>/skills/acpella/SKILL.md
+      Frontmatter:
+        ---
+        name: acpella
+        description: >-
+          Use when helping someone use or customize acpella itself: slash commands
+          including /agent, /session, /cron, /status, /service, and /help; first-time
+          setup; CLI usage; systemd service setup; prompt and skill customization;
+          session and agent management; cron jobs; or troubleshooting.
+        ---
+    </acpella_runtime>
+    Use these additional instructions for this session:
 
     <custom_instructions>
     before
@@ -24,14 +45,49 @@ test("basic", () => {
 
 test("not-found", () => {
   const output = buildFirstPrompt(path.resolve("./fixtures/prompt-includes/MISSING.md"));
-  expect(output).toMatchInlineSnapshot(`""`);
+  expect(normalizePromptOutput(output)).toMatchInlineSnapshot(`
+    "<acpella_runtime>
+    Use these installed acpella runtime instructions for this session:
+
+    Available Skills
+
+    - Skill directory: acpella
+      File: <root>/skills/acpella/SKILL.md
+      Frontmatter:
+        ---
+        name: acpella
+        description: >-
+          Use when helping someone use or customize acpella itself: slash commands
+          including /agent, /session, /cron, /status, /service, and /help; first-time
+          setup; CLI usage; systemd service setup; prompt and skill customization;
+          session and agent management; cron jobs; or troubleshooting.
+        ---
+    </acpella_runtime>
+    "
+  `);
 });
 
 test("acpella skills directive", () => {
-  const root = process.cwd();
   const output = buildFirstPrompt(path.resolve("./fixtures/prompt-directives/AGENTS.md"));
-  expect(output.replaceAll(root, "<root>")).toMatchInlineSnapshot(`
-    "Use these additional instructions for this session:
+  expect(normalizePromptOutput(output)).toMatchInlineSnapshot(`
+    "<acpella_runtime>
+    Use these installed acpella runtime instructions for this session:
+
+    Available Skills
+
+    - Skill directory: acpella
+      File: <root>/skills/acpella/SKILL.md
+      Frontmatter:
+        ---
+        name: acpella
+        description: >-
+          Use when helping someone use or customize acpella itself: slash commands
+          including /agent, /session, /cron, /status, /service, and /help; first-time
+          setup; CLI usage; systemd service setup; prompt and skill customization;
+          session and agent management; cron jobs; or troubleshooting.
+        ---
+    </acpella_runtime>
+    Use these additional instructions for this session:
 
     <custom_instructions>
     before
