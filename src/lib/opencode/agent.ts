@@ -49,7 +49,9 @@ class OpencodeAcpAgent implements Agent {
     process.env.OPENCODE_CLIENT = "acp";
     this.server ??= await createOpencodeServer({
       port: 0,
-      timeout: 10000,
+      // Cold-start (bun warmup + opening a large session DB) can exceed the SDK's
+      // 10s default and fail session/load with "Timeout waiting for server to start".
+      timeout: 30000,
       config: this.config,
     });
     return this.server;
