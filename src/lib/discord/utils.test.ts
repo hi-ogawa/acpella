@@ -35,17 +35,19 @@ test("discord thinking", () => {
   expect(formatDiscordThinking("[thinking] Inspect the source\n\nThen run tests"))
     .toMatchInlineSnapshot(`
     "> [thinking] Inspect the source
-    >
     > Then run tests"
   `);
 });
 
-test("discord thinking removes empty HTML comment lines", () => {
-  expect(formatDiscordThinking("[thinking] Inspect the source\n\n<!-- -->")).toMatchInlineSnapshot(
-    `"> [thinking] Inspect the source"`,
-  );
-  expect(formatDiscordThinking("  <!--   -->  ")).toBe("");
-  expect(formatDiscordThinking("Keep <!-- --> inline")).toMatchInlineSnapshot(`
-    "> Keep <!-- --> inline"
+test("discord thinking removes empty HTML comment placeholders", () => {
+  expect(
+    formatDiscordThinking(
+      "[thinking] Designing channel abstraction proposal\n\n<!-- -->Defining channel and reply interfaces\n\n<!-- -->Planning message rendering and splitting\n\n<!-- -->",
+    ),
+  ).toMatchInlineSnapshot(`
+    "> [thinking] Designing channel abstraction proposal
+    > Defining channel and reply interfaces
+    > Planning message rendering and splitting"
   `);
+  expect(formatDiscordThinking("  <!--   -->  ")).toBe("");
 });

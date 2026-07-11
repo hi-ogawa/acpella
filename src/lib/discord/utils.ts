@@ -5,8 +5,9 @@ export function formatDiscordSessionName(channelId: string): string {
 export function formatDiscordThinking(text: string): string {
   // OpenAI reasoning summaries can include this placeholder: https://github.com/openai/codex/issues/31664
   const content = text
+    .replace(/<!--\s*-->/g, "")
     .split("\n")
-    .filter((line) => !/^\s*<!--\s*-->\s*$/.test(line))
+    .filter((line) => line.trim())
     .join("\n")
     .trim();
   if (!content) {
@@ -14,7 +15,7 @@ export function formatDiscordThinking(text: string): string {
   }
   return content
     .split("\n")
-    .map((line) => (line ? `> ${line}` : ">"))
+    .map((line) => `> ${line}`)
     .join("\n");
 }
 
