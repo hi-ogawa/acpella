@@ -27,7 +27,7 @@
   "dependencies": {
     "@agentclientprotocol/sdk": "^0.18.2",
     "@grammyjs/runner": "^2.0.3",
-    "@opencode-ai/sdk": "^1.15.10",
+    "@opencode-ai/sdk": "1.17.18",
     "croner": "^10.0.1",
     "discord.js": "^14.23.2",
     "grammy": "^1.42.0",
