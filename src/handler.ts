@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 import type { SessionUpdate } from "@agentclientprotocol/sdk";
 import type { AppConfig } from "./config.ts";
@@ -11,7 +12,7 @@ import {
   renderCronList,
   renderCronShow,
 } from "./lib/cron/command.ts";
-import type { CronRunner, CronRunnerAgentOptions } from "./lib/cron/runner.ts";
+import type { CronDeliveryHandler, CronRunner, CronRunnerAgentOptions } from "./lib/cron/runner.ts";
 import type { CronDeliveryTarget, CronJob, CronStore } from "./lib/cron/store.ts";
 import { parseSessionCronDeliveryTarget } from "./lib/cron/target.ts";
 import type { MessageMetadata } from "./lib/prompt.ts";
@@ -64,6 +65,9 @@ export async function createHandler(
     onServiceExit: () => void;
     cronStore: CronStore;
     getCronRunner?: () => CronRunner;
+    delivery: {
+      send: CronDeliveryHandler;
+    };
   },
 ): Promise<Handler> {
   const stateStore = new SessionStateStore(config.stateFile);
@@ -387,6 +391,42 @@ export async function createHandler(
             timezone: config.timezone,
           }),
         );
+      },
+    },
+    {
+      tokens: ["send-file"],
+      usage: "/session send-file [--target <sessionName>] <path>",
+      description: "Send a local file to a session's channel.",
+      withArgs: true,
+      run: async ({ args, reply, sessionName, metadata, usage }) => {
+        const parsed = parseSessionTarget(args);
+        if (parsed.args.length !== 1) {
+          await reply.system(usage);
+          return;
+        }
+        const filePath = path.resolve(config.home, parsed.args[0]!);
+        if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+          await reply.system(`File not found: ${filePath}`);
+          return;
+        }
+        let target: CronDeliveryTarget | undefined;
+        if (parsed.target) {
+          target = parseSessionCronDeliveryTarget(parsed.target);
+        } else {
+          target = metadata?.cronDeliveryTarget ?? parseSessionCronDeliveryTarget(sessionName);
+        }
+        if (!target) {
+          await reply.system(
+            `Cannot resolve delivery target for session: ${parsed.target ?? sessionName}`,
+          );
+          return;
+        }
+        try {
+          await handlerOptions.delivery.send({ target, text: "", files: [filePath] });
+          await reply.system(`Sent file: ${filePath}`);
+        } catch (error) {
+          await reply.system(`Failed to send file: ${formatError(error)}`);
+        }
       },
     },
   ];

@@ -7,6 +7,8 @@ import { CronScheduler, type CronDueEvent } from "./timer.ts";
 export type CronDeliveryHandler = (options: {
   target: CronDeliveryTarget;
   text: string;
+  /** Local file paths to deliver as attachments (used by `/session send-file`, not by cron). */
+  files?: string[];
 }) => Promise<void>;
 
 interface CronRunnerOptions {

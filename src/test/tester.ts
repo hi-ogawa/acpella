@@ -2,7 +2,7 @@ import fs from "node:fs";
 import { onTestFinished, vi } from "vitest";
 import { loadConfig, type AppConfig } from "../config.ts";
 import { createHandler, type HandlerContext } from "../handler.ts";
-import { CronRunner } from "../lib/cron/runner.ts";
+import { CronRunner, type CronDeliveryHandler } from "../lib/cron/runner.ts";
 import { CronStore } from "../lib/cron/store.ts";
 import { useFs } from "./helper.ts";
 
@@ -33,12 +33,18 @@ export async function createHandlerTester() {
     },
   });
 
+  const deliveries: Parameters<CronDeliveryHandler>[0][] = [];
   const onServiceExit = vi.fn();
   const handler = await createHandler(config, {
     version: "v1.0.0-test",
     onServiceExit,
     cronStore,
     getCronRunner: () => cronRunner,
+    delivery: {
+      send: async (options) => {
+        deliveries.push(options);
+      },
+    },
   });
   handler.start();
   cronRunner.start();
@@ -93,6 +99,7 @@ export async function createHandlerTester() {
     cronStore,
     cronRunner,
     cronDeliveries,
+    deliveries,
   };
 }
 

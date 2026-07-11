@@ -10,7 +10,7 @@ import { TypingIndicatorManager } from "./lib/channel/typing-indicator.ts";
 import { parseCli } from "./lib/cli.ts";
 import { CronRunner, type CronDeliveryHandler } from "./lib/cron/runner.ts";
 import { CronStore } from "./lib/cron/store.ts";
-import { downloadDiscordAttachment } from "./lib/discord/file.ts";
+import { downloadDiscordAttachment, sendDiscordMessageViaRest } from "./lib/discord/file.ts";
 import {
   formatDiscordConversationMetadata,
   formatDiscordSessionName,
@@ -80,6 +80,11 @@ ${CLI_HELP}`);
   function registerCronDeliveryHandler(handler: CronDeliveryHandler): void {
     cronDeliveryHandlers.add(handler);
   }
+  const deliverySend: CronDeliveryHandler = async (options) => {
+    for (const handler of cronDeliveryHandlers) {
+      await handler(options);
+    }
+  };
 
   const cronRunner = new CronRunner({
     store: cronStore,
@@ -87,11 +92,7 @@ ${CLI_HELP}`);
       prompt: (...args) => handler.prompt(...args),
     },
     delivery: {
-      send: async ({ target, text }) => {
-        for (const handler of cronDeliveryHandlers) {
-          await handler({ target, text });
-        }
-      },
+      send: deliverySend,
     },
   });
 
@@ -107,6 +108,9 @@ ${CLI_HELP}`);
     // TODO: break handler <-> cronRunner cycle
     // docs/tasks/2026-04-19-agent-session-service-architecture.md
     getCronRunner: () => cronRunner,
+    delivery: {
+      send: deliverySend,
+    },
   });
   handler.start();
 
@@ -125,6 +129,24 @@ ${CLI_HELP}`);
   }
 
   if (cli.command === "exec") {
+    // a short-lived process has no gateway connection; deliver via REST
+    registerCronDeliveryHandler(async ({ target, text, files }) => {
+      if (target.discord) {
+        if (!config.discord.token) {
+          throw new Error("ACPELLA_DISCORD_BOT_TOKEN is required for discord delivery");
+        }
+        await sendDiscordMessageViaRest({
+          token: config.discord.token,
+          channelId: target.discord.channelId,
+          text,
+          files,
+        });
+        return;
+      }
+      if (files?.length) {
+        throw new Error("File delivery via exec is only supported for discord targets");
+      }
+    });
     await runExec({ handler, text: cli.args.join(" ") });
     return;
   }
@@ -182,9 +204,12 @@ async function serveTelegram(options: {
   const botInfo = await bot.api.getMe();
   const botUsername = botInfo.username;
 
-  registerCronDeliveryHandler(async ({ target, text }) => {
+  registerCronDeliveryHandler(async ({ target, text, files }) => {
     if (!target.telegram) {
       return;
+    }
+    if (files?.length) {
+      throw new Error("File delivery is not supported for telegram targets");
     }
     const { chatId, messageThreadId } = target.telegram;
     // TODO: fallback, retry, and error handling
@@ -397,13 +422,17 @@ async function serveDiscord(options: {
     partials: [Partials.Channel],
   });
 
-  registerCronDeliveryHandler(async ({ target, text }) => {
+  registerCronDeliveryHandler(async ({ target, text, files }) => {
     if (!target.discord) {
       return;
     }
     const channel = await client.channels.fetch(target.discord.channelId);
     if (!channel?.isSendable()) {
       throw new Error(`Discord channel is not sendable: ${target.discord.channelId}`);
+    }
+    if (files?.length) {
+      await channel.send({ content: text || undefined, files });
+      return;
     }
     await channel.send(text);
   });
@@ -533,12 +562,15 @@ async function startRepl({
   version: string;
 }) {
   console.log(`Starting repl (version: ${version}, home: ${config.home})`);
-  registerCronDeliveryHandler(async ({ target, text }) => {
+  registerCronDeliveryHandler(async ({ target, text, files }) => {
     if (!target.repl) {
       return;
     }
     console.log("[cron] repl delivery:", text);
     console.log(text);
+    for (const file of files ?? []) {
+      console.log(`[file] ${file}`);
+    }
   });
 
   let isHandling = false;

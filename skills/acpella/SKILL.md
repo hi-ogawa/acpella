@@ -57,9 +57,12 @@ acpella exec /session list
 acpella exec /cron list
 acpella exec /service systemd install
 acpella exec /shell pwd
+acpella exec /session send-file ./chart.png --target discord:123456789012345678
 ```
 
 Do not use `exec` to send normal agent prompts. Do not use `exec` for session lifecycle actions that depend on the current Telegram, Discord, or REPL conversation context, such as `/session new` without `--target`, `/session load`, or `/session close`. Use `/session list` and `/session info --target <sessionName>` through `exec` to discover or inspect existing sessions. Use `/session new --target <sessionName>` through `exec` only when intentionally resetting a known existing acpella session for administrative workflows such as cron topics.
+
+`/session send-file <path> [--target <sessionName>]` delivers a local file to a session's channel as an attachment (Discord only for now). From a chat surface it targets the current conversation by default. Through `exec` it requires `--target <sessionName>` and sends via the Discord REST API, so an agent or local shell can deliver a file into a conversation without going through the running service. See [references/channels/discord.md](references/channels/discord.md) for size limits.
 
 ## Route by user question
 

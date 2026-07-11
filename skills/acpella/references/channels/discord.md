@@ -44,3 +44,9 @@ Discord is enabled for `acpella serve` when `ACPELLA_DISCORD_BOT_TOKEN` is set.
 ```bash
 acpella serve
 ```
+
+## Sending Files
+
+`/session send-file <path> [--target <sessionName>]` posts a local file as a Discord attachment to a session's channel. Through `acpella exec` it sends via the Discord REST API using `ACPELLA_DISCORD_BOT_TOKEN`, so it works without the running service.
+
+Discord rejects attachments over its upload size limit (10MB by default, higher on boosted servers); the command surfaces the API error instead of pre-checking.

@@ -39,6 +39,8 @@ Coverage checklist:
   - [x] verbose includes tool call output when enabled
   - [ ] verbose is isolated per acpella session
   - [x] renew stale session when chat prompt crosses daily boundary
+  - [x] send-file usage, missing file, target resolution, delivery payload
+  - [ ] send-file delivery failure reply
 - /agent
   - [x] list
   - [x] sessions
@@ -62,6 +64,7 @@ Coverage checklist:
 */
 
 import fs from "node:fs";
+import path from "node:path";
 import { expect, test, vi } from "vitest";
 import { TEST_AGENT_COMMAND } from "../state.ts";
 import { writeJsonFile } from "../utils/fs.ts";
@@ -96,6 +99,7 @@ test("basic", async () => {
       /session load <sessionId|agent:sessionId> - Load an existing agent session.
       /session close [sessionId|agent:sessionId] - Close an agent session.
       /session config [--target sessionName] [verbose=off|tool|thinking|all] [renew=off|daily|daily:N] - Show or update session config.
+      /session send-file [--target <sessionName>] <path> - Send a local file to a session's channel.
 
     /agent
       /agent list - List configured agents.
@@ -342,7 +346,8 @@ test("session commands", async () => {
       /session new [--target <sessionName>] [agent] - Start a new agent session.
       /session load <sessionId|agent:sessionId> - Load an existing agent session.
       /session close [sessionId|agent:sessionId] - Close an agent session.
-      /session config [--target sessionName] [verbose=off|tool|thinking|all] [renew=off|daily|daily:N] - Show or update session config."
+      /session config [--target sessionName] [verbose=off|tool|thinking|all] [renew=off|daily|daily:N] - Show or update session config.
+      /session send-file [--target <sessionName>] <path> - Send a local file to a session's channel."
   `);
   expect(await session.request("/session help")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -352,7 +357,8 @@ test("session commands", async () => {
       /session new [--target <sessionName>] [agent] - Start a new agent session.
       /session load <sessionId|agent:sessionId> - Load an existing agent session.
       /session close [sessionId|agent:sessionId] - Close an agent session.
-      /session config [--target sessionName] [verbose=off|tool|thinking|all] [renew=off|daily|daily:N] - Show or update session config."
+      /session config [--target sessionName] [verbose=off|tool|thinking|all] [renew=off|daily|daily:N] - Show or update session config.
+      /session send-file [--target <sessionName>] <path> - Send a local file to a session's channel."
   `);
   expect(await session.request("/session info")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -1044,4 +1050,64 @@ test("session renews stale chat prompt after daily boundary", async ({ onTestFin
 
   advanceTimersTo("2026-04-18T04:30:00+07:00");
   expect(await session.request("__session")).toMatchInlineSnapshot(`"session: __testSession2"`);
+});
+
+test("session send-file", async () => {
+  const tester = await createHandlerTester();
+  const session = tester.createSession("discord:12345");
+
+  expect(await session.request("/session send-file")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Usage: /session send-file [--target <sessionName>] <path>"
+  `);
+
+  expect(await session.request("/session send-file no-such-file.png")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    File not found: <home>/no-such-file.png"
+  `);
+
+  const filePath = path.join(tester.config.home, "chart.png");
+  fs.writeFileSync(filePath, "fake-image-data");
+
+  // target resolved from the current session name
+  expect(await session.request("/session send-file chart.png")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Sent file: <home>/chart.png"
+  `);
+
+  // explicit --target
+  expect(await session.request("/session send-file --target discord:67890 chart.png"))
+    .toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Sent file: <home>/chart.png"
+  `);
+
+  // --target which does not map to a delivery target
+  expect(await session.request("/session send-file --target bad-name chart.png"))
+    .toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Cannot resolve delivery target for session: bad-name"
+  `);
+
+  // session name without delivery target and no metadata
+  const repl = tester.createSession("repl");
+  expect(await repl.request("/session send-file chart.png")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Cannot resolve delivery target for session: repl"
+  `);
+
+  // delivery target from handler context metadata
+  const replWithMetadata = tester.createSession("repl", {
+    metadata: { cronDeliveryTarget: { repl: true } },
+  });
+  expect(await replWithMetadata.request("/session send-file chart.png")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Sent file: <home>/chart.png"
+  `);
+
+  expect(tester.deliveries).toEqual([
+    { target: { discord: { channelId: "12345" } }, text: "", files: [filePath] },
+    { target: { discord: { channelId: "67890" } }, text: "", files: [filePath] },
+    { target: { repl: true }, text: "", files: [filePath] },
+  ]);
 });
