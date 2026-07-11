@@ -3,6 +3,7 @@ export function formatDiscordSessionName(channelId: string): string {
 }
 
 export function formatDiscordThinking(text: string): string {
+  // OpenAI reasoning summaries can include this placeholder: https://github.com/openai/codex/issues/31664
   const content = text
     .split("\n")
     .filter((line) => !/^\s*<!--\s*-->\s*$/.test(line))
