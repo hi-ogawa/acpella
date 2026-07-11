@@ -11,9 +11,10 @@ export function formatDiscordThinking(text: string): string {
   if (!content) {
     return "";
   }
-  return ["> **Thinking**", ...content.split("\n").map((line) => (line ? `> ${line}` : ">"))].join(
-    "\n",
-  );
+  return content
+    .split("\n")
+    .map((line) => (line ? `> ${line}` : ">"))
+    .join("\n");
 }
 
 export function parseDiscordSessionName(sessionName: string): { channelId: string } | undefined {

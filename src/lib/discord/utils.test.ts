@@ -29,26 +29,23 @@ test("discord metadata", () => {
 });
 
 test("discord thinking", () => {
-  expect(formatDiscordThinking("Inspect the source")).toMatchInlineSnapshot(`
-    "> **Thinking**
-    > Inspect the source"
-  `);
-  expect(formatDiscordThinking("Inspect the source\n\nThen run tests")).toMatchInlineSnapshot(`
-    "> **Thinking**
-    > Inspect the source
+  expect(formatDiscordThinking("[thinking] Inspect the source")).toMatchInlineSnapshot(
+    `"> [thinking] Inspect the source"`,
+  );
+  expect(formatDiscordThinking("[thinking] Inspect the source\n\nThen run tests"))
+    .toMatchInlineSnapshot(`
+    "> [thinking] Inspect the source
     >
     > Then run tests"
   `);
 });
 
 test("discord thinking removes empty HTML comment lines", () => {
-  expect(formatDiscordThinking("Inspect the source\n\n<!-- -->")).toMatchInlineSnapshot(`
-    "> **Thinking**
-    > Inspect the source"
-  `);
+  expect(formatDiscordThinking("[thinking] Inspect the source\n\n<!-- -->")).toMatchInlineSnapshot(
+    `"> [thinking] Inspect the source"`,
+  );
   expect(formatDiscordThinking("  <!--   -->  ")).toBe("");
   expect(formatDiscordThinking("Keep <!-- --> inline")).toMatchInlineSnapshot(`
-    "> **Thinking**
-    > Keep <!-- --> inline"
+    "> Keep <!-- --> inline"
   `);
 });

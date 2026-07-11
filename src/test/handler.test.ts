@@ -604,15 +604,15 @@ test("session config toggles verbose output", async () => {
 test("formats complete thinking segments", async () => {
   const tester = await createHandlerTester();
   const session = tester.createSession("test", {
-    formatThinking: (text) => `<thinking>${text}</thinking>`,
+    formatThinking: (text) => `> ${text}`,
   });
 
   expect(await session.request("__thinking_chunks:Review |plan")).toMatchInlineSnapshot(`
-    "<thinking>Review plan</thinking>
+    "> [thinking] Review plan
     echo: __thinking_chunks:Review |plan"
   `);
   expect(await session.request("__thinking_only:Finish up")).toMatchInlineSnapshot(
-    `"<thinking>Finish up</thinking>"`,
+    `"> [thinking] Finish up"`,
   );
 });
 

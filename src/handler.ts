@@ -104,9 +104,9 @@ export async function createHandler(
       if (!thinkingText) {
         return;
       }
-      const text = context.formatThinking?.(thinkingText) ?? `[thinking] ${thinkingText}`;
+      const text = `[thinking] ${thinkingText}`;
       thinkingText = "";
-      await reply.write(text);
+      await reply.write(context.formatThinking?.(text) ?? text);
     }
 
     const result = await handlePromptImpl({
