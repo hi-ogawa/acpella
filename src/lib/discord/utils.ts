@@ -3,19 +3,13 @@ export function formatDiscordSessionName(channelId: string): string {
 }
 
 export function formatDiscordThinking(text: string): string {
-  // OpenAI reasoning summaries can include this placeholder: https://github.com/openai/codex/issues/31664
-  const content = text
-    .replace(/<!--\s*-->/g, "")
-    .split("\n")
-    .filter((line) => line.trim())
-    .join("\n")
-    .trim();
+  const content = text.trim();
   if (!content) {
     return "";
   }
   return content
     .split("\n")
-    .map((line) => `> ${line}`)
+    .map((line) => (line ? `> ${line}` : ">"))
     .join("\n");
 }
 
