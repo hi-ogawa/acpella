@@ -114,7 +114,7 @@ export async function createHandler(
       text: promptText,
       onUpdate: async (update) => {
         const sessionUpdate = update.sessionUpdate;
-        const changed = sessionUpdate !== lastUpdate?.sessionUpdate;
+        const changed = sessionUpdate !== lastUpdate?.sessionUpdate || update.messageId !== lastUpdate?.messageId;
         lastUpdate = update;
         if (changed) {
           await flushThinking();
