@@ -2,6 +2,17 @@ export function formatDiscordSessionName(channelId: string): string {
   return `discord:${channelId}`;
 }
 
+export function formatDiscordThinking(text: string): string {
+  const content = text.trim();
+  if (!content) {
+    return "";
+  }
+  return content
+    .split("\n")
+    .map((line) => (line ? `> ${line}` : ">"))
+    .join("\n");
+}
+
 export function parseDiscordSessionName(sessionName: string): { channelId: string } | undefined {
   const match = /^discord:(\d+)$/.exec(sessionName);
   if (!match) {

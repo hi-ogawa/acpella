@@ -45,6 +45,7 @@ export interface HandlerContext {
   text: string;
   send: (text: string) => Promise<unknown>;
   replyLimit?: number;
+  formatThinking?: (text: string) => string;
   metadata?: {
     promptMetadata?: MessageMetadata;
     cronDeliveryTarget?: CronDeliveryTarget;
@@ -95,8 +96,18 @@ export async function createHandler(
     promptText += context.text;
 
     let lastUpdate: SessionUpdate | undefined;
+    let thinkingText = "";
     const stateSession = stateStore.getSession(sessionName);
     const verboseTypes = getVerboseSessionUpdateTypes(stateSession.verbose);
+
+    async function flushThinking() {
+      if (!thinkingText) {
+        return;
+      }
+      const text = `[thinking] ${thinkingText}`;
+      thinkingText = "";
+      await reply.write(context.formatThinking?.(text) ?? text);
+    }
 
     const result = await handlePromptImpl({
       sessionName,
@@ -110,6 +121,7 @@ export async function createHandler(
               (lastUpdate && "messageId" in lastUpdate ? lastUpdate.messageId : undefined));
         lastUpdate = update;
         if (changed) {
+          await flushThinking();
           await reply.flush();
         }
         if (sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
@@ -120,10 +132,7 @@ export async function createHandler(
           update.content.type === "text" &&
           verboseTypes.has(sessionUpdate)
         ) {
-          if (changed) {
-            await reply.write("[thinking] ");
-          }
-          await reply.write(update.content.text);
+          thinkingText += update.content.text;
         }
         if (sessionUpdate === "tool_call" && verboseTypes.has(sessionUpdate)) {
           await reply.write(`Tool: ${update.title}`);
@@ -133,10 +142,12 @@ export async function createHandler(
     });
 
     if (result.cancelled) {
+      await flushThinking();
       await reply.flush();
       await reply.system("Agent turn cancelled.");
       return;
     }
+    await flushThinking();
     await reply.finish();
   }
 

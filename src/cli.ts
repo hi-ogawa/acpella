@@ -14,6 +14,7 @@ import { downloadDiscordAttachment } from "./lib/discord/file.ts";
 import {
   formatDiscordConversationMetadata,
   formatDiscordSessionName,
+  formatDiscordThinking,
 } from "./lib/discord/utils.ts";
 import { DISCORD_MESSAGE_SPLIT_BUDGET } from "./lib/reply.ts";
 import { downloadTelegramFile } from "./lib/telegram/file";
@@ -479,6 +480,7 @@ async function serveDiscord(options: {
         text,
         // TODO: move transport-specific split/render policy out of HandlerContext.
         replyLimit: DISCORD_MESSAGE_SPLIT_BUDGET,
+        formatThinking: formatDiscordThinking,
         metadata: {
           promptMetadata: {
             timestamp: message.createdTimestamp,
