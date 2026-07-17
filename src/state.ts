@@ -159,6 +159,12 @@ export class SessionStateStore {
     });
   }
 
+  deleteSessionByName(sessionName: string): void {
+    this.set((state) => {
+      delete state.sessions[sessionName];
+    });
+  }
+
   getAgentSessionUsage(target: StateAgentSession): AgentSessionUsage | undefined {
     return this.file.state.agentSessions[target.agentKey]?.[target.agentSessionId]?.usage;
   }

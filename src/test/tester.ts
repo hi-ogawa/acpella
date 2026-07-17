@@ -102,5 +102,6 @@ export function sanitizeOutput(output: string, config: AppConfig) {
     .replaceAll(config.home, () => "<home>")
     .replaceAll(process.cwd(), () => "<cwd>")
     .replaceAll(/"t":(\d+|"[^"]+")/g, `"t":"<time>"`)
-    .replaceAll(/"updatedAt": \d+/g, `"updatedAt": <time>`);
+    .replaceAll(/"updatedAt": \d+/g, `"updatedAt": <time>`)
+    .replaceAll(/last activity: \d{4}-\S+/g, "last activity: <time>");
 }

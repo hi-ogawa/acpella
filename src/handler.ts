@@ -22,6 +22,7 @@ import {
   parseSessionTarget,
   renderSessionConfig,
   renderSessionInfo,
+  renderSessionReference,
 } from "./lib/session/command.ts";
 import { shouldRenewSession } from "./lib/session/renew.ts";
 import { getVerboseSessionUpdateTypes } from "./lib/session/verbose.ts";
@@ -349,12 +350,44 @@ export async function createHandler(
     },
     {
       tokens: ["close"],
-      usage: "/session close [sessionId|agent:sessionId]",
+      usage: "/session close [--target <sessionName>|sessionId|agent:sessionId]",
       description: "Close an agent session.",
       withArgs: true,
       run: async ({ args, reply, sessionName }) => {
+        const parsedTarget = parseSessionTarget(args);
+        if (parsedTarget.args.length > 1) {
+          await reply.system(`Invalid argument: ${parsedTarget.args[1]}`);
+          return;
+        }
+
+        if (parsedTarget.target) {
+          const stateSession = stateStore.get().sessions[parsedTarget.target];
+          if (!stateSession) {
+            await reply.system(`Unknown session: ${parsedTarget.target}`);
+            return;
+          }
+          if (parsedTarget.args.length > 0) {
+            await reply.system(`Invalid argument: ${parsedTarget.args[0]}`);
+            return;
+          }
+
+          stateStore.deleteSessionByName(parsedTarget.target);
+          let output = `Session closed: ${parsedTarget.target}.\n`;
+          if (stateSession.agentSessionId) {
+            try {
+              const manager = await getAgentManager(stateSession.agentKey);
+              await manager.closeSession({ sessionId: stateSession.agentSessionId });
+            } catch (e) {
+              output += "[acp] closeSession failed";
+              console.error("[acp] closeSession failed:", e);
+            }
+          }
+          await reply.system(output);
+          return;
+        }
+
         const stateSession = stateStore.getSession(sessionName);
-        const sessionIdArg = args[0];
+        const sessionIdArg = parsedTarget.args[0];
         const parsed = sessionIdArg ? parseAgentSessionKey(sessionIdArg) : undefined;
         const agentKey = parsed?.agentKey ?? stateSession.agentKey;
         const agentSessionId = parsed?.agentSessionId ?? stateSession.agentSessionId;
@@ -501,13 +534,23 @@ ${agentKey}:
           await reply.system(`Cannot remove default agent: ${name}`);
           return;
         }
-        const referencedSessions = Object.values(state.sessions).filter(
-          (session) => session.agentKey === name,
+        const referencedSessions = Object.entries(state.sessions).filter(
+          ([, session]) => session.agentKey === name,
         );
         if (referencedSessions.length > 0) {
+          const renderedSessions = referencedSessions
+            .map(([sessionName, session]) =>
+              renderSessionReference({
+                name: sessionName,
+                session,
+                timezone: config.timezone,
+              }),
+            )
+            .join("\n");
           await reply.system(`\
 Cannot remove agent: ${name}
-${referencedSessions.length} session(s) still reference it.
+Referenced sessions:
+${renderedSessions}
 `);
           return;
         }
