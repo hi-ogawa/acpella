@@ -990,6 +990,47 @@ test("agent command", async () => {
   `);
 });
 
+test("removes an agent after cleaning up its stale session mapping", async () => {
+  const tester = await createHandlerTester();
+  const admin = tester.createSession("admin");
+  const stale = tester.createSession("stale");
+
+  expect(await admin.request(`/agent new old-agent ${TEST_AGENT_COMMAND}`)).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Saved new agent: old-agent"
+  `);
+  expect(await stale.request("/session new old-agent")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    New session ready."
+  `);
+  expect(await admin.request("/agent remove old-agent")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Cannot remove agent: old-agent
+    Referenced sessions:
+    - stale
+      agent session id: none
+      last activity: none"
+  `);
+  expect(await admin.request("/session info --target stale")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    session: stale
+    agent: old-agent
+    agent session id: none
+    last activity: none
+    verbose: thinking
+    renew: off
+    active turn: no"
+  `);
+  expect(await admin.request("/session close --target stale")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Session closed: stale."
+  `);
+  expect(await admin.request("/agent remove old-agent")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Removed agent: old-agent"
+  `);
+});
+
 test("message metadata", async () => {
   const tester = await createHandlerTester();
   let result = await tester.request({
