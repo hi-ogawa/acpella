@@ -57,6 +57,7 @@ export function parseDiscordNewSessionArgs(options: { args: string[]; text: stri
 
   // Take the text from the raw command string instead of the tokens, which
   // are whitespace-split and would collapse newlines in a multi-line handoff.
+  // TODO: replace with a first-class `--` body from the command layer (#309).
   const rawText = /\s--\s+([\s\S]+)$/.exec(options.text)?.[1]?.trim();
   if (!rawText) {
     throw new Error("Missing `-- <text>`");
