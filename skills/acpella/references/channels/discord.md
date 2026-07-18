@@ -47,19 +47,16 @@ acpella serve
 
 ## Forum-Post Sessions
 
-`/discord new-session` creates a Discord forum post through the Discord REST API using `ACPELLA_DISCORD_BOT_TOKEN`. The `/discord` command group is registered only when the token is configured, so `/help` reflects whether it is available.
+Use `/discord new-session` to branch a task into its own forum post while working in a channel or another post. The post becomes a fresh acpella session with the post body as its first prompt, so the new session starts working on the handoff immediately, stays visible in Discord, and the user can guide it there directly. The command replies with the post URL and the session name (`discord:<thread-id>`) for follow-ups such as `--target`.
 
 ```text
 /discord new-session <forum-channel-id> <title...> -- <text>
 ```
 
-The command replies with the created post URL and its session name (`discord:<thread-id>`).
-
-Because a forum post is a thread channel, it becomes a normal acpella session like any human-created post. As a Discord-specific bonus, the post body is processed as that session's first prompt: the running service admits the bot's own thread starter message (the one message whose id equals its thread id) through the normal message path, while every other bot-authored message stays ignored. The starter still requires an allowed guild, and an allowlisted parent channel admits its threads when `ACPELLA_DISCORD_ALLOWED_CHANNEL_IDS` is set.
+The `/discord` command group exists only when `ACPELLA_DISCORD_BOT_TOKEN` is configured.
 
 Usage notes:
 
 - The text after `--` is taken verbatim, so multi-line handoffs keep their formatting. Through `acpella exec`, quote the whole command argument to preserve newlines.
-- Discord caps the post body at 2000 characters. Keep it a readable summary of the task, and put deep context in a file under `ACPELLA_HOME` referenced by path, since the new session's agent runs on the same machine.
-- The auto-prompt relies on the running `acpella serve` gateway connection. Through `acpella exec` the post is still created if the service is down, but nothing processes it until someone writes in the post.
+- Discord caps the post body at 2000 characters. Keep it a readable summary of the task; for deep context, write a tmp file and reference its path in the handoff — the new session's agent picks it up through its own tmp-file convention.
 - Agents cannot discover forum ids on their own. To let an agent branch subtasks into posts, put the forum id and spawn policy in `ACPELLA_HOME/.acpella/AGENTS.md`, for example: "To branch a subtask into its own session, run `acpella exec /discord new-session <forum-channel-id> <title> -- <handoff>` with a written handoff (context, stop conditions, mutation boundaries). Spawn deliberately."
