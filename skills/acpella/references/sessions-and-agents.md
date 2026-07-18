@@ -32,6 +32,7 @@ Common cases:
 - after changing `.acpella/AGENTS.md`, run `/session new`
 - if you want a clean start in the current conversation, run `/session new`
 - use `/session new --target <sessionName>` to start a fresh ACP session for another existing acpella session
+- use `/session new <agent>` to start a fresh session with another configured agent
 - use `/session new <agent:sessionId>` to recover an existing backend agent session when needed
 - use `/session info [--target <sessionName>]` to inspect the selected agent, agent session id, update time, verbose setting, renewal policy, and context usage
 - use `/session list` to see all mapped acpella sessions without probing backend agents
