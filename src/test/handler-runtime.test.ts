@@ -22,7 +22,6 @@ Coverage checklist:
   - [x] new unknown agent
   - [x] new agent startup failure
   - [x] new with agent:sessionId
-  - [x] new rejects unqualified agent session id
   - [x] close current session mapping
   - [x] close targeted session mapping
   - [x] list local state only

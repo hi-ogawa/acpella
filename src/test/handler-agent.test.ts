@@ -90,29 +90,29 @@ test("rejects invalid agent keys", async () => {
 
 test("sets and queries the default agent", async () => {
   const tester = await createHandlerTester();
-  const session = tester.createSession("test");
+  const admin = tester.createSession("admin");
 
-  expect(await session.request(`/agent new test2 ${TEST_AGENT_COMMAND}`)).toMatchInlineSnapshot(`
+  expect(await admin.request(`/agent new test2 ${TEST_AGENT_COMMAND}`)).toMatchInlineSnapshot(`
     "[⚙️ System]
     Saved new agent: test2"
   `);
-  expect(await session.request("/agent default")).toMatchInlineSnapshot(`
+  expect(await admin.request("/agent default")).toMatchInlineSnapshot(`
     "[⚙️ System]
     Default agent: test"
   `);
-  expect(await session.request("/agent default test2")).toMatchInlineSnapshot(`
+  expect(await admin.request("/agent default test2")).toMatchInlineSnapshot(`
     "[⚙️ System]
     Set default agent: test2"
   `);
-  expect(await session.request("/agent default")).toMatchInlineSnapshot(`
+  expect(await admin.request("/agent default")).toMatchInlineSnapshot(`
     "[⚙️ System]
     Default agent: test2"
   `);
-  const other = tester.createSession("other");
-  expect(await other.request("hello")).toMatchInlineSnapshot(`"echo: hello"`);
-  expect(await session.request("/session info --target other")).toMatchInlineSnapshot(`
+  const created = tester.createSession("created");
+  expect(await created.request("hello")).toMatchInlineSnapshot(`"echo: hello"`);
+  expect(await admin.request("/session info --target created")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    session: other
+    session: created
     agent: test2
     agent session id: __testSession1
     updated at: <time>
@@ -202,21 +202,21 @@ test("qualifies agent session attachment and closure by agent", async () => {
 
 test("resets a targeted session with a named agent", async () => {
   const tester = await createHandlerTester();
-  const session = tester.createSession("admin");
+  const admin = tester.createSession("admin");
 
-  expect(await session.request(`/agent new test2 ${TEST_AGENT_COMMAND}`)).toMatchInlineSnapshot(`
+  expect(await admin.request(`/agent new test2 ${TEST_AGENT_COMMAND}`)).toMatchInlineSnapshot(`
     "[⚙️ System]
     Saved new agent: test2"
   `);
-  expect(await session.request("/agent default test2")).toMatchInlineSnapshot(`
+  expect(await admin.request("/agent default test2")).toMatchInlineSnapshot(`
     "[⚙️ System]
     Set default agent: test2"
   `);
-  const session2 = tester.createSession("other");
-  expect(await session2.request("hello")).toMatchInlineSnapshot(`"echo: hello"`);
-  expect(await session.request("/session info --target other")).toMatchInlineSnapshot(`
+  const target = tester.createSession("target");
+  expect(await target.request("hello")).toMatchInlineSnapshot(`"echo: hello"`);
+  expect(await admin.request("/session info --target target")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    session: other
+    session: target
     agent: test2
     agent session id: __testSession1
     updated at: <time>
@@ -224,13 +224,13 @@ test("resets a targeted session with a named agent", async () => {
     renew: off
     active turn: no"
   `);
-  expect(await session.request("/session new --target other test")).toMatchInlineSnapshot(`
+  expect(await admin.request("/session new --target target test")).toMatchInlineSnapshot(`
     "[⚙️ System]
     New session ready."
   `);
-  expect(await session.request("/session info --target other")).toMatchInlineSnapshot(`
+  expect(await admin.request("/session info --target target")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    session: other
+    session: target
     agent: test
     agent session id: none
     updated at: <time>
@@ -238,10 +238,10 @@ test("resets a targeted session with a named agent", async () => {
     renew: off
     active turn: no"
   `);
-  expect(await session2.request("hello2")).toMatchInlineSnapshot(`"echo: hello2"`);
-  expect(await session.request("/session info --target other")).toMatchInlineSnapshot(`
+  expect(await target.request("hello2")).toMatchInlineSnapshot(`"echo: hello2"`);
+  expect(await admin.request("/session info --target target")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    session: other
+    session: target
     agent: test
     agent session id: __testSession2
     updated at: <time>
@@ -249,13 +249,13 @@ test("resets a targeted session with a named agent", async () => {
     renew: off
     active turn: no"
   `);
-  expect(await session.request("/session new --target other no-such-agent")).toMatchInlineSnapshot(`
+  expect(await admin.request("/session new --target target no-such-agent")).toMatchInlineSnapshot(`
     "[⚙️ System]
     Unknown agent: no-such-agent"
   `);
-  expect(await session.request("/session info --target other")).toMatchInlineSnapshot(`
+  expect(await admin.request("/session info --target target")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    session: other
+    session: target
     agent: test
     agent session id: __testSession2
     updated at: <time>
