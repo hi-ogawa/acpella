@@ -434,8 +434,7 @@ async function serveDiscord(options: {
     const label = `[${sessionName}:${message.id}]`;
 
     // an allowlisted parent channel admits its threads
-    const parentChannelId =
-      (message.channel.isThread() ? message.channel.parentId : undefined)
+    const parentChannelId = message.channel.isThread() ? message.channel.parentId : undefined;
     if (
       allowedChannels.size &&
       !allowedChannels.has(channelId) &&
