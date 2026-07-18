@@ -32,7 +32,7 @@ export async function createDiscordMessage(options: {
 export async function getDiscordChannel(options: {
   token: string;
   channelId: string;
-}): Promise<{ guildId?: string; type: number; parentId?: string }> {
+}): Promise<{ guild_id?: string; type: number; parent_id?: string | null }> {
   const response = await fetch(`${DISCORD_API_BASE}/channels/${options.channelId}`, {
     headers: {
       authorization: `Bot ${options.token}`,
@@ -42,12 +42,7 @@ export async function getDiscordChannel(options: {
     const body = await response.text();
     throw new Error(`Discord API error: ${response.status} ${response.statusText}\n${body}`);
   }
-  const data = (await response.json()) as {
-    guild_id?: string;
-    type: number;
-    parent_id?: string | null;
-  };
-  return { guildId: data.guild_id, type: data.type, parentId: data.parent_id ?? undefined };
+  return await response.json();
 }
 
 // https://docs.discord.com/developers/resources/channel#start-thread-in-forum-or-media-channel

@@ -73,12 +73,12 @@ async function validateChannelTarget(options: {
   channelId: string;
 }): Promise<void> {
   const channel = await getDiscordChannel({ token: options.token, channelId: options.channelId });
-  if (!channel.guildId || !options.allowedGuildIds.includes(channel.guildId)) {
-    throw new Error(`Guild is not allowed: ${channel.guildId ?? "(none)"}`);
+  if (!channel.guild_id || !options.allowedGuildIds.includes(channel.guild_id)) {
+    throw new Error(`Guild is not allowed: ${channel.guild_id ?? "(none)"}`);
   }
   // an allowlisted parent channel admits its threads (mirrors the inbound guard)
   const parentChannelId = DISCORD_THREAD_CHANNEL_TYPES.has(channel.type)
-    ? channel.parentId
+    ? channel.parent_id
     : undefined;
   if (
     options.allowedChannelIds.length &&
@@ -122,7 +122,7 @@ export function parseDiscordNewSessionArgs(options: { args: string[]; text: stri
   return { channelId, title, text: rawText };
 }
 
-export function parseDiscordSendFileArgs(options: { args: string[] }): {
+function parseDiscordSendFileArgs(options: { args: string[] }): {
   channelId: string;
   path: string;
 } {
