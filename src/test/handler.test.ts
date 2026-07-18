@@ -256,7 +256,7 @@ test("session info and list show active turn", async () => {
     session: test
     agent: test
     agent session id: __testSession1
-    last activity: <time>
+    updated at: <time>
     verbose: thinking
     renew: off
     active turn: yes"
@@ -266,7 +266,7 @@ test("session info and list show active turn", async () => {
     - session: test
       agent: test
       agent session id: __testSession1
-      last activity: <time>
+      updated at: <time>
       verbose: thinking
       renew: off
       active turn: yes"
@@ -280,7 +280,7 @@ test("session info and list show active turn", async () => {
     session: test
     agent: test
     agent session id: __testSession1
-    last activity: <time>
+    updated at: <time>
     verbose: thinking
     renew: off
     active turn: no"
@@ -290,7 +290,7 @@ test("session info and list show active turn", async () => {
     - session: test
       agent: test
       agent session id: __testSession1
-      last activity: <time>
+      updated at: <time>
       verbose: thinking
       renew: off
       active turn: no"
@@ -363,7 +363,7 @@ test("session commands", async () => {
     session: test
     agent: test
     agent session id: none
-    last activity: none
+    updated at: none
     verbose: thinking
     renew: off
     active turn: no"
@@ -378,7 +378,7 @@ test("session commands", async () => {
     session: test
     agent: test
     agent session id: __testSession1
-    last activity: <time>
+    updated at: <time>
     verbose: thinking
     renew: off
     active turn: no"
@@ -388,7 +388,7 @@ test("session commands", async () => {
     - session: test
       agent: test
       agent session id: __testSession1
-      last activity: <time>
+      updated at: <time>
       verbose: thinking
       renew: off
       active turn: no"
@@ -407,7 +407,7 @@ test("session commands", async () => {
     session: test
     agent: test
     agent session id: __testSession2
-    last activity: <time>
+    updated at: <time>
     verbose: thinking
     renew: off
     active turn: no"
@@ -418,7 +418,7 @@ test("session commands", async () => {
     - session: test
       agent: test
       agent session id: __testSession2
-      last activity: <time>
+      updated at: <time>
       verbose: thinking
       renew: off
       active turn: no"
@@ -443,7 +443,7 @@ test("session commands", async () => {
     session: other
     agent: test
     agent session id: __testSession3
-    last activity: <time>
+    updated at: <time>
     verbose: thinking
     renew: off
     active turn: no"
@@ -457,7 +457,7 @@ test("session commands", async () => {
     session: other
     agent: test
     agent session id: none
-    last activity: <time>
+    updated at: <time>
     verbose: thinking
     renew: off
     active turn: no"
@@ -467,7 +467,7 @@ test("session commands", async () => {
     session: test
     agent: test
     agent session id: __testSession2
-    last activity: <time>
+    updated at: <time>
     verbose: thinking
     renew: off
     active turn: no"
@@ -529,7 +529,7 @@ test("session context usage", async () => {
     session: test
     agent: test
     agent session id: __testSession1
-    last activity: <time>
+    updated at: <time>
     verbose: thinking
     renew: off
     active turn: no"
@@ -546,7 +546,7 @@ test("session context usage", async () => {
     session: test
     agent: test
     agent session id: __testSession1
-    last activity: <time>
+    updated at: <time>
     verbose: thinking
     renew: off
     active turn: no
@@ -629,7 +629,7 @@ test("session config toggles verbose output", async () => {
     session: test
     agent: test
     agent session id: __testSession1
-    last activity: <time>
+    updated at: <time>
     verbose: thinking
     renew: off
     active turn: no"
@@ -831,7 +831,7 @@ test("agent command", async () => {
     session: test
     agent: test-error
     agent session id: none
-    last activity: none
+    updated at: none
     verbose: thinking
     renew: off
     active turn: no"
@@ -842,7 +842,7 @@ test("agent command", async () => {
     Referenced sessions:
     - test
       agent session id: none
-      last activity: none"
+      updated at: none"
   `);
   expect(await session.request("/session new test2")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -854,7 +854,7 @@ test("agent command", async () => {
     session: test
     agent: test2
     agent session id: __testSession1
-    last activity: <time>
+    updated at: <time>
     verbose: thinking
     renew: off
     active turn: no"
@@ -864,7 +864,7 @@ test("agent command", async () => {
     - session: test
       agent: test2
       agent session id: __testSession1
-      last activity: <time>
+      updated at: <time>
       verbose: thinking
       renew: off
       active turn: no"
@@ -905,7 +905,7 @@ test("agent command", async () => {
     session: test
     agent: test
     agent session id: __testSession1
-    last activity: <time>
+    updated at: <time>
     verbose: thinking
     renew: off
     active turn: no"
@@ -944,7 +944,7 @@ test("agent command", async () => {
     session: other
     agent: test2
     agent session id: __testSession2
-    last activity: <time>
+    updated at: <time>
     verbose: thinking
     renew: off
     active turn: no"
@@ -958,7 +958,7 @@ test("agent command", async () => {
     session: other
     agent: test
     agent session id: none
-    last activity: <time>
+    updated at: <time>
     verbose: thinking
     renew: off
     active turn: no"
@@ -969,7 +969,7 @@ test("agent command", async () => {
     session: other
     agent: test
     agent session id: __testSession3
-    last activity: <time>
+    updated at: <time>
     verbose: thinking
     renew: off
     active turn: no"
@@ -983,7 +983,7 @@ test("agent command", async () => {
     session: other
     agent: test
     agent session id: __testSession3
-    last activity: <time>
+    updated at: <time>
     verbose: thinking
     renew: off
     active turn: no"
@@ -1009,14 +1009,14 @@ test("removes an agent after cleaning up its stale session mapping", async () =>
     Referenced sessions:
     - stale
       agent session id: none
-      last activity: none"
+      updated at: none"
   `);
   expect(await admin.request("/session info --target stale")).toMatchInlineSnapshot(`
     "[⚙️ System]
     session: stale
     agent: old-agent
     agent session id: none
-    last activity: none
+    updated at: none
     verbose: thinking
     renew: off
     active turn: no"

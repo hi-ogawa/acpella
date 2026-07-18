@@ -90,7 +90,7 @@ export function renderSessionInfo(options: {
     `session: ${options.name}`,
     `agent: ${options.session.agentKey}`,
     `agent session id: ${options.session.agentSessionId ?? "none"}`,
-    `last activity: ${renderSessionUpdatedAt(options.session.updatedAt, options.timezone)}`,
+    renderSessionUpdatedAt(options.session.updatedAt, options.timezone),
     `verbose: ${options.session.verbose}`,
     `renew: ${renderSessionRenewPolicy({
       policy: options.session.renew,
@@ -109,19 +109,9 @@ export function renderSessionInfo(options: {
   return lines.join("\n");
 }
 
-export function renderSessionReference(options: {
-  name: string;
-  session: StateSession;
-  timezone: string;
-}): string {
-  return `\
-- ${options.name}
-  agent session id: ${options.session.agentSessionId ?? "none"}
-  last activity: ${renderSessionUpdatedAt(options.session.updatedAt, options.timezone)}`;
-}
-
-function renderSessionUpdatedAt(updatedAt: number | undefined, timezone: string): string {
-  return updatedAt === undefined ? "none" : formatTime(updatedAt, timezone);
+export function renderSessionUpdatedAt(updatedAt: number | undefined, timezone: string): string {
+  const value = updatedAt === undefined ? "none" : formatTime(updatedAt, timezone);
+  return `updated at: ${value}`;
 }
 
 function renderSessionContextUsage(usage: AgentSessionUsage): string {

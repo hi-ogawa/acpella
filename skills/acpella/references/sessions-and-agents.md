@@ -34,13 +34,13 @@ Common cases:
 - if you want a clean start in the current conversation, run `/session new`
 - use `/session new --target <sessionName>` to start a fresh ACP session for another existing acpella session
 - if you know an older ACP session id, use `/session load ...`
-- use `/session info [--target <sessionName>]` to inspect the selected agent, agent session id, last activity, verbose setting, renewal policy, and context usage
+- use `/session info [--target <sessionName>]` to inspect the selected agent, agent session id, update time, verbose setting, renewal policy, and context usage
 - use `/session list` to see all mapped acpella sessions without probing backend agents
 - use `/session config` to show or update per-session settings (`verbose`, `renew`) in one place
 - use `/session config verbose=off|tool|thinking|all` to control internal progress output for a session
 - use `/session config renew=off|daily|daily:<hour>` to change whether a session renews automatically
 
-`/session list` should show acpella session names, their selected agent, mapped agent session id when present, last activity, renewal policy, and cached context usage when available.
+`/session list` should show acpella session names, their selected agent, mapped agent session id when present, update time, renewal policy, and cached context usage when available.
 
 `/session close --target <sessionName>` removes exactly that acpella session mapping. If the mapping has an ACP session id, acpella also attempts to close the backend session, but the mapping remains removed if backend close fails. A mapping without an ACP session id is removed directly.
 
