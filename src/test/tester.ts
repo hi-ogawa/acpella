@@ -1,12 +1,12 @@
 import fs from "node:fs";
 import { onTestFinished, vi } from "vitest";
 import { loadConfig, type AppConfig } from "../config.ts";
-import { createHandler, type ExtraCommands, type HandlerContext } from "../handler.ts";
+import { createHandler, type HandlerContext, type HandlerExtraCommands } from "../handler.ts";
 import { CronRunner } from "../lib/cron/runner.ts";
 import { CronStore } from "../lib/cron/store.ts";
 import { useFs } from "./helper.ts";
 
-export async function createHandlerTester(options?: { extraCommands?: ExtraCommands }) {
+export async function createHandlerTester(options?: { extraCommands?: HandlerExtraCommands }) {
   const { root } = useFs({ prefix: "handler" });
   const config = loadConfig({
     envFile: false,

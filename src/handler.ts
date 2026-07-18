@@ -59,15 +59,12 @@ interface HandlerExtraContext extends HandlerContext {
 
 type SystemCommandTree = CommandTree<HandlerExtraContext>;
 
-export type ExtraCommandGroup = {
+export type HandlerExtraCommandGroup = {
   description: string;
   commands: SystemCommandTree[string];
 };
 
-// Process-specific command groups merged into the system command tree, so
-// wiring (cli.ts) can register commands that only exist when their channel
-// is configured. The description feeds command menus (e.g. Telegram).
-export type ExtraCommands = Record<string, ExtraCommandGroup>;
+export type HandlerExtraCommands = Record<string, HandlerExtraCommandGroup>;
 
 export async function createHandler(
   config: AppConfig,
@@ -76,7 +73,7 @@ export async function createHandler(
     onServiceExit: () => void;
     cronStore: CronStore;
     getCronRunner?: () => CronRunner;
-    extraCommands?: ExtraCommands;
+    extraCommands?: HandlerExtraCommands;
   },
 ): Promise<Handler> {
   const stateStore = new SessionStateStore(config.stateFile);
@@ -934,9 +931,13 @@ current session: ${sessionName}`);
     cron: systemCronCommands,
   };
 
-  // TODO: fold group descriptions into CommandTree so this parallel record
-  // (and the ExtraCommands wrapper shape) can go away; `help` needs
-  // special-casing since it is not a tree group.
+  // TODO: this parallel record was squeezed in as an afterthought for the
+  // Telegram command menu (its only consumer, via `handler.commands` ->
+  // `setMyCommands`); `/help` never shows these descriptions. The natural
+  // unification is a first-class group description on the CommandTree util,
+  // rendered in help output and derived here for menus, which also dissolves
+  // the HandlerExtraCommands wrapper shape. `help` itself needs special-casing
+  // since it is not a tree group.
   const systemCommandsMetadata: Record<string, string> = {
     help: "Show available commands",
     status: "Show service status",

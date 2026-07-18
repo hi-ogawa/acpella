@@ -5,7 +5,7 @@ import { run } from "@grammyjs/runner";
 import { Client, GatewayIntentBits, Partials, type Message } from "discord.js";
 import { Bot, type Context, type Filter } from "grammy";
 import { loadConfig, type AppConfig } from "./config.ts";
-import { createHandler, type ExtraCommands, type Handler } from "./handler.ts";
+import { createHandler, type Handler, type HandlerExtraCommands } from "./handler.ts";
 import { TypingIndicatorManager } from "./lib/channel/typing-indicator.ts";
 import { parseCli } from "./lib/cli.ts";
 import { CronRunner, type CronDeliveryHandler } from "./lib/cron/runner.ts";
@@ -97,7 +97,7 @@ ${CLI_HELP}`);
     },
   });
 
-  const extraCommands: ExtraCommands = {};
+  const extraCommands: HandlerExtraCommands = {};
   if (config.discord.token) {
     extraCommands.discord = defineDiscordCommands({ token: config.discord.token });
   }

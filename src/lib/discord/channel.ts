@@ -1,8 +1,8 @@
-import type { ExtraCommandGroup } from "../../handler.ts";
+import type { HandlerExtraCommandGroup } from "../../handler.ts";
 import { createDiscordForumPost } from "./api.ts";
 import { formatDiscordSessionName } from "./utils.ts";
 
-export function defineDiscordCommands(options: { token: string }): ExtraCommandGroup {
+export function defineDiscordCommands(options: { token: string }): HandlerExtraCommandGroup {
   return {
     description: "Discord channel operations",
     commands: [
