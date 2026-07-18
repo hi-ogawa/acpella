@@ -30,6 +30,8 @@ import { getVersion } from "./lib/version.ts";
 import { addIndent, sleep, truncateString } from "./utils/index.ts";
 import { stringifyError } from "./utils/node.ts";
 
+const ACPELLA_SKILL_PATH = path.resolve(import.meta.dirname, "../skills/acpella/SKILL.md");
+
 const CLI_HELP = `\
 Usage: acpella <command>
 
@@ -41,6 +43,9 @@ Commands:
 Options:
   --env-file=<path> Use this env file for config resolution.
   -h, --help        Show this help.
+
+Full guide:
+  ${ACPELLA_SKILL_PATH}
 `;
 
 async function main() {
