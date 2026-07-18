@@ -31,12 +31,12 @@ describe(parseDiscordNewSessionArgs, () => {
   });
 
   it("rejects missing or invalid parts", () => {
-    expect(() => parse("/discord new-session")).toThrowError("Missing forum channel id");
-    expect(() => parse("/discord new-session discord:forum:123 t -- x")).toThrowError(
+    expect(() => parse("/discord new-session")).toThrow("Missing forum channel id");
+    expect(() => parse("/discord new-session discord:forum:123 t -- x")).toThrow(
       "Invalid forum channel id: discord:forum:123",
     );
-    expect(() => parse("/discord new-session 123 title only")).toThrowError("Missing `-- <text>`");
-    expect(() => parse("/discord new-session 123 -- text")).toThrowError("Missing title");
-    expect(() => parse("/discord new-session 123 title --")).toThrowError("Missing `-- <text>`");
+    expect(() => parse("/discord new-session 123 title only")).toThrow("Missing `-- <text>`");
+    expect(() => parse("/discord new-session 123 -- text")).toThrow("Missing title");
+    expect(() => parse("/discord new-session 123 title --")).toThrow("Missing `-- <text>`");
   });
 });
