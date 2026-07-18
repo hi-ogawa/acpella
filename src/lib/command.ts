@@ -62,12 +62,15 @@ export class CommandHandler<T> {
       return true;
     }
 
-    await matched.command.run({
+    const runContext: CommandRunContext<T> = {
       ...context,
       args: matched.args,
-      ...(matched.body !== undefined ? { body: matched.body } : {}),
       usage: `Usage: ${matched.command.usage}`,
-    });
+    };
+    if (matched.command.withBody && input.body !== undefined) {
+      runContext.body = input.body;
+    }
+    await matched.command.run(runContext);
     return true;
   }
 }
@@ -101,7 +104,6 @@ function findCommand<T>(commands: CommandSpec<T>[], input: CommandInput) {
       return {
         command,
         args: tokens.slice(command.tokens.length),
-        ...(command.withBody && input.body !== undefined ? { body: input.body } : {}),
       };
     }
   }
