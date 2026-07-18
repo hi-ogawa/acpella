@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseDiscordNewSessionArgs, parseDiscordSendFileArgs } from "./channel.ts";
+import { parseDiscordNewSessionArgs } from "./channel.ts";
 
 describe(parseDiscordNewSessionArgs, () => {
   function parse(text: string) {
@@ -38,26 +38,5 @@ describe(parseDiscordNewSessionArgs, () => {
     expect(() => parse("/discord new-session 123 title only")).toThrow("Missing `-- <text>`");
     expect(() => parse("/discord new-session 123 -- text")).toThrow("Missing title");
     expect(() => parse("/discord new-session 123 title --")).toThrow("Missing `-- <text>`");
-  });
-});
-
-describe(parseDiscordSendFileArgs, () => {
-  it("parses channel id and path", () => {
-    expect(parseDiscordSendFileArgs({ args: ["123", "./out/chart.png"] })).toEqual({
-      channelId: "123",
-      path: "./out/chart.png",
-    });
-  });
-
-  it("rejects invalid arguments", () => {
-    expect(() => parseDiscordSendFileArgs({ args: ["./out/chart.png"] })).toThrow(
-      "Invalid arguments: ./out/chart.png",
-    );
-    expect(() => parseDiscordSendFileArgs({ args: ["abc", "./x"] })).toThrow(
-      "Invalid channel id: abc",
-    );
-    expect(() => parseDiscordSendFileArgs({ args: ["123", "./x", "extra"] })).toThrow(
-      "Invalid arguments: 123 ./x extra",
-    );
   });
 });
