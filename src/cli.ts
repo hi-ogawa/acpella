@@ -10,7 +10,7 @@ import { TypingIndicatorManager } from "./lib/channel/typing-indicator.ts";
 import { parseCli } from "./lib/cli.ts";
 import { CronRunner, type CronDeliveryHandler } from "./lib/cron/runner.ts";
 import { CronStore } from "./lib/cron/store.ts";
-import { handleDiscordNewSession } from "./lib/discord/channel.ts";
+import { defineDiscordCommands } from "./lib/discord/channel.ts";
 import { downloadDiscordAttachment } from "./lib/discord/file.ts";
 import {
   formatDiscordConversationMetadata,
@@ -99,25 +99,7 @@ ${CLI_HELP}`);
 
   const extraCommands: ExtraCommands = {};
   if (config.discord.token) {
-    const token = config.discord.token;
-    extraCommands.discord = {
-      description: "Discord channel operations",
-      commands: [
-        {
-          tokens: ["new-session"],
-          usage: "/discord new-session <forum-channel-id> <title...> -- <text>",
-          description: "Create a forum post as a new session.",
-          withArgs: true,
-          run: async ({ args, text, reply, usage }) => {
-            if (args.length === 0) {
-              await reply.system(usage);
-              return;
-            }
-            await reply.system(await handleDiscordNewSession({ token, args, text }));
-          },
-        },
-      ],
-    };
+    extraCommands.discord = defineDiscordCommands({ token: config.discord.token });
   }
 
   const handler = await createHandler(config, {

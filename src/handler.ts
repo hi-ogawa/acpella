@@ -59,16 +59,15 @@ interface HandlerExtraContext extends HandlerContext {
 
 type SystemCommandTree = CommandTree<HandlerExtraContext>;
 
+export type ExtraCommandGroup = {
+  description: string;
+  commands: SystemCommandTree[string];
+};
+
 // Process-specific command groups merged into the system command tree, so
 // wiring (cli.ts) can register commands that only exist when their channel
 // is configured. The description feeds command menus (e.g. Telegram).
-export type ExtraCommands = Record<
-  string,
-  {
-    description: string;
-    commands: SystemCommandTree[string];
-  }
->;
+export type ExtraCommands = Record<string, ExtraCommandGroup>;
 
 export async function createHandler(
   config: AppConfig,
@@ -910,6 +909,9 @@ current session: ${sessionName}`);
     cron: systemCronCommands,
   };
 
+  // TODO: fold group descriptions into CommandTree so this parallel record
+  // (and the ExtraCommands wrapper shape) can go away; `help` needs
+  // special-casing since it is not a tree group.
   const systemCommandsMetadata: Record<string, string> = {
     help: "Show available commands",
     status: "Show service status",

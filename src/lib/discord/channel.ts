@@ -1,5 +1,37 @@
+import type { ExtraCommandGroup } from "../../handler.ts";
 import { createDiscordForumPost } from "./api.ts";
 import { formatDiscordSessionName } from "./utils.ts";
+
+export function defineDiscordCommands(options: { token: string }): ExtraCommandGroup {
+  return {
+    description: "Discord channel operations",
+    commands: [
+      {
+        tokens: ["new-session"],
+        usage: "/discord new-session <forum-channel-id> <title...> -- <text>",
+        description: "Create a forum post as a new session.",
+        withArgs: true,
+        run: async ({ args, text, reply, usage }) => {
+          if (args.length === 0) {
+            await reply.system(usage);
+            return;
+          }
+          const parsed = parseDiscordNewSessionArgs({ args, text });
+          const result = await createDiscordForumPost({
+            token: options.token,
+            channelId: parsed.channelId,
+            title: parsed.title,
+            text: parsed.text,
+          });
+          await reply.system(`\
+Created discord forum post.
+session: ${formatDiscordSessionName(result.threadId)}
+url: ${result.url}`);
+        },
+      },
+    ],
+  };
+}
 
 export function parseDiscordNewSessionArgs(options: { args: string[]; text: string }): {
   channelId: string;
@@ -31,22 +63,4 @@ export function parseDiscordNewSessionArgs(options: { args: string[]; text: stri
   }
 
   return { channelId, title, text: rawText };
-}
-
-export async function handleDiscordNewSession(options: {
-  token: string;
-  args: string[];
-  text: string;
-}): Promise<string> {
-  const parsed = parseDiscordNewSessionArgs(options);
-  const result = await createDiscordForumPost({
-    token: options.token,
-    channelId: parsed.channelId,
-    title: parsed.title,
-    text: parsed.text,
-  });
-  return `\
-Created discord forum post.
-session: ${formatDiscordSessionName(result.threadId)}
-url: ${result.url}`;
 }
