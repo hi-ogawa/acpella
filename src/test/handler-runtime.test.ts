@@ -370,7 +370,8 @@ test("state auto reloads external state file changes", async ({ onTestFinished }
 test("extra commands", async () => {
   const echo = vi.fn(async (options: { args: string[]; text: string }) => options);
   const captureSplitArgs = vi.fn(
-    async (options: { args: string[]; splitArgs: { head: string[]; body?: string } }) => options,
+    async (options: { args: string[]; splitArgs: { head: string[]; body: string | undefined } }) =>
+      options,
   );
   const tester = await createHandlerTester({
     extraCommands: {

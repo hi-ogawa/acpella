@@ -10,8 +10,8 @@ type CommandSpec<T> = {
 
 type CommandRunContext<T> = T & {
   args: string[];
-  splitArgs: SplitArgs;
   usage: string;
+  splitArgs: SplitArgs;
 };
 
 interface CommandHandlerOptions<T> {
@@ -21,7 +21,7 @@ interface CommandHandlerOptions<T> {
 
 type SplitArgs = {
   head: string[];
-  body?: string;
+  body: string | undefined;
 };
 
 type ParsedCommand = {
@@ -55,23 +55,19 @@ export class CommandHandler<T> {
       return false;
     }
 
-    const matched = findCommand(commandGroup, subcommandTokens);
-    if (!matched) {
+    const command = findCommand(commandGroup, subcommandTokens);
+    if (!command) {
       await this.options.onUsage(this.help.byCommand[commandName]!, context);
       return true;
     }
-
-    const splitArgs: SplitArgs = {
-      head: parsed.splitArgs.head.slice(1 + matched.command.tokens.length),
-    };
-    if (parsed.splitArgs.body !== undefined) {
-      splitArgs.body = parsed.splitArgs.body;
-    }
-    await matched.command.run({
+    await command.run({
       ...context,
-      args: matched.args,
-      splitArgs,
-      usage: `Usage: ${matched.command.usage}`,
+      args: tokens.slice(1 + command.tokens.length),
+      usage: `Usage: ${command.usage}`,
+      splitArgs: {
+        head: parsed.splitArgs.head.slice(1 + command.tokens.length),
+        body: parsed.splitArgs.body,
+      },
     });
     return true;
   }
@@ -89,7 +85,7 @@ function parseCommand(text: string): ParsedCommand | undefined {
   }
   const result: ParsedCommand = {
     tokens,
-    splitArgs: { head: tokens },
+    splitArgs: { head: tokens, body: undefined },
   };
   const separator = /\s--(?:\s|$)/.exec(commandText);
   if (separator) {
@@ -104,10 +100,7 @@ function parseCommand(text: string): ParsedCommand | undefined {
 function findCommand<T>(commands: CommandSpec<T>[], tokens: string[]) {
   for (const command of commands) {
     if (matchesTokens(command, tokens)) {
-      return {
-        command,
-        args: tokens.slice(command.tokens.length),
-      };
+      return command;
     }
   }
 }

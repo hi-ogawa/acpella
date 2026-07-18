@@ -109,7 +109,7 @@ describe(CommandHandler, () => {
   });
 
   test("exposes full args and separator-aware args to every command", async () => {
-    type Run = { args: string[]; splitArgs: { head: string[]; body?: string } };
+    type Run = { args: string[]; splitArgs: { head: string[]; body: string | undefined } };
     const bodyRuns: Run[] = [];
     const regularRuns: Run[] = [];
     let exactRuns = 0;
@@ -171,7 +171,7 @@ describe(CommandHandler, () => {
           body: "first\n\nsecond -- later",
         },
       },
-      { args: ["title"], splitArgs: { head: ["title"] } },
+      { args: ["title"], splitArgs: { head: ["title"], body: undefined } },
       { args: ["title", "--"], splitArgs: { head: ["title"], body: "" } },
     ]);
     expect(regularRuns).toEqual([
