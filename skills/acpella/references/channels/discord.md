@@ -61,3 +61,13 @@ Usage notes:
 - The text after `--` is taken verbatim, so multi-line handoffs keep their formatting. Through `acpella exec`, quote the whole command argument to preserve newlines.
 - Discord caps the post body at 2000 characters. Keep it a readable summary of the task; for deep context, write a tmp file and reference its path in the handoff — the new session's agent picks it up through its own tmp-file convention.
 - Agents cannot discover forum ids on their own. To let an agent branch subtasks into posts, put the forum id and spawn policy in `ACPELLA_HOME/.acpella/AGENTS.md`, for example: "To branch a subtask into its own session, run `acpella exec /discord new-session <forum-channel-id> <title> -- <handoff>` with a written handoff (context, stop conditions, mutation boundaries). Spawn deliberately."
+
+## Sending Files
+
+Use `/discord send-file` to deliver a local file (an image, a chart, a build artifact) into a channel as an attachment, since agent replies are otherwise text-only.
+
+```text
+/discord send-file [<channel-id>] <path>
+```
+
+Without `<channel-id>` it targets the conversation the command was sent from; through `acpella exec` pass the channel id (or thread id) explicitly. Paths cannot contain whitespace. Discord rejects attachments over its upload size limit (10MB by default); the command surfaces the API error instead of pre-checking.

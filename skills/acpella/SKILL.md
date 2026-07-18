@@ -58,6 +58,7 @@ acpella exec /cron list
 acpella exec /service systemd install
 acpella exec /shell pwd
 acpella exec /discord new-session 123456789012345678 Task title -- Handoff text.
+acpella exec /discord send-file 123456789012345678 ./out/chart.png
 ```
 
 Do not use `exec` to send normal agent prompts. Do not use `exec` for session lifecycle actions that depend on the current Telegram, Discord, or REPL conversation context, such as `/session new` or `/session close` without `--target`. Use `/session list` and `/session info --target <sessionName>` through `exec` to discover or inspect existing sessions. Use `/session new --target <sessionName>` through `exec` only when intentionally resetting or attaching an agent session to a known acpella session. Use `/session close --target <sessionName>` through `exec` to remove a stale acpella session mapping without closing its backend agent session.
@@ -67,7 +68,7 @@ Do not use `exec` to send normal agent prompts. Do not use `exec` for session li
 - **Bootstrap, install, `.env`, or first run**: read [references/bootstrap.md](references/bootstrap.md).
 - **Telegram bot setup or Telegram env vars**: read [references/channels/telegram.md](references/channels/telegram.md).
 - **Discord bot setup or Discord env vars**: read [references/channels/discord.md](references/channels/discord.md).
-- **Creating Discord forum-post sessions with `/discord new-session`**: read [references/channels/discord.md](references/channels/discord.md).
+- **Creating Discord forum-post sessions with `/discord new-session` or sending files with `/discord send-file`**: read [references/channels/discord.md](references/channels/discord.md).
 - **Systemd setup, restart flow, or service logs**: read [references/systemd.md](references/systemd.md).
 - **Customizing behavior with `.acpella/AGENTS.md`, includes, directives, or skills**: read [references/customization.md](references/customization.md).
 - **Managing sessions or ACP agents**: read [references/sessions-and-agents.md](references/sessions-and-agents.md). For backend-specific registration flags, follow its links under `references/agents/`.

@@ -1,4 +1,32 @@
+import fs from "node:fs";
+import path from "node:path";
+
 const DISCORD_API_BASE = "https://discord.com/api/v10";
+
+// https://docs.discord.com/developers/resources/channel#create-message
+export async function createDiscordMessage(options: {
+  token: string;
+  channelId: string;
+  text?: string;
+  filePaths?: string[];
+}): Promise<void> {
+  const form = new FormData();
+  form.append("payload_json", JSON.stringify({ content: options.text ?? "" }));
+  for (const [index, filePath] of (options.filePaths ?? []).entries()) {
+    form.append(`files[${index}]`, new Blob([fs.readFileSync(filePath)]), path.basename(filePath));
+  }
+  const response = await fetch(`${DISCORD_API_BASE}/channels/${options.channelId}/messages`, {
+    method: "POST",
+    headers: {
+      authorization: `Bot ${options.token}`,
+    },
+    body: form,
+  });
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Discord API error: ${response.status} ${response.statusText}\n${body}`);
+  }
+}
 
 // https://docs.discord.com/developers/resources/channel#get-channel
 export async function getDiscordChannel(options: {
