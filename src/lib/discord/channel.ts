@@ -15,12 +15,12 @@ export function defineDiscordCommands(options: {
         usage: "/discord new-session <forum-channel-id> <title...> -- <text>",
         description: "Create a forum post as a new session.",
         withArgs: true,
-        run: async ({ input, reply, usage }) => {
-          if (input.head.length === 0) {
+        run: async ({ splitArgs, reply, usage }) => {
+          if (splitArgs.head.length === 0) {
             await reply.system(usage);
             return;
           }
-          const parsed = parseDiscordNewSessionArgs(input);
+          const parsed = parseDiscordNewSessionArgs(splitArgs);
 
           // Mirror the inbound message allowlists so acpella only posts where it serves.
           const channel = await getDiscordChannel({
@@ -53,12 +53,12 @@ url: ${result.url}`);
   };
 }
 
-function parseDiscordNewSessionArgs(input: { head: string[]; body?: string }): {
+function parseDiscordNewSessionArgs(splitArgs: { head: string[]; body?: string }): {
   channelId: string;
   title: string;
   text: string;
 } {
-  const [channelId, ...titleParts] = input.head;
+  const [channelId, ...titleParts] = splitArgs.head;
   if (!channelId) {
     throw new Error("Missing forum channel id");
   }
@@ -71,9 +71,9 @@ function parseDiscordNewSessionArgs(input: { head: string[]; body?: string }): {
     throw new Error("Missing title");
   }
 
-  if (!input.body?.trim()) {
+  if (!splitArgs.body?.trim()) {
     throw new Error("Missing `-- <text>`");
   }
 
-  return { channelId, title, text: input.body };
+  return { channelId, title, text: splitArgs.body };
 }

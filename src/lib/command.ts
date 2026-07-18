@@ -10,7 +10,7 @@ type CommandSpec<T> = {
 
 type CommandRunContext<T> = T & {
   args: string[];
-  input: CommandInput;
+  splitArgs: SplitArgs;
   usage: string;
 };
 
@@ -19,14 +19,14 @@ interface CommandHandlerOptions<T> {
   onUsage: (usage: string, context: T) => Promise<void>;
 }
 
-type CommandInput = {
+type SplitArgs = {
   head: string[];
   body?: string;
 };
 
 type ParsedCommand = {
   tokens: string[];
-  input: CommandInput;
+  splitArgs: SplitArgs;
 };
 
 export class CommandHandler<T> {
@@ -61,16 +61,16 @@ export class CommandHandler<T> {
       return true;
     }
 
-    const commandInput: CommandInput = {
-      head: parsed.input.head.slice(1 + matched.command.tokens.length),
+    const splitArgs: SplitArgs = {
+      head: parsed.splitArgs.head.slice(1 + matched.command.tokens.length),
     };
-    if (parsed.input.body !== undefined) {
-      commandInput.body = parsed.input.body;
+    if (parsed.splitArgs.body !== undefined) {
+      splitArgs.body = parsed.splitArgs.body;
     }
     await matched.command.run({
       ...context,
       args: matched.args,
-      input: commandInput,
+      splitArgs,
       usage: `Usage: ${matched.command.usage}`,
     });
     return true;
@@ -89,11 +89,11 @@ function parseCommand(text: string): ParsedCommand | undefined {
   }
   const result: ParsedCommand = {
     tokens,
-    input: { head: tokens },
+    splitArgs: { head: tokens },
   };
   const separator = /\s--(?:\s|$)/.exec(commandText);
   if (separator) {
-    result.input = {
+    result.splitArgs = {
       head: commandText.slice(0, separator.index).split(/\s+/),
       body: commandText.slice(separator.index + separator[0].length),
     };

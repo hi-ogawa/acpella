@@ -369,8 +369,8 @@ test("state auto reloads external state file changes", async ({ onTestFinished }
 
 test("extra commands", async () => {
   const echo = vi.fn(async (options: { args: string[]; text: string }) => options);
-  const captureInput = vi.fn(
-    async (options: { args: string[]; input: { head: string[]; body?: string } }) => options,
+  const captureSplitArgs = vi.fn(
+    async (options: { args: string[]; splitArgs: { head: string[]; body?: string } }) => options,
   );
   const tester = await createHandlerTester({
     extraCommands: {
@@ -392,8 +392,8 @@ test("extra commands", async () => {
             usage: "/extra body <args...> -- <body>",
             description: "Capture command body.",
             withArgs: true,
-            run: async ({ args, input, reply }) => {
-              await captureInput({ args, input });
+            run: async ({ args, splitArgs, reply }) => {
+              await captureSplitArgs({ args, splitArgs });
               await reply.system("captured");
             },
           },
@@ -433,9 +433,9 @@ test("extra commands", async () => {
     "[⚙️ System]
     captured"
   `);
-  expect(captureInput).toHaveBeenCalledWith({
+  expect(captureSplitArgs).toHaveBeenCalledWith({
     args: ["title", "--", "first", "second", "--", "later"],
-    input: {
+    splitArgs: {
       head: ["title"],
       body: "first\n\nsecond -- later",
     },

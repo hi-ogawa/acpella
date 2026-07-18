@@ -108,8 +108,8 @@ describe(CommandHandler, () => {
     `);
   });
 
-  test("exposes full args and structured input to every command", async () => {
-    type Run = { args: string[]; input: { head: string[]; body?: string } };
+  test("exposes full args and separator-aware args to every command", async () => {
+    type Run = { args: string[]; splitArgs: { head: string[]; body?: string } };
     const bodyRuns: Run[] = [];
     const regularRuns: Run[] = [];
     let exactRuns = 0;
@@ -122,8 +122,8 @@ describe(CommandHandler, () => {
             usage: "/body run <title...> [-- <body>]",
             description: "Run with a body.",
             withArgs: true,
-            run: async ({ args, input }) => {
-              bodyRuns.push({ args, input });
+            run: async ({ args, splitArgs }) => {
+              bodyRuns.push({ args, splitArgs });
             },
           },
         ],
@@ -133,8 +133,8 @@ describe(CommandHandler, () => {
             usage: "/regular <args...>",
             description: "Run with regular arguments.",
             withArgs: true,
-            run: async ({ args, input }) => {
-              regularRuns.push({ args, input });
+            run: async ({ args, splitArgs }) => {
+              regularRuns.push({ args, splitArgs });
             },
           },
         ],
@@ -166,18 +166,18 @@ describe(CommandHandler, () => {
     expect(bodyRuns).toEqual([
       {
         args: ["foo--bar", "title", "--", "first", "second", "--", "later"],
-        input: {
+        splitArgs: {
           head: ["foo--bar", "title"],
           body: "first\n\nsecond -- later",
         },
       },
-      { args: ["title"], input: { head: ["title"] } },
-      { args: ["title", "--"], input: { head: ["title"], body: "" } },
+      { args: ["title"], splitArgs: { head: ["title"] } },
+      { args: ["title", "--"], splitArgs: { head: ["title"], body: "" } },
     ]);
     expect(regularRuns).toEqual([
       {
         args: ["one", "--", "two"],
-        input: { head: ["one"], body: "two" },
+        splitArgs: { head: ["one"], body: "two" },
       },
     ]);
     expect(exactRuns).toBe(0);
