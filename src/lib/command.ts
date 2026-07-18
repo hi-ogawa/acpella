@@ -20,6 +20,12 @@ interface CommandHandlerOptions<T> {
   onUsage: (usage: string, context: T) => Promise<void>;
 }
 
+type CommandInput = {
+  tokens: string[];
+  headTokens: string[];
+  body?: string;
+};
+
 export class CommandHandler<T> {
   options: CommandHandlerOptions<T>;
   help: ReturnType<typeof buildHelp>;
@@ -66,13 +72,7 @@ export class CommandHandler<T> {
   }
 }
 
-function parseCommandInput(text: string):
-  | {
-      tokens: string[];
-      headTokens: string[];
-      body?: string;
-    }
-  | undefined {
+function parseCommandInput(text: string): CommandInput | undefined {
   const trimmed = text.trim();
   if (!trimmed.startsWith("/")) {
     return;
@@ -84,17 +84,17 @@ function parseCommandInput(text: string):
   if (!tokens[0]) {
     return;
   }
-  return {
+  const result: CommandInput = {
     tokens,
     headTokens: head.split(/\s+/),
-    ...(separator ? { body: input.slice(separator.index + separator[0].length) } : {}),
   };
+  if (separator) {
+    result.body = input.slice(separator.index + separator[0].length);
+  }
+  return result;
 }
 
-function findCommand<T>(
-  commands: CommandSpec<T>[],
-  input: { tokens: string[]; headTokens: string[]; body?: string },
-) {
+function findCommand<T>(commands: CommandSpec<T>[], input: CommandInput) {
   for (const command of commands) {
     const tokens = command.withBody ? input.headTokens : input.tokens;
     if (matchesTokens(command, tokens)) {
