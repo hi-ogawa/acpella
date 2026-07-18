@@ -3,7 +3,7 @@ import type { SessionUpdate } from "@agentclientprotocol/sdk";
 import type { AppConfig } from "./config.ts";
 import { AgentManager } from "./lib/acp/index.ts";
 import type { AgentSessionProcess } from "./lib/acp/index.ts";
-import { parseChannelNewSessionArgs, type CreateChannelSession } from "./lib/channel/command.ts";
+import type { ChannelCommands } from "./lib/channel/command.ts";
 import { CommandHandler, type CommandTree } from "./lib/command.ts";
 import {
   parseCronArgs,
@@ -67,9 +67,7 @@ export async function createHandler(
     onServiceExit: () => void;
     cronStore: CronStore;
     getCronRunner?: () => CronRunner;
-    channel: {
-      createSession: CreateChannelSession;
-    };
+    channel: ChannelCommands;
   },
 ): Promise<Handler> {
   const stateStore = new SessionStateStore(config.stateFile);
@@ -830,11 +828,7 @@ enabled jobs: ${enabledJobs.length}
           await reply.system(usage);
           return;
         }
-        const parsed = parseChannelNewSessionArgs({ args, text });
-        const result = await handlerOptions.channel.createSession(parsed);
-        if (result === undefined) {
-          throw new Error(`Unsupported channel address: ${parsed.address}`);
-        }
+        const result = await handlerOptions.channel.newSession({ args, text });
         await reply.system(result.reply);
       },
     },

@@ -2,7 +2,8 @@ import type { CreateChannelSession } from "../channel/command.ts";
 import { createDiscordForumPost } from "./api.ts";
 import { formatDiscordSessionName } from "./utils.ts";
 
-export function createDiscordChannelSession(options: { token?: string }): CreateChannelSession {
+// Factory for the discord implementation of `CreateChannelSession`.
+export function discordCreateChannelSession(options: { token?: string }): CreateChannelSession {
   return async ({ address, title, text }) => {
     if (!address.startsWith("discord:")) {
       return undefined;

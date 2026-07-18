@@ -2,7 +2,7 @@ import fs from "node:fs";
 import { onTestFinished, vi } from "vitest";
 import { loadConfig, type AppConfig } from "../config.ts";
 import { createHandler, type HandlerContext } from "../handler.ts";
-import type { CreateChannelSession } from "../lib/channel/command.ts";
+import type { ChannelCommands } from "../lib/channel/command.ts";
 import { CronRunner } from "../lib/cron/runner.ts";
 import { CronStore } from "../lib/cron/store.ts";
 import { useFs } from "./helper.ts";
@@ -35,7 +35,7 @@ export async function createHandlerTester() {
   });
 
   const onServiceExit = vi.fn();
-  const createChannelSession = vi.fn<CreateChannelSession>(async () => ({
+  const channelNewSession = vi.fn<ChannelCommands["newSession"]>(async () => ({
     reply: "Created channel session: __testChannelSession",
   }));
   const handler = await createHandler(config, {
@@ -44,7 +44,7 @@ export async function createHandlerTester() {
     cronStore,
     getCronRunner: () => cronRunner,
     channel: {
-      createSession: createChannelSession,
+      newSession: channelNewSession,
     },
   });
   handler.start();
@@ -97,7 +97,7 @@ export async function createHandlerTester() {
     createSession,
     readStateFile,
     onServiceExit,
-    createChannelSession,
+    channelNewSession,
     cronStore,
     cronRunner,
     cronDeliveries,

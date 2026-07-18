@@ -62,10 +62,7 @@ Coverage checklist:
 - /channel
   - [x] bare usage output
   - [x] new-session usage when args are missing
-  - [x] new-session missing `-- <text>`
-  - [x] new-session dispatches to injected channel capability
-  - [x] new-session errors when no channel handles the address
-  - [x] new-session preserves newlines in text
+  - [x] new-session delegates raw args/text to injected capability and relays reply
 */
 
 import fs from "node:fs";
@@ -1203,15 +1200,7 @@ test("/channel new-session", async () => {
     "[⚙️ System]
     Usage: /channel new-session <channel-address> <title...> -- <text>"
   `);
-  await expect(
-    session.request("/channel new-session discord:forum:123 title only"),
-  ).rejects.toMatchInlineSnapshot(`[Error: Missing \`-- <text>\`]`);
-  expect(tester.createChannelSession).not.toHaveBeenCalled();
-
-  tester.createChannelSession.mockResolvedValueOnce(undefined);
-  await expect(
-    session.request("/channel new-session telegram:supergroup:123 title -- text"),
-  ).rejects.toMatchInlineSnapshot(`[Error: Unsupported channel address: telegram:supergroup:123]`);
+  expect(tester.channelNewSession).not.toHaveBeenCalled();
 
   expect(
     await session.request(
@@ -1221,23 +1210,28 @@ test("/channel new-session", async () => {
     "[⚙️ System]
     Created channel session: __testChannelSession"
   `);
-  expect(tester.createChannelSession.mock.calls).toMatchInlineSnapshot(`
+  expect(tester.channelNewSession.mock.calls).toMatchInlineSnapshot(`
     [
       [
         {
-          "address": "telegram:supergroup:123",
-          "text": "text",
-          "title": "title",
-        },
-      ],
-      [
-        {
-          "address": "discord:forum:123000000000000000",
-          "text": "Handoff:
+          "args": [
+            "discord:forum:123000000000000000",
+            "My",
+            "task",
+            "title",
+            "--",
+            "Handoff:",
+            "-",
+            "step",
+            "one",
+            "-",
+            "step",
+            "two",
+          ],
+          "text": "/channel new-session discord:forum:123000000000000000 My task title -- Handoff:
 
     - step one
     - step two",
-          "title": "My task title",
         },
       ],
     ]

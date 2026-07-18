@@ -6,11 +6,12 @@ import { Client, GatewayIntentBits, Partials, type Message } from "discord.js";
 import { Bot, type Context, type Filter } from "grammy";
 import { loadConfig, type AppConfig } from "./config.ts";
 import { createHandler, type Handler } from "./handler.ts";
+import { parseChannelNewSessionArgs } from "./lib/channel/command.ts";
 import { TypingIndicatorManager } from "./lib/channel/typing-indicator.ts";
 import { parseCli } from "./lib/cli.ts";
 import { CronRunner, type CronDeliveryHandler } from "./lib/cron/runner.ts";
 import { CronStore } from "./lib/cron/store.ts";
-import { createDiscordChannelSession } from "./lib/discord/channel.ts";
+import { discordCreateChannelSession } from "./lib/discord/channel.ts";
 import { downloadDiscordAttachment } from "./lib/discord/file.ts";
 import {
   formatDiscordConversationMetadata,
@@ -97,6 +98,8 @@ ${CLI_HELP}`);
     },
   });
 
+  const createChannelSession = discordCreateChannelSession({ token: config.discord.token });
+
   const handler = await createHandler(config, {
     version,
     onServiceExit: () => {
@@ -110,7 +113,14 @@ ${CLI_HELP}`);
     // docs/tasks/2026-04-19-agent-session-service-architecture.md
     getCronRunner: () => cronRunner,
     channel: {
-      createSession: createDiscordChannelSession({ token: config.discord.token }),
+      newSession: async ({ args, text }) => {
+        const parsed = parseChannelNewSessionArgs({ args, text });
+        const result = await createChannelSession(parsed);
+        if (result === undefined) {
+          throw new Error(`Unsupported channel address: ${parsed.address}`);
+        }
+        return result;
+      },
     },
   });
   handler.start();

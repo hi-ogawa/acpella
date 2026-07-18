@@ -1,3 +1,9 @@
+// Per-process implementations of `/channel` commands, wired via `createHandler` options.
+export type ChannelCommands = {
+  // Runs `/channel new-session` given the raw command input; returns the reply text.
+  newSession: (options: { args: string[]; text: string }) => Promise<{ reply: string }>;
+};
+
 // Returning `undefined` means the implementation does not recognize the
 // address (another channel's), as opposed to failing to handle its own.
 export type CreateChannelSession = (options: {
