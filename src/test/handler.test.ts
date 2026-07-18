@@ -491,27 +491,50 @@ test("session commands", async () => {
     Unknown session: no-such-session"
   `);
 
-  const closeTarget = tester.createSession("close-target");
-  expect(await closeTarget.request("hello")).toMatchInlineSnapshot(`"echo: hello"`);
-  expect(await session.request("/session close --target close-target")).toMatchInlineSnapshot(`
+  const withAgentSession = tester.createSession("with-agent-session");
+  expect(await withAgentSession.request("hello")).toMatchInlineSnapshot(`"echo: hello"`);
+  expect(await session.request("/session info --target with-agent-session")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    Session closed: close-target."
+    session: with-agent-session
+    agent: test
+    agent session id: __testSession4
+    updated at: <time>
+    verbose: thinking
+    renew: off
+    active turn: no"
   `);
-  expect(await session.request("/session info --target close-target")).toMatchInlineSnapshot(`
+  expect(await session.request("/session close --target with-agent-session"))
+    .toMatchInlineSnapshot(`
     "[⚙️ System]
-    Unknown session: close-target"
+    Session closed: with-agent-session."
+  `);
+  expect(await session.request("/session info --target with-agent-session")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Unknown session: with-agent-session"
   `);
   expect(await session.request("/agent sessions test")).not.toContain("__testSession4");
 
-  const mappingOnly = tester.createSession("mapping-only");
-  expect(await mappingOnly.request("/session config renew=off")).toMatchInlineSnapshot(`
+  const withoutAgentSession = tester.createSession("without-agent-session");
+  expect(await withoutAgentSession.request("/session config renew=off")).toMatchInlineSnapshot(`
     "[⚙️ System]
     verbose: thinking
     renew: off"
   `);
-  expect(await session.request("/session close --target mapping-only")).toMatchInlineSnapshot(`
+  expect(await session.request("/session info --target without-agent-session"))
+    .toMatchInlineSnapshot(`
     "[⚙️ System]
-    Session closed: mapping-only."
+    session: without-agent-session
+    agent: test
+    agent session id: none
+    updated at: none
+    verbose: thinking
+    renew: off
+    active turn: no"
+  `);
+  expect(await session.request("/session close --target without-agent-session"))
+    .toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Session closed: without-agent-session."
   `);
   expect(await session.request("/session info --target other")).toContain("session: other");
 });
