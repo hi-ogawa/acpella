@@ -10,7 +10,7 @@ import { TypingIndicatorManager } from "./lib/channel/typing-indicator.ts";
 import { parseCli } from "./lib/cli.ts";
 import { CronRunner, type CronDeliveryHandler } from "./lib/cron/runner.ts";
 import { CronStore } from "./lib/cron/store.ts";
-import { createDiscordForumPost } from "./lib/discord/api.ts";
+import { createDiscordChannelSession } from "./lib/discord/channel.ts";
 import { downloadDiscordAttachment } from "./lib/discord/file.ts";
 import {
   formatDiscordConversationMetadata,
@@ -110,27 +110,8 @@ ${CLI_HELP}`);
     // docs/tasks/2026-04-19-agent-session-service-architecture.md
     getCronRunner: () => cronRunner,
     channel: {
-      createSession: async ({ address, title, text }) => {
-        const match = /^discord:forum:(\d+)$/.exec(address);
-        if (!match) {
-          throw new Error(`\
-Unsupported channel address: ${address}
-Supported: discord:forum:<forum-channel-id>`);
-        }
-        if (!config.discord.token) {
-          throw new Error("ACPELLA_DISCORD_BOT_TOKEN is required");
-        }
-        const result = await createDiscordForumPost({
-          token: config.discord.token,
-          channelId: match[1]!,
-          title,
-          text,
-        });
-        return `\
-Created discord forum post.
-session: ${formatDiscordSessionName(result.threadId)}
-url: ${result.url}`;
-      },
+      createSession: (options) =>
+        createDiscordChannelSession({ ...options, token: config.discord.token }),
     },
   });
   handler.start();
