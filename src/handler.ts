@@ -60,6 +60,12 @@ interface HandlerExtraContext extends HandlerContext {
 
 type SystemCommandTree = CommandTree<HandlerExtraContext>;
 
+type CreateChannelSession = (options: {
+  address: string;
+  title: string;
+  text: string;
+}) => Promise<string>;
+
 export async function createHandler(
   config: AppConfig,
   handlerOptions: {
@@ -68,7 +74,7 @@ export async function createHandler(
     cronStore: CronStore;
     getCronRunner?: () => CronRunner;
     channel: {
-      createSession: (options: { address: string; title: string; text: string }) => Promise<string>;
+      createSession: CreateChannelSession;
     };
   },
 ): Promise<Handler> {
