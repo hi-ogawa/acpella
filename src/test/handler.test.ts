@@ -62,7 +62,7 @@ Coverage checklist:
 - /channel
   - [x] bare usage output
   - [x] new-session usage when args are missing
-  - [x] new-session invalid address
+  - [x] new-session missing `-- <text>`
   - [x] new-session dispatches to injected channel capability
   - [x] new-session preserves newlines in text
 */
@@ -1202,11 +1202,9 @@ test("/channel new-session", async () => {
     "[⚙️ System]
     Usage: /channel new-session <channel-address> <title...> -- <text>"
   `);
-  await expect(session.request("/channel new-session no-kind title -- text")).rejects
-    .toMatchInlineSnapshot(`
-    [Error: Invalid channel address: no-kind
-    Expected: <channel>:<kind>:<id>]
-  `);
+  await expect(
+    session.request("/channel new-session discord:forum:123 title only"),
+  ).rejects.toMatchInlineSnapshot(`[Error: Missing \`-- <text>\`]`);
   expect(tester.createChannelSession).not.toHaveBeenCalled();
 
   expect(
@@ -1215,19 +1213,13 @@ test("/channel new-session", async () => {
     ),
   ).toMatchInlineSnapshot(`
     "[⚙️ System]
-    Created channel session.
-    session: __testChannelSession
-    url: https://example.com/__testChannelSession"
+    Created channel session: __testChannelSession"
   `);
   expect(tester.createChannelSession.mock.calls).toMatchInlineSnapshot(`
     [
       [
         {
-          "address": {
-            "channel": "discord",
-            "id": "123000000000000000",
-            "kind": "forum",
-          },
+          "address": "discord:forum:123000000000000000",
           "text": "Handoff:
 
     - step one

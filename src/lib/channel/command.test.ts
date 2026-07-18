@@ -1,26 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseChannelAddress, parseChannelNewSessionArgs } from "./command.ts";
-
-describe(parseChannelAddress, () => {
-  it("parses <channel>:<kind>:<id> addresses", () => {
-    expect(parseChannelAddress("discord:forum:123456789012345678")).toEqual({
-      channel: "discord",
-      kind: "forum",
-      id: "123456789012345678",
-    });
-    expect(parseChannelAddress("telegram:supergroup:123")).toEqual({
-      channel: "telegram",
-      kind: "supergroup",
-      id: "123",
-    });
-  });
-
-  it("rejects malformed addresses", () => {
-    for (const input of ["discord:123456789012345678", "discord", "forum:123", "discord:forum:"]) {
-      expect(() => parseChannelAddress(input)).toThrowError(/Invalid channel address/);
-    }
-  });
-});
+import { parseChannelNewSessionArgs } from "./command.ts";
 
 describe(parseChannelNewSessionArgs, () => {
   function parse(text: string) {
@@ -32,7 +11,7 @@ describe(parseChannelNewSessionArgs, () => {
     expect(
       parse("/channel new-session discord:forum:123 Fix cron timezone bug -- Investigate the bug."),
     ).toEqual({
-      address: { channel: "discord", kind: "forum", id: "123" },
+      address: "discord:forum:123",
       title: "Fix cron timezone bug",
       text: "Investigate the bug.",
     });

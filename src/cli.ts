@@ -111,27 +111,25 @@ ${CLI_HELP}`);
     getCronRunner: () => cronRunner,
     channel: {
       createSession: async ({ address, title, text }) => {
-        if (address.channel === "discord" && address.kind === "forum") {
-          if (!config.discord.token) {
-            throw new Error("ACPELLA_DISCORD_BOT_TOKEN is required");
-          }
-          if (!/^\d+$/.test(address.id)) {
-            throw new Error(`Invalid discord channel id: ${address.id}`);
-          }
-          const result = await createDiscordForumPost({
-            token: config.discord.token,
-            channelId: address.id,
-            title,
-            text,
-          });
-          return {
-            sessionName: formatDiscordSessionName(result.threadId),
-            url: result.url,
-          };
-        }
-        throw new Error(`\
-Unsupported channel address: ${address.channel}:${address.kind}:${address.id}
+        const match = /^discord:forum:(\d+)$/.exec(address);
+        if (!match) {
+          throw new Error(`\
+Unsupported channel address: ${address}
 Supported: discord:forum:<forum-channel-id>`);
+        }
+        if (!config.discord.token) {
+          throw new Error("ACPELLA_DISCORD_BOT_TOKEN is required");
+        }
+        const result = await createDiscordForumPost({
+          token: config.discord.token,
+          channelId: match[1]!,
+          title,
+          text,
+        });
+        return `\
+Created discord forum post.
+session: ${formatDiscordSessionName(result.threadId)}
+url: ${result.url}`;
       },
     },
   });

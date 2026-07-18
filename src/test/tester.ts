@@ -34,10 +34,7 @@ export async function createHandlerTester() {
   });
 
   const onServiceExit = vi.fn();
-  const createChannelSession = vi.fn(async () => ({
-    sessionName: "__testChannelSession",
-    url: "https://example.com/__testChannelSession",
-  }));
+  const createChannelSession = vi.fn(async () => "Created channel session: __testChannelSession");
   const handler = await createHandler(config, {
     version: "v1.0.0-test",
     onServiceExit,

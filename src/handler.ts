@@ -3,7 +3,7 @@ import type { SessionUpdate } from "@agentclientprotocol/sdk";
 import type { AppConfig } from "./config.ts";
 import { AgentManager } from "./lib/acp/index.ts";
 import type { AgentSessionProcess } from "./lib/acp/index.ts";
-import { parseChannelNewSessionArgs, type CreateChannelSession } from "./lib/channel/command.ts";
+import { parseChannelNewSessionArgs } from "./lib/channel/command.ts";
 import { CommandHandler, type CommandTree } from "./lib/command.ts";
 import {
   parseCronArgs,
@@ -68,7 +68,7 @@ export async function createHandler(
     cronStore: CronStore;
     getCronRunner?: () => CronRunner;
     channel: {
-      createSession: CreateChannelSession;
+      createSession: (options: { address: string; title: string; text: string }) => Promise<string>;
     };
   },
 ): Promise<Handler> {
@@ -831,11 +831,7 @@ enabled jobs: ${enabledJobs.length}
           return;
         }
         const parsed = parseChannelNewSessionArgs({ args, text });
-        const result = await handlerOptions.channel.createSession(parsed);
-        await reply.system(`\
-Created channel session.
-session: ${result.sessionName}
-url: ${result.url}`);
+        await reply.system(await handlerOptions.channel.createSession(parsed));
       },
     },
   ];
