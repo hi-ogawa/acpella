@@ -153,6 +153,12 @@ export function sanitizeOutput(s: string) {
   return s.replaceAll(".env not found. Continuing without it.\n", "");
 }
 
+export function sanitizeCliError(error: Error) {
+  return sanitizeOutput(error.message)
+    .replaceAll(/    at .*\n/g, "")
+    .trim();
+}
+
 export function useCli() {
   const { root } = useFs({
     prefix: "e2e-cli",
