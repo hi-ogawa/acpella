@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import type { HandlerExtraCommandGroup } from "../../handler.ts";
+import type { SplitArgs } from "../command.ts";
 import { createDiscordForumPost, createDiscordMessage, getDiscordChannel } from "./api.ts";
 import { formatDiscordSessionName } from "./utils.ts";
 
@@ -16,12 +17,12 @@ export function defineDiscordCommands(options: {
         usage: "/discord new-session <forum-channel-id> <title...> -- <text>",
         description: "Create a forum post as a new session.",
         withArgs: true,
-        run: async ({ args, text, reply, usage }) => {
-          if (args.length === 0) {
+        run: async ({ splitArgs, reply, usage }) => {
+          if (splitArgs.head.length === 0) {
             await reply.system(usage);
             return;
           }
-          const parsed = parseDiscordNewSessionArgs({ args, text });
+          const parsed = parseDiscordNewSessionArgs(splitArgs);
           await validateChannelTarget({ ...options, channelId: parsed.channelId });
           const result = await createDiscordForumPost({
             token: options.token,
@@ -89,12 +90,12 @@ async function validateChannelTarget(options: {
   }
 }
 
-export function parseDiscordNewSessionArgs(options: { args: string[]; text: string }): {
+function parseDiscordNewSessionArgs(splitArgs: SplitArgs): {
   channelId: string;
   title: string;
   text: string;
 } {
-  const [channelId, ...rest] = options.args;
+  const [channelId, ...titleParts] = splitArgs.head;
   if (!channelId) {
     throw new Error("Missing forum channel id");
   }
@@ -102,24 +103,16 @@ export function parseDiscordNewSessionArgs(options: { args: string[]; text: stri
     throw new Error(`Invalid forum channel id: ${channelId}`);
   }
 
-  const separatorIndex = rest.indexOf("--");
-  if (separatorIndex === -1) {
-    throw new Error("Missing `-- <text>`");
-  }
-  const title = rest.slice(0, separatorIndex).join(" ");
+  const title = titleParts.join(" ");
   if (!title) {
     throw new Error("Missing title");
   }
 
-  // Take the text from the raw command string instead of the tokens, which
-  // are whitespace-split and would collapse newlines in a multi-line handoff.
-  // TODO: replace with a first-class `--` body from the command layer (#309).
-  const rawText = /\s--\s+([\s\S]+)$/.exec(options.text)?.[1]?.trim();
-  if (!rawText) {
+  if (!splitArgs.body?.trim()) {
     throw new Error("Missing `-- <text>`");
   }
 
-  return { channelId, title, text: rawText };
+  return { channelId, title, text: splitArgs.body };
 }
 
 function parseDiscordSendFileArgs(options: { args: string[] }): {

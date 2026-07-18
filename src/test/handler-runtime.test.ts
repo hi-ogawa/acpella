@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import { expect, test, vi } from "vitest";
+import type { SplitArgs } from "../lib/command.ts";
 import { TEST_AGENT_COMMAND } from "../state.ts";
 import { writeJsonFile } from "../utils/fs.ts";
 import { createHandlerTester, sanitizeOutput } from "./tester.ts";
@@ -369,6 +370,9 @@ test("state auto reloads external state file changes", async ({ onTestFinished }
 
 test("extra commands", async () => {
   const echo = vi.fn(async (options: { args: string[]; text: string }) => options);
+  const captureSplitArgs = vi.fn(
+    async (options: { args: string[]; splitArgs: SplitArgs }) => options,
+  );
   const tester = await createHandlerTester({
     extraCommands: {
       extra: {
@@ -384,6 +388,16 @@ test("extra commands", async () => {
               await reply.system("echoed");
             },
           },
+          {
+            tokens: ["body"],
+            usage: "/extra body <args...> -- <body>",
+            description: "Capture command body.",
+            withArgs: true,
+            run: async ({ args, splitArgs, reply }) => {
+              await captureSplitArgs({ args, splitArgs });
+              await reply.system("captured");
+            },
+          },
         ],
       },
     },
@@ -393,7 +407,8 @@ test("extra commands", async () => {
   expect(await session.request("/extra")).toMatchInlineSnapshot(`
     "[⚙️ System]
     /extra
-      /extra echo <args...> - Echo command input."
+      /extra echo <args...> - Echo command input.
+      /extra body <args...> -- <body> - Capture command body."
   `);
   expect(await session.request("/extra echo one two\nthree")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -414,4 +429,16 @@ test("extra commands", async () => {
       ],
     ]
   `);
+  expect(await session.request("/extra body title -- first\n\nsecond -- later"))
+    .toMatchInlineSnapshot(`
+    "[⚙️ System]
+    captured"
+  `);
+  expect(captureSplitArgs).toHaveBeenCalledWith({
+    args: ["title", "--", "first", "second", "--", "later"],
+    splitArgs: {
+      head: ["title"],
+      body: "first\n\nsecond -- later",
+    },
+  });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { CommandHandler, type CommandTree } from "./command.ts";
+import { CommandHandler, type CommandTree, type SplitArgs } from "./command.ts";
 
 describe(CommandHandler, () => {
   test("dispatches commands and renders generated help", async () => {
@@ -106,5 +106,81 @@ describe(CommandHandler, () => {
       ",
       ]
     `);
+  });
+
+  test("exposes full args and separator-aware args to every command", async () => {
+    type Run = { args: string[]; splitArgs: SplitArgs };
+    const bodyRuns: Run[] = [];
+    const regularRuns: Run[] = [];
+    let exactRuns = 0;
+    const usages: string[] = [];
+    const commandHandler = new CommandHandler({
+      commands: {
+        body: [
+          {
+            tokens: ["run"],
+            usage: "/body run <title...> [-- <body>]",
+            description: "Run with a body.",
+            withArgs: true,
+            run: async ({ args, splitArgs }) => {
+              bodyRuns.push({ args, splitArgs });
+            },
+          },
+        ],
+        regular: [
+          {
+            tokens: [],
+            usage: "/regular <args...>",
+            description: "Run with regular arguments.",
+            withArgs: true,
+            run: async ({ args, splitArgs }) => {
+              regularRuns.push({ args, splitArgs });
+            },
+          },
+        ],
+        exact: [
+          {
+            tokens: [],
+            usage: "/exact",
+            description: "Run without arguments.",
+            run: async () => {
+              exactRuns++;
+            },
+          },
+        ],
+      },
+      onUsage: async (usage) => {
+        usages.push(usage);
+      },
+    });
+
+    await commandHandler.handle({
+      text: "/body run foo--bar title -- first\n\nsecond -- later",
+      context: {},
+    });
+    await commandHandler.handle({ text: "/body run title", context: {} });
+    await commandHandler.handle({ text: "/body run title --", context: {} });
+    await commandHandler.handle({ text: "/regular one -- two", context: {} });
+    await commandHandler.handle({ text: "/exact -- unexpected", context: {} });
+
+    expect(bodyRuns).toEqual([
+      {
+        args: ["foo--bar", "title", "--", "first", "second", "--", "later"],
+        splitArgs: {
+          head: ["foo--bar", "title"],
+          body: "first\n\nsecond -- later",
+        },
+      },
+      { args: ["title"], splitArgs: { head: ["title"], body: undefined } },
+      { args: ["title", "--"], splitArgs: { head: ["title"], body: "" } },
+    ]);
+    expect(regularRuns).toEqual([
+      {
+        args: ["one", "--", "two"],
+        splitArgs: { head: ["one"], body: "two" },
+      },
+    ]);
+    expect(exactRuns).toBe(0);
+    expect(usages).toEqual(["/exact\n  /exact - Run without arguments.\n"]);
   });
 });
