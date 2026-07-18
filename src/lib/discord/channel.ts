@@ -54,7 +54,7 @@ url: ${result.url}`);
   };
 }
 
-export function parseDiscordNewSessionArgs(options: { args: string[]; body?: string }): {
+function parseDiscordNewSessionArgs(options: { args: string[]; body?: string }): {
   channelId: string;
   title: string;
   text: string;
