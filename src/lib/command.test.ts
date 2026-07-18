@@ -108,9 +108,10 @@ describe(CommandHandler, () => {
     `);
   });
 
-  test("passes an opaque body only to commands that opt in", async () => {
-    const bodyRuns: Array<{ args: string[]; body?: string }> = [];
-    const regularRuns: Array<{ args: string[]; body?: string }> = [];
+  test("exposes full args and structured input to every command", async () => {
+    type Run = { args: string[]; input: { head: string[]; body?: string } };
+    const bodyRuns: Run[] = [];
+    const regularRuns: Run[] = [];
     let exactRuns = 0;
     const usages: string[] = [];
     const commandHandler = new CommandHandler({
@@ -121,9 +122,8 @@ describe(CommandHandler, () => {
             usage: "/body run <title...> [-- <body>]",
             description: "Run with a body.",
             withArgs: true,
-            withBody: true,
-            run: async ({ args, body }) => {
-              bodyRuns.push({ args, ...(body !== undefined ? { body } : {}) });
+            run: async ({ args, input }) => {
+              bodyRuns.push({ args, input });
             },
           },
         ],
@@ -133,8 +133,8 @@ describe(CommandHandler, () => {
             usage: "/regular <args...>",
             description: "Run with regular arguments.",
             withArgs: true,
-            run: async ({ args, body }) => {
-              regularRuns.push({ args, ...(body !== undefined ? { body } : {}) });
+            run: async ({ args, input }) => {
+              regularRuns.push({ args, input });
             },
           },
         ],
@@ -165,13 +165,21 @@ describe(CommandHandler, () => {
 
     expect(bodyRuns).toEqual([
       {
-        args: ["foo--bar", "title"],
-        body: "first\n\nsecond -- later",
+        args: ["foo--bar", "title", "--", "first", "second", "--", "later"],
+        input: {
+          head: ["foo--bar", "title"],
+          body: "first\n\nsecond -- later",
+        },
       },
-      { args: ["title"] },
-      { args: ["title"], body: "" },
+      { args: ["title"], input: { head: ["title"] } },
+      { args: ["title", "--"], input: { head: ["title"], body: "" } },
     ]);
-    expect(regularRuns).toEqual([{ args: ["one", "--", "two"] }]);
+    expect(regularRuns).toEqual([
+      {
+        args: ["one", "--", "two"],
+        input: { head: ["one"], body: "two" },
+      },
+    ]);
     expect(exactRuns).toBe(0);
     expect(usages).toEqual(["/exact\n  /exact - Run without arguments.\n"]);
   });

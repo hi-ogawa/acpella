@@ -5,13 +5,12 @@ type CommandSpec<T> = {
   usage: string;
   description: string;
   withArgs?: boolean;
-  withBody?: boolean;
   run: (context: CommandRunContext<T>) => Promise<void>;
 };
 
 type CommandRunContext<T> = T & {
   args: string[];
-  body?: string;
+  input: CommandInput;
   usage: string;
 };
 
@@ -21,11 +20,13 @@ interface CommandHandlerOptions<T> {
 }
 
 type CommandInput = {
+  head: string[];
+  body?: string;
+};
+
+type ParsedCommand = {
   tokens: string[];
-  body?: {
-    headTokens: string[];
-    text: string;
-  };
+  input: CommandInput;
 };
 
 export class CommandHandler<T> {
@@ -54,14 +55,7 @@ export class CommandHandler<T> {
       return false;
     }
 
-    const commandInput: CommandInput = { tokens: subcommandTokens };
-    if (input.body) {
-      commandInput.body = {
-        headTokens: input.body.headTokens.slice(1),
-        text: input.body.text,
-      };
-    }
-    const matched = findCommand(commandGroup, commandInput);
+    const matched = findCommand(commandGroup, subcommandTokens);
     if (!matched) {
       await this.options.onUsage(this.help.byCommand[commandName]!, context);
       return true;
@@ -70,17 +64,20 @@ export class CommandHandler<T> {
     const runContext: CommandRunContext<T> = {
       ...context,
       args: matched.args,
+      input: {
+        head: input.input.head.slice(1 + matched.command.tokens.length),
+      },
       usage: `Usage: ${matched.command.usage}`,
     };
-    if (matched.command.withBody && input.body) {
-      runContext.body = input.body.text;
+    if (input.input.body !== undefined) {
+      runContext.input.body = input.input.body;
     }
     await matched.command.run(runContext);
     return true;
   }
 }
 
-function parseCommandInput(text: string): CommandInput | undefined {
+function parseCommandInput(text: string): ParsedCommand | undefined {
   const trimmed = text.trim();
   if (!trimmed.startsWith("/")) {
     return;
@@ -90,23 +87,21 @@ function parseCommandInput(text: string): CommandInput | undefined {
   if (!tokens[0]) {
     return;
   }
-  const result: CommandInput = {
+  const result: ParsedCommand = {
     tokens,
+    input: { head: tokens },
   };
   const separator = /\s--(?:\s|$)/.exec(input);
   if (separator) {
     const head = input.slice(0, separator.index);
-    result.body = {
-      headTokens: head.split(/\s+/),
-      text: input.slice(separator.index + separator[0].length),
-    };
+    result.input.head = head.split(/\s+/);
+    result.input.body = input.slice(separator.index + separator[0].length);
   }
   return result;
 }
 
-function findCommand<T>(commands: CommandSpec<T>[], input: CommandInput) {
+function findCommand<T>(commands: CommandSpec<T>[], tokens: string[]) {
   for (const command of commands) {
-    const tokens = command.withBody && input.body ? input.body.headTokens : input.tokens;
     if (matchesTokens(command, tokens)) {
       return {
         command,

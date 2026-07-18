@@ -2,8 +2,8 @@ import { formatTime, sortBy } from "../../utils/index.ts";
 import { type CronJob, type CronRun, type CronStore, cronIdSchema } from "./store.ts";
 import { getNextCronSchedule, validateCronSchedule } from "./timer.ts";
 
-export function parseCronArgs(options: { args: string[]; body?: string; timezone: string }) {
-  let [id, minute, hour, dayOfMonth, month, dayOfWeek, ...restArgs] = options.args;
+export function parseCronArgs(options: { head: string[]; body?: string; timezone: string }) {
+  let [id, minute, hour, dayOfMonth, month, dayOfWeek, ...restArgs] = options.head;
   if (!id || !minute || !hour || !dayOfMonth || !month || !dayOfWeek) {
     throw new Error("Invalid input");
   }
