@@ -1,6 +1,7 @@
 // Delay the first cue to avoid flashing on fast replies, then keep it alive every 3s.
 // Inspired by OpenClaw's typing lifecycle, but intentionally smaller:
-// refs/openclaw/src/channels/typing.ts and refs/openclaw/src/channels/typing-lifecycle.ts.
+// https://github.com/openclaw/openclaw/blob/main/src/channels/typing.ts
+// https://github.com/openclaw/openclaw/blob/main/src/channels/typing-lifecycle.ts
 export class TypingIndicatorManager {
   options: {
     send: () => Promise<unknown>;

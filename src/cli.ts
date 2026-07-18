@@ -115,8 +115,7 @@ ${CLI_HELP}`);
       });
     },
     cronStore,
-    // TODO: break handler <-> cronRunner cycle
-    // docs/tasks/2026-04-19-agent-session-service-architecture.md
+    // TODO(#311): break handler <-> cronRunner cycle
     getCronRunner: () => cronRunner,
     extraCommands,
   });

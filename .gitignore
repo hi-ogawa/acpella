@@ -2,7 +2,6 @@ node_modules/
 .env
 *.tsbuildinfo
 .vitest/
-refs/
 acpella.config.json
 .acpella/
 !fixtures/*/.acpella
