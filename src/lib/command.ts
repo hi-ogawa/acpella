@@ -86,8 +86,6 @@ function parseCommandInput(text: string): CommandInput | undefined {
     return;
   }
   const input = trimmed.slice(1);
-  const separator = /\s--(?:\s|$)/.exec(input);
-  const head = separator ? input.slice(0, separator.index) : input;
   const tokens = input.split(/\s+/);
   if (!tokens[0]) {
     return;
@@ -95,7 +93,9 @@ function parseCommandInput(text: string): CommandInput | undefined {
   const result: CommandInput = {
     tokens,
   };
+  const separator = /\s--(?:\s|$)/.exec(input);
   if (separator) {
+    const head = input.slice(0, separator.index);
     result.body = {
       headTokens: head.split(/\s+/),
       text: input.slice(separator.index + separator[0].length),
