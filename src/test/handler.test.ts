@@ -466,21 +466,6 @@ test("session commands", async () => {
     renew: off
     active turn: no"
   `);
-  expect(await session.request("/session new --target other test:__testSession1"))
-    .toMatchInlineSnapshot(`
-    "[⚙️ System]
-    Loaded session: test:__testSession1"
-  `);
-  expect(await session.request("/session info --target other")).toMatchInlineSnapshot(`
-    "[⚙️ System]
-    session: other
-    agent: test
-    agent session id: __testSession1
-    updated at: <time>
-    verbose: thinking
-    renew: off
-    active turn: no"
-  `);
   // /session info with explicit target sessionName: does not exist
   expect(await session.request("/session info --target no-such-session")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -553,11 +538,58 @@ test("session commands", async () => {
     renew: off
     active turn: no"
   `);
-  expect(await withoutAgentSession.request("/session close")).toMatchInlineSnapshot(`
+  expect(await session.request("/session close --target without-agent-session"))
+    .toMatchInlineSnapshot(`
     "[⚙️ System]
     Session closed: without-agent-session."
   `);
   expect(await session.request("/session info --target other")).toContain("session: other");
+});
+
+test("attaches an agent session to a targeted acpella session", async () => {
+  const tester = await createHandlerTester();
+  const source = tester.createSession("source");
+  const target = tester.createSession("target");
+
+  expect(await source.request("hello")).toMatchInlineSnapshot(`"echo: hello"`);
+  expect(await target.request("/session new")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    New session ready."
+  `);
+  expect(await source.request("/session new --target target test:__testSession1"))
+    .toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Loaded session: test:__testSession1"
+  `);
+  expect(await source.request("/session info --target target")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    session: target
+    agent: test
+    agent session id: __testSession1
+    updated at: none
+    verbose: thinking
+    renew: off
+    active turn: no"
+  `);
+});
+
+test("closes the current session mapping without an agent session", async () => {
+  const tester = await createHandlerTester();
+  const session = tester.createSession("test");
+
+  expect(await session.request("/session config renew=off")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    verbose: thinking
+    renew: off"
+  `);
+  expect(await session.request("/session close")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Session closed: test."
+  `);
+  expect(await session.request("/session list")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    No sessions."
+  `);
 });
 
 test("session context usage", async () => {
