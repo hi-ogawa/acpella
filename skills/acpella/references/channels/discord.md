@@ -67,7 +67,7 @@ Usage notes:
 Use `/discord send-file` to deliver a local file (an image, a chart, a build artifact) into a channel as an attachment, since agent replies are otherwise text-only.
 
 ```text
-/discord send-file [<channel-id>] <path>
+/discord send-file <channel-id> <path>
 ```
 
-Without `<channel-id>` it targets the conversation the command was sent from; through `acpella exec` pass the channel id (or thread id) explicitly. Paths cannot contain whitespace. Discord rejects attachments over its upload size limit (10MB by default); the command surfaces the API error instead of pre-checking.
+The target channel (or thread) id is explicit; to send into the current conversation, take its channel id from the message context metadata (`discord:guild:<guild-id>:channel:<channel-id>`). Paths cannot contain whitespace. Discord rejects attachments over its upload size limit (10MB by default); the command surfaces the API error instead of pre-checking.

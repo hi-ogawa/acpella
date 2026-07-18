@@ -57,8 +57,6 @@ acpella exec /session list
 acpella exec /cron list
 acpella exec /service systemd install
 acpella exec /shell pwd
-acpella exec /discord new-session 123456789012345678 Task title -- Handoff text.
-acpella exec /discord send-file 123456789012345678 ./out/chart.png
 ```
 
 Do not use `exec` to send normal agent prompts. Do not use `exec` for session lifecycle actions that depend on the current Telegram, Discord, or REPL conversation context, such as `/session new` or `/session close` without `--target`. Use `/session list` and `/session info --target <sessionName>` through `exec` to discover or inspect existing sessions. Use `/session new --target <sessionName>` through `exec` only when intentionally resetting or attaching an agent session to a known acpella session. Use `/session close --target <sessionName>` through `exec` to remove a stale acpella session mapping without closing its backend agent session.

@@ -42,10 +42,7 @@ describe(parseDiscordNewSessionArgs, () => {
 });
 
 describe(parseDiscordSendFileArgs, () => {
-  it("parses path with and without channel id", () => {
-    expect(parseDiscordSendFileArgs({ args: ["./out/chart.png"] })).toEqual({
-      path: "./out/chart.png",
-    });
+  it("parses channel id and path", () => {
     expect(parseDiscordSendFileArgs({ args: ["123", "./out/chart.png"] })).toEqual({
       channelId: "123",
       path: "./out/chart.png",
@@ -53,6 +50,9 @@ describe(parseDiscordSendFileArgs, () => {
   });
 
   it("rejects invalid arguments", () => {
+    expect(() => parseDiscordSendFileArgs({ args: ["./out/chart.png"] })).toThrow(
+      "Invalid arguments: ./out/chart.png",
+    );
     expect(() => parseDiscordSendFileArgs({ args: ["abc", "./x"] })).toThrow(
       "Invalid channel id: abc",
     );

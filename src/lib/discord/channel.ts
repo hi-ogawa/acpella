@@ -3,6 +3,9 @@ import type { HandlerExtraCommandGroup } from "../../handler.ts";
 import { createDiscordForumPost, createDiscordMessage, getDiscordChannel } from "./api.ts";
 import { formatDiscordSessionName } from "./utils.ts";
 
+// https://docs.discord.com/developers/resources/channel#channel-object-channel-types
+const DISCORD_THREAD_CHANNEL_TYPES = new Set([10, 11, 12]);
+
 export function defineDiscordCommands(options: {
   token: string;
   allowedGuildIds: string[];
@@ -14,7 +17,15 @@ export function defineDiscordCommands(options: {
     if (!channel.guildId || !options.allowedGuildIds.includes(channel.guildId)) {
       throw new Error(`Guild is not allowed: ${channel.guildId ?? "(none)"}`);
     }
-    if (options.allowedChannelIds.length && !options.allowedChannelIds.includes(channelId)) {
+    // an allowlisted parent channel admits its threads (mirrors the inbound guard)
+    const parentChannelId = DISCORD_THREAD_CHANNEL_TYPES.has(channel.type)
+      ? channel.parentId
+      : undefined;
+    if (
+      options.allowedChannelIds.length &&
+      !options.allowedChannelIds.includes(channelId) &&
+      !(parentChannelId && options.allowedChannelIds.includes(parentChannelId))
+    ) {
       throw new Error(`Channel is not allowed: ${channelId}`);
     }
   }
@@ -48,29 +59,25 @@ url: ${result.url}`);
       },
       {
         tokens: ["send-file"],
-        usage: "/discord send-file [<channel-id>] <path>",
+        usage: "/discord send-file <channel-id> <path>",
         description: "Send a local file to a channel.",
         withArgs: true,
-        run: async ({ args, reply, usage, metadata }) => {
+        run: async ({ args, reply, usage }) => {
           if (args.length === 0) {
             await reply.system(usage);
             return;
           }
           const parsed = parseDiscordSendFileArgs({ args });
-          const channelId = parsed.channelId ?? metadata?.cronDeliveryTarget?.discord?.channelId;
-          if (!channelId) {
-            throw new Error("Missing <channel-id>: no discord conversation to default to");
-          }
           if (!fs.existsSync(parsed.path)) {
             throw new Error(`File not found: ${parsed.path}`);
           }
-          await validateChannelTarget(channelId);
+          await validateChannelTarget(parsed.channelId);
           await createDiscordMessage({
             token: options.token,
-            channelId,
+            channelId: parsed.channelId,
             filePaths: [parsed.path],
           });
-          await reply.system(`Sent file to ${formatDiscordSessionName(channelId)}.`);
+          await reply.system(`Sent file to ${formatDiscordSessionName(parsed.channelId)}.`);
         },
       },
     ],
@@ -111,18 +118,15 @@ export function parseDiscordNewSessionArgs(options: { args: string[]; text: stri
 }
 
 export function parseDiscordSendFileArgs(options: { args: string[] }): {
-  channelId?: string;
+  channelId: string;
   path: string;
 } {
-  if (options.args.length === 1) {
-    return { path: options.args[0]! };
+  const [channelId, path, ...extra] = options.args;
+  if (!channelId || !path || extra.length > 0) {
+    throw new Error(`Invalid arguments: ${options.args.join(" ")}`);
   }
-  if (options.args.length === 2) {
-    const [channelId, path] = options.args;
-    if (!/^\d+$/.test(channelId!)) {
-      throw new Error(`Invalid channel id: ${channelId}`);
-    }
-    return { channelId, path: path! };
+  if (!/^\d+$/.test(channelId)) {
+    throw new Error(`Invalid channel id: ${channelId}`);
   }
-  throw new Error(`Invalid arguments: ${options.args.join(" ")}`);
+  return { channelId, path };
 }
