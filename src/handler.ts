@@ -340,10 +340,10 @@ export async function createHandler(
             session.stop();
           }
         } else {
-          stateStore.setSession(sessionName, {
-            agentKey: agentKey ?? stateStore.getSession(sessionName).agentKey,
-            agentSessionId: undefined,
-          });
+          if (agentKey) {
+            stateStore.setSession(sessionName, { agentKey });
+          }
+          stateStore.setSession(sessionName, { agentSessionId: undefined });
           await reply.system("New session ready.");
         }
       },
