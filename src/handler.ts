@@ -3,7 +3,7 @@ import type { SessionUpdate } from "@agentclientprotocol/sdk";
 import type { AppConfig } from "./config.ts";
 import { AgentManager } from "./lib/acp/index.ts";
 import type { AgentSessionProcess } from "./lib/acp/index.ts";
-import { parseChannelNewSessionArgs } from "./lib/channel/command.ts";
+import { parseChannelNewSessionArgs, type CreateChannelSession } from "./lib/channel/command.ts";
 import { CommandHandler, type CommandTree } from "./lib/command.ts";
 import {
   parseCronArgs,
@@ -59,12 +59,6 @@ interface HandlerExtraContext extends HandlerContext {
 }
 
 type SystemCommandTree = CommandTree<HandlerExtraContext>;
-
-type CreateChannelSession = (options: {
-  address: string;
-  title: string;
-  text: string;
-}) => Promise<string>;
 
 export async function createHandler(
   config: AppConfig,
@@ -837,7 +831,11 @@ enabled jobs: ${enabledJobs.length}
           return;
         }
         const parsed = parseChannelNewSessionArgs({ args, text });
-        await reply.system(await handlerOptions.channel.createSession(parsed));
+        const result = await handlerOptions.channel.createSession(parsed);
+        if (result === undefined) {
+          throw new Error(`Unsupported channel address: ${parsed.address}`);
+        }
+        await reply.system(result.reply);
       },
     },
   ];

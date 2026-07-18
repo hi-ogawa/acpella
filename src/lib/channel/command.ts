@@ -1,3 +1,11 @@
+// Returning `undefined` means the implementation does not recognize the
+// address (another channel's), as opposed to failing to handle its own.
+export type CreateChannelSession = (options: {
+  address: string;
+  title: string;
+  text: string;
+}) => Promise<{ reply: string } | undefined>;
+
 export function parseChannelNewSessionArgs(options: { args: string[]; text: string }): {
   address: string;
   title: string;

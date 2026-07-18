@@ -110,8 +110,7 @@ ${CLI_HELP}`);
     // docs/tasks/2026-04-19-agent-session-service-architecture.md
     getCronRunner: () => cronRunner,
     channel: {
-      createSession: (options) =>
-        createDiscordChannelSession({ ...options, token: config.discord.token }),
+      createSession: createDiscordChannelSession({ token: config.discord.token }),
     },
   });
   handler.start();

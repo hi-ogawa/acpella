@@ -64,6 +64,7 @@ Coverage checklist:
   - [x] new-session usage when args are missing
   - [x] new-session missing `-- <text>`
   - [x] new-session dispatches to injected channel capability
+  - [x] new-session errors when no channel handles the address
   - [x] new-session preserves newlines in text
 */
 
@@ -1207,6 +1208,11 @@ test("/channel new-session", async () => {
   ).rejects.toMatchInlineSnapshot(`[Error: Missing \`-- <text>\`]`);
   expect(tester.createChannelSession).not.toHaveBeenCalled();
 
+  tester.createChannelSession.mockResolvedValueOnce(undefined);
+  await expect(
+    session.request("/channel new-session telegram:supergroup:123 title -- text"),
+  ).rejects.toMatchInlineSnapshot(`[Error: Unsupported channel address: telegram:supergroup:123]`);
+
   expect(
     await session.request(
       "/channel new-session discord:forum:123000000000000000 My task title -- Handoff:\n\n- step one\n- step two",
@@ -1217,6 +1223,13 @@ test("/channel new-session", async () => {
   `);
   expect(tester.createChannelSession.mock.calls).toMatchInlineSnapshot(`
     [
+      [
+        {
+          "address": "telegram:supergroup:123",
+          "text": "text",
+          "title": "title",
+        },
+      ],
       [
         {
           "address": "discord:forum:123000000000000000",
