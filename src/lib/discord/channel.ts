@@ -6,30 +6,35 @@ import { formatDiscordSessionName } from "./utils.ts";
 // https://docs.discord.com/developers/resources/channel#channel-object-channel-types
 const DISCORD_THREAD_CHANNEL_TYPES = new Set([10, 11, 12]);
 
+// Mirror the inbound message allowlists so acpella only posts where it serves.
+async function validateChannelTarget(options: {
+  token: string;
+  allowedGuildIds: string[];
+  allowedChannelIds: string[];
+  channelId: string;
+}): Promise<void> {
+  const channel = await getDiscordChannel({ token: options.token, channelId: options.channelId });
+  if (!channel.guildId || !options.allowedGuildIds.includes(channel.guildId)) {
+    throw new Error(`Guild is not allowed: ${channel.guildId ?? "(none)"}`);
+  }
+  // an allowlisted parent channel admits its threads (mirrors the inbound guard)
+  const parentChannelId = DISCORD_THREAD_CHANNEL_TYPES.has(channel.type)
+    ? channel.parentId
+    : undefined;
+  if (
+    options.allowedChannelIds.length &&
+    !options.allowedChannelIds.includes(options.channelId) &&
+    !(parentChannelId && options.allowedChannelIds.includes(parentChannelId))
+  ) {
+    throw new Error(`Channel is not allowed: ${options.channelId}`);
+  }
+}
+
 export function defineDiscordCommands(options: {
   token: string;
   allowedGuildIds: string[];
   allowedChannelIds: string[];
 }): HandlerExtraCommandGroup {
-  // Mirror the inbound message allowlists so acpella only posts where it serves.
-  async function validateChannelTarget(channelId: string): Promise<void> {
-    const channel = await getDiscordChannel({ token: options.token, channelId });
-    if (!channel.guildId || !options.allowedGuildIds.includes(channel.guildId)) {
-      throw new Error(`Guild is not allowed: ${channel.guildId ?? "(none)"}`);
-    }
-    // an allowlisted parent channel admits its threads (mirrors the inbound guard)
-    const parentChannelId = DISCORD_THREAD_CHANNEL_TYPES.has(channel.type)
-      ? channel.parentId
-      : undefined;
-    if (
-      options.allowedChannelIds.length &&
-      !options.allowedChannelIds.includes(channelId) &&
-      !(parentChannelId && options.allowedChannelIds.includes(parentChannelId))
-    ) {
-      throw new Error(`Channel is not allowed: ${channelId}`);
-    }
-  }
-
   return {
     description: "Discord channel operations",
     commands: [
@@ -44,7 +49,7 @@ export function defineDiscordCommands(options: {
             return;
           }
           const parsed = parseDiscordNewSessionArgs({ args, text });
-          await validateChannelTarget(parsed.channelId);
+          await validateChannelTarget({ ...options, channelId: parsed.channelId });
           const result = await createDiscordForumPost({
             token: options.token,
             channelId: parsed.channelId,
@@ -71,7 +76,7 @@ url: ${result.url}`);
           if (!fs.existsSync(parsed.path)) {
             throw new Error(`File not found: ${parsed.path}`);
           }
-          await validateChannelTarget(parsed.channelId);
+          await validateChannelTarget({ ...options, channelId: parsed.channelId });
           await createDiscordMessage({
             token: options.token,
             channelId: parsed.channelId,
