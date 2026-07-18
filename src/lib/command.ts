@@ -22,8 +22,10 @@ interface CommandHandlerOptions<T> {
 
 type CommandInput = {
   tokens: string[];
-  headTokens: string[];
-  body?: string;
+  body?: {
+    headTokens: string[];
+    text: string;
+  };
 };
 
 export class CommandHandler<T> {
@@ -52,11 +54,14 @@ export class CommandHandler<T> {
       return false;
     }
 
-    const matched = findCommand(commandGroup, {
-      tokens: subcommandTokens,
-      headTokens: input.headTokens.slice(1),
-      body: input.body,
-    });
+    const commandInput: CommandInput = { tokens: subcommandTokens };
+    if (input.body) {
+      commandInput.body = {
+        headTokens: input.body.headTokens.slice(1),
+        text: input.body.text,
+      };
+    }
+    const matched = findCommand(commandGroup, commandInput);
     if (!matched) {
       await this.options.onUsage(this.help.byCommand[commandName]!, context);
       return true;
@@ -67,8 +72,8 @@ export class CommandHandler<T> {
       args: matched.args,
       usage: `Usage: ${matched.command.usage}`,
     };
-    if (matched.command.withBody && input.body !== undefined) {
-      runContext.body = input.body;
+    if (matched.command.withBody && input.body) {
+      runContext.body = input.body.text;
     }
     await matched.command.run(runContext);
     return true;
@@ -89,17 +94,19 @@ function parseCommandInput(text: string): CommandInput | undefined {
   }
   const result: CommandInput = {
     tokens,
-    headTokens: head.split(/\s+/),
   };
   if (separator) {
-    result.body = input.slice(separator.index + separator[0].length);
+    result.body = {
+      headTokens: head.split(/\s+/),
+      text: input.slice(separator.index + separator[0].length),
+    };
   }
   return result;
 }
 
 function findCommand<T>(commands: CommandSpec<T>[], input: CommandInput) {
   for (const command of commands) {
-    const tokens = command.withBody ? input.headTokens : input.tokens;
+    const tokens = command.withBody && input.body ? input.body.headTokens : input.tokens;
     if (matchesTokens(command, tokens)) {
       return {
         command,
