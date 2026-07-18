@@ -21,7 +21,7 @@ test("basic", () => {
         name: acpella
         description: >-
           Use when helping someone use or customize acpella itself: slash commands
-          including /agent, /session, /channel, /cron, /status, /service, and /help;
+          including /agent, /session, /cron, /discord, /status, /service, and /help;
           first-time setup; CLI usage; systemd service setup; prompt and skill
           customization; session and agent management; cron jobs; or troubleshooting.
         ---
@@ -58,7 +58,7 @@ test("not-found", () => {
         name: acpella
         description: >-
           Use when helping someone use or customize acpella itself: slash commands
-          including /agent, /session, /channel, /cron, /status, /service, and /help;
+          including /agent, /session, /cron, /discord, /status, /service, and /help;
           first-time setup; CLI usage; systemd service setup; prompt and skill
           customization; session and agent management; cron jobs; or troubleshooting.
         ---
@@ -82,7 +82,7 @@ test("acpella skills directive", () => {
         name: acpella
         description: >-
           Use when helping someone use or customize acpella itself: slash commands
-          including /agent, /session, /channel, /cron, /status, /service, and /help;
+          including /agent, /session, /cron, /discord, /status, /service, and /help;
           first-time setup; CLI usage; systemd service setup; prompt and skill
           customization; session and agent management; cron jobs; or troubleshooting.
         ---

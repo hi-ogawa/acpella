@@ -5,13 +5,12 @@ import { run } from "@grammyjs/runner";
 import { Client, GatewayIntentBits, Partials, type Message } from "discord.js";
 import { Bot, type Context, type Filter } from "grammy";
 import { loadConfig, type AppConfig } from "./config.ts";
-import { createHandler, type Handler } from "./handler.ts";
-import { parseChannelNewSessionArgs } from "./lib/channel/command.ts";
+import { createHandler, type ExtraCommands, type Handler } from "./handler.ts";
 import { TypingIndicatorManager } from "./lib/channel/typing-indicator.ts";
 import { parseCli } from "./lib/cli.ts";
 import { CronRunner, type CronDeliveryHandler } from "./lib/cron/runner.ts";
 import { CronStore } from "./lib/cron/store.ts";
-import { discordCreateChannelSession } from "./lib/discord/channel.ts";
+import { handleDiscordNewSession } from "./lib/discord/channel.ts";
 import { downloadDiscordAttachment } from "./lib/discord/file.ts";
 import {
   formatDiscordConversationMetadata,
@@ -98,7 +97,28 @@ ${CLI_HELP}`);
     },
   });
 
-  const createChannelSession = discordCreateChannelSession({ token: config.discord.token });
+  const extraCommands: ExtraCommands = {};
+  if (config.discord.token) {
+    const token = config.discord.token;
+    extraCommands.discord = {
+      description: "Discord channel operations",
+      commands: [
+        {
+          tokens: ["new-session"],
+          usage: "/discord new-session <forum-channel-id> <title...> -- <text>",
+          description: "Create a forum post as a new session.",
+          withArgs: true,
+          run: async ({ args, text, reply, usage }) => {
+            if (args.length === 0) {
+              await reply.system(usage);
+              return;
+            }
+            await reply.system(await handleDiscordNewSession({ token, args, text }));
+          },
+        },
+      ],
+    };
+  }
 
   const handler = await createHandler(config, {
     version,
@@ -112,16 +132,7 @@ ${CLI_HELP}`);
     // TODO: break handler <-> cronRunner cycle
     // docs/tasks/2026-04-19-agent-session-service-architecture.md
     getCronRunner: () => cronRunner,
-    channel: {
-      newSession: async ({ args, text }) => {
-        const parsed = parseChannelNewSessionArgs({ args, text });
-        const result = await createChannelSession(parsed);
-        if (result === undefined) {
-          throw new Error(`Unsupported channel address: ${parsed.address}`);
-        }
-        return result;
-      },
-    },
+    extraCommands,
   });
   handler.start();
 
@@ -532,7 +543,7 @@ async function serveDiscord(options: {
   client.on("messageCreate", async (message) => {
     // A message whose id equals its channel id is the starter of a thread-only
     // channel (e.g. a forum post). Admitting the bot's own starter lets a post
-    // created by `/channel new-session` become that session's first prompt,
+    // created by `/discord new-session` become that session's first prompt,
     // while all other bot-authored messages stay ignored.
     const selfStarter = message.author.id === client.user?.id && message.id === message.channelId;
     if (message.author.bot && !selfStarter) {

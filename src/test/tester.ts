@@ -1,13 +1,12 @@
 import fs from "node:fs";
 import { onTestFinished, vi } from "vitest";
 import { loadConfig, type AppConfig } from "../config.ts";
-import { createHandler, type HandlerContext } from "../handler.ts";
-import type { ChannelCommands } from "../lib/channel/command.ts";
+import { createHandler, type ExtraCommands, type HandlerContext } from "../handler.ts";
 import { CronRunner } from "../lib/cron/runner.ts";
 import { CronStore } from "../lib/cron/store.ts";
 import { useFs } from "./helper.ts";
 
-export async function createHandlerTester() {
+export async function createHandlerTester(options?: { extraCommands?: ExtraCommands }) {
   const { root } = useFs({ prefix: "handler" });
   const config = loadConfig({
     envFile: false,
@@ -35,17 +34,12 @@ export async function createHandlerTester() {
   });
 
   const onServiceExit = vi.fn();
-  const channelNewSession = vi.fn<ChannelCommands["newSession"]>(async () => ({
-    reply: "Created channel session: __testChannelSession",
-  }));
   const handler = await createHandler(config, {
     version: "v1.0.0-test",
     onServiceExit,
     cronStore,
     getCronRunner: () => cronRunner,
-    channel: {
-      newSession: channelNewSession,
-    },
+    extraCommands: options?.extraCommands,
   });
   handler.start();
   cronRunner.start();
@@ -97,7 +91,6 @@ export async function createHandlerTester() {
     createSession,
     readStateFile,
     onServiceExit,
-    channelNewSession,
     cronStore,
     cronRunner,
     cronDeliveries,

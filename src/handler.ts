@@ -3,7 +3,6 @@ import type { SessionUpdate } from "@agentclientprotocol/sdk";
 import type { AppConfig } from "./config.ts";
 import { AgentManager } from "./lib/acp/index.ts";
 import type { AgentSessionProcess } from "./lib/acp/index.ts";
-import type { ChannelCommands } from "./lib/channel/command.ts";
 import { CommandHandler, type CommandTree } from "./lib/command.ts";
 import {
   parseCronArgs,
@@ -60,6 +59,17 @@ interface HandlerExtraContext extends HandlerContext {
 
 type SystemCommandTree = CommandTree<HandlerExtraContext>;
 
+// Process-specific command groups merged into the system command tree, so
+// wiring (cli.ts) can register commands that only exist when their channel
+// is configured. The description feeds command menus (e.g. Telegram).
+export type ExtraCommands = Record<
+  string,
+  {
+    description: string;
+    commands: SystemCommandTree[string];
+  }
+>;
+
 export async function createHandler(
   config: AppConfig,
   handlerOptions: {
@@ -67,7 +77,7 @@ export async function createHandler(
     onServiceExit: () => void;
     cronStore: CronStore;
     getCronRunner?: () => CronRunner;
-    channel: ChannelCommands;
+    extraCommands?: ExtraCommands;
   },
 ): Promise<Handler> {
   const stateStore = new SessionStateStore(config.stateFile);
@@ -817,23 +827,6 @@ enabled jobs: ${enabledJobs.length}
     },
   ];
 
-  const systemChannelCommands: SystemCommandTree[string] = [
-    {
-      tokens: ["new-session"],
-      usage: "/channel new-session <channel-address> <title...> -- <text>",
-      description: "Create a new conversation channel (e.g. a forum post) as a new session.",
-      withArgs: true,
-      run: async ({ args, text, reply, usage }) => {
-        if (args.length === 0) {
-          await reply.system(usage);
-          return;
-        }
-        const result = await handlerOptions.channel.newSession({ args, text });
-        await reply.system(result.reply);
-      },
-    },
-  ];
-
   const systemCommands: SystemCommandTree = {
     status: [
       {
@@ -915,7 +908,6 @@ current session: ${sessionName}`);
     session: systemSessionCommands,
     agent: systemAgentCommands,
     cron: systemCronCommands,
-    channel: systemChannelCommands,
   };
 
   const systemCommandsMetadata: Record<string, string> = {
@@ -927,8 +919,15 @@ current session: ${sessionName}`);
     session: "Manage sessions",
     agent: "Manage agents",
     cron: "Manage cron jobs",
-    channel: "Manage conversation channels",
   };
+
+  for (const [name, group] of Object.entries(handlerOptions.extraCommands ?? {})) {
+    if (systemCommands[name]) {
+      throw new Error(`Duplicate command group: ${name}`);
+    }
+    systemCommands[name] = group.commands;
+    systemCommandsMetadata[name] = group.description;
+  }
 
   const systemCommandHandler = new CommandHandler({
     commands: systemCommands,

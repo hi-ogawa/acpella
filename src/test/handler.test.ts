@@ -59,10 +59,9 @@ Coverage checklist:
   - [ ] default query form
   - [ ] default unknown agent
   - [ ] default affects later session creation
-- /channel
-  - [x] bare usage output
-  - [x] new-session usage when args are missing
-  - [x] new-session delegates raw args/text to injected capability and relays reply
+- extra commands
+  - [x] registered group usage output
+  - [x] dispatch passes raw args/text (newlines preserved) and relays reply
 */
 
 import fs from "node:fs";
@@ -118,10 +117,7 @@ test("basic", async () => {
       /cron show <id> - Show a cron job.
       /cron enable <id> - Enable a cron job.
       /cron disable <id> - Disable a cron job.
-      /cron delete <id> - Delete a cron job.
-
-    /channel
-      /channel new-session <channel-address> <title...> -- <text> - Create a new conversation channel (e.g. a forum post) as a new session."
+      /cron delete <id> - Delete a cron job."
   `);
   expect(await session.request("/status")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -1187,51 +1183,49 @@ test("session renews stale chat prompt after daily boundary", async ({ onTestFin
   expect(await session.request("__session")).toMatchInlineSnapshot(`"session: __testSession2"`);
 });
 
-test("/channel new-session", async () => {
-  const tester = await createHandlerTester();
+test("extra commands", async () => {
+  const echo = vi.fn(async (options: { args: string[]; text: string }) => options);
+  const tester = await createHandlerTester({
+    extraCommands: {
+      extra: {
+        description: "Extra test commands",
+        commands: [
+          {
+            tokens: ["echo"],
+            usage: "/extra echo <args...>",
+            description: "Echo command input.",
+            withArgs: true,
+            run: async ({ args, text, reply }) => {
+              await echo({ args, text });
+              await reply.system("echoed");
+            },
+          },
+        ],
+      },
+    },
+  });
   const session = tester.createSession("test");
 
-  expect(await session.request("/channel")).toMatchInlineSnapshot(`
+  expect(await session.request("/extra")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    /channel
-      /channel new-session <channel-address> <title...> -- <text> - Create a new conversation channel (e.g. a forum post) as a new session."
+    /extra
+      /extra echo <args...> - Echo command input."
   `);
-  expect(await session.request("/channel new-session")).toMatchInlineSnapshot(`
+  expect(await session.request("/extra echo one two\nthree")).toMatchInlineSnapshot(`
     "[⚙️ System]
-    Usage: /channel new-session <channel-address> <title...> -- <text>"
+    echoed"
   `);
-  expect(tester.channelNewSession).not.toHaveBeenCalled();
-
-  expect(
-    await session.request(
-      "/channel new-session discord:forum:123000000000000000 My task title -- Handoff:\n\n- step one\n- step two",
-    ),
-  ).toMatchInlineSnapshot(`
-    "[⚙️ System]
-    Created channel session: __testChannelSession"
-  `);
-  expect(tester.channelNewSession.mock.calls).toMatchInlineSnapshot(`
+  expect(echo.mock.calls).toMatchInlineSnapshot(`
     [
       [
         {
           "args": [
-            "discord:forum:123000000000000000",
-            "My",
-            "task",
-            "title",
-            "--",
-            "Handoff:",
-            "-",
-            "step",
             "one",
-            "-",
-            "step",
             "two",
+            "three",
           ],
-          "text": "/channel new-session discord:forum:123000000000000000 My task title -- Handoff:
-
-    - step one
-    - step two",
+          "text": "/extra echo one two
+    three",
         },
       ],
     ]

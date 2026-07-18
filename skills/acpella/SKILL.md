@@ -2,7 +2,7 @@
 name: acpella
 description: >-
   Use when helping someone use or customize acpella itself: slash commands
-  including /agent, /session, /channel, /cron, /status, /service, and /help;
+  including /agent, /session, /cron, /discord, /status, /service, and /help;
   first-time setup; CLI usage; systemd service setup; prompt and skill
   customization; session and agent management; cron jobs; or troubleshooting.
 ---
@@ -19,7 +19,7 @@ Acpella is a small bridge from a messaging surface, currently Telegram, Discord,
 - Acpella stores its own state under `ACPELLA_HOME/.acpella/`, including session mappings, configured agents, cron jobs, logs, and optional custom instructions.
 - A Telegram chat/thread, Discord channel, or REPL context maps to an acpella session name.
 - An acpella session points at a selected ACP agent and, after use, an agent session id.
-- Slash commands such as `/help`, `/agent`, `/session`, `/channel`, `/cron`, `/status`, `/service`, and `/shell` are handled by acpella, not sent to the agent.
+- Slash commands such as `/help`, `/agent`, `/session`, `/cron`, `/status`, `/service`, and `/shell` are handled by acpella, not sent to the agent. Channel-specific commands such as `/discord` exist only when that channel is configured; `/help` reflects the actual surface.
 - Normal user prompts are forwarded to the selected ACP agent.
 
 Use this skill when the task is about operating acpella itself: setup, service management, agent registration, session routing, prompt customization, cron jobs, or troubleshooting. For tasks about the user's project inside `ACPELLA_HOME`, follow that project's own instructions instead.
@@ -57,7 +57,7 @@ acpella exec /session list
 acpella exec /cron list
 acpella exec /service systemd install
 acpella exec /shell pwd
-acpella exec /channel new-session discord:forum:123456789012345678 Task title -- Handoff text.
+acpella exec /discord new-session 123456789012345678 Task title -- Handoff text.
 ```
 
 Do not use `exec` to send normal agent prompts. Do not use `exec` for session lifecycle actions that depend on the current Telegram, Discord, or REPL conversation context, such as `/session new` without `--target`, `/session load`, or `/session close` without `--target`. Use `/session list` and `/session info --target <sessionName>` through `exec` to discover or inspect existing sessions. Use `/session new --target <sessionName>` through `exec` only when intentionally resetting a known existing acpella session for administrative workflows such as cron topics. Use `/session close --target <sessionName>` through `exec` to remove a stale acpella session mapping and best-effort close its backend ACP session.
@@ -67,7 +67,7 @@ Do not use `exec` to send normal agent prompts. Do not use `exec` for session li
 - **Bootstrap, install, `.env`, or first run**: read [references/bootstrap.md](references/bootstrap.md).
 - **Telegram bot setup or Telegram env vars**: read [references/channels/telegram.md](references/channels/telegram.md).
 - **Discord bot setup or Discord env vars**: read [references/channels/discord.md](references/channels/discord.md).
-- **Creating Discord forum-post sessions with `/channel new-session`**: read [references/channels/discord.md](references/channels/discord.md).
+- **Creating Discord forum-post sessions with `/discord new-session`**: read [references/channels/discord.md](references/channels/discord.md).
 - **Systemd setup, restart flow, or service logs**: read [references/systemd.md](references/systemd.md).
 - **Customizing behavior with `.acpella/AGENTS.md`, includes, directives, or skills**: read [references/customization.md](references/customization.md).
 - **Managing sessions or ACP agents**: read [references/sessions-and-agents.md](references/sessions-and-agents.md). For backend-specific registration flags, follow its links under `references/agents/`.
