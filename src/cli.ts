@@ -10,6 +10,7 @@ import { TypingIndicatorManager } from "./lib/channel/typing-indicator.ts";
 import { parseCli } from "./lib/cli.ts";
 import { CronRunner, type CronDeliveryHandler } from "./lib/cron/runner.ts";
 import { CronStore } from "./lib/cron/store.ts";
+import { createDiscordForumPost } from "./lib/discord/api.ts";
 import { downloadDiscordAttachment } from "./lib/discord/file.ts";
 import {
   formatDiscordConversationMetadata,
@@ -108,6 +109,31 @@ ${CLI_HELP}`);
     // TODO: break handler <-> cronRunner cycle
     // docs/tasks/2026-04-19-agent-session-service-architecture.md
     getCronRunner: () => cronRunner,
+    channel: {
+      createSession: async ({ address, title, text }) => {
+        if (address.channel === "discord" && address.kind === "forum") {
+          if (!config.discord.token) {
+            throw new Error("ACPELLA_DISCORD_BOT_TOKEN is required");
+          }
+          if (!/^\d+$/.test(address.id)) {
+            throw new Error(`Invalid discord channel id: ${address.id}`);
+          }
+          const result = await createDiscordForumPost({
+            token: config.discord.token,
+            channelId: address.id,
+            title,
+            text,
+          });
+          return {
+            sessionName: formatDiscordSessionName(result.threadId),
+            url: result.url,
+          };
+        }
+        throw new Error(`\
+Unsupported channel address: ${address.channel}:${address.kind}:${address.id}
+Supported: discord:forum:<forum-channel-id>`);
+      },
+    },
   });
   handler.start();
 

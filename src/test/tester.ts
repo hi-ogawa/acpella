@@ -6,14 +6,13 @@ import { CronRunner } from "../lib/cron/runner.ts";
 import { CronStore } from "../lib/cron/store.ts";
 import { useFs } from "./helper.ts";
 
-export async function createHandlerTester(options?: { envOverride?: Record<string, string> }) {
+export async function createHandlerTester() {
   const { root } = useFs({ prefix: "handler" });
   const config = loadConfig({
     envFile: false,
     envOverride: {
       ACPELLA_HOME: root,
       TEST_ACPELLA_TIMEZONE: "Asia/Jakarta",
-      ...options?.envOverride,
     },
   });
 
@@ -35,11 +34,18 @@ export async function createHandlerTester(options?: { envOverride?: Record<strin
   });
 
   const onServiceExit = vi.fn();
+  const createChannelSession = vi.fn(async () => ({
+    sessionName: "__testChannelSession",
+    url: "https://example.com/__testChannelSession",
+  }));
   const handler = await createHandler(config, {
     version: "v1.0.0-test",
     onServiceExit,
     cronStore,
     getCronRunner: () => cronRunner,
+    channel: {
+      createSession: createChannelSession,
+    },
   });
   handler.start();
   cronRunner.start();
@@ -91,6 +97,7 @@ export async function createHandlerTester(options?: { envOverride?: Record<strin
     createSession,
     readStateFile,
     onServiceExit,
+    createChannelSession,
     cronStore,
     cronRunner,
     cronDeliveries,

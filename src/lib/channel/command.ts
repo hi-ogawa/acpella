@@ -1,20 +1,27 @@
 type ChannelAddress = {
-  channel: "discord";
-  kind: "forum";
+  channel: string;
+  kind: string;
   id: string;
 };
 
+export type CreateChannelSession = (options: {
+  address: ChannelAddress;
+  title: string;
+  text: string;
+}) => Promise<{ sessionName: string; url: string }>;
+
 // The prefix routes to a channel adapter; the rest is that adapter's own
 // convention using the platform's glossary (e.g. discord:forum:<channel-id>).
-// Bare `discord:<id>` stays reserved for session names.
+// Bare `discord:<id>` stays reserved for session names. Which addresses are
+// actually supported is up to the wired `CreateChannelSession` implementation.
 export function parseChannelAddress(input: string): ChannelAddress {
-  const match = /^discord:forum:(\d+)$/.exec(input);
+  const match = /^([a-z]+):([a-z-]+):(.+)$/.exec(input);
   if (!match) {
     throw new Error(`\
 Invalid channel address: ${input}
-Supported: discord:forum:<forum-channel-id>`);
+Expected: <channel>:<kind>:<id>`);
   }
-  return { channel: "discord", kind: "forum", id: match[1]! };
+  return { channel: match[1]!, kind: match[2]!, id: match[3]! };
 }
 
 export function parseChannelNewSessionArgs(options: { args: string[]; text: string }): {

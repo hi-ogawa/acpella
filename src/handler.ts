@@ -3,7 +3,7 @@ import type { SessionUpdate } from "@agentclientprotocol/sdk";
 import type { AppConfig } from "./config.ts";
 import { AgentManager } from "./lib/acp/index.ts";
 import type { AgentSessionProcess } from "./lib/acp/index.ts";
-import { parseChannelNewSessionArgs } from "./lib/channel/command.ts";
+import { parseChannelNewSessionArgs, type CreateChannelSession } from "./lib/channel/command.ts";
 import { CommandHandler, type CommandTree } from "./lib/command.ts";
 import {
   parseCronArgs,
@@ -15,8 +15,6 @@ import {
 import type { CronRunner, CronRunnerAgentOptions } from "./lib/cron/runner.ts";
 import type { CronDeliveryTarget, CronJob, CronStore } from "./lib/cron/store.ts";
 import { parseSessionCronDeliveryTarget } from "./lib/cron/target.ts";
-import { createDiscordForumPost } from "./lib/discord/api.ts";
-import { formatDiscordSessionName } from "./lib/discord/utils.ts";
 import type { MessageMetadata } from "./lib/prompt.ts";
 import { buildFirstPrompt, buildMessageMetadataPrompt } from "./lib/prompt.ts";
 import { MESSAGE_SPLIT_BUDGET, ReplyManager } from "./lib/reply.ts";
@@ -69,6 +67,9 @@ export async function createHandler(
     onServiceExit: () => void;
     cronStore: CronStore;
     getCronRunner?: () => CronRunner;
+    channel: {
+      createSession: CreateChannelSession;
+    };
   },
 ): Promise<Handler> {
   const stateStore = new SessionStateStore(config.stateFile);
@@ -822,7 +823,7 @@ enabled jobs: ${enabledJobs.length}
     {
       tokens: ["new-session"],
       usage: "/channel new-session <channel-address> <title...> -- <text>",
-      description: "Create a new conversation channel (e.g. discord:forum:<id> post).",
+      description: "Create a new conversation channel (e.g. a forum post) as a new session.",
       withArgs: true,
       run: async ({ args, text, reply, usage }) => {
         if (args.length === 0) {
@@ -830,18 +831,10 @@ enabled jobs: ${enabledJobs.length}
           return;
         }
         const parsed = parseChannelNewSessionArgs({ args, text });
-        if (!config.discord.token) {
-          throw new Error("ACPELLA_DISCORD_BOT_TOKEN is required");
-        }
-        const result = await createDiscordForumPost({
-          token: config.discord.token,
-          channelId: parsed.address.id,
-          title: parsed.title,
-          text: parsed.text,
-        });
+        const result = await handlerOptions.channel.createSession(parsed);
         await reply.system(`\
-Created discord forum post.
-session: ${formatDiscordSessionName(result.threadId)}
+Created channel session.
+session: ${result.sessionName}
 url: ${result.url}`);
       },
     },

@@ -2,21 +2,21 @@ import { describe, expect, it } from "vitest";
 import { parseChannelAddress, parseChannelNewSessionArgs } from "./command.ts";
 
 describe(parseChannelAddress, () => {
-  it("parses discord forum address", () => {
+  it("parses <channel>:<kind>:<id> addresses", () => {
     expect(parseChannelAddress("discord:forum:123456789012345678")).toEqual({
       channel: "discord",
       kind: "forum",
       id: "123456789012345678",
     });
+    expect(parseChannelAddress("telegram:supergroup:123")).toEqual({
+      channel: "telegram",
+      kind: "supergroup",
+      id: "123",
+    });
   });
 
-  it("rejects unsupported addresses", () => {
-    for (const input of [
-      "discord:123456789012345678",
-      "discord:channel:123456789012345678",
-      "telegram:supergroup:123",
-      "discord:forum:abc",
-    ]) {
+  it("rejects malformed addresses", () => {
+    for (const input of ["discord:123456789012345678", "discord", "forum:123", "discord:forum:"]) {
       expect(() => parseChannelAddress(input)).toThrowError(/Invalid channel address/);
     }
   });

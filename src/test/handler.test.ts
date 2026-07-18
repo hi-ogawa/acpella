@@ -63,9 +63,8 @@ Coverage checklist:
   - [x] bare usage output
   - [x] new-session usage when args are missing
   - [x] new-session invalid address
-  - [x] new-session success request/response
+  - [x] new-session dispatches to injected channel capability
   - [x] new-session preserves newlines in text
-  - [x] new-session without discord token
 */
 
 import fs from "node:fs";
@@ -124,7 +123,7 @@ test("basic", async () => {
       /cron delete <id> - Delete a cron job.
 
     /channel
-      /channel new-session <channel-address> <title...> -- <text> - Create a new conversation channel (e.g. discord:forum:<id> post)."
+      /channel new-session <channel-address> <title...> -- <text> - Create a new conversation channel (e.g. a forum post) as a new session."
   `);
   expect(await session.request("/status")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -1190,35 +1189,25 @@ test("session renews stale chat prompt after daily boundary", async ({ onTestFin
   expect(await session.request("__session")).toMatchInlineSnapshot(`"session: __testSession2"`);
 });
 
-test("/channel new-session", async ({ onTestFinished }) => {
-  const tester = await createHandlerTester({
-    envOverride: { ACPELLA_DISCORD_BOT_TOKEN: "test-token" },
-  });
+test("/channel new-session", async () => {
+  const tester = await createHandlerTester();
   const session = tester.createSession("test");
 
   expect(await session.request("/channel")).toMatchInlineSnapshot(`
     "[⚙️ System]
     /channel
-      /channel new-session <channel-address> <title...> -- <text> - Create a new conversation channel (e.g. discord:forum:<id> post)."
+      /channel new-session <channel-address> <title...> -- <text> - Create a new conversation channel (e.g. a forum post) as a new session."
   `);
   expect(await session.request("/channel new-session")).toMatchInlineSnapshot(`
     "[⚙️ System]
     Usage: /channel new-session <channel-address> <title...> -- <text>"
   `);
-  await expect(session.request("/channel new-session discord:123 title -- text")).rejects
+  await expect(session.request("/channel new-session no-kind title -- text")).rejects
     .toMatchInlineSnapshot(`
-    [Error: Invalid channel address: discord:123
-    Supported: discord:forum:<forum-channel-id>]
+    [Error: Invalid channel address: no-kind
+    Expected: <channel>:<kind>:<id>]
   `);
-
-  const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-    new Response(JSON.stringify({ id: "999000000000000000", guild_id: "111000000000000000" }), {
-      status: 200,
-    }),
-  );
-  onTestFinished(() => {
-    fetchSpy.mockRestore();
-  });
+  expect(tester.createChannelSession).not.toHaveBeenCalled();
 
   expect(
     await session.request(
@@ -1226,31 +1215,26 @@ test("/channel new-session", async ({ onTestFinished }) => {
     ),
   ).toMatchInlineSnapshot(`
     "[⚙️ System]
-    Created discord forum post.
-    session: discord:999000000000000000
-    url: https://discord.com/channels/111000000000000000/999000000000000000"
+    Created channel session.
+    session: __testChannelSession
+    url: https://example.com/__testChannelSession"
   `);
-  expect(fetchSpy.mock.calls).toMatchInlineSnapshot(`
+  expect(tester.createChannelSession.mock.calls).toMatchInlineSnapshot(`
     [
       [
-        "https://discord.com/api/v10/channels/123000000000000000/threads",
         {
-          "body": "{"name":"My task title","message":{"content":"Handoff:\\n\\n- step one\\n- step two"}}",
-          "headers": {
-            "authorization": "Bot test-token",
-            "content-type": "application/json",
+          "address": {
+            "channel": "discord",
+            "id": "123000000000000000",
+            "kind": "forum",
           },
-          "method": "POST",
+          "text": "Handoff:
+
+    - step one
+    - step two",
+          "title": "My task title",
         },
       ],
     ]
   `);
-});
-
-test("/channel new-session without discord token", async () => {
-  const tester = await createHandlerTester();
-  const session = tester.createSession("test");
-  await expect(
-    session.request("/channel new-session discord:forum:123 t -- text"),
-  ).rejects.toMatchInlineSnapshot(`[Error: ACPELLA_DISCORD_BOT_TOKEN is required]`);
 });
