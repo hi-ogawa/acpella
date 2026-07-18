@@ -2,8 +2,8 @@ import { formatTime, sortBy } from "../../utils/index.ts";
 import { type CronJob, type CronRun, type CronStore, cronIdSchema } from "./store.ts";
 import { getNextCronSchedule, validateCronSchedule } from "./timer.ts";
 
-export function parseCronArgs(args: string[], timezone: string) {
-  let [id, minute, hour, dayOfMonth, month, dayOfWeek, ...restArgs] = args;
+export function parseCronArgs(options: { args: string[]; body?: string; timezone: string }) {
+  let [id, minute, hour, dayOfMonth, month, dayOfWeek, ...restArgs] = options.args;
   if (!id || !minute || !hour || !dayOfMonth || !month || !dayOfWeek) {
     throw new Error("Invalid input");
   }
@@ -12,12 +12,12 @@ export function parseCronArgs(args: string[], timezone: string) {
     throw new Error("Invalid cron id. Use letters, numbers, underscores, or hyphens.");
   }
   const schedule = [minute, hour, dayOfMonth, month, dayOfWeek].join(" ");
-  validateCronSchedule({ schedule, timezone });
+  validateCronSchedule({ schedule, timezone: options.timezone });
 
   let target: string | undefined;
   let once = false;
 
-  while (restArgs.length > 0 && restArgs[0] !== "--") {
+  while (restArgs.length > 0) {
     if (restArgs[0] === "--target") {
       if (!restArgs[1]) {
         throw new Error("Missing value for --target");
@@ -32,18 +32,11 @@ export function parseCronArgs(args: string[], timezone: string) {
     }
   }
 
-  let prompt: string | undefined;
-  if (restArgs.length > 0) {
-    if (restArgs[0] !== "--") {
-      throw new Error("Missing -- separator before prompt");
-    }
-    prompt = restArgs.slice(1).join(" ");
-    if (!prompt) {
-      throw new Error("prompt is empty");
-    }
+  if (options.body !== undefined && !options.body.trim()) {
+    throw new Error("prompt is empty");
   }
 
-  return { id, schedule, target, once, prompt };
+  return { id, schedule, target, once, prompt: options.body };
 }
 
 export function parseCronIdArg(args: string[]): string {

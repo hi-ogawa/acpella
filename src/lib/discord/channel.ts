@@ -15,12 +15,13 @@ export function defineDiscordCommands(options: {
         usage: "/discord new-session <forum-channel-id> <title...> -- <text>",
         description: "Create a forum post as a new session.",
         withArgs: true,
-        run: async ({ args, text, reply, usage }) => {
+        withBody: true,
+        run: async ({ args, body, reply, usage }) => {
           if (args.length === 0) {
             await reply.system(usage);
             return;
           }
-          const parsed = parseDiscordNewSessionArgs({ args, text });
+          const parsed = parseDiscordNewSessionArgs({ args, body });
 
           // Mirror the inbound message allowlists so acpella only posts where it serves.
           const channel = await getDiscordChannel({
@@ -53,12 +54,12 @@ url: ${result.url}`);
   };
 }
 
-export function parseDiscordNewSessionArgs(options: { args: string[]; text: string }): {
+export function parseDiscordNewSessionArgs(options: { args: string[]; body?: string }): {
   channelId: string;
   title: string;
   text: string;
 } {
-  const [channelId, ...rest] = options.args;
+  const [channelId, ...titleParts] = options.args;
   if (!channelId) {
     throw new Error("Missing forum channel id");
   }
@@ -66,22 +67,14 @@ export function parseDiscordNewSessionArgs(options: { args: string[]; text: stri
     throw new Error(`Invalid forum channel id: ${channelId}`);
   }
 
-  const separatorIndex = rest.indexOf("--");
-  if (separatorIndex === -1) {
-    throw new Error("Missing `-- <text>`");
-  }
-  const title = rest.slice(0, separatorIndex).join(" ");
+  const title = titleParts.join(" ");
   if (!title) {
     throw new Error("Missing title");
   }
 
-  // Take the text from the raw command string instead of the tokens, which
-  // are whitespace-split and would collapse newlines in a multi-line handoff.
-  // TODO: replace with a first-class `--` body from the command layer (#309).
-  const rawText = /\s--\s+([\s\S]+)$/.exec(options.text)?.[1]?.trim();
-  if (!rawText) {
+  if (!options.body?.trim()) {
     throw new Error("Missing `-- <text>`");
   }
 
-  return { channelId, title, text: rawText };
+  return { channelId, title, text: options.body };
 }
