@@ -4,11 +4,12 @@ Use this reference for a lightweight Discord setup for `acpella serve`.
 
 ## Discord App
 
-1. Open the Discord Developer Portal and create an application.
+1. Open the [Discord Developer Portal](https://discord.com/developers/applications) and create an application.
 2. Add a bot to the application.
-3. In the bot settings, enable the Message Content privileged intent. Acpella reads normal Discord text from `message.content`.
-4. Copy the bot token for `ACPELLA_DISCORD_BOT_TOKEN`.
-5. Invite the bot to your private server with the `bot` scope and these basic permissions:
+3. Optionally disable Public Bot so only you can invite it to guilds. The guild allowlist below is the actual safety boundary; this just keeps strangers from adding your bot to their servers. If the portal rejects the toggle, first set Install Link to None (and uncheck User Install) in the Installation tab.
+4. In the bot settings, enable the Message Content privileged intent. Acpella reads normal Discord text from `message.content`.
+5. Copy the bot token for `ACPELLA_DISCORD_BOT_TOKEN`.
+6. Invite the bot to your private server: in the OAuth2 tab's URL Generator, check the `bot` scope and these basic permissions, then open the generated authorize URL in a browser and pick the server (requires Manage Server there):
    - View Channels
    - Send Messages
    - Send Messages in Threads

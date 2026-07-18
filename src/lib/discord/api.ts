@@ -1,5 +1,23 @@
 const DISCORD_API_BASE = "https://discord.com/api/v10";
 
+// https://docs.discord.com/developers/resources/channel#get-channel
+export async function getDiscordChannel(options: {
+  token: string;
+  channelId: string;
+}): Promise<{ guildId?: string }> {
+  const response = await fetch(`${DISCORD_API_BASE}/channels/${options.channelId}`, {
+    headers: {
+      authorization: `Bot ${options.token}`,
+    },
+  });
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Discord API error: ${response.status} ${response.statusText}\n${body}`);
+  }
+  const data = (await response.json()) as { guild_id?: string };
+  return { guildId: data.guild_id };
+}
+
 // https://docs.discord.com/developers/resources/channel#start-thread-in-forum-or-media-channel
 export async function createDiscordForumPost(options: {
   token: string;

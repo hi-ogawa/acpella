@@ -99,7 +99,11 @@ ${CLI_HELP}`);
 
   const extraCommands: HandlerExtraCommands = {};
   if (config.discord.token) {
-    extraCommands.discord = defineDiscordCommands({ token: config.discord.token });
+    extraCommands.discord = defineDiscordCommands({
+      token: config.discord.token,
+      allowedGuildIds: config.discord.allowedGuildIds,
+      allowedChannelIds: config.discord.allowedChannelIds,
+    });
   }
 
   const handler = await createHandler(config, {

@@ -1,8 +1,12 @@
 import type { HandlerExtraCommandGroup } from "../../handler.ts";
-import { createDiscordForumPost } from "./api.ts";
+import { createDiscordForumPost, getDiscordChannel } from "./api.ts";
 import { formatDiscordSessionName } from "./utils.ts";
 
-export function defineDiscordCommands(options: { token: string }): HandlerExtraCommandGroup {
+export function defineDiscordCommands(options: {
+  token: string;
+  allowedGuildIds: string[];
+  allowedChannelIds: string[];
+}): HandlerExtraCommandGroup {
   return {
     description: "Discord channel operations",
     commands: [
@@ -17,6 +21,22 @@ export function defineDiscordCommands(options: { token: string }): HandlerExtraC
             return;
           }
           const parsed = parseDiscordNewSessionArgs({ args, text });
+
+          // Mirror the inbound message allowlists so acpella only posts where it serves.
+          const channel = await getDiscordChannel({
+            token: options.token,
+            channelId: parsed.channelId,
+          });
+          if (!channel.guildId || !options.allowedGuildIds.includes(channel.guildId)) {
+            throw new Error(`Guild is not allowed: ${channel.guildId ?? "(none)"}`);
+          }
+          if (
+            options.allowedChannelIds.length &&
+            !options.allowedChannelIds.includes(parsed.channelId)
+          ) {
+            throw new Error(`Channel is not allowed: ${parsed.channelId}`);
+          }
+
           const result = await createDiscordForumPost({
             token: options.token,
             channelId: parsed.channelId,
