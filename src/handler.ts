@@ -23,7 +23,7 @@ import {
   parseSessionTarget,
   renderSessionConfig,
   renderSessionInfo,
-  renderSessionReference,
+  renderSessionUpdatedAt,
 } from "./lib/session/command.ts";
 import { shouldRenewSession } from "./lib/session/renew.ts";
 import { getVerboseSessionUpdateTypes } from "./lib/session/verbose.ts";
@@ -493,12 +493,11 @@ ${agentKey}:
         );
         if (referencedSessions.length > 0) {
           const renderedSessions = referencedSessions
-            .map(([sessionName, session]) =>
-              renderSessionReference({
-                name: sessionName,
-                session,
-                timezone: config.timezone,
-              }),
+            .map(
+              ([sessionName, session]) => `\
+- ${sessionName}
+  agent session id: ${session.agentSessionId ?? "none"}
+  ${renderSessionUpdatedAt(session.updatedAt, config.timezone)}`,
             )
             .join("\n");
           await reply.system(`\
@@ -564,12 +563,11 @@ ${formatError(error)}
         );
         if (referencedSessions.length > 0) {
           const renderedSessions = referencedSessions
-            .map(([sessionName, session]) =>
-              renderSessionReference({
-                name: sessionName,
-                session,
-                timezone: config.timezone,
-              }),
+            .map(
+              ([sessionName, session]) => `\
+- ${sessionName}
+  agent session id: ${session.agentSessionId ?? "none"}
+  ${renderSessionUpdatedAt(session.updatedAt, config.timezone)}`,
             )
             .join("\n");
           await reply.system(`\
