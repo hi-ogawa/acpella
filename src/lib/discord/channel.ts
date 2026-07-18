@@ -1,5 +1,6 @@
+import fs from "node:fs";
 import type { HandlerExtraCommandGroup } from "../../handler.ts";
-import { createDiscordForumPost, getDiscordChannel } from "./api.ts";
+import { createDiscordForumPost, createDiscordMessage, getDiscordChannel } from "./api.ts";
 import { formatDiscordSessionName } from "./utils.ts";
 
 export function defineDiscordCommands(options: {
@@ -21,22 +22,7 @@ export function defineDiscordCommands(options: {
             return;
           }
           const parsed = parseDiscordNewSessionArgs(splitArgs);
-
-          // Mirror the inbound message allowlists so acpella only posts where it serves.
-          const channel = await getDiscordChannel({
-            token: options.token,
-            channelId: parsed.channelId,
-          });
-          if (!channel.guildId || !options.allowedGuildIds.includes(channel.guildId)) {
-            throw new Error(`Guild is not allowed: ${channel.guildId ?? "(none)"}`);
-          }
-          if (
-            options.allowedChannelIds.length &&
-            !options.allowedChannelIds.includes(parsed.channelId)
-          ) {
-            throw new Error(`Channel is not allowed: ${parsed.channelId}`);
-          }
-
+          await validateChannelTarget({ ...options, channelId: parsed.channelId });
           const result = await createDiscordForumPost({
             token: options.token,
             channelId: parsed.channelId,
@@ -49,8 +35,58 @@ session: ${formatDiscordSessionName(result.threadId)}
 url: ${result.url}`);
         },
       },
+      {
+        tokens: ["send-file"],
+        usage: "/discord send-file <channel-id> <path>",
+        description: "Send a local file to a channel.",
+        withArgs: true,
+        run: async ({ args, reply, usage }) => {
+          if (args.length === 0) {
+            await reply.system(usage);
+            return;
+          }
+          const parsed = parseDiscordSendFileArgs({ args });
+          if (!fs.existsSync(parsed.path)) {
+            throw new Error(`File not found: ${parsed.path}`);
+          }
+          await validateChannelTarget({ ...options, channelId: parsed.channelId });
+          await createDiscordMessage({
+            token: options.token,
+            channelId: parsed.channelId,
+            filePaths: [parsed.path],
+          });
+          await reply.system(`Sent file to ${formatDiscordSessionName(parsed.channelId)}.`);
+        },
+      },
     ],
   };
+}
+
+// https://docs.discord.com/developers/resources/channel#channel-object-channel-types
+const DISCORD_THREAD_CHANNEL_TYPES = new Set([10, 11, 12]);
+
+// Mirror the inbound message allowlists so acpella only posts where it serves.
+async function validateChannelTarget(options: {
+  token: string;
+  allowedGuildIds: string[];
+  allowedChannelIds: string[];
+  channelId: string;
+}): Promise<void> {
+  const channel = await getDiscordChannel({ token: options.token, channelId: options.channelId });
+  if (!channel.guild_id || !options.allowedGuildIds.includes(channel.guild_id)) {
+    throw new Error(`Guild is not allowed: ${channel.guild_id ?? "(none)"}`);
+  }
+  // an allowlisted parent channel admits its threads (mirrors the inbound guard)
+  const parentChannelId = DISCORD_THREAD_CHANNEL_TYPES.has(channel.type)
+    ? channel.parent_id
+    : undefined;
+  if (
+    options.allowedChannelIds.length &&
+    !options.allowedChannelIds.includes(options.channelId) &&
+    !(parentChannelId && options.allowedChannelIds.includes(parentChannelId))
+  ) {
+    throw new Error(`Channel is not allowed: ${options.channelId}`);
+  }
 }
 
 function parseDiscordNewSessionArgs(splitArgs: { head: string[]; body?: string }): {
@@ -76,4 +112,18 @@ function parseDiscordNewSessionArgs(splitArgs: { head: string[]; body?: string }
   }
 
   return { channelId, title, text: splitArgs.body };
+}
+
+function parseDiscordSendFileArgs(options: { args: string[] }): {
+  channelId: string;
+  path: string;
+} {
+  const [channelId, path, ...extra] = options.args;
+  if (!channelId || !path || extra.length > 0) {
+    throw new Error(`Invalid arguments: ${options.args.join(" ")}`);
+  }
+  if (!/^\d+$/.test(channelId)) {
+    throw new Error(`Invalid channel id: ${channelId}`);
+  }
+  return { channelId, path };
 }
