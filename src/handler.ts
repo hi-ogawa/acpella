@@ -301,7 +301,7 @@ export async function createHandler(
     },
     {
       tokens: ["new"],
-      usage: "/session new [--target <sessionName>] [agent]",
+      usage: "/session new [--target <sessionName>] [agent|agent:sessionId]",
       description: "Start a new agent session.",
       withArgs: true,
       run: async ({ args, reply, sessionName }) => {
@@ -316,107 +316,75 @@ export async function createHandler(
           }
           sessionName = parsedTarget.target;
         }
-        const agentKey = parsedTarget.args[0];
+
+        const agentArg = parsedTarget.args[0];
+        let agentKey: string | undefined;
+        let agentSession: StateAgentSession | undefined;
+        if (agentArg?.includes(":")) {
+          agentSession = parseAgentSessionKey(agentArg);
+          agentKey = agentSession.agentKey;
+        } else {
+          agentKey = agentArg;
+        }
+
         if (agentKey) {
           if (!stateStore.get().agents[agentKey]) {
             await reply.system(`Unknown agent: ${agentKey}`);
             return;
           }
-          stateStore.setSession(sessionName, { agentKey });
         }
-        stateStore.setSession(sessionName, { agentSessionId: undefined });
-        await reply.system("New session ready.");
-      },
-    },
-    {
-      tokens: ["load"],
-      usage: "/session load <sessionId|agent:sessionId>",
-      description: "Load an existing agent session.",
-      withArgs: true,
-      run: async ({ args, reply, sessionName, usage }) => {
-        const sessionIdArg = args[0];
-        if (!sessionIdArg) {
-          await reply.system(usage);
-          return;
-        }
-        const stateSession = stateStore.getSession(sessionName);
-        const parsed = parseAgentSessionKey(sessionIdArg);
-        const agentKey = parsed.agentKey ?? stateSession.agentKey;
-        const manager = await getAgentManager(agentKey);
-        const session = await manager.loadSession({
-          sessionCwd: config.home,
-          sessionId: parsed.agentSessionId,
-        });
-        const newStateSession: StateAgentSession = {
-          agentKey,
-          agentSessionId: session.sessionId,
-        };
-        try {
-          stateStore.setSession(sessionName, newStateSession);
-          await reply.system(`Loaded session: ${toAgentSessionKey(newStateSession)}`);
-        } finally {
-          session.stop();
+
+        if (agentSession) {
+          const manager = await getAgentManager(agentSession.agentKey);
+          const session = await manager.loadSession({
+            sessionCwd: config.home,
+            sessionId: agentSession.agentSessionId,
+          });
+          const newStateSession: StateAgentSession = {
+            agentKey: agentSession.agentKey,
+            agentSessionId: session.sessionId,
+          };
+          try {
+            stateStore.setSession(sessionName, newStateSession);
+            await reply.system(`Loaded session: ${toAgentSessionKey(newStateSession)}`);
+          } finally {
+            session.stop();
+          }
+        } else {
+          if (agentKey) {
+            stateStore.setSession(sessionName, { agentKey });
+          }
+          stateStore.setSession(sessionName, { agentSessionId: undefined });
+          await reply.system("New session ready.");
         }
       },
     },
     {
       tokens: ["close"],
-      usage: "/session close [--target <sessionName>|sessionId|agent:sessionId]",
-      description: "Close an agent session.",
+      usage: "/session close [--target <sessionName>]",
+      description: "Close an acpella session.",
       withArgs: true,
       run: async ({ args, reply, sessionName }) => {
         const parsedTarget = parseSessionTarget(args);
-        if (parsedTarget.args.length > 1) {
-          await reply.system(`Invalid argument: ${parsedTarget.args[1]}`);
+        if (parsedTarget.args.length > 0) {
+          await reply.system(`Invalid argument: ${parsedTarget.args[0]}`);
           return;
         }
 
         if (parsedTarget.target) {
-          const stateSession = stateStore.get().sessions[parsedTarget.target];
-          if (!stateSession) {
+          if (!stateStore.get().sessions[parsedTarget.target]) {
             await reply.system(`Unknown session: ${parsedTarget.target}`);
             return;
           }
-          if (parsedTarget.args.length > 0) {
-            await reply.system(`Invalid argument: ${parsedTarget.args[0]}`);
-            return;
-          }
-
-          stateStore.deleteSessionByName(parsedTarget.target);
-          let output = `Session closed: ${parsedTarget.target}.\n`;
-          if (stateSession.agentSessionId) {
-            try {
-              const manager = await getAgentManager(stateSession.agentKey);
-              await manager.closeSession({ sessionId: stateSession.agentSessionId });
-            } catch (e) {
-              output += "[acp] closeSession failed";
-              console.error("[acp] closeSession failed:", e);
-            }
-          }
-          await reply.system(output);
-          return;
+          sessionName = parsedTarget.target;
         }
 
-        const stateSession = stateStore.getSession(sessionName);
-        const sessionIdArg = parsedTarget.args[0];
-        const parsed = sessionIdArg ? parseAgentSessionKey(sessionIdArg) : undefined;
-        const agentKey = parsed?.agentKey ?? stateSession.agentKey;
-        const agentSessionId = parsed?.agentSessionId ?? stateSession.agentSessionId;
-        if (!agentSessionId) {
-          await reply.system("No associated session.");
+        if (!stateStore.get().sessions[sessionName]) {
+          await reply.system("No session mapping.");
           return;
         }
-        const targetSession = { agentKey, agentSessionId };
-        stateStore.deleteSession(targetSession);
-        let output = `Session closed: ${toAgentSessionKey(targetSession)}.\n`;
-        try {
-          const manager = await getAgentManager(agentKey);
-          await manager.closeSession({ sessionId: agentSessionId });
-        } catch (e) {
-          output += "[acp] closeSession failed";
-          console.error("[acp] closeSession failed:", e);
-        }
-        await reply.system(output);
+        stateStore.deleteSessionByName(sessionName);
+        await reply.system(`Session closed: ${sessionName}.`);
       },
     },
     {
@@ -504,6 +472,63 @@ ${agentKey}:
   error: ${formatError(error)}
 `);
           }
+        }
+      },
+    },
+    {
+      tokens: ["close-session"],
+      usage: "/agent close-session <agent:sessionId>",
+      description: "Close a backend ACP session.",
+      withArgs: true,
+      run: async ({ args, reply, usage }) => {
+        const sessionArg = args[0];
+        if (!sessionArg) {
+          await reply.system(usage);
+          return;
+        }
+        if (args.length > 1) {
+          await reply.system(`Invalid argument: ${args[1]}`);
+          return;
+        }
+
+        const target = parseAgentSessionKey(sessionArg);
+        const state = stateStore.get();
+        if (!state.agents[target.agentKey]) {
+          await reply.system(`Unknown agent: ${target.agentKey}`);
+          return;
+        }
+
+        const referencedSessions = Object.entries(state.sessions).filter(
+          ([, session]) =>
+            session.agentKey === target.agentKey &&
+            session.agentSessionId === target.agentSessionId,
+        );
+        if (referencedSessions.length > 0) {
+          const renderedSessions = referencedSessions
+            .map(
+              ([sessionName, session]) => `\
+- ${sessionName}
+  agent session id: ${session.agentSessionId ?? "none"}
+  ${renderSessionUpdatedAt(session.updatedAt, config.timezone)}`,
+            )
+            .join("\n");
+          await reply.system(`\
+Cannot close agent session: ${toAgentSessionKey(target)}
+Referenced sessions:
+${renderedSessions}
+`);
+          return;
+        }
+
+        try {
+          const manager = await getAgentManager(target.agentKey);
+          await manager.closeSession({ sessionId: target.agentSessionId });
+          await reply.system(`Agent session closed: ${toAgentSessionKey(target)}.`);
+        } catch (error) {
+          await reply.system(`\
+Failed to close agent session: ${toAgentSessionKey(target)}
+${formatError(error)}
+`);
         }
       },
     },
