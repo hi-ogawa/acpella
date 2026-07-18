@@ -19,6 +19,7 @@ const stateSessionSchema = z.object({
   agentSessionId: z.string().min(1).optional(),
   verbose: verboseModeSchema.optional(),
   renew: sessionRenewPolicySchema.optional(),
+  // Time when the latest agent prompt started for this acpella session.
   updatedAt: z.number().int().nonnegative().optional(),
 });
 
@@ -156,6 +157,12 @@ export class SessionStateStore {
           delete state.sessions[name];
         }
       }
+    });
+  }
+
+  deleteSessionByName(sessionName: string): void {
+    this.set((state) => {
+      delete state.sessions[sessionName];
     });
   }
 

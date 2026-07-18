@@ -94,7 +94,7 @@ test("basic", async () => {
       /session list - List acpella sessions.
       /session new [--target <sessionName>] [agent] - Start a new agent session.
       /session load <sessionId|agent:sessionId> - Load an existing agent session.
-      /session close [sessionId|agent:sessionId] - Close an agent session.
+      /session close [--target <sessionName>|sessionId|agent:sessionId] - Close an agent session.
       /session config [--target sessionName] [verbose=off|tool|thinking|all] [renew=off|daily|daily:N] - Show or update session config.
 
     /agent
@@ -256,6 +256,7 @@ test("session info and list show active turn", async () => {
     session: test
     agent: test
     agent session id: __testSession1
+    updated at: <time>
     verbose: thinking
     renew: off
     active turn: yes"
@@ -265,6 +266,7 @@ test("session info and list show active turn", async () => {
     - session: test
       agent: test
       agent session id: __testSession1
+      updated at: <time>
       verbose: thinking
       renew: off
       active turn: yes"
@@ -278,6 +280,7 @@ test("session info and list show active turn", async () => {
     session: test
     agent: test
     agent session id: __testSession1
+    updated at: <time>
     verbose: thinking
     renew: off
     active turn: no"
@@ -287,6 +290,7 @@ test("session info and list show active turn", async () => {
     - session: test
       agent: test
       agent session id: __testSession1
+      updated at: <time>
       verbose: thinking
       renew: off
       active turn: no"
@@ -341,7 +345,7 @@ test("session commands", async () => {
       /session list - List acpella sessions.
       /session new [--target <sessionName>] [agent] - Start a new agent session.
       /session load <sessionId|agent:sessionId> - Load an existing agent session.
-      /session close [sessionId|agent:sessionId] - Close an agent session.
+      /session close [--target <sessionName>|sessionId|agent:sessionId] - Close an agent session.
       /session config [--target sessionName] [verbose=off|tool|thinking|all] [renew=off|daily|daily:N] - Show or update session config."
   `);
   expect(await session.request("/session help")).toMatchInlineSnapshot(`
@@ -351,7 +355,7 @@ test("session commands", async () => {
       /session list - List acpella sessions.
       /session new [--target <sessionName>] [agent] - Start a new agent session.
       /session load <sessionId|agent:sessionId> - Load an existing agent session.
-      /session close [sessionId|agent:sessionId] - Close an agent session.
+      /session close [--target <sessionName>|sessionId|agent:sessionId] - Close an agent session.
       /session config [--target sessionName] [verbose=off|tool|thinking|all] [renew=off|daily|daily:N] - Show or update session config."
   `);
   expect(await session.request("/session info")).toMatchInlineSnapshot(`
@@ -359,6 +363,7 @@ test("session commands", async () => {
     session: test
     agent: test
     agent session id: none
+    updated at: none
     verbose: thinking
     renew: off
     active turn: no"
@@ -373,6 +378,7 @@ test("session commands", async () => {
     session: test
     agent: test
     agent session id: __testSession1
+    updated at: <time>
     verbose: thinking
     renew: off
     active turn: no"
@@ -382,6 +388,7 @@ test("session commands", async () => {
     - session: test
       agent: test
       agent session id: __testSession1
+      updated at: <time>
       verbose: thinking
       renew: off
       active turn: no"
@@ -400,6 +407,7 @@ test("session commands", async () => {
     session: test
     agent: test
     agent session id: __testSession2
+    updated at: <time>
     verbose: thinking
     renew: off
     active turn: no"
@@ -410,6 +418,7 @@ test("session commands", async () => {
     - session: test
       agent: test
       agent session id: __testSession2
+      updated at: <time>
       verbose: thinking
       renew: off
       active turn: no"
@@ -434,6 +443,7 @@ test("session commands", async () => {
     session: other
     agent: test
     agent session id: __testSession3
+    updated at: <time>
     verbose: thinking
     renew: off
     active turn: no"
@@ -447,6 +457,7 @@ test("session commands", async () => {
     session: other
     agent: test
     agent session id: none
+    updated at: <time>
     verbose: thinking
     renew: off
     active turn: no"
@@ -456,6 +467,7 @@ test("session commands", async () => {
     session: test
     agent: test
     agent session id: __testSession2
+    updated at: <time>
     verbose: thinking
     renew: off
     active turn: no"
@@ -473,6 +485,58 @@ test("session commands", async () => {
     "[⚙️ System]
     Invalid argument: no-such-session"
   `);
+
+  expect(await session.request("/session close --target no-such-session")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Unknown session: no-such-session"
+  `);
+
+  const withAgentSession = tester.createSession("with-agent-session");
+  expect(await withAgentSession.request("hello")).toMatchInlineSnapshot(`"echo: hello"`);
+  expect(await session.request("/session info --target with-agent-session")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    session: with-agent-session
+    agent: test
+    agent session id: __testSession4
+    updated at: <time>
+    verbose: thinking
+    renew: off
+    active turn: no"
+  `);
+  expect(await session.request("/session close --target with-agent-session"))
+    .toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Session closed: with-agent-session."
+  `);
+  expect(await session.request("/session info --target with-agent-session")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Unknown session: with-agent-session"
+  `);
+  expect(await session.request("/agent sessions test")).not.toContain("__testSession4");
+
+  const withoutAgentSession = tester.createSession("without-agent-session");
+  expect(await withoutAgentSession.request("/session config renew=off")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    verbose: thinking
+    renew: off"
+  `);
+  expect(await session.request("/session info --target without-agent-session"))
+    .toMatchInlineSnapshot(`
+    "[⚙️ System]
+    session: without-agent-session
+    agent: test
+    agent session id: none
+    updated at: none
+    verbose: thinking
+    renew: off
+    active turn: no"
+  `);
+  expect(await session.request("/session close --target without-agent-session"))
+    .toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Session closed: without-agent-session."
+  `);
+  expect(await session.request("/session info --target other")).toContain("session: other");
 });
 
 test("session context usage", async () => {
@@ -488,6 +552,7 @@ test("session context usage", async () => {
     session: test
     agent: test
     agent session id: __testSession1
+    updated at: <time>
     verbose: thinking
     renew: off
     active turn: no"
@@ -504,6 +569,7 @@ test("session context usage", async () => {
     session: test
     agent: test
     agent session id: __testSession1
+    updated at: <time>
     verbose: thinking
     renew: off
     active turn: no
@@ -586,6 +652,7 @@ test("session config toggles verbose output", async () => {
     session: test
     agent: test
     agent session id: __testSession1
+    updated at: <time>
     verbose: thinking
     renew: off
     active turn: no"
@@ -787,6 +854,7 @@ test("agent command", async () => {
     session: test
     agent: test-error
     agent session id: none
+    updated at: none
     verbose: thinking
     renew: off
     active turn: no"
@@ -794,7 +862,10 @@ test("agent command", async () => {
   expect(await session.request("/agent remove test-error")).toMatchInlineSnapshot(`
     "[⚙️ System]
     Cannot remove agent: test-error
-    1 session(s) still reference it."
+    Referenced sessions:
+    - test
+      agent session id: none
+      updated at: none"
   `);
   expect(await session.request("/session new test2")).toMatchInlineSnapshot(`
     "[⚙️ System]
@@ -806,6 +877,7 @@ test("agent command", async () => {
     session: test
     agent: test2
     agent session id: __testSession1
+    updated at: <time>
     verbose: thinking
     renew: off
     active turn: no"
@@ -815,6 +887,7 @@ test("agent command", async () => {
     - session: test
       agent: test2
       agent session id: __testSession1
+      updated at: <time>
       verbose: thinking
       renew: off
       active turn: no"
@@ -855,6 +928,7 @@ test("agent command", async () => {
     session: test
     agent: test
     agent session id: __testSession1
+    updated at: <time>
     verbose: thinking
     renew: off
     active turn: no"
@@ -893,6 +967,7 @@ test("agent command", async () => {
     session: other
     agent: test2
     agent session id: __testSession2
+    updated at: <time>
     verbose: thinking
     renew: off
     active turn: no"
@@ -906,6 +981,7 @@ test("agent command", async () => {
     session: other
     agent: test
     agent session id: none
+    updated at: <time>
     verbose: thinking
     renew: off
     active turn: no"
@@ -916,6 +992,7 @@ test("agent command", async () => {
     session: other
     agent: test
     agent session id: __testSession3
+    updated at: <time>
     verbose: thinking
     renew: off
     active turn: no"
@@ -929,9 +1006,51 @@ test("agent command", async () => {
     session: other
     agent: test
     agent session id: __testSession3
+    updated at: <time>
     verbose: thinking
     renew: off
     active turn: no"
+  `);
+});
+
+test("removes an agent after cleaning up its stale session mapping", async () => {
+  const tester = await createHandlerTester();
+  const admin = tester.createSession("admin");
+  const stale = tester.createSession("stale");
+
+  expect(await admin.request(`/agent new old-agent ${TEST_AGENT_COMMAND}`)).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Saved new agent: old-agent"
+  `);
+  expect(await stale.request("/session new old-agent")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    New session ready."
+  `);
+  expect(await admin.request("/agent remove old-agent")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Cannot remove agent: old-agent
+    Referenced sessions:
+    - stale
+      agent session id: none
+      updated at: none"
+  `);
+  expect(await admin.request("/session info --target stale")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    session: stale
+    agent: old-agent
+    agent session id: none
+    updated at: none
+    verbose: thinking
+    renew: off
+    active turn: no"
+  `);
+  expect(await admin.request("/session close --target stale")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Session closed: stale."
+  `);
+  expect(await admin.request("/agent remove old-agent")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Removed agent: old-agent"
   `);
 });
 
