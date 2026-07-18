@@ -39,11 +39,11 @@ export class CommandHandler<T> {
   }
 
   async handle({ text, context }: { text: string; context: T }): Promise<boolean> {
-    const input = parseCommandInput(text);
-    if (!input) {
+    const parsed = parseCommand(text);
+    if (!parsed) {
       return false;
     }
-    const { tokens } = input;
+    const { tokens } = parsed;
     const [commandName, ...subcommandTokens] = tokens;
     if (commandName === "help") {
       await this.options.onUsage(this.help.full, context);
@@ -61,29 +61,29 @@ export class CommandHandler<T> {
       return true;
     }
 
-    const runContext: CommandRunContext<T> = {
+    const commandInput: CommandInput = {
+      head: parsed.input.head.slice(1 + matched.command.tokens.length),
+    };
+    if (parsed.input.body !== undefined) {
+      commandInput.body = parsed.input.body;
+    }
+    await matched.command.run({
       ...context,
       args: matched.args,
-      input: {
-        head: input.input.head.slice(1 + matched.command.tokens.length),
-      },
+      input: commandInput,
       usage: `Usage: ${matched.command.usage}`,
-    };
-    if (input.input.body !== undefined) {
-      runContext.input.body = input.input.body;
-    }
-    await matched.command.run(runContext);
+    });
     return true;
   }
 }
 
-function parseCommandInput(text: string): ParsedCommand | undefined {
+function parseCommand(text: string): ParsedCommand | undefined {
   const trimmed = text.trim();
   if (!trimmed.startsWith("/")) {
     return;
   }
-  const input = trimmed.slice(1);
-  const tokens = input.split(/\s+/);
+  const commandText = trimmed.slice(1);
+  const tokens = commandText.split(/\s+/);
   if (!tokens[0]) {
     return;
   }
@@ -91,11 +91,12 @@ function parseCommandInput(text: string): ParsedCommand | undefined {
     tokens,
     input: { head: tokens },
   };
-  const separator = /\s--(?:\s|$)/.exec(input);
+  const separator = /\s--(?:\s|$)/.exec(commandText);
   if (separator) {
-    const head = input.slice(0, separator.index);
-    result.input.head = head.split(/\s+/);
-    result.input.body = input.slice(separator.index + separator[0].length);
+    result.input = {
+      head: commandText.slice(0, separator.index).split(/\s+/),
+      body: commandText.slice(separator.index + separator[0].length),
+    };
   }
   return result;
 }
