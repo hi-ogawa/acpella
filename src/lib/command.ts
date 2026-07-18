@@ -19,7 +19,7 @@ interface CommandHandlerOptions<T> {
   onUsage: (usage: string, context: T) => Promise<void>;
 }
 
-type SplitArgs = {
+export type SplitArgs = {
   head: string[];
   body: string | undefined;
 };

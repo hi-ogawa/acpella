@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import type { HandlerExtraCommandGroup } from "../../handler.ts";
+import type { SplitArgs } from "../command.ts";
 import { createDiscordForumPost, createDiscordMessage, getDiscordChannel } from "./api.ts";
 import { formatDiscordSessionName } from "./utils.ts";
 
@@ -89,7 +90,7 @@ async function validateChannelTarget(options: {
   }
 }
 
-function parseDiscordNewSessionArgs(splitArgs: { head: string[]; body?: string }): {
+function parseDiscordNewSessionArgs(splitArgs: SplitArgs): {
   channelId: string;
   title: string;
   text: string;

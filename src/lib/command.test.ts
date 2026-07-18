@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { CommandHandler, type CommandTree } from "./command.ts";
+import { CommandHandler, type CommandTree, type SplitArgs } from "./command.ts";
 
 describe(CommandHandler, () => {
   test("dispatches commands and renders generated help", async () => {
@@ -109,7 +109,7 @@ describe(CommandHandler, () => {
   });
 
   test("exposes full args and separator-aware args to every command", async () => {
-    type Run = { args: string[]; splitArgs: { head: string[]; body: string | undefined } };
+    type Run = { args: string[]; splitArgs: SplitArgs };
     const bodyRuns: Run[] = [];
     const regularRuns: Run[] = [];
     let exactRuns = 0;

@@ -668,7 +668,7 @@ enabled jobs: ${enabledJobs.length}
       description: "Add a cron job.",
       withArgs: true,
       run: async ({ splitArgs, reply, sessionName, metadata }) => {
-        const cron = parseCronArgs({ ...splitArgs, timezone: config.timezone });
+        const cron = parseCronArgs(splitArgs, config.timezone);
         if (!cron.prompt) {
           await reply.system(`Missing prompt`);
           return;
@@ -718,7 +718,7 @@ enabled jobs: ${enabledJobs.length}
       description: "Update a cron job.",
       withArgs: true,
       run: async ({ splitArgs, reply }) => {
-        const cron = parseCronArgs({ ...splitArgs, timezone: config.timezone });
+        const cron = parseCronArgs(splitArgs, config.timezone);
         const job = cronStore.getJob(cron.id);
         if (!job) {
           await reply.system(`Unknown cron job: ${cron.id}`);

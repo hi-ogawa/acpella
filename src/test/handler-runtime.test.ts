@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import { expect, test, vi } from "vitest";
+import type { SplitArgs } from "../lib/command.ts";
 import { TEST_AGENT_COMMAND } from "../state.ts";
 import { writeJsonFile } from "../utils/fs.ts";
 import { createHandlerTester, sanitizeOutput } from "./tester.ts";
@@ -370,8 +371,7 @@ test("state auto reloads external state file changes", async ({ onTestFinished }
 test("extra commands", async () => {
   const echo = vi.fn(async (options: { args: string[]; text: string }) => options);
   const captureSplitArgs = vi.fn(
-    async (options: { args: string[]; splitArgs: { head: string[]; body: string | undefined } }) =>
-      options,
+    async (options: { args: string[]; splitArgs: SplitArgs }) => options,
   );
   const tester = await createHandlerTester({
     extraCommands: {
