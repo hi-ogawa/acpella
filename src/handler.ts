@@ -59,6 +59,13 @@ interface HandlerExtraContext extends HandlerContext {
 
 type SystemCommandTree = CommandTree<HandlerExtraContext>;
 
+export type HandlerExtraCommandGroup = {
+  description: string;
+  commands: SystemCommandTree[string];
+};
+
+export type HandlerExtraCommands = Record<string, HandlerExtraCommandGroup>;
+
 export async function createHandler(
   config: AppConfig,
   handlerOptions: {
@@ -66,6 +73,7 @@ export async function createHandler(
     onServiceExit: () => void;
     cronStore: CronStore;
     getCronRunner?: () => CronRunner;
+    extraCommands?: HandlerExtraCommands;
   },
 ): Promise<Handler> {
   const stateStore = new SessionStateStore(config.stateFile);
@@ -923,6 +931,13 @@ current session: ${sessionName}`);
     cron: systemCronCommands,
   };
 
+  // TODO: this parallel record was squeezed in as an afterthought for the
+  // Telegram command menu (its only consumer, via `handler.commands` ->
+  // `setMyCommands`); `/help` never shows these descriptions. The natural
+  // unification is a first-class group description on the CommandTree util,
+  // rendered in help output and derived here for menus, which also dissolves
+  // the HandlerExtraCommands wrapper shape. `help` itself needs special-casing
+  // since it is not a tree group.
   const systemCommandsMetadata: Record<string, string> = {
     help: "Show available commands",
     status: "Show service status",
@@ -933,6 +948,14 @@ current session: ${sessionName}`);
     agent: "Manage agents",
     cron: "Manage cron jobs",
   };
+
+  for (const [name, group] of Object.entries(handlerOptions.extraCommands ?? {})) {
+    if (systemCommands[name]) {
+      throw new Error(`Duplicate command group: ${name}`);
+    }
+    systemCommands[name] = group.commands;
+    systemCommandsMetadata[name] = group.description;
+  }
 
   const systemCommandHandler = new CommandHandler({
     commands: systemCommands,

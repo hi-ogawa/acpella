@@ -366,3 +366,52 @@ test("state auto reloads external state file changes", async ({ onTestFinished }
     - file-agent -> file-agent-command"
   `);
 });
+
+test("extra commands", async () => {
+  const echo = vi.fn(async (options: { args: string[]; text: string }) => options);
+  const tester = await createHandlerTester({
+    extraCommands: {
+      extra: {
+        description: "Extra test commands",
+        commands: [
+          {
+            tokens: ["echo"],
+            usage: "/extra echo <args...>",
+            description: "Echo command input.",
+            withArgs: true,
+            run: async ({ args, text, reply }) => {
+              await echo({ args, text });
+              await reply.system("echoed");
+            },
+          },
+        ],
+      },
+    },
+  });
+  const session = tester.createSession("test");
+
+  expect(await session.request("/extra")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    /extra
+      /extra echo <args...> - Echo command input."
+  `);
+  expect(await session.request("/extra echo one two\nthree")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    echoed"
+  `);
+  expect(echo.mock.calls).toMatchInlineSnapshot(`
+    [
+      [
+        {
+          "args": [
+            "one",
+            "two",
+            "three",
+          ],
+          "text": "/extra echo one two
+    three",
+        },
+      ],
+    ]
+  `);
+});

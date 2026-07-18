@@ -2,14 +2,15 @@ import "temporal-polyfill/global";
 import path from "node:path";
 import { createInterface } from "node:readline/promises";
 import { run } from "@grammyjs/runner";
-import { Client, GatewayIntentBits, Partials, type Message } from "discord.js";
+import { Client, GatewayIntentBits, Partials } from "discord.js";
 import { Bot, type Context, type Filter } from "grammy";
 import { loadConfig, type AppConfig } from "./config.ts";
-import { createHandler, type Handler } from "./handler.ts";
+import { createHandler, type Handler, type HandlerExtraCommands } from "./handler.ts";
 import { TypingIndicatorManager } from "./lib/channel/typing-indicator.ts";
 import { parseCli } from "./lib/cli.ts";
 import { CronRunner, type CronDeliveryHandler } from "./lib/cron/runner.ts";
 import { CronStore } from "./lib/cron/store.ts";
+import { defineDiscordCommands } from "./lib/discord/channel.ts";
 import { downloadDiscordAttachment } from "./lib/discord/file.ts";
 import {
   formatDiscordConversationMetadata,
@@ -96,6 +97,15 @@ ${CLI_HELP}`);
     },
   });
 
+  const extraCommands: HandlerExtraCommands = {};
+  if (config.discord.token) {
+    extraCommands.discord = defineDiscordCommands({
+      token: config.discord.token,
+      allowedGuildIds: config.discord.allowedGuildIds,
+      allowedChannelIds: config.discord.allowedChannelIds,
+    });
+  }
+
   const handler = await createHandler(config, {
     version,
     onServiceExit: () => {
@@ -108,6 +118,7 @@ ${CLI_HELP}`);
     // TODO: break handler <-> cronRunner cycle
     // docs/tasks/2026-04-19-agent-session-service-architecture.md
     getCronRunner: () => cronRunner,
+    extraCommands,
   });
   handler.start();
 
@@ -409,14 +420,30 @@ async function serveDiscord(options: {
     await channel.send(text);
   });
 
-  async function handleDiscordMessage(message: Message) {
+  client.on("messageCreate", async (message) => {
+    // A message whose id equals its channel id is the starter of a thread-only
+    // channel (e.g. a forum post). Admitting the bot's own starter lets a post
+    // created by `/discord new-session` become that session's first prompt,
+    // while all other bot-authored messages stay ignored (silently, unlike the
+    // logged rejections below).
+    const selfStarter = message.author.id === client.user?.id && message.id === message.channelId;
+    if (message.author.bot && !selfStarter) {
+      return;
+    }
+
     const userId = message.author.id;
     const guildId = message.guildId ?? undefined;
     const channelId = message.channelId;
     const sessionName = formatDiscordSessionName(channelId);
     const label = `[${sessionName}:${message.id}]`;
 
-    if (allowedChannels.size && !allowedChannels.has(channelId)) {
+    // an allowlisted parent channel admits its threads
+    const parentChannelId = message.channel.isThread() ? message.channel.parentId : undefined;
+    if (
+      allowedChannels.size &&
+      !allowedChannels.has(channelId) &&
+      !(parentChannelId && allowedChannels.has(parentChannelId))
+    ) {
       console.error(`${label} rejected: channel ${channelId} is not allowed`);
       return;
     }
@@ -424,7 +451,7 @@ async function serveDiscord(options: {
       console.error(`${label} rejected: guild ${guildId ?? "direct-message"} is not allowed`);
       return;
     }
-    if (allowedUsers.size && !allowedUsers.has(userId)) {
+    if (!selfStarter && allowedUsers.size && !allowedUsers.has(userId)) {
       console.error(`${label} rejected: user ${userId} is not allowed`);
       return;
     }
@@ -506,13 +533,6 @@ async function serveDiscord(options: {
       console.error(`${label} (response error)`, error);
       await replyChannel.send(`[acpella error]\n${truncateString(stringifyError(error), 1800)}`);
     }
-  }
-
-  client.on("messageCreate", async (message) => {
-    if (message.author.bot) {
-      return;
-    }
-    await handleDiscordMessage(message);
   });
 
   client.on("error", (error) => {
