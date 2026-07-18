@@ -9,11 +9,11 @@ Each chat or thread is associated with an acpella session name. That session nam
 In practice, session commands are for:
 
 - starting fresh context
-- loading an older ACP session
+- attaching an older agent session
 - closing a mapping you no longer want
 - controlling automatic renewal for a conversation
 
-Run session lifecycle commands from Telegram or the REPL conversation whose context you mean to control. Do not use `acpella exec` for `/session new` without `--target`, `/session load`, or `/session close` without `--target`. Use `acpella exec /session list` and `acpella exec '/session info --target <sessionName>'` to discover existing session names and inspect known sessions for administrative commands such as cron creation. Use `acpella exec '/session new --target <sessionName>'` only when intentionally resetting a known existing acpella session for administrative workflows such as cron topics. Use `acpella exec '/session close --target <sessionName>'` to remove a stale acpella session mapping.
+Run session lifecycle commands from the Telegram, Discord, or REPL conversation whose context you mean to control. Do not use `acpella exec` for `/session new` or `/session close` without `--target`. Use `acpella exec /session list` and `acpella exec '/session info --target <sessionName>'` to discover existing session names. Use targeted commands through `exec` only when intentionally administering a known acpella session mapping.
 
 `/session list` is a local acpella state view. It reads `.acpella/state.json` only; it does not connect to ACP backends, verify mapped backend sessions, or discover unmapped backend sessions.
 
@@ -23,9 +23,8 @@ Use:
 
 - `/session info [--target <sessionName>]`
 - `/session list`
-- `/session new [--target <sessionName>] [agent]`
-- `/session load <sessionId|agent:sessionId>`
-- `/session close [--target <sessionName>|sessionId|agent:sessionId]`
+- `/session new [--target <sessionName>] [agent|agent:sessionId]`
+- `/session close [--target <sessionName>]`
 - `/session config [--target sessionName] [verbose=off|tool|thinking|all] [renew=off|daily|daily:N]`
 
 Common cases:
@@ -33,7 +32,8 @@ Common cases:
 - after changing `.acpella/AGENTS.md`, run `/session new`
 - if you want a clean start in the current conversation, run `/session new`
 - use `/session new --target <sessionName>` to start a fresh ACP session for another existing acpella session
-- if you know an older ACP session id, use `/session load ...`
+- use `/session new <agent>` to start a fresh session with another configured agent
+- use `/session new <agent:sessionId>` to recover an existing backend agent session when needed
 - use `/session info [--target <sessionName>]` to inspect the selected agent, agent session id, update time, verbose setting, renewal policy, and context usage
 - use `/session list` to see all mapped acpella sessions without probing backend agents
 - use `/session config` to show or update per-session settings (`verbose`, `renew`) in one place
@@ -42,7 +42,7 @@ Common cases:
 
 `/session list` should show acpella session names, their selected agent, mapped agent session id when present, update time, renewal policy, and cached context usage when available.
 
-`/session close --target <sessionName>` removes exactly that acpella session mapping. If the mapping has an ACP session id, acpella also attempts to close the backend session, but the mapping remains removed if backend close fails. A mapping without an ACP session id is removed directly.
+`/session close` removes the current acpella session mapping. `--target <sessionName>` removes exactly that named mapping. Closing an acpella session does not close its backend agent session.
 
 ### `/session config` examples
 
@@ -63,9 +63,10 @@ Supported keys: `renew` (`off|daily|daily:N`) and `verbose` (`off|tool|thinking|
 ```text
 /session new --target tg--1003825149970-3433
 /session new --target tg--1003825149970-3433 opencode
+/session new --target tg--1003825149970-3433 opencode:session-id
 ```
 
-The target acpella session must already exist. If an agent is provided, acpella updates the target session's agent before clearing its associated ACP session id. This does not create a backend ACP session immediately; the next prompt for that acpella session starts the new backend session.
+The target acpella session must already exist. An agent name clears the associated agent session id, and the next prompt starts a new backend session with that agent. An explicitly qualified `agent:sessionId` loads and attaches that backend session; this is mainly useful for recovery or debugging.
 
 By default, sessions do not auto-renew. When daily renewal is enabled, acpella checks the boundary immediately before the next live or cron prompt for that acpella session name. acpella does not create fresh ACP sessions on a background timer, and inactive conversations are not touched.
 
@@ -85,11 +86,14 @@ Use:
 
 - `/agent list`
 - `/agent sessions [agent]`
+- `/agent close-session <agent:sessionId>`
 - `/agent new <name> <command...>`
 - `/agent remove <name>`
 - `/agent default [name]`
 
 Use `/agent sessions [agent]` only when a human operator explicitly wants backend ACP session discovery. It may start or connect to configured agent processes and should report backend failures as diagnostics. Agents should not use it for routine administration or session selection; prefer `/session list` and `/session info --target <sessionName>` unless the user specifically asks to inspect backend agent sessions.
+
+`/agent close-session <agent:sessionId>` explicitly asks the backend to close an agent session. It requires a qualified agent session id and refuses while any acpella session mappings still reference it. It never removes acpella session mappings.
 
 Typical flow:
 

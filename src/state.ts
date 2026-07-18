@@ -147,19 +147,6 @@ export class SessionStateStore {
     });
   }
 
-  deleteSession(target: StateAgentSession): void {
-    this.set((state) => {
-      for (const [name, session] of Object.entries(state.sessions)) {
-        if (
-          session.agentKey === target.agentKey &&
-          session.agentSessionId === target.agentSessionId
-        ) {
-          delete state.sessions[name];
-        }
-      }
-    });
-  }
-
   deleteSessionByName(sessionName: string): void {
     this.set((state) => {
       delete state.sessions[sessionName];
@@ -201,14 +188,12 @@ export function toAgentSessionKey(options: StateAgentSession): string {
 }
 
 export function parseAgentSessionKey(fullKey: string): {
-  agentKey?: string;
+  agentKey: string;
   agentSessionId: string;
 } {
   const sep = fullKey.indexOf(":");
-  if (sep === -1) {
-    return {
-      agentSessionId: fullKey,
-    };
+  if (sep <= 0 || sep === fullKey.length - 1) {
+    throw new Error(`Invalid agent session: ${fullKey}\nExpected agent:sessionId.`);
   }
   return {
     agentKey: fullKey.slice(0, sep),
