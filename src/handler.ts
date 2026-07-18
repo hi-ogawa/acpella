@@ -3,6 +3,7 @@ import type { SessionUpdate } from "@agentclientprotocol/sdk";
 import type { AppConfig } from "./config.ts";
 import { AgentManager } from "./lib/acp/index.ts";
 import type { AgentSessionProcess } from "./lib/acp/index.ts";
+import { parseChannelNewSessionArgs } from "./lib/channel/command.ts";
 import { CommandHandler, type CommandTree } from "./lib/command.ts";
 import {
   parseCronArgs,
@@ -14,6 +15,8 @@ import {
 import type { CronRunner, CronRunnerAgentOptions } from "./lib/cron/runner.ts";
 import type { CronDeliveryTarget, CronJob, CronStore } from "./lib/cron/store.ts";
 import { parseSessionCronDeliveryTarget } from "./lib/cron/target.ts";
+import { createDiscordForumPost } from "./lib/discord/api.ts";
+import { formatDiscordSessionName } from "./lib/discord/utils.ts";
 import type { MessageMetadata } from "./lib/prompt.ts";
 import { buildFirstPrompt, buildMessageMetadataPrompt } from "./lib/prompt.ts";
 import { MESSAGE_SPLIT_BUDGET, ReplyManager } from "./lib/reply.ts";
@@ -815,6 +818,35 @@ enabled jobs: ${enabledJobs.length}
     },
   ];
 
+  const systemChannelCommands: SystemCommandTree[string] = [
+    {
+      tokens: ["new-session"],
+      usage: "/channel new-session <channel-address> <title...> -- <text>",
+      description: "Create a new conversation channel (e.g. discord:forum:<id> post).",
+      withArgs: true,
+      run: async ({ args, text, reply, usage }) => {
+        if (args.length === 0) {
+          await reply.system(usage);
+          return;
+        }
+        const parsed = parseChannelNewSessionArgs({ args, text });
+        if (!config.discord.token) {
+          throw new Error("ACPELLA_DISCORD_BOT_TOKEN is required");
+        }
+        const result = await createDiscordForumPost({
+          token: config.discord.token,
+          channelId: parsed.address.id,
+          title: parsed.title,
+          text: parsed.text,
+        });
+        await reply.system(`\
+Created discord forum post.
+session: ${formatDiscordSessionName(result.threadId)}
+url: ${result.url}`);
+      },
+    },
+  ];
+
   const systemCommands: SystemCommandTree = {
     status: [
       {
@@ -896,6 +928,7 @@ current session: ${sessionName}`);
     session: systemSessionCommands,
     agent: systemAgentCommands,
     cron: systemCronCommands,
+    channel: systemChannelCommands,
   };
 
   const systemCommandsMetadata: Record<string, string> = {
@@ -907,6 +940,7 @@ current session: ${sessionName}`);
     session: "Manage sessions",
     agent: "Manage agents",
     cron: "Manage cron jobs",
+    channel: "Manage conversation channels",
   };
 
   const systemCommandHandler = new CommandHandler({

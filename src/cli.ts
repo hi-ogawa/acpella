@@ -409,14 +409,21 @@ async function serveDiscord(options: {
     await channel.send(text);
   });
 
-  async function handleDiscordMessage(message: Message) {
+  async function handleDiscordMessage(message: Message, options?: { selfStarter?: boolean }) {
     const userId = message.author.id;
     const guildId = message.guildId ?? undefined;
     const channelId = message.channelId;
     const sessionName = formatDiscordSessionName(channelId);
     const label = `[${sessionName}:${message.id}]`;
 
-    if (allowedChannels.size && !allowedChannels.has(channelId)) {
+    // an allowlisted parent channel admits its threads
+    const parentChannelId =
+      (message.channel.isThread() ? message.channel.parentId : undefined) ?? undefined;
+    if (
+      allowedChannels.size &&
+      !allowedChannels.has(channelId) &&
+      !(parentChannelId && allowedChannels.has(parentChannelId))
+    ) {
       console.error(`${label} rejected: channel ${channelId} is not allowed`);
       return;
     }
@@ -424,7 +431,7 @@ async function serveDiscord(options: {
       console.error(`${label} rejected: guild ${guildId ?? "direct-message"} is not allowed`);
       return;
     }
-    if (allowedUsers.size && !allowedUsers.has(userId)) {
+    if (!options?.selfStarter && allowedUsers.size && !allowedUsers.has(userId)) {
       console.error(`${label} rejected: user ${userId} is not allowed`);
       return;
     }
@@ -509,10 +516,15 @@ async function serveDiscord(options: {
   }
 
   client.on("messageCreate", async (message) => {
-    if (message.author.bot) {
+    // A message whose id equals its channel id is the starter of a thread-only
+    // channel (e.g. a forum post). Admitting the bot's own starter lets a post
+    // created by `/channel new-session` become that session's first prompt,
+    // while all other bot-authored messages stay ignored.
+    const selfStarter = message.author.id === client.user?.id && message.id === message.channelId;
+    if (message.author.bot && !selfStarter) {
       return;
     }
-    await handleDiscordMessage(message);
+    await handleDiscordMessage(message, { selfStarter });
   });
 
   client.on("error", (error) => {

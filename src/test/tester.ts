@@ -6,13 +6,14 @@ import { CronRunner } from "../lib/cron/runner.ts";
 import { CronStore } from "../lib/cron/store.ts";
 import { useFs } from "./helper.ts";
 
-export async function createHandlerTester() {
+export async function createHandlerTester(options?: { envOverride?: Record<string, string> }) {
   const { root } = useFs({ prefix: "handler" });
   const config = loadConfig({
     envFile: false,
     envOverride: {
       ACPELLA_HOME: root,
       TEST_ACPELLA_TIMEZONE: "Asia/Jakarta",
+      ...options?.envOverride,
     },
   });
 

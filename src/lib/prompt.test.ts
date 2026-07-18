@@ -21,9 +21,9 @@ test("basic", () => {
         name: acpella
         description: >-
           Use when helping someone use or customize acpella itself: slash commands
-          including /agent, /session, /cron, /status, /service, and /help; first-time
-          setup; CLI usage; systemd service setup; prompt and skill customization;
-          session and agent management; cron jobs; or troubleshooting.
+          including /agent, /session, /channel, /cron, /status, /service, and /help;
+          first-time setup; CLI usage; systemd service setup; prompt and skill
+          customization; session and agent management; cron jobs; or troubleshooting.
         ---
     </acpella_runtime>
     Use these additional instructions for this session:
@@ -58,9 +58,9 @@ test("not-found", () => {
         name: acpella
         description: >-
           Use when helping someone use or customize acpella itself: slash commands
-          including /agent, /session, /cron, /status, /service, and /help; first-time
-          setup; CLI usage; systemd service setup; prompt and skill customization;
-          session and agent management; cron jobs; or troubleshooting.
+          including /agent, /session, /channel, /cron, /status, /service, and /help;
+          first-time setup; CLI usage; systemd service setup; prompt and skill
+          customization; session and agent management; cron jobs; or troubleshooting.
         ---
     </acpella_runtime>
     "
@@ -82,9 +82,9 @@ test("acpella skills directive", () => {
         name: acpella
         description: >-
           Use when helping someone use or customize acpella itself: slash commands
-          including /agent, /session, /cron, /status, /service, and /help; first-time
-          setup; CLI usage; systemd service setup; prompt and skill customization;
-          session and agent management; cron jobs; or troubleshooting.
+          including /agent, /session, /channel, /cron, /status, /service, and /help;
+          first-time setup; CLI usage; systemd service setup; prompt and skill
+          customization; session and agent management; cron jobs; or troubleshooting.
         ---
     </acpella_runtime>
     Use these additional instructions for this session:

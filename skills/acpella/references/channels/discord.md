@@ -44,3 +44,22 @@ Discord is enabled for `acpella serve` when `ACPELLA_DISCORD_BOT_TOKEN` is set.
 ```bash
 acpella serve
 ```
+
+## Forum-Post Sessions
+
+`/channel new-session` creates a Discord forum post through the Discord REST API using `ACPELLA_DISCORD_BOT_TOKEN`:
+
+```text
+/channel new-session discord:forum:<forum-channel-id> <title...> -- <text>
+```
+
+The command replies with the created post URL and its session name (`discord:<thread-id>`). The channel address uses the platform's own glossary after the `discord:` prefix; `discord:forum:<id>` (a forum channel id) is the only supported form for now, and bare `discord:<id>` stays reserved for session names.
+
+Because a forum post is a thread channel, it becomes a normal acpella session like any human-created post. As a Discord-specific bonus, the post body is processed as that session's first prompt: the running service admits the bot's own thread starter message (the one message whose id equals its thread id) through the normal message path, while every other bot-authored message stays ignored. The starter still requires an allowed guild, and an allowlisted parent channel admits its threads when `ACPELLA_DISCORD_ALLOWED_CHANNEL_IDS` is set.
+
+Usage notes:
+
+- The text after `--` is taken verbatim, so multi-line handoffs keep their formatting. Through `acpella exec`, quote the whole command argument to preserve newlines.
+- Discord caps the post body at 2000 characters. Keep it a readable summary of the task, and put deep context in a file under `ACPELLA_HOME` referenced by path, since the new session's agent runs on the same machine.
+- The auto-prompt relies on the running `acpella serve` gateway connection. Through `acpella exec` the post is still created if the service is down, but nothing processes it until someone writes in the post.
+- Agents cannot discover forum ids on their own. To let an agent branch subtasks into posts, put the forum address and spawn policy in `ACPELLA_HOME/.acpella/AGENTS.md`, for example: "To branch a subtask into its own session, run `acpella exec /channel new-session discord:forum:<id> <title> -- <handoff>` with a written handoff (context, stop conditions, mutation boundaries). Spawn deliberately."
