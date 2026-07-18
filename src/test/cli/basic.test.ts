@@ -154,10 +154,11 @@ describe("exec", async () => {
 
   test("hard error", async () => {
     const cli = useCli();
-    await expect(cli.cli("exec", "/session load error-agent:error-session").catch(sanitizeCliError))
-      .resolves.toMatchInlineSnapshot(`
-      "Command failed: pnpm -s dev exec /session load error-agent:error-session
-      Error: Unknown agent: error-agent"
+    await expect(cli.cli("exec", "/agent close-session invalid").catch(sanitizeCliError)).resolves
+      .toMatchInlineSnapshot(`
+      "Command failed: pnpm -s dev exec /agent close-session invalid
+      Error: Invalid agent session: invalid
+      Expected agent:sessionId."
     `);
   });
 
