@@ -19,7 +19,6 @@ import { buildFirstPrompt, buildMessageMetadataPrompt } from "./lib/prompt.ts";
 import { MESSAGE_SPLIT_BUDGET, ReplyManager } from "./lib/reply.ts";
 import {
   parseSessionConfig,
-  parseSessionNew,
   parseSessionTarget,
   renderSessionConfig,
   renderSessionInfo,
@@ -291,28 +290,30 @@ export async function createHandler(
     },
     {
       tokens: ["new"],
-      usage: "/session new [--target <sessionName>] [agent] [--agent-session <agent:sessionId>]",
+      usage: "/session new [--target <sessionName>] [agent|agent:sessionId]",
       description: "Start a new agent session.",
       withArgs: true,
       run: async ({ args, reply, sessionName }) => {
-        const parsed = parseSessionNew(args);
-        if (parsed.target) {
-          if (!stateStore.get().sessions[parsed.target]) {
-            await reply.system(`Unknown session: ${parsed.target}`);
+        const parsedTarget = parseSessionTarget(args);
+        if (parsedTarget.args.length > 1) {
+          throw new Error(`Invalid argument: ${parsedTarget.args[1]}`);
+        }
+        if (parsedTarget.target) {
+          if (!stateStore.get().sessions[parsedTarget.target]) {
+            await reply.system(`Unknown session: ${parsedTarget.target}`);
             return;
           }
-          sessionName = parsed.target;
+          sessionName = parsedTarget.target;
         }
 
-        let agentKey = parsed.agentKey;
+        const agentArg = parsedTarget.args[0];
+        let agentKey: string | undefined;
         let agentSession: StateAgentSession | undefined;
-        if (parsed.agentSessionKey) {
-          agentSession = parseAgentSessionKey(parsed.agentSessionKey);
-          if (agentKey && agentKey !== agentSession.agentKey) {
-            await reply.system(`Conflicting agents: ${agentKey} and ${agentSession.agentKey}`);
-            return;
-          }
+        if (agentArg?.includes(":")) {
+          agentSession = parseAgentSessionKey(agentArg);
           agentKey = agentSession.agentKey;
+        } else {
+          agentKey = agentArg;
         }
 
         if (agentKey) {

@@ -21,7 +21,7 @@ Coverage checklist:
   - [x] new waits for next prompt before ACP session bootstrap
   - [x] new unknown agent
   - [x] new agent startup failure
-  - [x] new with --agent-session
+  - [x] new with agent:sessionId
   - [x] new rejects unqualified agent session id
   - [x] close current session mapping
   - [x] close targeted session mapping
@@ -88,7 +88,7 @@ test("basic", async () => {
     /session
       /session info [--target <sessionName>] - Show info about a session.
       /session list - List acpella sessions.
-      /session new [--target <sessionName>] [agent] [--agent-session <agent:sessionId>] - Start a new agent session.
+      /session new [--target <sessionName>] [agent|agent:sessionId] - Start a new agent session.
       /session close [--target <sessionName>] - Close an acpella session.
       /session config [--target sessionName] [verbose=off|tool|thinking|all] [renew=off|daily|daily:N] - Show or update session config.
 
@@ -339,7 +339,7 @@ test("session commands", async () => {
     /session
       /session info [--target <sessionName>] - Show info about a session.
       /session list - List acpella sessions.
-      /session new [--target <sessionName>] [agent] [--agent-session <agent:sessionId>] - Start a new agent session.
+      /session new [--target <sessionName>] [agent|agent:sessionId] - Start a new agent session.
       /session close [--target <sessionName>] - Close an acpella session.
       /session config [--target sessionName] [verbose=off|tool|thinking|all] [renew=off|daily|daily:N] - Show or update session config."
   `);
@@ -348,7 +348,7 @@ test("session commands", async () => {
     /session
       /session info [--target <sessionName>] - Show info about a session.
       /session list - List acpella sessions.
-      /session new [--target <sessionName>] [agent] [--agent-session <agent:sessionId>] - Start a new agent session.
+      /session new [--target <sessionName>] [agent|agent:sessionId] - Start a new agent session.
       /session close [--target <sessionName>] - Close an acpella session.
       /session config [--target sessionName] [verbose=off|tool|thinking|all] [renew=off|daily|daily:N] - Show or update session config."
   `);
@@ -387,11 +387,10 @@ test("session commands", async () => {
       renew: off
       active turn: no"
   `);
-  await expect(
-    session.request("/session new --agent-session __testSession1"),
-  ).rejects.toMatchInlineSnapshot(
-    `[Error: Invalid agent session: __testSession1\nExpected agent:sessionId.]`,
-  );
+  expect(await session.request("/session new __testSession1")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Unknown agent: __testSession1"
+  `);
   expect(await session.request("/session new")).toMatchInlineSnapshot(`
     "[⚙️ System]
     New session ready."
@@ -467,7 +466,7 @@ test("session commands", async () => {
     renew: off
     active turn: no"
   `);
-  expect(await session.request("/session new --target other --agent-session test:__testSession1"))
+  expect(await session.request("/session new --target other test:__testSession1"))
     .toMatchInlineSnapshot(`
     "[⚙️ System]
     Loaded session: test:__testSession1"
@@ -948,13 +947,7 @@ test("agent command", async () => {
       "agentSessions": {}
     }"
   `);
-  expect(await session.request("/session new test2 --agent-session test:__testSession1"))
-    .toMatchInlineSnapshot(`
-    "[⚙️ System]
-    Conflicting agents: test2 and test"
-  `);
-  expect(await session.request("/session new --agent-session test:__testSession1"))
-    .toMatchInlineSnapshot(`
+  expect(await session.request("/session new test:__testSession1")).toMatchInlineSnapshot(`
     "[⚙️ System]
     Loaded session: test:__testSession1"
   `);

@@ -15,12 +15,6 @@ type ParsedSessionConfig = {
   patch?: SessionConfigPatch;
 };
 
-type ParsedSessionNew = {
-  target?: string;
-  agentKey?: string;
-  agentSessionKey?: string;
-};
-
 export function parseSessionTarget(args: string[]): ParsedTargetOption {
   if (args[0] === "--target") {
     const target = args[1];
@@ -31,39 +25,6 @@ export function parseSessionTarget(args: string[]): ParsedTargetOption {
     return { target, args };
   }
   return { args };
-}
-
-export function parseSessionNew(args: string[]): ParsedSessionNew {
-  const result: ParsedSessionNew = {};
-  for (let index = 0; index < args.length; index++) {
-    const arg = args[index]!;
-    if (arg === "--target" || arg === "--agent-session") {
-      const value = args[++index];
-      if (!value || value.startsWith("--")) {
-        throw new Error(`Missing value for ${arg}`);
-      }
-      if (arg === "--target") {
-        if (result.target) {
-          throw new Error("Duplicate option: --target");
-        }
-        result.target = value;
-      } else {
-        if (result.agentSessionKey) {
-          throw new Error("Duplicate option: --agent-session");
-        }
-        result.agentSessionKey = value;
-      }
-      continue;
-    }
-    if (arg.startsWith("--")) {
-      throw new Error(`Unknown option: ${arg}`);
-    }
-    if (result.agentKey) {
-      throw new Error(`Invalid argument: ${arg}`);
-    }
-    result.agentKey = arg;
-  }
-  return result;
 }
 
 export function parseSessionConfig(rawArgs: string[]): ParsedSessionConfig {
