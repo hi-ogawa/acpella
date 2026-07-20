@@ -62,6 +62,26 @@ Usage notes:
 - Discord caps the post body at 2000 characters. Keep it a readable summary of the task; for deep context, write a tmp file and reference its path in the handoff — the new session's agent picks it up through its own tmp-file convention.
 - Agents cannot discover forum ids on their own. To let an agent branch subtasks into posts, put the forum id and spawn policy in `ACPELLA_HOME/.acpella/AGENTS.md`, for example: "To branch a subtask into its own session, run `acpella exec /discord new-session <forum-channel-id> <title> -- <handoff>` with a written handoff (context, stop conditions, mutation boundaries). Spawn deliberately."
 
+### Parent-Child Session Handoffs
+
+A session can delegate durable work to a forum-post session and ask the child to report back when it finishes or becomes blocked:
+
+```text
+Parent session
+  └─ /discord new-session
+       └─ Child works visibly in a forum post
+            └─ /discord send-message when finished or blocked
+                 └─ Concise result returns to the parent
+```
+
+The child cannot infer which session created it. Include the parent's Discord channel or thread id in the handoff, together with explicit reporting instructions:
+
+```text
+/discord new-session <forum-channel-id> Investigate cache invalidation -- Investigate the cache invalidation failure. Parent session: discord:<parent-channel-id>. Work independently in this post. When finished or blocked, report a concise result to the parent with: acpella exec "/discord send-message <parent-channel-id> -- <result>"
+```
+
+Keep detailed investigation and artifacts in the child post. Return only the outcome, blocker, and essential next action to the parent, which remains responsible for integrating the result.
+
 ## Sending Prompts to Existing Sessions
 
 Use `/discord send-message` to post a visible prompt to an existing Discord channel or thread session. The command sends the message through Discord REST, then the running Discord Gateway service receives the marked bot message and processes it through the target session's normal prompt queue.
