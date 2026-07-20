@@ -3,7 +3,7 @@ import path from "node:path";
 
 const DISCORD_API_BASE = "https://discord.com/api/v10";
 
-// https://docs.discord.com/developers/resources/channel#create-message
+// https://docs.discord.com/developers/resources/message#create-message
 export async function createDiscordMessage(options: {
   token: string;
   channelId: string;
