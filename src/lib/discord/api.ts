@@ -11,7 +11,7 @@ export async function createDiscordMessage(options: {
   filePaths?: string[];
   nonce?: string;
   enforceNonce?: boolean;
-}): Promise<{ messageId: string }> {
+}): Promise<{ id: string }> {
   const form = new FormData();
   form.append(
     "payload_json",
@@ -35,8 +35,7 @@ export async function createDiscordMessage(options: {
     const body = await response.text();
     throw new Error(`Discord API error: ${response.status} ${response.statusText}\n${body}`);
   }
-  const data = (await response.json()) as { id: string };
-  return { messageId: data.id };
+  return await response.json();
 }
 
 // https://docs.discord.com/developers/resources/channel#get-channel

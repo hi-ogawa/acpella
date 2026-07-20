@@ -63,7 +63,7 @@ url: ${result.url}`);
           await reply.system(`\
 Sent prompt to Discord session.
 session: ${formatDiscordSessionName(parsed.channelId)}
-url: https://discord.com/channels/${target.guildId}/${parsed.channelId}/${result.messageId}`);
+url: https://discord.com/channels/${target.guild_id}/${parsed.channelId}/${result.id}`);
         },
       },
       {
@@ -102,7 +102,7 @@ async function validateChannelTarget(options: {
   allowedGuildIds: string[];
   allowedChannelIds: string[];
   channelId: string;
-}): Promise<{ guildId: string }> {
+}): Promise<{ guild_id: string; type: number; parent_id?: string | null }> {
   const channel = await getDiscordChannel({ token: options.token, channelId: options.channelId });
   const parentChannelId = DISCORD_THREAD_CHANNEL_TYPES.has(channel.type)
     ? (channel.parent_id ?? undefined)
@@ -120,7 +120,7 @@ async function validateChannelTarget(options: {
   if (rejection === "channel") {
     throw new Error(`Channel is not allowed: ${options.channelId}`);
   }
-  return { guildId: channel.guild_id! };
+  return channel as typeof channel & { guild_id: string };
 }
 
 function createDiscordPromptNonce(): string {
