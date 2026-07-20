@@ -72,8 +72,6 @@ Use `/discord send-message` to post a visible follow-up prompt into an existing 
 
 The text after `--` is preserved verbatim, including newlines. Through `acpella exec`, quote the whole command argument to preserve them. The target uses the same guild and channel allowlists as inbound messages, including the rule that an allowlisted parent admits its threads.
 
-The long-running Discord service must be online when Discord emits the message event. If it is offline, the posted message remains visible in Discord, but acpella does not replay it when the service resumes.
-
 ## Sending Files
 
 Use `/discord send-file` to deliver a local file (an image, a chart, a build artifact) into a channel as an attachment, since agent replies are otherwise text-only.
