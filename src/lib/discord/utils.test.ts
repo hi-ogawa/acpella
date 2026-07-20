@@ -3,6 +3,7 @@ import {
   formatDiscordConversationMetadata,
   formatDiscordSessionName,
   formatDiscordThinking,
+  checkDiscordTargetAccess,
   parseDiscordSessionName,
 } from "./utils.ts";
 
@@ -38,4 +39,48 @@ test("discord thinking", () => {
     >
     > Then run tests"
   `);
+});
+
+test("discord target allowlists", () => {
+  expect(
+    checkDiscordTargetAccess({
+      guildId: "guild",
+      channelId: "channel",
+      allowedGuildIds: ["guild"],
+      allowedChannelIds: ["channel"],
+    }),
+  ).toEqual({ allowed: true });
+  expect(
+    checkDiscordTargetAccess({
+      guildId: "guild",
+      channelId: "thread",
+      parentChannelId: "channel",
+      allowedGuildIds: ["guild"],
+      allowedChannelIds: ["channel"],
+    }),
+  ).toEqual({ allowed: true });
+  expect(
+    checkDiscordTargetAccess({
+      guildId: "guild",
+      channelId: "any-channel",
+      allowedGuildIds: ["guild"],
+      allowedChannelIds: [],
+    }),
+  ).toEqual({ allowed: true });
+  expect(
+    checkDiscordTargetAccess({
+      guildId: "other",
+      channelId: "channel",
+      allowedGuildIds: ["guild"],
+      allowedChannelIds: ["channel"],
+    }),
+  ).toEqual({ allowed: false, reason: "guild" });
+  expect(
+    checkDiscordTargetAccess({
+      guildId: "guild",
+      channelId: "other",
+      allowedGuildIds: ["guild"],
+      allowedChannelIds: ["channel"],
+    }),
+  ).toEqual({ allowed: false, reason: "channel" });
 });
