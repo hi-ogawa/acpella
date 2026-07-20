@@ -69,6 +69,11 @@ export async function serveDiscord(options: {
     const sessionName = formatDiscordSessionName(channelId);
     const label = `[${sessionName}:${message.id}]`;
 
+    if (!selfMessageKind && allowedUsers.size && !allowedUsers.has(userId)) {
+      console.error(`${label} rejected: user ${userId} is not allowed`);
+      return;
+    }
+
     // an allowlisted parent channel admits its threads
     const parentChannelId = message.channel.isThread()
       ? (message.channel.parentId ?? undefined)
@@ -86,10 +91,6 @@ export async function serveDiscord(options: {
     }
     if (targetRejection === "guild") {
       console.error(`${label} rejected: guild ${guildId ?? "direct-message"} is not allowed`);
-      return;
-    }
-    if (!selfMessageKind && allowedUsers.size && !allowedUsers.has(userId)) {
-      console.error(`${label} rejected: user ${userId} is not allowed`);
       return;
     }
 
