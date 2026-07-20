@@ -55,16 +55,16 @@ test("discord self messages", () => {
       message: { ...message, id: "channel" } as Message,
       botUserId: "bot",
     }),
-  ).toEqual({ allowed: true });
+  ).toBe("allowed");
   expect(
     checkDiscordSelfMessage({
       message: { ...message, nonce: `${DISCORD_PROMPT_NONCE_PREFIX}123` } as Message,
       botUserId: "bot",
     }),
-  ).toEqual({ allowed: true });
-  expect(checkDiscordSelfMessage({ message: message as Message, botUserId: "bot" })).toEqual({
-    allowed: false,
-  });
+  ).toBe("allowed");
+  expect(checkDiscordSelfMessage({ message: message as Message, botUserId: "bot" })).toBe(
+    "disallowed",
+  );
   expect(
     checkDiscordSelfMessage({
       message: {
@@ -74,7 +74,7 @@ test("discord self messages", () => {
       } as Message,
       botUserId: "bot",
     }),
-  ).toEqual({ allowed: false });
+  ).toBe("not-self");
 });
 
 test("discord target allowlists", () => {

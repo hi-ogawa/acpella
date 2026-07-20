@@ -55,11 +55,11 @@ export async function serveDiscord(options: {
   client.on("messageCreate", async (message) => {
     // Admit only the bot's own thread starters and explicitly marked follow-up
     // prompts. Ordinary replies and file messages remain ignored.
-    const selfMessageAccess = checkDiscordSelfMessage({
+    const selfMessage = checkDiscordSelfMessage({
       message,
       botUserId: client.user?.id,
     });
-    if (message.author.bot && !selfMessageAccess.allowed) {
+    if (selfMessage === "disallowed") {
       return;
     }
 
@@ -88,7 +88,7 @@ export async function serveDiscord(options: {
       console.error(`${label} rejected: guild ${guildId ?? "direct-message"} is not allowed`);
       return;
     }
-    if (!selfMessageAccess.allowed && allowedUsers.size && !allowedUsers.has(userId)) {
+    if (selfMessage === "not-self" && allowedUsers.size && !allowedUsers.has(userId)) {
       console.error(`${label} rejected: user ${userId} is not allowed`);
       return;
     }
