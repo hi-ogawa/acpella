@@ -10,7 +10,11 @@ import { TypingIndicatorManager } from "./lib/channel/typing-indicator.ts";
 import { parseCli } from "./lib/cli.ts";
 import { CronRunner, type CronDeliveryHandler } from "./lib/cron/runner.ts";
 import { CronStore } from "./lib/cron/store.ts";
-import { defineDiscordCommands } from "./lib/discord/channel.ts";
+import {
+  defineDiscordCommands,
+  getDiscordSelfMessageKind,
+  getDiscordTargetRejection,
+} from "./lib/discord/channel.ts";
 import { downloadDiscordAttachment } from "./lib/discord/file.ts";
 import {
   formatDiscordConversationMetadata,
@@ -400,8 +404,6 @@ async function serveDiscord(options: {
   }
 
   const allowedUsers = new Set(config.discord.allowedUserIds);
-  const allowedGuilds = new Set(config.discord.allowedGuildIds);
-  const allowedChannels = new Set(config.discord.allowedChannelIds);
 
   const client = new Client({
     intents: [
@@ -425,13 +427,16 @@ async function serveDiscord(options: {
   });
 
   client.on("messageCreate", async (message) => {
-    // A message whose id equals its channel id is the starter of a thread-only
-    // channel (e.g. a forum post). Admitting the bot's own starter lets a post
-    // created by `/discord new-session` become that session's first prompt,
-    // while all other bot-authored messages stay ignored (silently, unlike the
-    // logged rejections below).
-    const selfStarter = message.author.id === client.user?.id && message.id === message.channelId;
-    if (message.author.bot && !selfStarter) {
+    // Admit only the bot's own thread starters and explicitly marked follow-up
+    // prompts. Ordinary replies and file messages remain ignored.
+    const selfMessageKind = getDiscordSelfMessageKind({
+      authorId: message.author.id,
+      botUserId: client.user?.id,
+      messageId: message.id,
+      channelId: message.channelId,
+      nonce: message.nonce,
+    });
+    if (message.author.bot && !selfMessageKind) {
       return;
     }
 
@@ -442,20 +447,25 @@ async function serveDiscord(options: {
     const label = `[${sessionName}:${message.id}]`;
 
     // an allowlisted parent channel admits its threads
-    const parentChannelId = message.channel.isThread() ? message.channel.parentId : undefined;
-    if (
-      allowedChannels.size &&
-      !allowedChannels.has(channelId) &&
-      !(parentChannelId && allowedChannels.has(parentChannelId))
-    ) {
+    const parentChannelId = message.channel.isThread()
+      ? (message.channel.parentId ?? undefined)
+      : undefined;
+    const targetRejection = getDiscordTargetRejection({
+      guildId,
+      channelId,
+      parentChannelId,
+      allowedGuildIds: config.discord.allowedGuildIds,
+      allowedChannelIds: config.discord.allowedChannelIds,
+    });
+    if (targetRejection === "channel") {
       console.error(`${label} rejected: channel ${channelId} is not allowed`);
       return;
     }
-    if (!guildId || !allowedGuilds.has(guildId)) {
+    if (targetRejection === "guild") {
       console.error(`${label} rejected: guild ${guildId ?? "direct-message"} is not allowed`);
       return;
     }
-    if (!selfStarter && allowedUsers.size && !allowedUsers.has(userId)) {
+    if (!selfMessageKind && allowedUsers.size && !allowedUsers.has(userId)) {
       console.error(`${label} rejected: user ${userId} is not allowed`);
       return;
     }
