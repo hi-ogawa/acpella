@@ -61,6 +61,14 @@ test("discord target allowlists", () => {
   ).toEqual({ allowed: true });
   expect(
     checkDiscordTargetAccess({
+      guildId: "guild",
+      channelId: "any-channel",
+      allowedGuildIds: ["guild"],
+      allowedChannelIds: [],
+    }),
+  ).toEqual({ allowed: true });
+  expect(
+    checkDiscordTargetAccess({
       guildId: "other",
       channelId: "channel",
       allowedGuildIds: ["guild"],
