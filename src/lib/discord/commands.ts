@@ -2,7 +2,7 @@ import fs from "node:fs";
 import type { HandlerExtraCommandGroup } from "../../handler.ts";
 import type { SplitArgs } from "../command.ts";
 import { createDiscordForumPost, createDiscordMessage, getDiscordChannel } from "./api.ts";
-import { formatDiscordSessionName, getDiscordTargetRejection } from "./utils.ts";
+import { checkDiscordTargetAccess, formatDiscordSessionName } from "./utils.ts";
 
 export function defineDiscordCommands(options: {
   token: string;
@@ -78,17 +78,17 @@ async function validateChannelTarget(options: {
   const parentChannelId = DISCORD_THREAD_CHANNEL_TYPES.has(channel.type)
     ? (channel.parent_id ?? undefined)
     : undefined;
-  const rejection = getDiscordTargetRejection({
+  const access = checkDiscordTargetAccess({
     guildId: channel.guild_id,
     channelId: options.channelId,
     parentChannelId,
     allowedGuildIds: options.allowedGuildIds,
     allowedChannelIds: options.allowedChannelIds,
   });
-  if (rejection === "guild") {
+  if (!access.allowed && access.reason === "guild") {
     throw new Error(`Guild is not allowed: ${channel.guild_id ?? "(none)"}`);
   }
-  if (rejection === "channel") {
+  if (!access.allowed && access.reason === "channel") {
     throw new Error(`Channel is not allowed: ${options.channelId}`);
   }
 }

@@ -32,21 +32,22 @@ export function formatDiscordConversationMetadata(options: {
   return `discord:guild:${options.guildId ?? "unknown"}:channel:${options.channelId}`;
 }
 
-export function getDiscordTargetRejection(options: {
+export function checkDiscordTargetAccess(options: {
   guildId?: string;
   channelId: string;
   parentChannelId?: string;
   allowedGuildIds: readonly string[];
   allowedChannelIds: readonly string[];
-}): "guild" | "channel" | undefined {
+}): { allowed: true } | { allowed: false; reason: "guild" | "channel" } {
   if (!options.guildId || !options.allowedGuildIds.includes(options.guildId)) {
-    return "guild";
+    return { allowed: false, reason: "guild" };
   }
   if (
     options.allowedChannelIds.length > 0 &&
     !options.allowedChannelIds.includes(options.channelId) &&
     !(options.parentChannelId && options.allowedChannelIds.includes(options.parentChannelId))
   ) {
-    return "channel";
+    return { allowed: false, reason: "channel" };
   }
+  return { allowed: true };
 }

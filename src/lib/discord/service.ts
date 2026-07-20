@@ -11,7 +11,7 @@ import {
   formatDiscordConversationMetadata,
   formatDiscordSessionName,
   formatDiscordThinking,
-  getDiscordTargetRejection,
+  checkDiscordTargetAccess,
 } from "./utils.ts";
 
 export async function serveDiscord(options: {
@@ -72,18 +72,18 @@ export async function serveDiscord(options: {
     const parentChannelId = message.channel.isThread()
       ? (message.channel.parentId ?? undefined)
       : undefined;
-    const targetRejection = getDiscordTargetRejection({
+    const targetAccess = checkDiscordTargetAccess({
       guildId,
       channelId,
       parentChannelId,
       allowedGuildIds: config.discord.allowedGuildIds,
       allowedChannelIds: config.discord.allowedChannelIds,
     });
-    if (targetRejection === "channel") {
+    if (!targetAccess.allowed && targetAccess.reason === "channel") {
       console.error(`${label} rejected: channel ${channelId} is not allowed`);
       return;
     }
-    if (targetRejection === "guild") {
+    if (!targetAccess.allowed && targetAccess.reason === "guild") {
       console.error(`${label} rejected: guild ${guildId ?? "direct-message"} is not allowed`);
       return;
     }

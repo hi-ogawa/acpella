@@ -3,7 +3,7 @@ import {
   formatDiscordConversationMetadata,
   formatDiscordSessionName,
   formatDiscordThinking,
-  getDiscordTargetRejection,
+  checkDiscordTargetAccess,
   parseDiscordSessionName,
 } from "./utils.ts";
 
@@ -48,14 +48,20 @@ test("discord target allowlists", () => {
     allowedGuildIds: ["guild"],
     allowedChannelIds: ["channel"],
   };
-  expect(getDiscordTargetRejection(target)).toBeUndefined();
+  expect(checkDiscordTargetAccess(target)).toEqual({ allowed: true });
   expect(
-    getDiscordTargetRejection({
+    checkDiscordTargetAccess({
       ...target,
       channelId: "thread",
       parentChannelId: "channel",
     }),
-  ).toBeUndefined();
-  expect(getDiscordTargetRejection({ ...target, guildId: "other" })).toBe("guild");
-  expect(getDiscordTargetRejection({ ...target, channelId: "other" })).toBe("channel");
+  ).toEqual({ allowed: true });
+  expect(checkDiscordTargetAccess({ ...target, guildId: "other" })).toEqual({
+    allowed: false,
+    reason: "guild",
+  });
+  expect(checkDiscordTargetAccess({ ...target, channelId: "other" })).toEqual({
+    allowed: false,
+    reason: "channel",
+  });
 });
