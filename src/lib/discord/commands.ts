@@ -153,7 +153,7 @@ function parseDiscordNewSessionArgs(splitArgs: SplitArgs): {
   return { channelId, title, text: splitArgs.body };
 }
 
-export function parseDiscordSendMessageArgs(splitArgs: SplitArgs): {
+function parseDiscordSendMessageArgs(splitArgs: SplitArgs): {
   channelId: string;
   text: string;
 } {
