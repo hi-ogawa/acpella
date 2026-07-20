@@ -1,3 +1,5 @@
+export const DISCORD_PROMPT_NONCE_PREFIX = "acpella-prompt:";
+
 export function formatDiscordSessionName(channelId: string): string {
   return `discord:${channelId}`;
 }
@@ -30,4 +32,43 @@ export function formatDiscordConversationMetadata(options: {
     return `discord:dm:${options.channelId}`;
   }
   return `discord:guild:${options.guildId ?? "unknown"}:channel:${options.channelId}`;
+}
+
+export function getDiscordTargetRejection(options: {
+  guildId?: string;
+  channelId: string;
+  parentChannelId?: string;
+  allowedGuildIds: readonly string[];
+  allowedChannelIds: readonly string[];
+}): "guild" | "channel" | undefined {
+  if (!options.guildId || !options.allowedGuildIds.includes(options.guildId)) {
+    return "guild";
+  }
+  if (
+    options.allowedChannelIds.length > 0 &&
+    !options.allowedChannelIds.includes(options.channelId) &&
+    !(options.parentChannelId && options.allowedChannelIds.includes(options.parentChannelId))
+  ) {
+    return "channel";
+  }
+}
+
+export function getDiscordSelfMessageKind(options: {
+  authorId: string;
+  botUserId?: string;
+  messageId: string;
+  channelId: string;
+  nonce?: string | number | null;
+}): "starter" | "prompt" | undefined {
+  // Discord-authenticated bot identity is the trust check; nonce only classifies
+  // which of this bot's own messages should enter normal prompt handling.
+  if (options.authorId !== options.botUserId) {
+    return;
+  }
+  if (options.messageId === options.channelId) {
+    return "starter";
+  }
+  if (typeof options.nonce === "string" && options.nonce.startsWith(DISCORD_PROMPT_NONCE_PREFIX)) {
+    return "prompt";
+  }
 }

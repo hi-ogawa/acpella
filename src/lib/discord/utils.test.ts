@@ -1,8 +1,11 @@
 import { expect, test } from "vitest";
 import {
+  DISCORD_PROMPT_NONCE_PREFIX,
   formatDiscordConversationMetadata,
   formatDiscordSessionName,
   formatDiscordThinking,
+  getDiscordSelfMessageKind,
+  getDiscordTargetRejection,
   parseDiscordSessionName,
 } from "./utils.ts";
 
@@ -38,4 +41,47 @@ test("discord thinking", () => {
     >
     > Then run tests"
   `);
+});
+
+test("discord self messages", () => {
+  const message = {
+    authorId: "bot",
+    botUserId: "bot",
+    messageId: "message",
+    channelId: "channel",
+  };
+  expect(getDiscordSelfMessageKind({ ...message, messageId: "channel" })).toBe("starter");
+  expect(
+    getDiscordSelfMessageKind({
+      ...message,
+      nonce: `${DISCORD_PROMPT_NONCE_PREFIX}123`,
+    }),
+  ).toBe("prompt");
+  expect(getDiscordSelfMessageKind(message)).toBeUndefined();
+  expect(
+    getDiscordSelfMessageKind({
+      ...message,
+      authorId: "other-bot",
+      nonce: `${DISCORD_PROMPT_NONCE_PREFIX}123`,
+    }),
+  ).toBeUndefined();
+});
+
+test("discord target allowlists", () => {
+  const target = {
+    guildId: "guild",
+    channelId: "channel",
+    allowedGuildIds: ["guild"],
+    allowedChannelIds: ["channel"],
+  };
+  expect(getDiscordTargetRejection(target)).toBeUndefined();
+  expect(
+    getDiscordTargetRejection({
+      ...target,
+      channelId: "thread",
+      parentChannelId: "channel",
+    }),
+  ).toBeUndefined();
+  expect(getDiscordTargetRejection({ ...target, guildId: "other" })).toBe("guild");
+  expect(getDiscordTargetRejection({ ...target, channelId: "other" })).toBe("channel");
 });
