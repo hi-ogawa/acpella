@@ -62,6 +62,30 @@ Usage notes:
 - Discord caps the post body at 2000 characters. Keep it a readable summary of the task; for deep context, write a tmp file and reference its path in the handoff — the new session's agent picks it up through its own tmp-file convention.
 - Agents cannot discover forum ids on their own. To let an agent branch subtasks into posts, put the forum id and spawn policy in `ACPELLA_HOME/.acpella/AGENTS.md`, for example: "To branch a subtask into its own session, run `acpella exec /discord new-session <forum-channel-id> <title> -- <handoff>` with a written handoff (context, stop conditions, mutation boundaries). Spawn deliberately."
 
+### Parent-Child Callbacks
+
+A forum-post child can wake its parent with a completion or blocker summary. The child cannot discover its parent, so include the callback target in the initial handoff. Include the source message URL as a backlink for the user.
+
+```text
+Parent callback:
+- Session: discord:<parent-channel-id>
+- Source: https://discord.com/channels/<guild-id>/<parent-channel-id>/<message-id>
+- When finished or blocked, send one concise result with:
+  acpella exec "/discord send-message <parent-channel-id> -- <result>"
+```
+
+Build the source URL from the Discord prompt metadata fields `channel` and `message_id`. Keep investigation details and artifacts in the child post; return only the outcome, blocker, and essential next action.
+
+## Sending Prompts to Existing Sessions
+
+Use `/discord send-message` to post a visible prompt to an existing Discord channel or thread session. The command sends the message through Discord REST, then the running Discord Gateway service receives the marked bot message and processes it through the target session's normal prompt queue.
+
+```text
+/discord send-message <channel-id> -- <text>
+```
+
+The text after `--` is preserved verbatim, including newlines. Through `acpella exec`, quote the whole command argument to preserve them. The target uses the same guild and channel allowlists as inbound messages, including the rule that an allowlisted parent admits its threads.
+
 ## Sending Files
 
 Use `/discord send-file` to deliver a local file (an image, a chart, a build artifact) into a channel as an attachment, since agent replies are otherwise text-only.

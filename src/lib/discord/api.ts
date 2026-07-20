@@ -3,15 +3,24 @@ import path from "node:path";
 
 const DISCORD_API_BASE = "https://discord.com/api/v10";
 
-// https://docs.discord.com/developers/resources/channel#create-message
+// https://docs.discord.com/developers/resources/message#create-message
 export async function createDiscordMessage(options: {
   token: string;
   channelId: string;
   text?: string;
   filePaths?: string[];
-}): Promise<void> {
+  nonce?: string;
+  enforceNonce?: boolean;
+}): Promise<{ id: string }> {
   const form = new FormData();
-  form.append("payload_json", JSON.stringify({ content: options.text ?? "" }));
+  form.append(
+    "payload_json",
+    JSON.stringify({
+      content: options.text ?? "",
+      ...(options.nonce ? { nonce: options.nonce } : {}),
+      ...(options.enforceNonce ? { enforce_nonce: true } : {}),
+    }),
+  );
   for (const [index, filePath] of (options.filePaths ?? []).entries()) {
     form.append(`files[${index}]`, new Blob([fs.readFileSync(filePath)]), path.basename(filePath));
   }
@@ -26,6 +35,7 @@ export async function createDiscordMessage(options: {
     const body = await response.text();
     throw new Error(`Discord API error: ${response.status} ${response.statusText}\n${body}`);
   }
+  return await response.json();
 }
 
 // https://docs.discord.com/developers/resources/channel#get-channel

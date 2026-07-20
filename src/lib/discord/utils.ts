@@ -1,3 +1,7 @@
+import type { Message } from "discord.js";
+
+export const DISCORD_PROMPT_NONCE_PREFIX = "acpella-prompt:";
+
 export function formatDiscordSessionName(channelId: string): string {
   return `discord:${channelId}`;
 }
@@ -50,4 +54,32 @@ export function checkDiscordTargetAccess(options: {
     return { allowed: false, reason: "channel" };
   }
   return { allowed: true };
+}
+
+export function checkDiscordMessageAuthor(options: {
+  message: Message;
+  botUserId?: string;
+}): "allowed-bot" | "disallowed-bot" | "user" {
+  if (!options.message.author.bot) {
+    return "user";
+  }
+
+  // Allow only the bot's own messages used to start or resume a session.
+  if (options.message.author.id === options.botUserId) {
+    // A forum-post starter has the same message and channel id.
+    if (options.message.id === options.message.channelId) {
+      return "allowed-bot";
+    }
+
+    // `/discord send-message` adds this marker. The nonce is not authentication;
+    // Discord's message author identifies the bot.
+    if (
+      typeof options.message.nonce === "string" &&
+      options.message.nonce.startsWith(DISCORD_PROMPT_NONCE_PREFIX)
+    ) {
+      return "allowed-bot";
+    }
+  }
+
+  return "disallowed-bot";
 }

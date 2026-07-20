@@ -2,7 +2,11 @@ import fs from "node:fs";
 import type { HandlerExtraCommandGroup } from "../../handler.ts";
 import type { SplitArgs } from "../command.ts";
 import { createDiscordForumPost, createDiscordMessage, getDiscordChannel } from "./api.ts";
-import { checkDiscordTargetAccess, formatDiscordSessionName } from "./utils.ts";
+import {
+  checkDiscordTargetAccess,
+  DISCORD_PROMPT_NONCE_PREFIX,
+  formatDiscordSessionName,
+} from "./utils.ts";
 
 export function defineDiscordCommands(options: {
   token: string;
@@ -34,6 +38,31 @@ export function defineDiscordCommands(options: {
 Created discord forum post.
 session: ${formatDiscordSessionName(result.threadId)}
 url: ${result.url}`);
+        },
+      },
+      {
+        tokens: ["send-message"],
+        usage: "/discord send-message <channel-id> -- <text>",
+        description: "Send a prompt to an existing channel session.",
+        withArgs: true,
+        run: async ({ splitArgs, reply, usage }) => {
+          if (splitArgs.head.length === 0) {
+            await reply.system(usage);
+            return;
+          }
+          const parsed = parseDiscordSendMessageArgs(splitArgs);
+          const target = await validateChannelTarget({ ...options, channelId: parsed.channelId });
+          const result = await createDiscordMessage({
+            token: options.token,
+            channelId: parsed.channelId,
+            text: parsed.text,
+            nonce: createDiscordPromptNonce(),
+            enforceNonce: true,
+          });
+          await reply.system(`\
+Sent prompt to Discord session.
+session: ${formatDiscordSessionName(parsed.channelId)}
+url: https://discord.com/channels/${target.guild_id!}/${parsed.channelId}/${result.id}`);
         },
       },
       {
@@ -72,7 +101,7 @@ async function validateChannelTarget(options: {
   allowedGuildIds: string[];
   allowedChannelIds: string[];
   channelId: string;
-}): Promise<void> {
+}) {
   const channel = await getDiscordChannel({ token: options.token, channelId: options.channelId });
   // an allowlisted parent channel admits its threads (mirrors the inbound guard)
   const parentChannelId = DISCORD_THREAD_CHANNEL_TYPES.has(channel.type)
@@ -91,6 +120,12 @@ async function validateChannelTarget(options: {
   if (!access.allowed && access.reason === "channel") {
     throw new Error(`Channel is not allowed: ${options.channelId}`);
   }
+  return channel;
+}
+
+function createDiscordPromptNonce(): string {
+  // Discord limits nonces to 25 characters.
+  return DISCORD_PROMPT_NONCE_PREFIX + crypto.randomUUID().replaceAll("-", "").slice(0, 10);
 }
 
 function parseDiscordNewSessionArgs(splitArgs: SplitArgs): {
@@ -116,6 +151,26 @@ function parseDiscordNewSessionArgs(splitArgs: SplitArgs): {
   }
 
   return { channelId, title, text: splitArgs.body };
+}
+
+function parseDiscordSendMessageArgs(splitArgs: SplitArgs): {
+  channelId: string;
+  text: string;
+} {
+  const [channelId, ...extra] = splitArgs.head;
+  if (!channelId) {
+    throw new Error("Missing channel id");
+  }
+  if (!/^\d+$/.test(channelId)) {
+    throw new Error(`Invalid channel id: ${channelId}`);
+  }
+  if (extra.length > 0) {
+    throw new Error(`Invalid arguments: ${splitArgs.head.join(" ")}`);
+  }
+  if (!splitArgs.body?.trim()) {
+    throw new Error("Missing `-- <text>`");
+  }
+  return { channelId, text: splitArgs.body };
 }
 
 function parseDiscordSendFileArgs(options: { args: string[] }): {

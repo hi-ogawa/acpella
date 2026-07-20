@@ -8,10 +8,11 @@ import type { CronDeliveryHandler } from "../cron/runner.ts";
 import { DISCORD_MESSAGE_SPLIT_BUDGET } from "../reply.ts";
 import { downloadDiscordAttachment } from "./file.ts";
 import {
+  checkDiscordMessageAuthor,
+  checkDiscordTargetAccess,
   formatDiscordConversationMetadata,
   formatDiscordSessionName,
   formatDiscordThinking,
-  checkDiscordTargetAccess,
 } from "./utils.ts";
 
 export async function serveDiscord(options: {
@@ -52,13 +53,13 @@ export async function serveDiscord(options: {
   });
 
   client.on("messageCreate", async (message) => {
-    // A message whose id equals its channel id is the starter of a thread-only
-    // channel (e.g. a forum post). Admitting the bot's own starter lets a post
-    // created by `/discord new-session` become that session's first prompt,
-    // while all other bot-authored messages stay ignored (silently, unlike the
-    // logged rejections below).
-    const selfStarter = message.author.id === client.user?.id && message.id === message.channelId;
-    if (message.author.bot && !selfStarter) {
+    // Admit only the bot's own thread starters and explicitly marked session
+    // prompts. Ordinary replies and file messages remain ignored.
+    const messageAuthor = checkDiscordMessageAuthor({
+      message,
+      botUserId: client.user?.id,
+    });
+    if (messageAuthor === "disallowed-bot") {
       return;
     }
 
@@ -87,7 +88,7 @@ export async function serveDiscord(options: {
       console.error(`${label} rejected: guild ${guildId ?? "direct-message"} is not allowed`);
       return;
     }
-    if (!selfStarter && allowedUsers.size && !allowedUsers.has(userId)) {
+    if (messageAuthor === "user" && allowedUsers.size && !allowedUsers.has(userId)) {
       console.error(`${label} rejected: user ${userId} is not allowed`);
       return;
     }
@@ -152,6 +153,7 @@ export async function serveDiscord(options: {
               channelId,
               isDirectMessage: message.channel.isDMBased(),
             }),
+            message_id: message.id,
             ...(message.channel.isThread() ? { thread_name: message.channel.name } : {}),
           },
           cronDeliveryTarget: {
