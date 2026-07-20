@@ -1,4 +1,3 @@
-import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import type { HandlerExtraCommandGroup } from "../../handler.ts";
 import type { SplitArgs } from "../command.ts";
@@ -124,8 +123,7 @@ async function validateChannelTarget(options: {
 }
 
 function createDiscordPromptNonce(): string {
-  // The random suffix gives REST retries a unique deduplication key, not authentication.
-  return DISCORD_PROMPT_NONCE_PREFIX + randomBytes(5).toString("hex");
+  return DISCORD_PROMPT_NONCE_PREFIX + crypto.randomUUID();
 }
 
 function parseDiscordNewSessionArgs(splitArgs: SplitArgs): {

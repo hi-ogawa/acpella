@@ -56,11 +56,8 @@ export async function serveDiscord(options: {
     // Admit only the bot's own thread starters and explicitly marked follow-up
     // prompts. Ordinary replies and file messages remain ignored.
     const selfMessageKind = getDiscordSelfMessageKind({
-      authorId: message.author.id,
+      message,
       botUserId: client.user?.id,
-      messageId: message.id,
-      channelId: message.channelId,
-      nonce: message.nonce,
     });
     if (message.author.bot && !selfMessageKind) {
       return;

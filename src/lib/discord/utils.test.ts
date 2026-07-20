@@ -1,3 +1,4 @@
+import type { Message } from "discord.js";
 import { expect, test } from "vitest";
 import {
   DISCORD_PROMPT_NONCE_PREFIX,
@@ -45,24 +46,33 @@ test("discord thinking", () => {
 
 test("discord self messages", () => {
   const message = {
-    authorId: "bot",
-    botUserId: "bot",
-    messageId: "message",
+    author: { id: "bot" },
+    id: "message",
     channelId: "channel",
   };
-  expect(getDiscordSelfMessageKind({ ...message, messageId: "channel" })).toBe("starter");
   expect(
     getDiscordSelfMessageKind({
-      ...message,
-      nonce: `${DISCORD_PROMPT_NONCE_PREFIX}123`,
+      message: { ...message, id: "channel" } as Message,
+      botUserId: "bot",
+    }),
+  ).toBe("starter");
+  expect(
+    getDiscordSelfMessageKind({
+      message: { ...message, nonce: `${DISCORD_PROMPT_NONCE_PREFIX}123` } as Message,
+      botUserId: "bot",
     }),
   ).toBe("prompt");
-  expect(getDiscordSelfMessageKind(message)).toBeUndefined();
+  expect(
+    getDiscordSelfMessageKind({ message: message as Message, botUserId: "bot" }),
+  ).toBeUndefined();
   expect(
     getDiscordSelfMessageKind({
-      ...message,
-      authorId: "other-bot",
-      nonce: `${DISCORD_PROMPT_NONCE_PREFIX}123`,
+      message: {
+        ...message,
+        author: { id: "other-bot" },
+        nonce: `${DISCORD_PROMPT_NONCE_PREFIX}123`,
+      } as Message,
+      botUserId: "bot",
     }),
   ).toBeUndefined();
 });
