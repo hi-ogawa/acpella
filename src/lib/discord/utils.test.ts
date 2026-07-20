@@ -1,12 +1,12 @@
 import type { Message } from "discord.js";
 import { expect, test } from "vitest";
 import {
+  checkDiscordSelfMessage,
   checkDiscordTargetAccess,
   DISCORD_PROMPT_NONCE_PREFIX,
   formatDiscordConversationMetadata,
   formatDiscordSessionName,
   formatDiscordThinking,
-  getDiscordSelfMessageKind,
   parseDiscordSessionName,
 } from "./utils.ts";
 
@@ -51,22 +51,22 @@ test("discord self messages", () => {
     channelId: "channel",
   };
   expect(
-    getDiscordSelfMessageKind({
+    checkDiscordSelfMessage({
       message: { ...message, id: "channel" } as Message,
       botUserId: "bot",
     }),
-  ).toBe("starter");
+  ).toEqual({ allowed: true });
   expect(
-    getDiscordSelfMessageKind({
+    checkDiscordSelfMessage({
       message: { ...message, nonce: `${DISCORD_PROMPT_NONCE_PREFIX}123` } as Message,
       botUserId: "bot",
     }),
-  ).toBe("prompt");
+  ).toEqual({ allowed: true });
+  expect(checkDiscordSelfMessage({ message: message as Message, botUserId: "bot" })).toEqual({
+    allowed: false,
+  });
   expect(
-    getDiscordSelfMessageKind({ message: message as Message, botUserId: "bot" }),
-  ).toBeUndefined();
-  expect(
-    getDiscordSelfMessageKind({
+    checkDiscordSelfMessage({
       message: {
         ...message,
         author: { id: "other-bot" },
@@ -74,7 +74,7 @@ test("discord self messages", () => {
       } as Message,
       botUserId: "bot",
     }),
-  ).toBeUndefined();
+  ).toEqual({ allowed: false });
 });
 
 test("discord target allowlists", () => {

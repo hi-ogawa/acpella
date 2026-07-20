@@ -56,22 +56,22 @@ export function checkDiscordTargetAccess(options: {
   return { allowed: true };
 }
 
-export function getDiscordSelfMessageKind(options: {
-  message: Message;
-  botUserId?: string;
-}): "starter" | "prompt" | undefined {
+export function checkDiscordSelfMessage(options: { message: Message; botUserId?: string }): {
+  allowed: boolean;
+} {
   // Discord-authenticated bot identity is the trust check; nonce only classifies
   // which of this bot's own messages should enter normal prompt handling.
   if (options.message.author.id !== options.botUserId) {
-    return;
+    return { allowed: false };
   }
   if (options.message.id === options.message.channelId) {
-    return "starter";
+    return { allowed: true };
   }
   if (
     typeof options.message.nonce === "string" &&
     options.message.nonce.startsWith(DISCORD_PROMPT_NONCE_PREFIX)
   ) {
-    return "prompt";
+    return { allowed: true };
   }
+  return { allowed: false };
 }

@@ -8,11 +8,11 @@ import type { CronDeliveryHandler } from "../cron/runner.ts";
 import { DISCORD_MESSAGE_SPLIT_BUDGET } from "../reply.ts";
 import { downloadDiscordAttachment } from "./file.ts";
 import {
+  checkDiscordSelfMessage,
+  checkDiscordTargetAccess,
   formatDiscordConversationMetadata,
   formatDiscordSessionName,
   formatDiscordThinking,
-  getDiscordSelfMessageKind,
-  checkDiscordTargetAccess,
 } from "./utils.ts";
 
 export async function serveDiscord(options: {
@@ -55,11 +55,11 @@ export async function serveDiscord(options: {
   client.on("messageCreate", async (message) => {
     // Admit only the bot's own thread starters and explicitly marked follow-up
     // prompts. Ordinary replies and file messages remain ignored.
-    const selfMessageKind = getDiscordSelfMessageKind({
+    const selfMessageAccess = checkDiscordSelfMessage({
       message,
       botUserId: client.user?.id,
     });
-    if (message.author.bot && !selfMessageKind) {
+    if (message.author.bot && !selfMessageAccess.allowed) {
       return;
     }
 
@@ -88,7 +88,7 @@ export async function serveDiscord(options: {
       console.error(`${label} rejected: guild ${guildId ?? "direct-message"} is not allowed`);
       return;
     }
-    if (!selfMessageKind && allowedUsers.size && !allowedUsers.has(userId)) {
+    if (!selfMessageAccess.allowed && allowedUsers.size && !allowedUsers.has(userId)) {
       console.error(`${label} rejected: user ${userId} is not allowed`);
       return;
     }
