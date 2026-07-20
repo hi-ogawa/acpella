@@ -3,9 +3,9 @@ import type { HandlerExtraCommandGroup } from "../../handler.ts";
 import type { SplitArgs } from "../command.ts";
 import { createDiscordForumPost, createDiscordMessage, getDiscordChannel } from "./api.ts";
 import {
+  checkDiscordTargetAccess,
   DISCORD_PROMPT_NONCE_PREFIX,
   formatDiscordSessionName,
-  getDiscordTargetRejection,
 } from "./utils.ts";
 
 export function defineDiscordCommands(options: {
@@ -103,20 +103,21 @@ async function validateChannelTarget(options: {
   channelId: string;
 }) {
   const channel = await getDiscordChannel({ token: options.token, channelId: options.channelId });
+  // an allowlisted parent channel admits its threads (mirrors the inbound guard)
   const parentChannelId = DISCORD_THREAD_CHANNEL_TYPES.has(channel.type)
     ? (channel.parent_id ?? undefined)
     : undefined;
-  const rejection = getDiscordTargetRejection({
+  const access = checkDiscordTargetAccess({
     guildId: channel.guild_id,
     channelId: options.channelId,
     parentChannelId,
     allowedGuildIds: options.allowedGuildIds,
     allowedChannelIds: options.allowedChannelIds,
   });
-  if (rejection === "guild") {
+  if (!access.allowed && access.reason === "guild") {
     throw new Error(`Guild is not allowed: ${channel.guild_id ?? "(none)"}`);
   }
-  if (rejection === "channel") {
+  if (!access.allowed && access.reason === "channel") {
     throw new Error(`Channel is not allowed: ${options.channelId}`);
   }
   return channel;

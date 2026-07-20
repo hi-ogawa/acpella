@@ -1,12 +1,12 @@
 import type { Message } from "discord.js";
 import { expect, test } from "vitest";
 import {
+  checkDiscordTargetAccess,
   DISCORD_PROMPT_NONCE_PREFIX,
   formatDiscordConversationMetadata,
   formatDiscordSessionName,
   formatDiscordThinking,
   getDiscordSelfMessageKind,
-  getDiscordTargetRejection,
   parseDiscordSessionName,
 } from "./utils.ts";
 
@@ -78,20 +78,45 @@ test("discord self messages", () => {
 });
 
 test("discord target allowlists", () => {
-  const target = {
-    guildId: "guild",
-    channelId: "channel",
-    allowedGuildIds: ["guild"],
-    allowedChannelIds: ["channel"],
-  };
-  expect(getDiscordTargetRejection(target)).toBeUndefined();
   expect(
-    getDiscordTargetRejection({
-      ...target,
+    checkDiscordTargetAccess({
+      guildId: "guild",
+      channelId: "channel",
+      allowedGuildIds: ["guild"],
+      allowedChannelIds: ["channel"],
+    }),
+  ).toEqual({ allowed: true });
+  expect(
+    checkDiscordTargetAccess({
+      guildId: "guild",
       channelId: "thread",
       parentChannelId: "channel",
+      allowedGuildIds: ["guild"],
+      allowedChannelIds: ["channel"],
     }),
-  ).toBeUndefined();
-  expect(getDiscordTargetRejection({ ...target, guildId: "other" })).toBe("guild");
-  expect(getDiscordTargetRejection({ ...target, channelId: "other" })).toBe("channel");
+  ).toEqual({ allowed: true });
+  expect(
+    checkDiscordTargetAccess({
+      guildId: "guild",
+      channelId: "any-channel",
+      allowedGuildIds: ["guild"],
+      allowedChannelIds: [],
+    }),
+  ).toEqual({ allowed: true });
+  expect(
+    checkDiscordTargetAccess({
+      guildId: "other",
+      channelId: "channel",
+      allowedGuildIds: ["guild"],
+      allowedChannelIds: ["channel"],
+    }),
+  ).toEqual({ allowed: false, reason: "guild" });
+  expect(
+    checkDiscordTargetAccess({
+      guildId: "guild",
+      channelId: "other",
+      allowedGuildIds: ["guild"],
+      allowedChannelIds: ["channel"],
+    }),
+  ).toEqual({ allowed: false, reason: "channel" });
 });
