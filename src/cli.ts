@@ -6,7 +6,7 @@ import { createHandler, type Handler, type HandlerExtraCommands } from "./handle
 import { parseCli } from "./lib/cli.ts";
 import { CronRunner, type CronDeliveryHandler } from "./lib/cron/runner.ts";
 import { CronStore } from "./lib/cron/store.ts";
-import { defineDiscordCommands } from "./lib/discord/channel.ts";
+import { defineDiscordCommands } from "./lib/discord/commands.ts";
 import { serveDiscord } from "./lib/discord/service.ts";
 import { serveTelegram } from "./lib/telegram/service.ts";
 import { getVersion } from "./lib/version.ts";
