@@ -214,10 +214,11 @@ export async function serveTelegram(options: {
     });
   });
 
-  return run(bot, {
+  const botRunner = run(bot, {
     sink: {
       // @grammyjs/runner defaults to 500; keep acpella conservative because prompts spawn child agents.
       concurrency: 5,
     },
   });
+  return botRunner;
 }
