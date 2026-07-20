@@ -63,19 +63,23 @@ export function checkDiscordMessageAuthor(options: {
   if (!options.message.author.bot) {
     return "user";
   }
-  // Discord-authenticated bot identity is the trust check; nonce only classifies
-  // which of this bot's own messages should enter normal prompt handling.
-  if (options.message.author.id !== options.botUserId) {
-    return "disallowed-bot";
+
+  // Allow only the bot's own messages used to start or resume a session.
+  if (options.message.author.id === options.botUserId) {
+    // A forum-post starter has the same message and channel id.
+    if (options.message.id === options.message.channelId) {
+      return "allowed-bot";
+    }
+
+    // `/discord send-message` adds this marker. The nonce is not authentication;
+    // Discord's message author identifies the bot.
+    if (
+      typeof options.message.nonce === "string" &&
+      options.message.nonce.startsWith(DISCORD_PROMPT_NONCE_PREFIX)
+    ) {
+      return "allowed-bot";
+    }
   }
-  if (options.message.id === options.message.channelId) {
-    return "allowed-bot";
-  }
-  if (
-    typeof options.message.nonce === "string" &&
-    options.message.nonce.startsWith(DISCORD_PROMPT_NONCE_PREFIX)
-  ) {
-    return "allowed-bot";
-  }
+
   return "disallowed-bot";
 }
