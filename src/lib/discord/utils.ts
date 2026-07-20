@@ -56,23 +56,26 @@ export function checkDiscordTargetAccess(options: {
   return { allowed: true };
 }
 
-export function checkDiscordSelfMessage(options: {
+export function checkDiscordMessageAuthor(options: {
   message: Message;
   botUserId?: string;
-}): "allowed" | "disallowed" | "not-self" {
+}): "allowed-bot" | "disallowed-bot" | "user" {
+  if (!options.message.author.bot) {
+    return "user";
+  }
   // Discord-authenticated bot identity is the trust check; nonce only classifies
   // which of this bot's own messages should enter normal prompt handling.
   if (options.message.author.id !== options.botUserId) {
-    return "not-self";
+    return "disallowed-bot";
   }
   if (options.message.id === options.message.channelId) {
-    return "allowed";
+    return "allowed-bot";
   }
   if (
     typeof options.message.nonce === "string" &&
     options.message.nonce.startsWith(DISCORD_PROMPT_NONCE_PREFIX)
   ) {
-    return "allowed";
+    return "allowed-bot";
   }
-  return "disallowed";
+  return "disallowed-bot";
 }

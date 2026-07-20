@@ -1,7 +1,7 @@
 import type { Message } from "discord.js";
 import { expect, test } from "vitest";
 import {
-  checkDiscordSelfMessage,
+  checkDiscordMessageAuthor,
   checkDiscordTargetAccess,
   DISCORD_PROMPT_NONCE_PREFIX,
   formatDiscordConversationMetadata,
@@ -46,35 +46,41 @@ test("discord thinking", () => {
 
 test("discord self messages", () => {
   const message = {
-    author: { id: "bot" },
+    author: { id: "bot", bot: true },
     id: "message",
     channelId: "channel",
   };
   expect(
-    checkDiscordSelfMessage({
+    checkDiscordMessageAuthor({
       message: { ...message, id: "channel" } as Message,
       botUserId: "bot",
     }),
-  ).toBe("allowed");
+  ).toBe("allowed-bot");
   expect(
-    checkDiscordSelfMessage({
+    checkDiscordMessageAuthor({
       message: { ...message, nonce: `${DISCORD_PROMPT_NONCE_PREFIX}123` } as Message,
       botUserId: "bot",
     }),
-  ).toBe("allowed");
-  expect(checkDiscordSelfMessage({ message: message as Message, botUserId: "bot" })).toBe(
-    "disallowed",
+  ).toBe("allowed-bot");
+  expect(checkDiscordMessageAuthor({ message: message as Message, botUserId: "bot" })).toBe(
+    "disallowed-bot",
   );
   expect(
-    checkDiscordSelfMessage({
+    checkDiscordMessageAuthor({
       message: {
         ...message,
-        author: { id: "other-bot" },
+        author: { id: "other-bot", bot: true },
         nonce: `${DISCORD_PROMPT_NONCE_PREFIX}123`,
       } as Message,
       botUserId: "bot",
     }),
-  ).toBe("not-self");
+  ).toBe("disallowed-bot");
+  expect(
+    checkDiscordMessageAuthor({
+      message: { ...message, author: { id: "user", bot: false } } as Message,
+      botUserId: "bot",
+    }),
+  ).toBe("user");
 });
 
 test("discord target allowlists", () => {
