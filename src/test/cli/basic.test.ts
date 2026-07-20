@@ -5,7 +5,7 @@ test("help", async () => {
   const cli = useCli();
   const result = await cli.cli("--help");
   expect(sanitizeOutput(result.stderr)).toMatchInlineSnapshot(`""`);
-  expect(result.stdout).toMatchInlineSnapshot(`
+  expect(sanitizeOutput(result.stdout)).toMatchInlineSnapshot(`
     "Usage: acpella <command>
 
     Commands:
@@ -16,6 +16,9 @@ test("help", async () => {
     Options:
       --env-file=<path> Use this env file for config resolution.
       -h, --help        Show this help.
+
+    Full guide:
+      <root>/skills/acpella/SKILL.md
 
     "
   `);
@@ -53,7 +56,10 @@ test("unexpected command arguments error", async () => {
 
       Options:
         --env-file=<path> Use this env file for config resolution.
-        -h, --help        Show this help."
+        -h, --help        Show this help.
+
+      Full guide:
+        <root>/skills/acpella/SKILL.md"
     `);
 });
 
