@@ -42,26 +42,37 @@ test("discord thinking", () => {
 });
 
 test("discord target allowlists", () => {
-  const target = {
-    guildId: "guild",
-    channelId: "channel",
-    allowedGuildIds: ["guild"],
-    allowedChannelIds: ["channel"],
-  };
-  expect(checkDiscordTargetAccess(target)).toEqual({ allowed: true });
   expect(
     checkDiscordTargetAccess({
-      ...target,
-      channelId: "thread",
-      parentChannelId: "channel",
+      guildId: "guild",
+      channelId: "channel",
+      allowedGuildIds: ["guild"],
+      allowedChannelIds: ["channel"],
     }),
   ).toEqual({ allowed: true });
-  expect(checkDiscordTargetAccess({ ...target, guildId: "other" })).toEqual({
-    allowed: false,
-    reason: "guild",
-  });
-  expect(checkDiscordTargetAccess({ ...target, channelId: "other" })).toEqual({
-    allowed: false,
-    reason: "channel",
-  });
+  expect(
+    checkDiscordTargetAccess({
+      guildId: "guild",
+      channelId: "thread",
+      parentChannelId: "channel",
+      allowedGuildIds: ["guild"],
+      allowedChannelIds: ["channel"],
+    }),
+  ).toEqual({ allowed: true });
+  expect(
+    checkDiscordTargetAccess({
+      guildId: "other",
+      channelId: "channel",
+      allowedGuildIds: ["guild"],
+      allowedChannelIds: ["channel"],
+    }),
+  ).toEqual({ allowed: false, reason: "guild" });
+  expect(
+    checkDiscordTargetAccess({
+      guildId: "guild",
+      channelId: "other",
+      allowedGuildIds: ["guild"],
+      allowedChannelIds: ["channel"],
+    }),
+  ).toEqual({ allowed: false, reason: "channel" });
 });
