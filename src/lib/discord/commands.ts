@@ -43,7 +43,7 @@ url: ${result.url}`);
       {
         tokens: ["send-message"],
         usage: "/discord send-message <channel-id> -- <text>",
-        description: "Send a follow-up prompt to a channel session.",
+        description: "Send a prompt to an existing channel session.",
         withArgs: true,
         run: async ({ splitArgs, reply, usage }) => {
           if (splitArgs.head.length === 0) {

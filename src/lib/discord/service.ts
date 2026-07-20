@@ -53,7 +53,7 @@ export async function serveDiscord(options: {
   });
 
   client.on("messageCreate", async (message) => {
-    // Admit only the bot's own thread starters and explicitly marked follow-up
+    // Admit only the bot's own thread starters and explicitly marked session
     // prompts. Ordinary replies and file messages remain ignored.
     const selfMessage = checkDiscordSelfMessage({
       message,

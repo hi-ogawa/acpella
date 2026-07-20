@@ -62,9 +62,9 @@ Usage notes:
 - Discord caps the post body at 2000 characters. Keep it a readable summary of the task; for deep context, write a tmp file and reference its path in the handoff — the new session's agent picks it up through its own tmp-file convention.
 - Agents cannot discover forum ids on their own. To let an agent branch subtasks into posts, put the forum id and spawn policy in `ACPELLA_HOME/.acpella/AGENTS.md`, for example: "To branch a subtask into its own session, run `acpella exec /discord new-session <forum-channel-id> <title> -- <handoff>` with a written handoff (context, stop conditions, mutation boundaries). Spawn deliberately."
 
-## Sending Follow-Up Prompts
+## Sending Prompts to Existing Sessions
 
-Use `/discord send-message` to post a visible follow-up prompt into an existing Discord channel or thread session. The command posts through Discord REST, then the running Discord Gateway service receives the marked bot message and processes it through the target session's normal prompt queue.
+Use `/discord send-message` to post a visible prompt to an existing Discord channel or thread session. The command sends the message through Discord REST, then the running Discord Gateway service receives the marked bot message and processes it through the target session's normal prompt queue.
 
 ```text
 /discord send-message <channel-id> -- <text>
