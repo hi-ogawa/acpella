@@ -74,10 +74,14 @@ Parent session
                  └─ Concise result returns to the parent
 ```
 
-The child cannot infer which session created it. Include the parent's Discord channel or thread id in the handoff, together with explicit reporting instructions:
+The child cannot infer which session created it. Include the parent's Discord channel or thread id in the handoff, together with explicit reporting instructions. When available, also include the parent message URL so the child can inspect the exact source context. Discord prompt metadata provides `channel: discord:guild:<guild-id>:channel:<channel-id>` and `message_id: <message-id>`; construct the URL as `https://discord.com/channels/<guild-id>/<channel-id>/<message-id>`.
 
 ```text
-/discord new-session <forum-channel-id> Investigate cache invalidation -- Investigate the cache invalidation failure. Parent session: discord:<parent-channel-id>. Work independently in this post. When finished or blocked, report a concise result to the parent with: acpella exec "/discord send-message <parent-channel-id> -- <result>"
+/discord new-session <forum-channel-id> Investigate cache invalidation -- Parent context:
+- Session: discord:<parent-channel-id>
+- Message: https://discord.com/channels/<guild-id>/<parent-channel-id>/<message-id>
+
+Investigate the cache invalidation failure. Work independently in this post. When finished or blocked, report a concise result to the parent with: acpella exec "/discord send-message <parent-channel-id> -- <result>"
 ```
 
 Keep detailed investigation and artifacts in the child post. Return only the outcome, blocker, and essential next action to the parent, which remains responsible for integrating the result.
