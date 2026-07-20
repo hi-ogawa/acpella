@@ -131,7 +131,7 @@ ${CLI_HELP}`);
   if (config.telegram.token) {
     channelNames.push("telegram");
     const botRunner = await serveTelegram({
-      config: config.telegram,
+      config,
       handler,
       registerCronDeliveryHandler,
     });
@@ -141,7 +141,7 @@ ${CLI_HELP}`);
   if (config.discord.token) {
     channelNames.push("discord");
     const client = await serveDiscord({
-      config: config.discord,
+      config,
       handler,
       registerCronDeliveryHandler,
     });

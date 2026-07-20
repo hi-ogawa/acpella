@@ -16,22 +16,22 @@ import {
 } from "./utils.ts";
 
 export async function serveTelegram(options: {
-  config: AppConfig["telegram"];
+  config: AppConfig;
   handler: Handler;
   registerCronDeliveryHandler: (handler: CronDeliveryHandler) => void;
 }) {
   const { config, handler, registerCronDeliveryHandler } = options;
-  const allowedUsers = new Set(config.allowedUserIds);
-  const allowedChats = new Set(config.allowedChatIds);
+  const allowedUsers = new Set(config.telegram.allowedUserIds);
+  const allowedChats = new Set(config.telegram.allowedChatIds);
 
-  if (!config.token) {
+  if (!config.telegram.token) {
     throw new Error("ACPELLA_TELEGRAM_BOT_TOKEN is required");
   }
   if (allowedUsers.size === 0) {
     throw new Error("ACPELLA_TELEGRAM_ALLOWED_USER_IDS must be non-empty");
   }
 
-  const telegramToken = config.token;
+  const telegramToken = config.telegram.token;
   const bot = new Bot(telegramToken);
   const botInfo = await bot.api.getMe();
   const botUsername = botInfo.username;

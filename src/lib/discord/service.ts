@@ -14,22 +14,22 @@ import {
 } from "./utils.ts";
 
 export async function serveDiscord(options: {
-  config: AppConfig["discord"];
+  config: AppConfig;
   handler: Handler;
   registerCronDeliveryHandler: (handler: CronDeliveryHandler) => void;
 }) {
   const { config, handler, registerCronDeliveryHandler } = options;
 
-  if (!config.token) {
+  if (!config.discord.token) {
     throw new Error("ACPELLA_DISCORD_BOT_TOKEN is required");
   }
-  if (config.allowedGuildIds.length === 0) {
+  if (config.discord.allowedGuildIds.length === 0) {
     throw new Error("ACPELLA_DISCORD_ALLOWED_GUILD_IDS must be non-empty");
   }
 
-  const allowedUsers = new Set(config.allowedUserIds);
-  const allowedGuilds = new Set(config.allowedGuildIds);
-  const allowedChannels = new Set(config.allowedChannelIds);
+  const allowedUsers = new Set(config.discord.allowedUserIds);
+  const allowedGuilds = new Set(config.discord.allowedGuildIds);
+  const allowedChannels = new Set(config.discord.allowedChannelIds);
 
   const client = new Client({
     intents: [
@@ -171,6 +171,6 @@ export async function serveDiscord(options: {
     console.error("[discord] client error", error);
   });
 
-  await client.login(config.token);
+  await client.login(config.discord.token);
   return client;
 }
