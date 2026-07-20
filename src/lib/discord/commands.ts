@@ -124,7 +124,8 @@ async function validateChannelTarget(options: {
 }
 
 function createDiscordPromptNonce(): string {
-  return DISCORD_PROMPT_NONCE_PREFIX + crypto.randomUUID();
+  // Discord limits nonces to 25 characters.
+  return DISCORD_PROMPT_NONCE_PREFIX + crypto.randomUUID().replaceAll("-", "").slice(0, 10);
 }
 
 function parseDiscordNewSessionArgs(splitArgs: SplitArgs): {
