@@ -3,6 +3,7 @@ import {
   formatDiscordConversationMetadata,
   formatDiscordSessionName,
   formatDiscordThinking,
+  getDiscordTargetRejection,
   parseDiscordSessionName,
 } from "./utils.ts";
 
@@ -38,4 +39,23 @@ test("discord thinking", () => {
     >
     > Then run tests"
   `);
+});
+
+test("discord target allowlists", () => {
+  const target = {
+    guildId: "guild",
+    channelId: "channel",
+    allowedGuildIds: ["guild"],
+    allowedChannelIds: ["channel"],
+  };
+  expect(getDiscordTargetRejection(target)).toBeUndefined();
+  expect(
+    getDiscordTargetRejection({
+      ...target,
+      channelId: "thread",
+      parentChannelId: "channel",
+    }),
+  ).toBeUndefined();
+  expect(getDiscordTargetRejection({ ...target, guildId: "other" })).toBe("guild");
+  expect(getDiscordTargetRejection({ ...target, channelId: "other" })).toBe("channel");
 });

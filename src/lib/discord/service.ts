@@ -11,6 +11,7 @@ import {
   formatDiscordConversationMetadata,
   formatDiscordSessionName,
   formatDiscordThinking,
+  getDiscordTargetRejection,
 } from "./utils.ts";
 
 export async function serveDiscord(options: {
@@ -28,8 +29,6 @@ export async function serveDiscord(options: {
   }
 
   const allowedUsers = new Set(config.discord.allowedUserIds);
-  const allowedGuilds = new Set(config.discord.allowedGuildIds);
-  const allowedChannels = new Set(config.discord.allowedChannelIds);
 
   const client = new Client({
     intents: [
@@ -70,16 +69,21 @@ export async function serveDiscord(options: {
     const label = `[${sessionName}:${message.id}]`;
 
     // an allowlisted parent channel admits its threads
-    const parentChannelId = message.channel.isThread() ? message.channel.parentId : undefined;
-    if (
-      allowedChannels.size &&
-      !allowedChannels.has(channelId) &&
-      !(parentChannelId && allowedChannels.has(parentChannelId))
-    ) {
+    const parentChannelId = message.channel.isThread()
+      ? (message.channel.parentId ?? undefined)
+      : undefined;
+    const targetRejection = getDiscordTargetRejection({
+      guildId,
+      channelId,
+      parentChannelId,
+      allowedGuildIds: config.discord.allowedGuildIds,
+      allowedChannelIds: config.discord.allowedChannelIds,
+    });
+    if (targetRejection === "channel") {
       console.error(`${label} rejected: channel ${channelId} is not allowed`);
       return;
     }
-    if (!guildId || !allowedGuilds.has(guildId)) {
+    if (targetRejection === "guild") {
       console.error(`${label} rejected: guild ${guildId ?? "direct-message"} is not allowed`);
       return;
     }
