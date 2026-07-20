@@ -62,29 +62,19 @@ Usage notes:
 - Discord caps the post body at 2000 characters. Keep it a readable summary of the task; for deep context, write a tmp file and reference its path in the handoff — the new session's agent picks it up through its own tmp-file convention.
 - Agents cannot discover forum ids on their own. To let an agent branch subtasks into posts, put the forum id and spawn policy in `ACPELLA_HOME/.acpella/AGENTS.md`, for example: "To branch a subtask into its own session, run `acpella exec /discord new-session <forum-channel-id> <title> -- <handoff>` with a written handoff (context, stop conditions, mutation boundaries). Spawn deliberately."
 
-### Parent-Child Session Handoffs
+### Parent-Child Callbacks
 
-A session can delegate durable work to a forum-post session and ask the child to report back when it finishes or becomes blocked:
-
-```text
-Parent session
-  └─ /discord new-session
-       └─ Child works visibly in a forum post
-            └─ /discord send-message when finished or blocked
-                 └─ Concise result returns to the parent
-```
-
-The child cannot infer which session created it. Include the parent's Discord channel or thread id in the handoff, together with explicit reporting instructions. When available, also include the parent message URL so the child can inspect the exact source context. Discord prompt metadata provides `channel: discord:guild:<guild-id>:channel:<channel-id>` and `message_id: <message-id>`; construct the URL as `https://discord.com/channels/<guild-id>/<channel-id>/<message-id>`.
+A forum-post child can wake its parent with a completion or blocker summary. The child cannot discover its parent, so include the callback target in the initial handoff. Include the source message URL as a backlink for the user.
 
 ```text
-/discord new-session <forum-channel-id> Investigate cache invalidation -- Parent context:
+Parent callback:
 - Session: discord:<parent-channel-id>
-- Message: https://discord.com/channels/<guild-id>/<parent-channel-id>/<message-id>
-
-Investigate the cache invalidation failure. Work independently in this post. When finished or blocked, report a concise result to the parent with: acpella exec "/discord send-message <parent-channel-id> -- <result>"
+- Source: https://discord.com/channels/<guild-id>/<parent-channel-id>/<message-id>
+- When finished or blocked, send one concise result with:
+  acpella exec "/discord send-message <parent-channel-id> -- <result>"
 ```
 
-Keep detailed investigation and artifacts in the child post. Return only the outcome, blocker, and essential next action to the parent, which remains responsible for integrating the result.
+Build the source URL from the Discord prompt metadata fields `channel` and `message_id`. Keep investigation details and artifacts in the child post; return only the outcome, blocker, and essential next action.
 
 ## Sending Prompts to Existing Sessions
 
