@@ -80,6 +80,8 @@ Build the source URL from the Discord prompt metadata fields `channel` and `mess
 
 Use `/discord send-message` to post a visible prompt to an existing Discord channel or thread session. The command sends the message through Discord REST, then the running Discord Gateway service receives the marked bot message and processes it through the target session's normal prompt queue.
 
+If the target session has an active turn, the new prompt is enqueued after it. It does not interrupt, replace, amend, or otherwise steer the prompt already being processed. Include essential constraints in the initial forum-post handoff because follow-up corrections may be processed only after the active work finishes.
+
 ```text
 /discord send-message <channel-id> -- <text>
 ```
