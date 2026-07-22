@@ -14,6 +14,8 @@ test("basic", () => {
 
     Available Skills
 
+    The skills below are provided through prompt context and file paths. The selected ACP backend may expose a separate built-in skill catalog or registration mechanism, or none. If a listed skill is unavailable through a backend mechanism, use its listed file directly.
+
     - Skill directory: acpella
       File: <root>/skills/acpella/SKILL.md
       Frontmatter:
@@ -51,6 +53,8 @@ test("not-found", () => {
 
     Available Skills
 
+    The skills below are provided through prompt context and file paths. The selected ACP backend may expose a separate built-in skill catalog or registration mechanism, or none. If a listed skill is unavailable through a backend mechanism, use its listed file directly.
+
     - Skill directory: acpella
       File: <root>/skills/acpella/SKILL.md
       Frontmatter:
@@ -75,6 +79,8 @@ test("acpella skills directive", () => {
 
     Available Skills
 
+    The skills below are provided through prompt context and file paths. The selected ACP backend may expose a separate built-in skill catalog or registration mechanism, or none. If a listed skill is unavailable through a backend mechanism, use its listed file directly.
+
     - Skill directory: acpella
       File: <root>/skills/acpella/SKILL.md
       Frontmatter:
@@ -91,6 +97,8 @@ test("acpella skills directive", () => {
 
     <custom_instructions>
     before
+    The skills below are provided through prompt context and file paths. The selected ACP backend may expose a separate built-in skill catalog or registration mechanism, or none. If a listed skill is unavailable through a backend mechanism, use its listed file directly.
+
     - Skill directory: alpha
       File: <root>/fixtures/prompt-directives/skills/alpha/SKILL.md
       Frontmatter:
