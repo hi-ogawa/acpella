@@ -46,9 +46,15 @@ Discord is enabled for `acpella serve` when `ACPELLA_DISCORD_BOT_TOKEN` is set.
 acpella serve
 ```
 
+## Current Conversation ID
+
+Discord represents channels, threads, and forum posts with IDs in the same numeric format. In this guide, `<forum-channel-id>` identifies the forum where a post is created, while `<conversation-id>` identifies a destination for messages or files. For a forum post, the conversation ID is the post's thread ID.
+
+Discord prompts include the current destination in `<message_metadata>` as `channel: discord:guild:<guild-id>:channel:<conversation-id>`. Use the final `<conversation-id>` with commands such as `/discord send-message` and `/discord send-file`.
+
 ## Forum-Post Sessions
 
-Use `/discord new-session` to branch a task into its own forum post while working in a channel or another post. The post becomes a fresh acpella session with the post body as its first prompt, so the new session starts working on the handoff immediately, stays visible in Discord, and the user can guide it there directly. The command replies with the post URL and the session name (`discord:<thread-id>`) for follow-ups such as `--target`.
+Use `/discord new-session` to branch a task into its own forum post while working in a channel or another post. The post becomes a fresh acpella session with the post body as its first prompt, so the new session starts working on the handoff immediately, stays visible in Discord, and the user can guide it there directly. The command replies with the post URL and its acpella session name, which has the form `discord:<conversation-id>`, for follow-ups such as `--target`.
 
 ```text
 /discord new-session <forum-channel-id> <title...> -- <text>
@@ -61,22 +67,7 @@ Usage notes:
 - The text after `--` is taken verbatim, so multi-line handoffs keep their formatting. Through `acpella exec`, quote the whole command argument to preserve newlines.
 - Discord caps the post body at 2000 characters. Keep it a readable summary of the task; for deep context, write a tmp file and reference its path in the handoff — the new session's agent picks it up through its own tmp-file convention.
 - Agents cannot discover forum ids on their own. To let an agent branch subtasks into posts, put the forum id and spawn policy in `ACPELLA_HOME/.acpella/AGENTS.md`, for example: "To branch a subtask into its own session, run `acpella exec /discord new-session <forum-channel-id> <title> -- <handoff>` with a written handoff (context, stop conditions, mutation boundaries). Spawn deliberately."
-
-### Parent-Child Callbacks
-
-Parent callbacks are optional. Use one for unattended delegation when the parent session must resume after the child finishes or becomes blocked. For normal collaborative branches that the user follows directly in the forum post, omit the callback and keep the result in the child post.
-
-When a callback is needed, the child cannot discover its parent, so include the callback target in the initial handoff. Include the source message URL as a backlink for the user.
-
-```text
-Parent callback:
-- Session: discord:<parent-channel-id>
-- Source: https://discord.com/channels/<guild-id>/<parent-channel-id>/<message-id>
-- When finished or blocked, send one concise result with:
-  acpella exec "/discord send-message <parent-channel-id> -- <result>"
-```
-
-Build the source URL from the Discord prompt metadata fields `channel` and `message_id`. Keep investigation details and artifacts in the child post; return only the outcome, blocker, and essential next action.
+- A branched forum-post session normally reports its result in that post. If the original session is waiting for the result, include its conversation ID in the child's handoff and ask it to report back with `/discord send-message`.
 
 ## Sending Prompts to Existing Sessions
 
@@ -85,7 +76,7 @@ Use `/discord send-message` to post a visible prompt to an existing Discord chan
 If the target session has an active turn, the new prompt is enqueued after it. It does not interrupt, replace, amend, or otherwise steer the prompt already being processed. Include essential constraints in the initial forum-post handoff because follow-up corrections may be processed only after the active work finishes.
 
 ```text
-/discord send-message <channel-id> -- <text>
+/discord send-message <conversation-id> -- <text>
 ```
 
 The text after `--` is preserved verbatim, including newlines. Through `acpella exec`, quote the whole command argument to preserve them. The target uses the same guild and channel allowlists as inbound messages, including the rule that an allowlisted parent admits its threads.
@@ -95,7 +86,7 @@ The text after `--` is preserved verbatim, including newlines. Through `acpella 
 Use `/discord send-file` to deliver a local file (an image, a chart, a build artifact) into a channel as an attachment, since agent replies are otherwise text-only.
 
 ```text
-/discord send-file <channel-id> <path>
+/discord send-file <conversation-id> <path>
 ```
 
-The target channel (or thread) id is explicit; to send into the current conversation, take its channel id from the message context metadata (`discord:guild:<guild-id>:channel:<channel-id>`). Paths cannot contain whitespace. Discord rejects attachments over its upload size limit (10MB by default); the command surfaces the API error instead of pre-checking.
+The target conversation ID is explicit. Paths cannot contain whitespace. Discord rejects attachments over its upload size limit (10MB by default); the command surfaces the API error instead of pre-checking.
