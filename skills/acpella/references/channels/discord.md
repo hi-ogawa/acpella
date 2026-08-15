@@ -64,7 +64,9 @@ Usage notes:
 
 ### Parent-Child Callbacks
 
-A forum-post child can wake its parent with a completion or blocker summary. The child cannot discover its parent, so include the callback target in the initial handoff. Include the source message URL as a backlink for the user.
+Parent callbacks are optional. Use one for unattended delegation when the parent session must resume after the child finishes or becomes blocked. For normal collaborative branches that the user follows directly in the forum post, omit the callback and keep the result in the child post.
+
+When a callback is needed, the child cannot discover its parent, so include the callback target in the initial handoff. Include the source message URL as a backlink for the user.
 
 ```text
 Parent callback:
