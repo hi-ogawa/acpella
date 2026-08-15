@@ -3,6 +3,8 @@ import path from "node:path";
 import { Readable } from "node:stream";
 import { ACPELLA_UPLOAD_DIR } from "../uploads.ts";
 
+const DISCORD_ATTACHMENT_TIMEOUT_MS = 30_000;
+
 export async function downloadDiscordAttachment({
   url,
   fileName,
@@ -10,7 +12,7 @@ export async function downloadDiscordAttachment({
   url: string;
   fileName: string;
 }): Promise<string> {
-  const signal = AbortSignal.timeout(60_000);
+  const signal = AbortSignal.timeout(DISCORD_ATTACHMENT_TIMEOUT_MS);
   const response = await fetch(url, { signal });
   if (!response.ok) {
     throw new Error(
