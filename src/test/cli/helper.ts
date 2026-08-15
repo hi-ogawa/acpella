@@ -150,7 +150,15 @@ function copyStackTrace(target: Error, source: Error) {
 
 export function sanitizeOutput(s: string) {
   // strip --env-file-if-exists warnings
-  return s.replaceAll(".env not found. Continuing without it.\n", "");
+  return s
+    .replaceAll(".env not found. Continuing without it.\n", "")
+    .replaceAll(process.cwd(), "<root>");
+}
+
+export function sanitizeCliError(error: Error) {
+  return sanitizeOutput(error.message)
+    .replaceAll(/    at .*\n/g, "")
+    .trim();
 }
 
 export function useCli() {

@@ -247,7 +247,7 @@ class OpencodeAcpAgent implements Agent {
             update: {
               sessionUpdate:
                 partType === "reasoning" ? "agent_thought_chunk" : "agent_message_chunk",
-              messageId: props.messageID,
+              messageId: props.partID,
               content: { type: "text", text: props.delta },
             },
           });

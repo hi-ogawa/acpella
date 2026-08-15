@@ -49,6 +49,8 @@ The current built-in directive is:
 
 This expands to a shallow catalog of skill directories, file paths, and frontmatter. It is useful when you want the prompt to expose available skills without copying their full contents into the always-loaded prompt.
 
+Acpella provides these skills through prompt context and file paths. The selected ACP backend may expose a separate built-in skill catalog or registration mechanism, or none. If a listed skill is unavailable through a backend mechanism, use its listed file directly.
+
 ## Good customization pattern
 
 Keep the top-level prompt lean:

@@ -232,6 +232,26 @@ class EchoAgent implements Agent {
         },
       });
       reportText = `echo: ${text}`;
+    } else if (text.startsWith("__thinking_chunks:")) {
+      for (const thought of text.slice(18).split("|")) {
+        await this.connection.sessionUpdate({
+          sessionId: params.sessionId,
+          update: {
+            sessionUpdate: "agent_thought_chunk",
+            content: { type: "text", text: thought },
+          },
+        });
+      }
+      reportText = `echo: ${text}`;
+    } else if (text.startsWith("__thinking_only:")) {
+      await this.connection.sessionUpdate({
+        sessionId: params.sessionId,
+        update: {
+          sessionUpdate: "agent_thought_chunk",
+          content: { type: "text", text: text.slice(16) },
+        },
+      });
+      return { stopReason: "end_turn" };
     } else if (text.startsWith("__usage_update:")) {
       const parts = text.slice(15).split(":");
       const used = Number(parts[0]);

@@ -1,12 +1,12 @@
 import fs from "node:fs";
 import { onTestFinished, vi } from "vitest";
 import { loadConfig, type AppConfig } from "../config.ts";
-import { createHandler, type HandlerContext } from "../handler.ts";
+import { createHandler, type HandlerContext, type HandlerExtraCommands } from "../handler.ts";
 import { CronRunner } from "../lib/cron/runner.ts";
 import { CronStore } from "../lib/cron/store.ts";
 import { useFs } from "./helper.ts";
 
-export async function createHandlerTester() {
+export async function createHandlerTester(options?: { extraCommands?: HandlerExtraCommands }) {
   const { root } = useFs({ prefix: "handler" });
   const config = loadConfig({
     envFile: false,
@@ -39,6 +39,7 @@ export async function createHandlerTester() {
     onServiceExit,
     cronStore,
     getCronRunner: () => cronRunner,
+    extraCommands: options?.extraCommands,
   });
   handler.start();
   cronRunner.start();
@@ -102,5 +103,6 @@ export function sanitizeOutput(output: string, config: AppConfig) {
     .replaceAll(config.home, () => "<home>")
     .replaceAll(process.cwd(), () => "<cwd>")
     .replaceAll(/"t":(\d+|"[^"]+")/g, `"t":"<time>"`)
-    .replaceAll(/"updatedAt": \d+/g, `"updatedAt": <time>`);
+    .replaceAll(/"updatedAt": \d+/g, `"updatedAt": <time>`)
+    .replaceAll(/updated at: \d{4}-\S+/g, "updated at: <time>");
 }

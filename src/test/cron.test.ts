@@ -144,6 +144,27 @@ test("cron auto reloads external cron file changes", async ({ onTestFinished }) 
   `);
 });
 
+test("cron add and update preserve multiline prompt bodies", async () => {
+  const tester = await createHandlerTester();
+  const session = tester.createSession("test", {
+    metadata: { cronDeliveryTarget: { repl: true } },
+  });
+
+  expect(await session.request("/cron add multiline * * * * * -- first\n\nsecond -- later"))
+    .toMatchInlineSnapshot(`
+      "[⚙️ System]
+      Added cron job: multiline"
+    `);
+  expect(tester.cronStore.getJob("multiline")?.prompt).toBe("first\n\nsecond -- later");
+
+  expect(await session.request("/cron update multiline * * * * * -- updated\n- one\n- two"))
+    .toMatchInlineSnapshot(`
+      "[⚙️ System]
+      Updated cron job: multiline"
+    `);
+  expect(tester.cronStore.getJob("multiline")?.prompt).toBe("updated\n- one\n- two");
+});
+
 test("cron command", async ({ onTestFinished }) => {
   // Timeline:
   // - 07:00: add test-job for every minute.

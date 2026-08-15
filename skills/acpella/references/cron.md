@@ -25,7 +25,7 @@ Use:
 
 ## Adding jobs
 
-The prompt must come after a literal `--` separator.
+The prompt must come after a literal `--` separator. Text after the separator preserves multiline formatting.
 
 When running `/cron add` through a shell with `acpella exec`, quote the full slash command. Cron fields commonly contain `*`, and unquoted `*` can expand to filenames before acpella sees the command.
 

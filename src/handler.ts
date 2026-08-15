@@ -22,6 +22,7 @@ import {
   parseSessionTarget,
   renderSessionConfig,
   renderSessionInfo,
+  renderSessionUpdatedAt,
 } from "./lib/session/command.ts";
 import { shouldRenewSession } from "./lib/session/renew.ts";
 import { getVerboseSessionUpdateTypes } from "./lib/session/verbose.ts";
@@ -45,6 +46,7 @@ export interface HandlerContext {
   text: string;
   send: (text: string) => Promise<unknown>;
   replyLimit?: number;
+  formatThinking?: (text: string) => string;
   metadata?: {
     promptMetadata?: MessageMetadata;
     cronDeliveryTarget?: CronDeliveryTarget;
@@ -57,6 +59,13 @@ interface HandlerExtraContext extends HandlerContext {
 
 type SystemCommandTree = CommandTree<HandlerExtraContext>;
 
+export type HandlerExtraCommandGroup = {
+  description: string;
+  commands: SystemCommandTree[string];
+};
+
+export type HandlerExtraCommands = Record<string, HandlerExtraCommandGroup>;
+
 export async function createHandler(
   config: AppConfig,
   handlerOptions: {
@@ -64,6 +73,7 @@ export async function createHandler(
     onServiceExit: () => void;
     cronStore: CronStore;
     getCronRunner?: () => CronRunner;
+    extraCommands?: HandlerExtraCommands;
   },
 ): Promise<Handler> {
   const stateStore = new SessionStateStore(config.stateFile);
@@ -95,17 +105,32 @@ export async function createHandler(
     promptText += context.text;
 
     let lastUpdate: SessionUpdate | undefined;
+    let thinkingText = "";
     const stateSession = stateStore.getSession(sessionName);
     const verboseTypes = getVerboseSessionUpdateTypes(stateSession.verbose);
+
+    async function flushThinking() {
+      if (!thinkingText) {
+        return;
+      }
+      const text = `[thinking] ${thinkingText}`;
+      thinkingText = "";
+      await reply.write(context.formatThinking?.(text) ?? text);
+    }
 
     const result = await handlePromptImpl({
       sessionName,
       text: promptText,
       onUpdate: async (update) => {
         const sessionUpdate = update.sessionUpdate;
-        const changed = sessionUpdate !== lastUpdate?.sessionUpdate;
+        const changed =
+          sessionUpdate !== lastUpdate?.sessionUpdate ||
+          ("messageId" in update &&
+            update.messageId !==
+              (lastUpdate && "messageId" in lastUpdate ? lastUpdate.messageId : undefined));
         lastUpdate = update;
         if (changed) {
+          await flushThinking();
           await reply.flush();
         }
         if (sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
@@ -116,10 +141,7 @@ export async function createHandler(
           update.content.type === "text" &&
           verboseTypes.has(sessionUpdate)
         ) {
-          if (changed) {
-            await reply.write("[thinking] ");
-          }
-          await reply.write(update.content.text);
+          thinkingText += update.content.text;
         }
         if (sessionUpdate === "tool_call" && verboseTypes.has(sessionUpdate)) {
           await reply.write(`Tool: ${update.title}`);
@@ -129,10 +151,12 @@ export async function createHandler(
     });
 
     if (result.cancelled) {
+      await flushThinking();
       await reply.flush();
       await reply.system("Agent turn cancelled.");
       return;
     }
+    await flushThinking();
     await reply.finish();
   }
 
@@ -274,7 +298,7 @@ export async function createHandler(
     },
     {
       tokens: ["new"],
-      usage: "/session new [--target <sessionName>] [agent]",
+      usage: "/session new [--target <sessionName>] [agent|agent:sessionId]",
       description: "Start a new agent session.",
       withArgs: true,
       run: async ({ args, reply, sessionName }) => {
@@ -289,75 +313,75 @@ export async function createHandler(
           }
           sessionName = parsedTarget.target;
         }
-        const agentKey = parsedTarget.args[0];
+
+        const agentArg = parsedTarget.args[0];
+        let agentKey: string | undefined;
+        let agentSession: StateAgentSession | undefined;
+        if (agentArg?.includes(":")) {
+          agentSession = parseAgentSessionKey(agentArg);
+          agentKey = agentSession.agentKey;
+        } else {
+          agentKey = agentArg;
+        }
+
         if (agentKey) {
           if (!stateStore.get().agents[agentKey]) {
             await reply.system(`Unknown agent: ${agentKey}`);
             return;
           }
-          stateStore.setSession(sessionName, { agentKey });
         }
-        stateStore.setSession(sessionName, { agentSessionId: undefined });
-        await reply.system("New session ready.");
-      },
-    },
-    {
-      tokens: ["load"],
-      usage: "/session load <sessionId|agent:sessionId>",
-      description: "Load an existing agent session.",
-      withArgs: true,
-      run: async ({ args, reply, sessionName, usage }) => {
-        const sessionIdArg = args[0];
-        if (!sessionIdArg) {
-          await reply.system(usage);
-          return;
-        }
-        const stateSession = stateStore.getSession(sessionName);
-        const parsed = parseAgentSessionKey(sessionIdArg);
-        const agentKey = parsed.agentKey ?? stateSession.agentKey;
-        const manager = await getAgentManager(agentKey);
-        const session = await manager.loadSession({
-          sessionCwd: config.home,
-          sessionId: parsed.agentSessionId,
-        });
-        const newStateSession: StateAgentSession = {
-          agentKey,
-          agentSessionId: session.sessionId,
-        };
-        try {
-          stateStore.setSession(sessionName, newStateSession);
-          await reply.system(`Loaded session: ${toAgentSessionKey(newStateSession)}`);
-        } finally {
-          session.stop();
+
+        if (agentSession) {
+          const manager = await getAgentManager(agentSession.agentKey);
+          const session = await manager.loadSession({
+            sessionCwd: config.home,
+            sessionId: agentSession.agentSessionId,
+          });
+          const newStateSession: StateAgentSession = {
+            agentKey: agentSession.agentKey,
+            agentSessionId: session.sessionId,
+          };
+          try {
+            stateStore.setSession(sessionName, newStateSession);
+            await reply.system(`Loaded session: ${toAgentSessionKey(newStateSession)}`);
+          } finally {
+            session.stop();
+          }
+        } else {
+          if (agentKey) {
+            stateStore.setSession(sessionName, { agentKey });
+          }
+          stateStore.setSession(sessionName, { agentSessionId: undefined });
+          await reply.system("New session ready.");
         }
       },
     },
     {
       tokens: ["close"],
-      usage: "/session close [sessionId|agent:sessionId]",
-      description: "Close an agent session.",
+      usage: "/session close [--target <sessionName>]",
+      description: "Close an acpella session.",
       withArgs: true,
       run: async ({ args, reply, sessionName }) => {
-        const stateSession = stateStore.getSession(sessionName);
-        const sessionIdArg = args[0];
-        const parsed = sessionIdArg ? parseAgentSessionKey(sessionIdArg) : undefined;
-        const agentKey = parsed?.agentKey ?? stateSession.agentKey;
-        const agentSessionId = parsed?.agentSessionId ?? stateSession.agentSessionId;
-        if (!agentSessionId) {
-          await reply.system("No associated session.");
+        const parsedTarget = parseSessionTarget(args);
+        if (parsedTarget.args.length > 0) {
+          await reply.system(`Invalid argument: ${parsedTarget.args[0]}`);
           return;
         }
-        const targetSession = { agentKey, agentSessionId };
-        stateStore.deleteSession(targetSession);
-        let output = `Session closed: ${toAgentSessionKey(targetSession)}.\n`;
-        try {
-          const manager = await getAgentManager(agentKey);
-          await manager.closeSession({ sessionId: agentSessionId });
-        } catch (e) {
-          output += "[acp] closeSession failed";
-          console.error("[acp] closeSession failed:", e);
+
+        if (parsedTarget.target) {
+          if (!stateStore.get().sessions[parsedTarget.target]) {
+            await reply.system(`Unknown session: ${parsedTarget.target}`);
+            return;
+          }
+          sessionName = parsedTarget.target;
         }
-        await reply.system(output);
+
+        if (!stateStore.get().sessions[sessionName]) {
+          await reply.system("No session mapping.");
+          return;
+        }
+        stateStore.deleteSessionByName(sessionName);
+        await reply.system(`Session closed: ${sessionName}.`);
       },
     },
     {
@@ -449,6 +473,63 @@ ${agentKey}:
       },
     },
     {
+      tokens: ["close-session"],
+      usage: "/agent close-session <agent:sessionId>",
+      description: "Close a backend ACP session.",
+      withArgs: true,
+      run: async ({ args, reply, usage }) => {
+        const sessionArg = args[0];
+        if (!sessionArg) {
+          await reply.system(usage);
+          return;
+        }
+        if (args.length > 1) {
+          await reply.system(`Invalid argument: ${args[1]}`);
+          return;
+        }
+
+        const target = parseAgentSessionKey(sessionArg);
+        const state = stateStore.get();
+        if (!state.agents[target.agentKey]) {
+          await reply.system(`Unknown agent: ${target.agentKey}`);
+          return;
+        }
+
+        const referencedSessions = Object.entries(state.sessions).filter(
+          ([, session]) =>
+            session.agentKey === target.agentKey &&
+            session.agentSessionId === target.agentSessionId,
+        );
+        if (referencedSessions.length > 0) {
+          const renderedSessions = referencedSessions
+            .map(
+              ([sessionName, session]) => `\
+- ${sessionName}
+  agent session id: ${session.agentSessionId ?? "none"}
+  ${renderSessionUpdatedAt(session.updatedAt, config.timezone)}`,
+            )
+            .join("\n");
+          await reply.system(`\
+Cannot close agent session: ${toAgentSessionKey(target)}
+Referenced sessions:
+${renderedSessions}
+`);
+          return;
+        }
+
+        try {
+          const manager = await getAgentManager(target.agentKey);
+          await manager.closeSession({ sessionId: target.agentSessionId });
+          await reply.system(`Agent session closed: ${toAgentSessionKey(target)}.`);
+        } catch (error) {
+          await reply.system(`\
+Failed to close agent session: ${toAgentSessionKey(target)}
+${formatError(error)}
+`);
+        }
+      },
+    },
+    {
       tokens: ["new"],
       usage: "/agent new <name> <command...>",
       description: "Save a new agent.",
@@ -486,13 +567,22 @@ ${agentKey}:
           await reply.system(`Cannot remove default agent: ${name}`);
           return;
         }
-        const referencedSessions = Object.values(state.sessions).filter(
-          (session) => session.agentKey === name,
+        const referencedSessions = Object.entries(state.sessions).filter(
+          ([, session]) => session.agentKey === name,
         );
         if (referencedSessions.length > 0) {
+          const renderedSessions = referencedSessions
+            .map(
+              ([sessionName, session]) => `\
+- ${sessionName}
+  agent session id: ${session.agentSessionId ?? "none"}
+  ${renderSessionUpdatedAt(session.updatedAt, config.timezone)}`,
+            )
+            .join("\n");
           await reply.system(`\
 Cannot remove agent: ${name}
-${referencedSessions.length} session(s) still reference it.
+Referenced sessions:
+${renderedSessions}
 `);
           return;
         }
@@ -577,8 +667,8 @@ enabled jobs: ${enabledJobs.length}
         "/cron add <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--once] [--target <sessionName>] -- <prompt...>",
       description: "Add a cron job.",
       withArgs: true,
-      run: async ({ args, reply, sessionName, metadata }) => {
-        const cron = parseCronArgs(args, config.timezone);
+      run: async ({ splitArgs, reply, sessionName, metadata }) => {
+        const cron = parseCronArgs(splitArgs, config.timezone);
         if (!cron.prompt) {
           await reply.system(`Missing prompt`);
           return;
@@ -627,8 +717,8 @@ enabled jobs: ${enabledJobs.length}
         "/cron update <id> <minute> <hour> <day-of-month> <month> <day-of-week> [--target <sessionName>] [-- <prompt...>]",
       description: "Update a cron job.",
       withArgs: true,
-      run: async ({ args, reply }) => {
-        const cron = parseCronArgs(args, config.timezone);
+      run: async ({ splitArgs, reply }) => {
+        const cron = parseCronArgs(splitArgs, config.timezone);
         const job = cronStore.getJob(cron.id);
         if (!job) {
           await reply.system(`Unknown cron job: ${cron.id}`);
@@ -841,6 +931,13 @@ current session: ${sessionName}`);
     cron: systemCronCommands,
   };
 
+  // TODO: this parallel record was squeezed in as an afterthought for the
+  // Telegram command menu (its only consumer, via `handler.commands` ->
+  // `setMyCommands`); `/help` never shows these descriptions. The natural
+  // unification is a first-class group description on the CommandTree util,
+  // rendered in help output and derived here for menus, which also dissolves
+  // the HandlerExtraCommands wrapper shape. `help` itself needs special-casing
+  // since it is not a tree group.
   const systemCommandsMetadata: Record<string, string> = {
     help: "Show available commands",
     status: "Show service status",
@@ -851,6 +948,14 @@ current session: ${sessionName}`);
     agent: "Manage agents",
     cron: "Manage cron jobs",
   };
+
+  for (const [name, group] of Object.entries(handlerOptions.extraCommands ?? {})) {
+    if (systemCommands[name]) {
+      throw new Error(`Duplicate command group: ${name}`);
+    }
+    systemCommands[name] = group.commands;
+    systemCommandsMetadata[name] = group.description;
+  }
 
   const systemCommandHandler = new CommandHandler({
     commands: systemCommands,

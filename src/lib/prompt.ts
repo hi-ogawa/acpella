@@ -121,8 +121,7 @@ function buildSkillsCatalog(skillsDir: string): string {
   const files = fs.globSync("*/SKILL.md", { cwd: skillsDir });
   files.sort();
 
-  // Keep this catalog close to Codex's skill listing: metadata and file path only.
-  let output = "";
+  let output = `The skills below are provided through prompt context and file paths. The selected ACP backend may expose a separate built-in skill catalog or registration mechanism, or none. If a listed skill is unavailable through a backend mechanism, use its listed file directly.\n`;
   for (const file of files) {
     const filePath = path.resolve(skillsDir, file);
     let content: string;
