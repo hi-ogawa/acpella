@@ -3,6 +3,8 @@ import path from "node:path";
 import { Readable } from "node:stream";
 import { ACPELLA_UPLOAD_DIR } from "../uploads.ts";
 
+const DISCORD_ATTACHMENT_TIMEOUT_MS = 30_000;
+
 export async function downloadDiscordAttachment({
   url,
   fileName,
@@ -10,7 +12,8 @@ export async function downloadDiscordAttachment({
   url: string;
   fileName: string;
 }): Promise<string> {
-  const response = await fetch(url);
+  const signal = AbortSignal.timeout(DISCORD_ATTACHMENT_TIMEOUT_MS);
+  const response = await fetch(url, { signal });
   if (!response.ok) {
     throw new Error(
       `Failed to download Discord attachment: ${response.status} ${response.statusText}`,
@@ -22,6 +25,6 @@ export async function downloadDiscordAttachment({
   const baseName = path.basename(fileName) || "attachment";
   const outputPath = path.join(ACPELLA_UPLOAD_DIR, "discord", `${Date.now()}-${baseName}`);
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-  await fs.promises.writeFile(outputPath, Readable.fromWeb(response.body as any));
+  await fs.promises.writeFile(outputPath, Readable.fromWeb(response.body as any), { signal });
   return outputPath;
 }

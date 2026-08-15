@@ -120,6 +120,18 @@ export async function serveDiscord(options: {
     cleanup.defer(() => typingIndicatorManager.stop());
 
     try {
+      console.log(
+        addIndent({
+          indent: `${label} (request) `,
+          text: truncateString(
+            [content, ...attachments.map((attachment) => `[Attachment: ${attachment.name}]`)]
+              .filter(Boolean)
+              .join("\n\n"),
+            200,
+          ),
+        }),
+      );
+
       let text = content;
       for (const attachment of attachments) {
         const localPath = await downloadDiscordAttachment({
@@ -131,13 +143,6 @@ export async function serveDiscord(options: {
           : `[User uploaded file: ${localPath}]`;
         text = [text, uploadText].filter(Boolean).join("\n\n");
       }
-
-      console.log(
-        addIndent({
-          indent: `${label} (request) `,
-          text: truncateString(text, 200),
-        }),
-      );
 
       await handler.handle({
         sessionName,
