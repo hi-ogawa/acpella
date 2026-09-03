@@ -40,7 +40,8 @@ class OpencodeAcpAgent implements Agent {
   private sessions = new Map<string, Session>();
   // OpenCode's `req.timeout = false` workaround does not disable Node's Undici 300s defaults.
   // https://github.com/anomalyco/opencode/blob/v1.18.18/packages/sdk/js/src/v2/client.ts#L51-L56
-  // https://github.com/nodejs/undici/blob/v6.24.1/docs/docs/api/Client.md#L22-L23
+  // https://github.com/nodejs/node/issues/46375
+  // https://github.com/nodejs/undici/issues/1373
   private dispatcher = new UndiciAgent({ headersTimeout: 0, bodyTimeout: 0 });
 
   constructor(
