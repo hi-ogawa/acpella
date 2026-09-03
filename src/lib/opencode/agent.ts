@@ -30,6 +30,7 @@ import {
   type ServerOptions,
   type ToolPart,
 } from "@opencode-ai/sdk/v2";
+import { Agent as UndiciAgent } from "undici";
 import { splitOnce } from "../../utils/index.ts";
 
 type OpencodeServer = Awaited<ReturnType<typeof createOpencodeServer>>;
@@ -37,6 +38,8 @@ type OpencodeServer = Awaited<ReturnType<typeof createOpencodeServer>>;
 class OpencodeAcpAgent implements Agent {
   private server?: OpencodeServer;
   private sessions = new Map<string, Session>();
+  // Agent turns can legitimately keep the prompt response open for more than five minutes.
+  private dispatcher = new UndiciAgent({ headersTimeout: 0, bodyTimeout: 0 });
 
   constructor(
     private connection: AgentSideConnection,
@@ -59,12 +62,21 @@ class OpencodeAcpAgent implements Agent {
 
   private async createClient({ directory }: { directory: string }): Promise<OpencodeClient> {
     const server = await this.getServer();
-    return createOpencodeClient({ baseUrl: server.url, directory });
+    return createOpencodeClient({
+      baseUrl: server.url,
+      directory,
+      fetch: (input, init) =>
+        globalThis.fetch(input, {
+          ...init,
+          dispatcher: this.dispatcher,
+        } as RequestInit),
+    });
   }
 
   closeServer() {
     this.server?.close();
     this.server = undefined;
+    void this.dispatcher.destroy();
   }
 
   async initialize(_params: InitializeRequest): Promise<InitializeResponse> {
@@ -289,6 +301,9 @@ class OpencodeAcpAgent implements Agent {
     let response: SessionPromptResponse | undefined;
     try {
       [{ data: response }] = await Promise.all([promptResponsePromise, lifecycle.promise]);
+    } catch (error) {
+      console.error("[session.prompt]", error);
+      throw error;
     } finally {
       abortController.abort();
       await eventHandlerPromise;
