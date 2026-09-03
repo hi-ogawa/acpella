@@ -38,7 +38,8 @@ type OpencodeServer = Awaited<ReturnType<typeof createOpencodeServer>>;
 class OpencodeAcpAgent implements Agent {
   private server?: OpencodeServer;
   private sessions = new Map<string, Session>();
-  // Agent turns can legitimately keep the prompt response open for more than five minutes.
+  // OpenCode's `req.timeout = false` workaround does not disable Node's Undici defaults.
+  // https://github.com/anomalyco/opencode/blob/v1.18.18/packages/sdk/js/src/v2/client.ts#L51-L56
   private dispatcher = new UndiciAgent({ headersTimeout: 0, bodyTimeout: 0 });
 
   constructor(
