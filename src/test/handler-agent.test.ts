@@ -54,6 +54,22 @@ test("reports backend agent failures", async () => {
   );
 });
 
+test("supports periods in agent keys", async () => {
+  const tester = await createHandlerTester();
+  const session = tester.createSession("test");
+
+  expect(await session.request(`/agent new codex-gpt-5.6-sol ${TEST_AGENT_COMMAND}`))
+    .toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Saved new agent: codex-gpt-5.6-sol"
+  `);
+  expect(await session.request("/agent list")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    - test -> node <cwd>/src/bin/test-agent.js (default)
+    - codex-gpt-5.6-sol -> node <cwd>/src/bin/test-agent.js"
+  `);
+});
+
 test("rejects invalid agent keys", async () => {
   const tester = await createHandlerTester();
   const session = tester.createSession("test");
@@ -69,9 +85,9 @@ test("rejects invalid agent keys", async () => {
             "origin": "string",
             "code": "invalid_format",
             "format": "regex",
-            "pattern": "/^[a-zA-Z0-9_-]+$/",
+            "pattern": "/^[a-zA-Z0-9_-]+(?:\\\\.[a-zA-Z0-9_-]+)*$/",
             "path": [],
-            "message": "Invalid string: must match pattern /^[a-zA-Z0-9_-]+$/"
+            "message": "Invalid string: must match pattern /^[a-zA-Z0-9_-]+(?:\\\\.[a-zA-Z0-9_-]+)*$/"
           }
         ],
         "path": [
@@ -82,6 +98,9 @@ test("rejects invalid agent keys", async () => {
       }
     ]]
   `);
+  for (const name of [".", "..", ".leading", "trailing.", "consecutive..periods"]) {
+    await expect(session.request(`/agent new ${name} no-such-command`)).rejects.toThrow();
+  }
   expect(await session.request("/agent list")).toMatchInlineSnapshot(`
     "[⚙️ System]
     - test -> node <cwd>/src/bin/test-agent.js (default)"

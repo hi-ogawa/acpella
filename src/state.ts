@@ -12,7 +12,7 @@ const agentSchema = z.object({
 const agentKeySchema = z
   .string()
   .min(1)
-  .regex(/^[a-zA-Z0-9_-]+$/);
+  .regex(/^[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)*$/);
 
 const stateSessionSchema = z.object({
   agentKey: agentKeySchema,
