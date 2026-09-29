@@ -1,4 +1,5 @@
 import { expect, test, vi } from "vitest";
+import { TEST_AGENT_COMMAND } from "../state.ts";
 import { advanceTimersTo } from "./helper.ts";
 import { createHandlerTester } from "./tester.ts";
 
@@ -113,6 +114,38 @@ test("starts a fresh agent session with a first prompt", async () => {
   expect(await session.request("/session new --")).toMatchInlineSnapshot(`
     "[⚙️ System]
     Usage: /session new [--target <sessionName>] [agent|agent:sessionId] [-- <prompt...>]"
+  `);
+});
+
+test("starts or loads a named agent session with a first prompt", async () => {
+  const tester = await createHandlerTester();
+  const session = tester.createSession("test");
+
+  expect(await session.request(`/agent new test2 ${TEST_AGENT_COMMAND}`)).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Saved new agent: test2"
+  `);
+  expect(await session.request("hello")).toMatchInlineSnapshot(`"echo: hello"`);
+  expect(await session.request("/session new test2 -- __session")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    New session ready.
+    session: __testSession2"
+  `);
+  expect(await session.request("/session info")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    session: test
+    agent: test2
+    agent session id: __testSession2
+    updated at: <time>
+    verbose: thinking
+    renew: off
+    active turn: no"
+  `);
+  expect(await session.request("/session new test:__testSession1 -- __session"))
+    .toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Loaded session: test:__testSession1
+    session: __testSession1"
   `);
 });
 
