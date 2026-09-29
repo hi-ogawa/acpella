@@ -2,10 +2,16 @@
 
 ## Quick Reference
 
-| Command     | When                      |
-| ----------- | ------------------------- |
-| `pnpm test` | E2E                       |
-| `pnpm lint` | Format + Lint + Typecheck |
+| Command     | When                                      |
+| ----------- | ----------------------------------------- |
+| `pnpm test` | Default test suite; uses fake agents only |
+| `pnpm lint` | Format + Lint + Typecheck                 |
+
+## Live Agent Tests
+
+- Ask for human permission before running tests that launch real agents or make model calls.
+- Do not run bare `pnpm vitest` or `pnpm vitest run`; they include the live Codex and OpenCode projects.
+- `pnpm test-codex` and `pnpm test-opencode` use authenticated backends and make real model calls.
 
 ## Key Docs
 
