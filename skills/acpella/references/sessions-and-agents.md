@@ -98,7 +98,7 @@ Use `/agent sessions [agent]` only when a human operator explicitly wants backen
 Typical flow:
 
 ```bash
-acpella exec /agent new codex npx -y @zed-industries/codex-acp
+acpella exec /agent new codex npx -y @agentclientprotocol/codex-acp
 acpella exec /agent default codex
 ```
 
