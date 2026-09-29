@@ -78,6 +78,8 @@ The target acpella session must already exist. An agent name clears the associat
 
 Text after the first `--` is taken verbatim as a prompt for the fresh session. It is queued through the session's normal prompt queue after the reset, so it runs as the new session's first turn. A prompt cannot be combined with `--target`. To prompt another session, use a channel-specific command such as `/discord send-message`.
 
+### Session renewal
+
 By default, sessions do not auto-renew. When daily renewal is enabled, acpella checks the boundary immediately before the next live or cron prompt for that acpella session name. acpella does not create fresh ACP sessions on a background timer, and inactive conversations are not touched.
 
 Examples:
