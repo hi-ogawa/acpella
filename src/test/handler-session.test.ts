@@ -1,4 +1,5 @@
 import { expect, test, vi } from "vitest";
+import { TEST_AGENT_COMMAND } from "../state.ts";
 import { advanceTimersTo } from "./helper.ts";
 import { createHandlerTester } from "./tester.ts";
 
@@ -10,7 +11,7 @@ test("session help, info, and list", async () => {
     /session
       /session info [--target <sessionName>] - Show info about a session.
       /session list - List acpella sessions.
-      /session new [--target <sessionName>] [agent|agent:sessionId] - Start a new agent session.
+      /session new [--target <sessionName>] [agent|agent:sessionId] [-- <prompt...>] - Start a new agent session, optionally running a first prompt.
       /session close [--target <sessionName>] - Close an acpella session.
       /session config [--target sessionName] [verbose=off|tool|thinking|all] [renew=off|daily|daily:N] - Show or update session config."
   `);
@@ -19,7 +20,7 @@ test("session help, info, and list", async () => {
     /session
       /session info [--target <sessionName>] - Show info about a session.
       /session list - List acpella sessions.
-      /session new [--target <sessionName>] [agent|agent:sessionId] - Start a new agent session.
+      /session new [--target <sessionName>] [agent|agent:sessionId] [-- <prompt...>] - Start a new agent session, optionally running a first prompt.
       /session close [--target <sessionName>] - Close an acpella session.
       /session config [--target sessionName] [verbose=off|tool|thinking|all] [renew=off|daily|daily:N] - Show or update session config."
   `);
@@ -96,6 +97,77 @@ test("starts a fresh agent session", async () => {
     test:
     - __testSession1
     - __testSession2"
+  `);
+});
+
+test("starts a fresh agent session with a first prompt", async () => {
+  const tester = await createHandlerTester();
+  const session = tester.createSession("test");
+
+  expect(await session.request("hello")).toMatchInlineSnapshot(`"echo: hello"`);
+  expect(await session.request("/session new -- first -- prompt")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    New session ready.
+    echo: first -- prompt"
+  `);
+  expect(await session.request("__session")).toMatchInlineSnapshot(`"session: __testSession2"`);
+  expect(await session.request("/session new --")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Usage: /session new [--target <sessionName>] [agent|agent:sessionId] [-- <prompt...>]"
+  `);
+});
+
+test("starts or loads a named agent session with a first prompt", async () => {
+  const tester = await createHandlerTester();
+  const session = tester.createSession("test");
+
+  expect(await session.request(`/agent new test2 ${TEST_AGENT_COMMAND}`)).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Saved new agent: test2"
+  `);
+  expect(await session.request("hello")).toMatchInlineSnapshot(`"echo: hello"`);
+  expect(await session.request("/session new test2 -- __session")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    New session ready.
+    session: __testSession2"
+  `);
+  expect(await session.request("/session info")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    session: test
+    agent: test2
+    agent session id: __testSession2
+    updated at: <time>
+    verbose: thinking
+    renew: off
+    active turn: no"
+  `);
+  expect(await session.request("/session new test:__testSession1 -- __session"))
+    .toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Loaded session: test:__testSession1
+    session: __testSession1"
+  `);
+});
+
+test("rejects a first prompt with a session target", async () => {
+  const tester = await createHandlerTester();
+  const current = tester.createSession("current");
+  const target = tester.createSession("target");
+
+  expect(await target.request("hello")).toMatchInlineSnapshot(`"echo: hello"`);
+  expect(await current.request("/session new --target target -- hello")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Cannot combine --target with a prompt."
+  `);
+  expect(await current.request("/session info --target target")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    session: target
+    agent: test
+    agent session id: __testSession1
+    updated at: <time>
+    verbose: thinking
+    renew: off
+    active turn: no"
   `);
 });
 

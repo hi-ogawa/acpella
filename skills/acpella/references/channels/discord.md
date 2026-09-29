@@ -67,6 +67,14 @@ Usage notes:
 - The text after `--` is taken verbatim, so multi-line handoffs keep their formatting. Through `acpella exec`, quote the whole command argument to preserve newlines.
 - Discord caps the post body at 2000 characters. Keep it a readable summary of the task; for deep context, write a tmp file and reference its path in the handoff — the new session's agent picks it up through its own tmp-file convention.
 - Agents cannot discover forum ids on their own. To let an agent branch subtasks into posts, put the forum id and spawn policy in `ACPELLA_HOME/.acpella/AGENTS.md`, for example: "To branch a subtask into its own session, run `acpella exec /discord new-session <forum-channel-id> <title> -- <handoff>` with a written handoff (context, stop conditions, mutation boundaries). Spawn deliberately."
+- To choose the agent for the new session, start the post body with `/session new <agent> -- `. The outer command keeps everything after its first `--` verbatim, so the post body is itself a `/session new` command whose prompt is the handoff:
+
+  ```text
+  /discord new-session <forum-channel-id> <title...> -- /session new <agent> -- <handoff>
+  ```
+
+  The 2000-character cap includes the `/session new <agent> -- ` prefix.
+
 - A branched forum-post session normally reports its result in that post. If the original session is waiting for the result, include its conversation ID in the child's handoff and ask it to report back with `/discord send-message`.
 
 ## Sending Prompts to Existing Sessions

@@ -23,7 +23,7 @@ Use:
 
 - `/session info [--target <sessionName>]`
 - `/session list`
-- `/session new [--target <sessionName>] [agent|agent:sessionId]`
+- `/session new [--target <sessionName>] [agent|agent:sessionId] [-- <prompt...>]`
 - `/session close [--target <sessionName>]`
 - `/session config [--target sessionName] [verbose=off|tool|thinking|all] [renew=off|daily|daily:N]`
 
@@ -31,9 +31,10 @@ Common cases:
 
 - after changing `.acpella/AGENTS.md`, run `/session new`
 - if you want a clean start in the current conversation, run `/session new`
-- use `/session new --target <sessionName>` to start a fresh ACP session for another existing acpella session
-- use `/session new <agent>` to start a fresh session with another configured agent
+- use `/session new --target <sessionName>` to reset another existing acpella session so its next prompt starts a fresh ACP session
+- use `/session new <agent>` to switch to another configured agent, which starts a fresh ACP session on the next prompt
 - use `/session new <agent:sessionId>` to recover an existing backend agent session when needed
+- use `/session new [agent] -- <prompt>` to start fresh and run `<prompt>` as the first turn in one message
 - use `/session info [--target <sessionName>]` to inspect the selected agent, agent session id, update time, verbose setting, renewal policy, and context usage
 - use `/session list` to see all mapped acpella sessions without probing backend agents
 - use `/session config` to show or update per-session settings (`verbose`, `renew`) in one place
@@ -67,6 +68,17 @@ Supported keys: `renew` (`off|daily|daily:N`) and `verbose` (`off|tool|thinking|
 ```
 
 The target acpella session must already exist. An agent name clears the associated agent session id, and the next prompt starts a new backend session with that agent. An explicitly qualified `agent:sessionId` loads and attaches that backend session; this is mainly useful for recovery or debugging.
+
+### `/session new` with a first prompt
+
+```text
+/session new -- <prompt>
+/session new claude -- <prompt>
+```
+
+Text after the first `--` is taken verbatim as a prompt for the fresh session. It is queued through the session's normal prompt queue after the reset, so it runs as the new session's first turn. A prompt cannot be combined with `--target`. To prompt another session, use a channel-specific command such as `/discord send-message`.
+
+### Session renewal
 
 By default, sessions do not auto-renew. When daily renewal is enabled, acpella checks the boundary immediately before the next live or cron prompt for that acpella session name. acpella does not create fresh ACP sessions on a background timer, and inactive conversations are not touched.
 
