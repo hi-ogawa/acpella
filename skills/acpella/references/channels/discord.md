@@ -79,15 +79,24 @@ Usage notes:
 
 ## Sending Prompts to Existing Sessions
 
-Use `/discord send-message` to post a visible prompt to an existing Discord channel or thread session. The command sends the message through Discord REST, then the running Discord Gateway service receives the marked bot message and processes it through the target session's normal prompt queue.
-
-If the target session has an active turn, the new prompt is enqueued after it. It does not interrupt, replace, amend, or otherwise steer the prompt already being processed. Include essential constraints in the initial forum-post handoff because follow-up corrections may be processed only after the active work finishes.
+Use `/discord send-message` to post a visible prompt to an existing Discord channel or thread session. The command sends the message through Discord REST, then the running Discord Gateway service receives the marked bot message and handles it like a message typed in that conversation.
 
 ```text
 /discord send-message <conversation-id> -- <text>
 ```
 
 The text after `--` is preserved verbatim, including newlines. Through `acpella exec`, quote the whole command argument to preserve them. The target uses the same guild and channel allowlists as inbound messages, including the rule that an allowlisted parent admits its threads.
+
+If the target session has an active turn, a prompt is enqueued after it. A prompt alone does not interrupt, replace, amend, or otherwise steer the prompt already being processed.
+
+To redirect a session that is working on the wrong thing, send `/cancel` first, then the corrected prompt:
+
+```text
+/discord send-message <conversation-id> -- /cancel
+/discord send-message <conversation-id> -- <corrected prompt>
+```
+
+This works because slash commands in a sent message run as commands in the target session, and commands are not queued behind the active turn. `/cancel` stops the active turn right away, and the corrected prompt runs next. `/cancel` affects only the active turn, so prompts already queued behind it still run before the correction.
 
 ## Sending Files
 
