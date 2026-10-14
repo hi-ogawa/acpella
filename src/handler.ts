@@ -298,13 +298,27 @@ export async function createHandler(
     },
     {
       tokens: ["new"],
-      usage: "/session new [--target <sessionName>] [agent|agent:sessionId]",
-      description: "Start a new agent session.",
+      usage: "/session new [--target <sessionName>] [agent|agent:sessionId] [-- <prompt...>]",
+      description: "Start a new agent session, optionally running a first prompt.",
       withArgs: true,
-      run: async ({ args, reply, sessionName }) => {
-        const parsedTarget = parseSessionTarget(args);
+      run: async (context) => {
+        let { splitArgs, reply, sessionName } = context;
+        const parsedTarget = parseSessionTarget(splitArgs.head);
         if (parsedTarget.args.length > 1) {
           throw new Error(`Invalid argument: ${parsedTarget.args[1]}`);
+        }
+        const prompt = splitArgs.body;
+        if (prompt !== undefined) {
+          if (!prompt.trim()) {
+            await reply.system(context.usage);
+            return;
+          }
+          // The prompt would run in the target session but reply here with
+          // this conversation's metadata. Use `/discord send-message` instead.
+          if (parsedTarget.target) {
+            await reply.system("Cannot combine --target with a prompt.");
+            return;
+          }
         }
         if (parsedTarget.target) {
           if (!stateStore.get().sessions[parsedTarget.target]) {
@@ -353,6 +367,11 @@ export async function createHandler(
           }
           stateStore.setSession(sessionName, { agentSessionId: undefined });
           await reply.system("New session ready.");
+        }
+
+        if (prompt !== undefined) {
+          // Queued through the session's prompt lane like a normal message.
+          await handlePrompt({ ...context, text: prompt });
         }
       },
     },

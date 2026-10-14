@@ -29,7 +29,7 @@ test("basic", async () => {
     /session
       /session info [--target <sessionName>] - Show info about a session.
       /session list - List acpella sessions.
-      /session new [--target <sessionName>] [agent|agent:sessionId] - Start a new agent session.
+      /session new [--target <sessionName>] [agent|agent:sessionId] [-- <prompt...>] - Start a new agent session, optionally running a first prompt.
       /session close [--target <sessionName>] - Close an acpella session.
       /session config [--target sessionName] [verbose=off|tool|thinking|all] [renew=off|daily|daily:N] - Show or update session config.
 

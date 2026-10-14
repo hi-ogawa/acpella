@@ -66,14 +66,14 @@ The built-in default agent is the test echo agent. Acpella does not install ACP 
 For Codex ACP without a global install, register the adapter through `npx`:
 
 ```bash
-acpella exec /agent new codex npx -y @zed-industries/codex-acp
+acpella exec /agent new codex npx -y @agentclientprotocol/codex-acp
 acpella exec /agent default codex
 ```
 
 If `codex-acp` is already installed and available on the same `PATH` used by acpella, you can register `codex-acp` directly instead:
 
 ```bash
-npm i -g @zed-industries/codex-acp
+npm i -g @agentclientprotocol/codex-acp
 acpella exec /agent new codex codex-acp
 ```
 

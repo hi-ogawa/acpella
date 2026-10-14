@@ -67,19 +67,36 @@ Usage notes:
 - The text after `--` is taken verbatim, so multi-line handoffs keep their formatting. Through `acpella exec`, quote the whole command argument to preserve newlines.
 - Discord caps the post body at 2000 characters. Keep it a readable summary of the task; for deep context, write a tmp file and reference its path in the handoff — the new session's agent picks it up through its own tmp-file convention.
 - Agents cannot discover forum ids on their own. To let an agent branch subtasks into posts, put the forum id and spawn policy in `ACPELLA_HOME/.acpella/AGENTS.md`, for example: "To branch a subtask into its own session, run `acpella exec /discord new-session <forum-channel-id> <title> -- <handoff>` with a written handoff (context, stop conditions, mutation boundaries). Spawn deliberately."
+- To choose the agent for the new session, start the post body with `/session new <agent> -- `. The outer command keeps everything after its first `--` verbatim, so the post body is itself a `/session new` command whose prompt is the handoff:
+
+  ```text
+  /discord new-session <forum-channel-id> <title...> -- /session new <agent> -- <handoff>
+  ```
+
+  The 2000-character cap includes the `/session new <agent> -- ` prefix.
+
 - A branched forum-post session normally reports its result in that post. If the original session is waiting for the result, include its conversation ID in the child's handoff and ask it to report back with `/discord send-message`.
 
 ## Sending Prompts to Existing Sessions
 
-Use `/discord send-message` to post a visible prompt to an existing Discord channel or thread session. The command sends the message through Discord REST, then the running Discord Gateway service receives the marked bot message and processes it through the target session's normal prompt queue.
-
-If the target session has an active turn, the new prompt is enqueued after it. It does not interrupt, replace, amend, or otherwise steer the prompt already being processed. Include essential constraints in the initial forum-post handoff because follow-up corrections may be processed only after the active work finishes.
+Use `/discord send-message` to post a visible prompt to an existing Discord channel or thread session. The command sends the message through Discord REST, then the running Discord Gateway service receives the marked bot message and handles it like a message typed in that conversation.
 
 ```text
 /discord send-message <conversation-id> -- <text>
 ```
 
 The text after `--` is preserved verbatim, including newlines. Through `acpella exec`, quote the whole command argument to preserve them. The target uses the same guild and channel allowlists as inbound messages, including the rule that an allowlisted parent admits its threads.
+
+If the target session has an active turn, a prompt is enqueued after it. A prompt alone does not interrupt, replace, amend, or otherwise steer the prompt already being processed.
+
+To redirect a session that is working on the wrong thing, send `/cancel` first, then the corrected prompt:
+
+```text
+/discord send-message <conversation-id> -- /cancel
+/discord send-message <conversation-id> -- <corrected prompt>
+```
+
+This works because slash commands in a sent message run as commands in the target session, and commands are not queued behind the active turn. `/cancel` stops the active turn right away, and the corrected prompt runs next. `/cancel` affects only the active turn, so prompts already queued behind it still run before the correction.
 
 ## Sending Files
 
