@@ -52,7 +52,7 @@ Discord represents channels, threads, and forum posts with IDs in the same numer
 
 Discord prompts include the current destination in `<message_metadata>` as `channel: discord:guild:<guild-id>:channel:<conversation-id>`. Use the final `<conversation-id>` with commands such as `/discord send-message` and `/discord send-file`.
 
-Discord prompts also include `sender: user` or `sender: agent`. `sender: agent` marks a forum-post starter from `/discord new-session` or a prompt from `/discord send-message`, which means another agent session wrote it, not the user. Act on it as usual, but do not attribute its words or decisions to the user in replies, logs, or summaries.
+Forum-post starters from `/discord new-session` and prompts from `/discord send-message` include a self-explanatory `sender: agent (...)` line, so the receiving session does not mistake another agent's words for the user's. Prompts the user typed have no `sender` line.
 
 ## Forum-Post Sessions
 
