@@ -153,6 +153,8 @@ export async function serveDiscord(options: {
         metadata: {
           promptMetadata: {
             timestamp: message.createdTimestamp,
+            // admitted bot messages are prompts from another agent session
+            sender: messageAuthor === "allowed-bot" ? "agent" : "user",
             channel: formatDiscordConversationMetadata({
               guildId,
               channelId,

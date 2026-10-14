@@ -52,6 +52,8 @@ Discord represents channels, threads, and forum posts with IDs in the same numer
 
 Discord prompts include the current destination in `<message_metadata>` as `channel: discord:guild:<guild-id>:channel:<conversation-id>`. Use the final `<conversation-id>` with commands such as `/discord send-message` and `/discord send-file`.
 
+Discord prompts also include `sender: user` or `sender: agent`. `sender: agent` marks a forum-post starter from `/discord new-session` or a prompt from `/discord send-message`, which means another agent session wrote it, not the user. Act on it as usual, but do not attribute its words or decisions to the user in replies, logs, or summaries.
+
 ## Forum-Post Sessions
 
 Use `/discord new-session` to branch a task into its own forum post while working in a channel or another post. The post becomes a fresh acpella session with the post body as its first prompt, so the new session starts working on the handoff immediately, stays visible in Discord, and the user can guide it there directly. The command replies with the post URL and its acpella session name, which has the form `discord:<conversation-id>`, for follow-ups such as `--target`.
