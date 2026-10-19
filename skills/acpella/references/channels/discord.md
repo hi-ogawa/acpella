@@ -89,6 +89,8 @@ Use `/discord send-message` to post a visible prompt to an existing Discord chan
 
 The text after `--` is preserved verbatim, including newlines. Through `acpella exec`, quote the whole command argument to preserve them. The target uses the same guild and channel allowlists as inbound messages, including the rule that an allowlisted parent admits its threads.
 
+The message is a visible post in the target conversation, from the same bot as that session's own replies, so a person reading the conversation sees it too. Start a prompt with a short label for the sender, such as `<#<conversation-id>>` of the sending conversation, which Discord renders as a link back to it. Send slash commands bare, because a prefix stops them from parsing as commands. The receiving session should reply with what it adds, without restating the prompt the person has already read.
+
 If the target session has an active turn, a prompt is enqueued after it. A prompt alone does not interrupt, replace, amend, or otherwise steer the prompt already being processed.
 
 To redirect a session that is working on the wrong thing, send `/cancel` first, then the corrected prompt:
