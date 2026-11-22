@@ -131,6 +131,36 @@ test("logs", async () => {
   `);
 });
 
+test("logs omit base64 and repeated command lists", async () => {
+  const tester = await createHandlerTester();
+  const session = tester.createSession("test");
+  const logFile = `${tester.config.logsDir}/acp/test/__testSession1.jsonl`;
+  await session.request("__image_tool");
+  await session.request("__commands:help,model");
+  await session.request("__commands:help,model");
+  await session.request("__commands:help,model,fast");
+  expect("\n" + sanitizeOutput(fs.readFileSync(logFile, "utf8"), tester.config))
+    .toMatchInlineSnapshot(`
+    "
+    {"t":"<time>","type":"prompt","text":"__image_tool"}
+    {"t":"<time>","type":"update:tool_call_update","content":[{"content":{"data":"<base64 1600 chars>","mimeType":"image/png","type":"image"},"type":"content"}],"rawOutput":[{"type":"image","source":{"type":"base64","data":"<base64 1600 chars>","media_type":"image/png"}}],"status":"completed","toolCallId":"__testToolCall"}
+    {"t":"<time>","type":"update:agent_message_chunk:text","text":"echo: __image_tool"}
+    {"t":"<time>","type":"done","cancelled":false,"response":{"stopReason":"end_turn"}}
+    {"t":"<time>","type":"prompt","text":"__commands:help,model"}
+    {"t":"<time>","type":"update:available_commands_update","availableCommands":[{"description":"help command","name":"help"},{"description":"model command","name":"model"}]}
+    {"t":"<time>","type":"update:agent_message_chunk:text","text":"echo: __commands:help,model"}
+    {"t":"<time>","type":"done","cancelled":false,"response":{"stopReason":"end_turn"}}
+    {"t":"<time>","type":"prompt","text":"__commands:help,model"}
+    {"t":"<time>","type":"update:agent_message_chunk:text","text":"echo: __commands:help,model"}
+    {"t":"<time>","type":"done","cancelled":false,"response":{"stopReason":"end_turn"}}
+    {"t":"<time>","type":"prompt","text":"__commands:help,model,fast"}
+    {"t":"<time>","type":"update:available_commands_update","availableCommands":[{"description":"help command","name":"help"},{"description":"model command","name":"model"},{"description":"fast command","name":"fast"}]}
+    {"t":"<time>","type":"update:agent_message_chunk:text","text":"echo: __commands:help,model,fast"}
+    {"t":"<time>","type":"done","cancelled":false,"response":{"stopReason":"end_turn"}}
+    "
+  `);
+});
+
 test("service commands", async () => {
   const tester = await createHandlerTester();
   const session = tester.createSession("test");

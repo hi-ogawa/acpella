@@ -80,6 +80,8 @@ export async function createHandler(
   const cronStore = handlerOptions.cronStore;
   const activeSessions = new Map<string, AgentSessionProcess>();
   const cancelledSessions = new WeakSet<AgentSessionProcess>();
+  // Claude Code sends the same command list on every turn, so log only changes.
+  const loggedCommands = new Map<string, string>();
   // TODO: refactor activeSessions/cancelledSessions by AsyncLane?
   const activePromptLanes = new DefaultMap<string, AsyncLane>({
     init: () => new AsyncLane(),
@@ -206,9 +208,11 @@ export async function createHandler(
     }
     promptText += text;
 
-    const logger = new JsonLogger({
-      file: path.join(config.logsDir, `acp/${stateSession.agentKey}/${session.sessionId}.jsonl`),
-    });
+    const logFile = path.join(
+      config.logsDir,
+      `acp/${stateSession.agentKey}/${session.sessionId}.jsonl`,
+    );
+    const logger = new JsonLogger({ file: logFile });
 
     logger.log({ type: "prompt", text: promptText });
 
@@ -217,7 +221,15 @@ export async function createHandler(
       activeSessions.set(sessionName, session);
 
       for await (const update of result.consume()) {
-        logger.queue(formatSessionUpdateLogEntry(update));
+        let skipLog = false;
+        if (update.sessionUpdate === "available_commands_update") {
+          const commands = JSON.stringify(update.availableCommands);
+          skipLog = loggedCommands.get(logFile) === commands;
+          loggedCommands.set(logFile, commands);
+        }
+        if (!skipLog) {
+          logger.queue(formatSessionUpdateLogEntry(update));
+        }
         await options.onUpdate?.(update);
         if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") {
           await options.onText?.(update.content.text);

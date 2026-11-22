@@ -222,6 +222,31 @@ class EchoAgent implements Agent {
         },
       });
       reportText = `echo: ${text}`;
+    } else if (text === "__image_tool") {
+      const data = "iVBORw0K".repeat(200);
+      await this.connection.sessionUpdate({
+        sessionId: params.sessionId,
+        update: {
+          sessionUpdate: "tool_call_update",
+          toolCallId: "__testToolCall",
+          status: "completed",
+          content: [{ type: "content", content: { type: "image", data, mimeType: "image/png" } }],
+          rawOutput: [{ type: "image", source: { type: "base64", data, media_type: "image/png" } }],
+        },
+      });
+      reportText = `echo: ${text}`;
+    } else if (text.startsWith("__commands:")) {
+      await this.connection.sessionUpdate({
+        sessionId: params.sessionId,
+        update: {
+          sessionUpdate: "available_commands_update",
+          availableCommands: text
+            .slice(11)
+            .split(",")
+            .map((name) => ({ name, description: `${name} command` })),
+        },
+      });
+      reportText = `echo: ${text}`;
     } else if (text.startsWith("__thinking:")) {
       const thought = text.slice(11);
       await this.connection.sessionUpdate({

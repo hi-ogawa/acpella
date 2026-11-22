@@ -75,6 +75,7 @@ function processQueuedLogs(logs: TimedLogEntry[]): object {
 }
 
 export function formatSessionUpdateLogEntry(data: SessionUpdate): LogEntry {
+  data = redactBase64(data);
   let output: LogEntry = {
     type: `update:${data.sessionUpdate}`,
     ...data,
@@ -96,4 +97,25 @@ export function formatSessionUpdateLogEntry(data: SessionUpdate): LogEntry {
     }
   }
   return output;
+}
+
+const BASE64_MIN_LENGTH = 1000;
+const BASE64_PATTERN = /^[A-Za-z0-9+/]+={0,2}$/;
+
+// Image tool results carry base64 data, and Claude Code repeats it in up to
+// three places per update, so a few image reads can add hundreds of MB.
+function redactBase64<T>(value: T): T {
+  if (typeof value === "string") {
+    if (value.length >= BASE64_MIN_LENGTH && BASE64_PATTERN.test(value)) {
+      return `<base64 ${value.length} chars>` as T;
+    }
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return value.map(redactBase64) as T;
+  }
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).map(([key, v]) => [key, redactBase64(v)])) as T;
+  }
+  return value;
 }
