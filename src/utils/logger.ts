@@ -96,6 +96,9 @@ export function formatSessionUpdateLogEntry(data: SessionUpdate): LogEntry {
     }
   }
   if (data.sessionUpdate === "tool_call_update") {
+    if (data._meta) {
+      output._meta = omitClaudeCodeToolResponse(data._meta);
+    }
     // Replace image/audio base64 with a placeholder, see https://github.com/hi-ogawa/acpella/issues/348
     if (data.content) {
       output.content = data.content.map(replaceContentBase64);
@@ -144,4 +147,16 @@ function replaceRawOutputBase64(item: unknown): unknown {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// Claude Code's `_meta.claudeCode.toolResponse` mostly repeats `content`/`rawOutput`
+// and dominates the log size, so it is dropped while the rest of `claudeCode` is kept.
+// https://github.com/hi-ogawa/acpella/issues/348
+function omitClaudeCodeToolResponse(meta: Record<string, unknown>): Record<string, unknown> {
+  const claudeCode = meta.claudeCode;
+  if (typeof claudeCode !== "object" || !claudeCode || !("toolResponse" in claudeCode)) {
+    return meta;
+  }
+  const { toolResponse: _, ...rest } = claudeCode;
+  return { ...meta, claudeCode: rest };
 }
