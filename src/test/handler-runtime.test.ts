@@ -23,6 +23,9 @@ test("basic", async () => {
     /cancel
       /cancel - Cancel the active agent turn.
 
+    /raw
+      /raw -- <prompt...> - Send a prompt to the current agent session as typed, such as an agent slash command.
+
     /shell
       /shell [--timeout=<seconds>] <command...> - Run a shell command from ACPELLA_HOME with a default 10s timeout.
 
@@ -344,6 +347,28 @@ test("message metadata", async () => {
     </message_metadata>
     __keep_metadata: ok"
   `);
+});
+
+test("raw prompt", async () => {
+  const tester = await createHandlerTester();
+  const request = (text: string) =>
+    tester.request({
+      sessionName: "test",
+      text,
+      metadata: { promptMetadata: { timestamp: Date.UTC(2024, 0, 2, 3, 4, 5) } },
+    });
+  expect(await request("/raw -- /compact __keep_metadata")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    No agent session yet. Send a normal message first."
+  `);
+  expect(await request("/raw")).toMatchInlineSnapshot(`
+    "[⚙️ System]
+    Usage: /raw -- <prompt...>"
+  `);
+  await request("hello");
+  expect(await request("/raw -- /compact __keep_metadata")).toMatchInlineSnapshot(
+    `"echo: /compact __keep_metadata"`,
+  );
 });
 
 test("state auto reloads external state file changes", async ({ onTestFinished }) => {
