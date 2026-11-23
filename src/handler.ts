@@ -93,10 +93,17 @@ export async function createHandler(
     return new AgentManager({ command: agent.command, cwd: config.home });
   }
 
-  async function handlePrompt(context: HandlerExtraContext): Promise<void> {
+  async function handlePrompt(
+    context: HandlerExtraContext,
+    options: { raw?: boolean } = {},
+  ): Promise<void> {
     let { reply, sessionName, metadata } = context;
     let promptText = "";
-    if (metadata?.promptMetadata && Object.keys(metadata.promptMetadata).length > 0) {
+    if (
+      !options.raw &&
+      metadata?.promptMetadata &&
+      Object.keys(metadata.promptMetadata).length > 0
+    ) {
       promptText = buildMessageMetadataPrompt(metadata.promptMetadata, {
         timezone: config.timezone,
         sessionName,
@@ -121,6 +128,7 @@ export async function createHandler(
     const result = await handlePromptImpl({
       sessionName,
       text: promptText,
+      raw: options.raw,
       onUpdate: async (update) => {
         const sessionUpdate = update.sessionUpdate;
         const changed =
@@ -171,6 +179,10 @@ export async function createHandler(
   async function handlePromptImplInner(options: {
     sessionName: string;
     text: string;
+    // Sends `text` to the existing agent session without renewing it, since a
+    // new session would need the first prompt in front of `text`. The turn also
+    // leaves `updatedAt` alone, so the next normal prompt still renews.
+    raw?: boolean;
     onText?: (text: string) => Promise<void> | void;
     onUpdate?: (update: SessionUpdate) => Promise<void> | void;
   }): Promise<{ cancelled: boolean }> {
@@ -180,12 +192,13 @@ export async function createHandler(
     const now = Date.now();
     const createNewSession =
       !stateSession.agentSessionId ||
-      shouldRenewSession({
-        updatedAt: stateSession.updatedAt,
-        renew: stateSession.renew,
-        now,
-        timezone: config.timezone,
-      });
+      (!options.raw &&
+        shouldRenewSession({
+          updatedAt: stateSession.updatedAt,
+          renew: stateSession.renew,
+          now,
+          timezone: config.timezone,
+        }));
 
     let session: AgentSessionProcess;
     let promptText = "";
@@ -194,7 +207,9 @@ export async function createHandler(
         sessionCwd: config.home,
         sessionId: stateSession.agentSessionId!,
       });
-      stateStore.setSession(sessionName, { updatedAt: now });
+      if (!options.raw) {
+        stateStore.setSession(sessionName, { updatedAt: now });
+      }
     } else {
       session = await manager.newSession({ sessionCwd: config.home });
       stateStore.setSession(sessionName, {
@@ -929,6 +944,28 @@ current session: ${sessionName}`);
         },
       },
     ],
+    raw: [
+      {
+        tokens: [],
+        usage: "/raw -- <prompt...>",
+        description:
+          "Send a prompt to the current agent session as typed, such as an agent slash command.",
+        withArgs: true,
+        run: async (context) => {
+          const { splitArgs, reply, sessionName } = context;
+          const prompt = splitArgs.body;
+          if (splitArgs.head.length > 0 || !prompt?.trim()) {
+            await reply.system(context.usage);
+            return;
+          }
+          if (!stateStore.getSession(sessionName).agentSessionId) {
+            await reply.system("No agent session yet. Send a normal message first.");
+            return;
+          }
+          await handlePrompt({ ...context, text: prompt }, { raw: true });
+        },
+      },
+    ],
     shell: [
       {
         tokens: [],
@@ -962,6 +999,7 @@ current session: ${sessionName}`);
     status: "Show service status",
     service: "Manager service",
     cancel: "Cancel currently active agent turn",
+    raw: "Send a prompt to the agent as typed",
     shell: "Run shell commands",
     session: "Manage sessions",
     agent: "Manage agents",

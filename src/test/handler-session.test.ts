@@ -618,3 +618,23 @@ test("session renews stale chat prompt after daily boundary", async ({ onTestFin
   advanceTimersTo("2026-04-18T04:30:00+07:00");
   expect(await session.request("__session")).toMatchInlineSnapshot(`"session: __testSession2"`);
 });
+
+test("raw prompt keeps the session after daily boundary", async ({ onTestFinished }) => {
+  vi.useFakeTimers({
+    now: Date.parse("2026-04-18T03:30:00+07:00"),
+  });
+  onTestFinished(() => {
+    vi.useRealTimers();
+  });
+
+  const tester = await createHandlerTester();
+  const session = tester.createSession("test");
+  await session.request("/session config renew=daily:4");
+  expect(await session.request("__session")).toMatchInlineSnapshot(`"session: __testSession1"`);
+
+  advanceTimersTo("2026-04-18T04:30:00+07:00");
+  expect(await session.request("/raw -- __session")).toMatchInlineSnapshot(
+    `"session: __testSession1"`,
+  );
+  expect(await session.request("__session")).toMatchInlineSnapshot(`"session: __testSession2"`);
+});

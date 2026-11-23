@@ -20,6 +20,7 @@ Acpella is a small bridge from a messaging surface, currently Telegram, Discord,
 - A Telegram chat/thread, Discord channel, or REPL context maps to an acpella session name.
 - An acpella session points at a selected ACP agent and, after use, an agent session id.
 - Slash commands such as `/help`, `/agent`, `/session`, `/cron`, `/status`, `/service`, and `/shell` are handled by acpella, not sent to the agent. Channel-specific commands such as `/discord` exist only when that channel is configured; `/help` reflects the actual surface.
+- To run the agent's own slash command, such as Claude Code's `/compact`, use `/raw -- /compact`. A normal message reaches the agent after acpella's message metadata, so the agent doesn't see it as a command. `/raw` sends its prompt as typed to the current agent session, and it doesn't start or renew one.
 - Normal user prompts are forwarded to the selected ACP agent.
 
 Use this skill when the task is about operating acpella itself: setup, service management, agent registration, session routing, prompt customization, cron jobs, or troubleshooting. For tasks about the user's project inside `ACPELLA_HOME`, follow that project's own instructions instead.
