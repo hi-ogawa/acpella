@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { SessionUpdate } from "@agentclientprotocol/sdk";
+import type { SessionUpdate, ToolCallContent } from "@agentclientprotocol/sdk";
 import { throttle, type Throttler } from "./timing.ts";
 
 type LogEntry = { type: string } & Record<string, unknown>;
@@ -95,5 +95,49 @@ export function formatSessionUpdateLogEntry(data: SessionUpdate): LogEntry {
       delete output.content;
     }
   }
+  if (data.sessionUpdate === "tool_call_update") {
+    // Replace image/audio base64 with a placeholder, see https://github.com/hi-ogawa/acpella/issues/348
+    if (data.content) {
+      output.content = data.content.map(replaceContentBase64);
+    }
+    if (Array.isArray(data.rawOutput)) {
+      output.rawOutput = data.rawOutput.map(replaceRawOutputBase64);
+    }
+  }
   return output;
+}
+
+function formatBase64Placeholder(data: string): string {
+  return `<base64 ${data.length} chars>`;
+}
+
+// ACP image/audio block `{ type: "image", data, mimeType }`
+function replaceContentBase64(item: ToolCallContent): ToolCallContent {
+  if (item.type === "content" && (item.content.type === "image" || item.content.type === "audio")) {
+    return {
+      ...item,
+      content: { ...item.content, data: formatBase64Placeholder(item.content.data) },
+    };
+  }
+  return item;
+}
+
+// Claude's raw tool result `{ type: "image", source: { type: "base64", data, media_type } }`
+function replaceRawOutputBase64(item: unknown): unknown {
+  if (
+    isRecord(item) &&
+    isRecord(item.source) &&
+    item.source.type === "base64" &&
+    typeof item.source.data === "string"
+  ) {
+    return {
+      ...item,
+      source: { ...item.source, data: formatBase64Placeholder(item.source.data) },
+    };
+  }
+  return item;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
