@@ -131,6 +131,22 @@ test("logs", async () => {
   `);
 });
 
+test("logs replace image base64 with placeholder", async () => {
+  const tester = await createHandlerTester();
+  const session = tester.createSession("test");
+  const logFile = `${tester.config.logsDir}/acp/test/__testSession1.jsonl`;
+  await session.request("__tool_image");
+  expect("\n" + sanitizeOutput(fs.readFileSync(logFile, "utf8"), tester.config))
+    .toMatchInlineSnapshot(`
+      "
+      {"t":"<time>","type":"prompt","text":"__tool_image"}
+      {"t":"<time>","type":"update:tool_call_update","content":[{"content":{"data":"<base64 8 chars>","mimeType":"image/png","type":"image"},"type":"content"}],"rawOutput":[{"type":"image","source":{"type":"base64","data":"<base64 8 chars>","media_type":"image/png"}}],"toolCallId":"__testToolCall"}
+      {"t":"<time>","type":"update:agent_message_chunk:text","text":"echo: __tool_image"}
+      {"t":"<time>","type":"done","cancelled":false,"response":{"stopReason":"end_turn"}}
+      "
+    `);
+});
+
 test("logs drop claudeCode toolResponse", async () => {
   const tester = await createHandlerTester();
   const session = tester.createSession("test");
