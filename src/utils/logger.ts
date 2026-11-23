@@ -95,5 +95,9 @@ export function formatSessionUpdateLogEntry(data: SessionUpdate): LogEntry {
       delete output.content;
     }
   }
+  if (data.sessionUpdate === "available_commands_update") {
+    // agents resend the full list with descriptions on every turn; names are enough for the log
+    output.availableCommands = data.availableCommands.map((command) => command.name);
+  }
   return output;
 }
