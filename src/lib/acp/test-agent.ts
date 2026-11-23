@@ -282,6 +282,20 @@ class EchoAgent implements Agent {
         },
       });
       reportText = `echo: ${text}`;
+    } else if (text.startsWith("__available_commands:")) {
+      const names = text.slice(21).split("|");
+      await this.connection.sessionUpdate({
+        sessionId: params.sessionId,
+        update: {
+          sessionUpdate: "available_commands_update",
+          availableCommands: names.map((name) => ({
+            name,
+            description: `description of ${name}`,
+            input: { hint: "args" },
+          })),
+        },
+      });
+      reportText = `echo: ${text}`;
     } else if (text.startsWith("__multiple_chunks:")) {
       const title = text.slice(18);
       await this.connection.sessionUpdate({

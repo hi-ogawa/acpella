@@ -98,6 +98,10 @@ export function formatSessionUpdateLogEntry(data: SessionUpdate): LogEntry {
   if (data.sessionUpdate === "tool_call_update" && data._meta) {
     output._meta = omitClaudeCodeToolResponse(data._meta);
   }
+  if (data.sessionUpdate === "available_commands_update") {
+    // agents resend the full list with descriptions on every turn; names are enough for the log
+    output.availableCommands = data.availableCommands.map((command) => command.name);
+  }
   return output;
 }
 

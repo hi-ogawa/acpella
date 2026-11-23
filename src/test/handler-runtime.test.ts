@@ -147,6 +147,22 @@ test("logs drop claudeCode toolResponse", async () => {
     `);
 });
 
+test("logs available commands by name only", async () => {
+  const tester = await createHandlerTester();
+  const session = tester.createSession("test");
+  const logFile = `${tester.config.logsDir}/acp/test/__testSession1.jsonl`;
+  await session.request("__available_commands:help|model");
+  expect("\n" + sanitizeOutput(fs.readFileSync(logFile, "utf8"), tester.config))
+    .toMatchInlineSnapshot(`
+      "
+      {"t":"<time>","type":"prompt","text":"__available_commands:help|model"}
+      {"t":"<time>","type":"update:available_commands_update","availableCommands":["help","model"]}
+      {"t":"<time>","type":"update:agent_message_chunk:text","text":"echo: __available_commands:help|model"}
+      {"t":"<time>","type":"done","cancelled":false,"response":{"stopReason":"end_turn"}}
+      "
+    `);
+});
+
 test("service commands", async () => {
   const tester = await createHandlerTester();
   const session = tester.createSession("test");
