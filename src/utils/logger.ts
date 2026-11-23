@@ -95,5 +95,20 @@ export function formatSessionUpdateLogEntry(data: SessionUpdate): LogEntry {
       delete output.content;
     }
   }
+  if (data.sessionUpdate === "tool_call_update" && data._meta) {
+    output._meta = omitClaudeCodeToolResponse(data._meta);
+  }
   return output;
+}
+
+// Claude Code's `_meta.claudeCode.toolResponse` mostly repeats `content`/`rawOutput`
+// and dominates the log size, so it is dropped while the rest of `claudeCode` is kept.
+// https://github.com/hi-ogawa/acpella/issues/348
+function omitClaudeCodeToolResponse(meta: Record<string, unknown>): Record<string, unknown> {
+  const claudeCode = meta.claudeCode;
+  if (typeof claudeCode !== "object" || !claudeCode || !("toolResponse" in claudeCode)) {
+    return meta;
+  }
+  const { toolResponse: _, ...rest } = claudeCode;
+  return { ...meta, claudeCode: rest };
 }
