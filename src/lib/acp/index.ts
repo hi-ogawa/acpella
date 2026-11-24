@@ -112,6 +112,9 @@ async function spawnAgent({ command, cwd }: { command: string; cwd: string }) {
         fn(params.update);
       }
     },
+    // ignore agent-specific `_`-prefixed notifications, such as claude-agent-acp's
+    // `_auth/status_update`. without this handler, the sdk logs each one as an error.
+    async extNotification() {},
   };
 
   const connection = new ClientSideConnection(() => client, stream);

@@ -1,4 +1,4 @@
-import { describe, it, expect, onTestFinished } from "vitest";
+import { describe, it, expect, onTestFinished, vi } from "vitest";
 import { TEST_AGENT_COMMAND } from "../../state.ts";
 import { useFs } from "../../test/helper.ts";
 import { AgentManager } from "./index.ts";
@@ -28,6 +28,35 @@ describe(AgentManager, () => {
         },
       ]
     `);
+  });
+
+  it("ignores extension notifications", async () => {
+    const { root } = useFs({ prefix: "acp" });
+    const manager = new AgentManager({
+      command: TEST_AGENT_COMMAND,
+      cwd: root,
+    });
+    const session = await manager.newSession({
+      sessionCwd: root,
+    });
+    onTestFinished(() => session.stop());
+    const consoleError = vi.spyOn(console, "error");
+    onTestFinished(() => consoleError.mockRestore());
+
+    const result = session.prompt("__ext_notification");
+    const updates = await arrayFromAsyncIterator(result.consume());
+    expect(updates).toMatchInlineSnapshot(`
+      [
+        {
+          "content": {
+            "text": "ext notification sent",
+            "type": "text",
+          },
+          "sessionUpdate": "agent_message_chunk",
+        },
+      ]
+    `);
+    expect(consoleError).not.toHaveBeenCalled();
   });
 
   it("loadSession", async () => {
