@@ -193,6 +193,9 @@ class EchoAgent implements Agent {
       reportText = `session: ${params.sessionId}\n${text.replace("__include_session__", "").trim()}`;
     } else if (text === "__session") {
       reportText = `session: ${params.sessionId}`;
+    } else if (text === "__ext_notification") {
+      await this.connection.extNotification("_test/status_update", { status: "ok" });
+      reportText = "ext notification sent";
     } else if (text.startsWith("__chunk_tool:")) {
       const title = text.slice(13);
       await this.connection.sessionUpdate({
